@@ -61,14 +61,18 @@ in
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
     ".config/swappy/config" = { text = builtins.readFile ./swappy.conf; };
-    ".config/nvim" = { source = config.lib.file.mkOutOfStoreSymlink ./nvim; recursive = true; };
-
 
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
     #   org.gradle.daemon.idletimeout=3600000
     # '';
+  };
+
+  xdg.configFile = {
+    "nvim" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/home-manager/nvim";
+    };
   };
 
   # Home Manager can also manage your environment variables through
