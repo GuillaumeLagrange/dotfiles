@@ -2,7 +2,6 @@
 
 let
   nixGL = import ./nixGL.nix { inherit pkgs config; }; 
-  pkgsUnstable = import <nixpkgs-unstable> {};
 in
 {
   imports = [ ./options.nix ];
@@ -32,6 +31,12 @@ in
     pkgs.slurp
     pkgs.fswatch
     pkgs.telegram-desktop
+    pkgs.lazygit
+    pkgs.gcc
+    pkgs.luajitPackages.luarocks
+    pkgs.ripgrep
+    pkgs.zip
+    pkgs.nodejs_22
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
@@ -55,7 +60,7 @@ in
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
     ".config/swappy/config" = { text = builtins.readFile ./swappy.conf; };
-    ".config/wezterm/wezterm.lua" = { text = builtins.readFile ./wezterm.lua; };
+    ".config/nvim" = { source = config.lib.file.mkOutOfStoreSymlink ./nvim; recursive = true; };
 
 
     # # You can also set the file content immediately.
@@ -79,6 +84,12 @@ in
   #
   home.sessionVariables = {
     # EDITOR = "emacs";
+  };
+
+  home.shellAliases = {
+    lg = "lazygit";
+    grst = "git reset";
+    grst1 = "git reset HEAD~1";
   };
 
   # Let Home Manager install and manage itself.
@@ -120,7 +131,6 @@ in
     enable = true;
     viAlias = true;
     vimAlias = true;
-    package = pkgsUnstable.neovim-unwrapped;
     defaultEditor = true;
   };
 
@@ -230,14 +240,6 @@ in
     };
   };
 
-  # Doesnt work
-  # programs.wezterm = {
-  #   enable = true;
-  #   # enableZshIntegration = true;
-  #   package = (nixGL pkgs.wezterm);
-  #   extraConfig = builtins.readFile ./wezterm.lua;
-  # };
-
   programs.alacritty = {
     enable = true;
     settings = { };
@@ -245,15 +247,16 @@ in
 
   programs.wofi.enable = true;
 
-  programs.wpaperd = {
-    enable = true;
-    settings = {
-      default = {
-        path = ~/documents/wallpapers;
-        duration = "1h";
-      };
-    };
-  };
+  # TODO: Include wallpapers in home-manager repo to make this pure
+  # programs.wpaperd = {
+  #   enable = true;
+  #   settings = {
+  #     default = {
+  #       path = ~/documents/wallpapers;
+  #       duration = "1h";
+  #     };
+  #   };
+  # };
 
   services.cliphist.enable = true;
 
@@ -318,4 +321,5 @@ in
     };
   };
 
+  programs.fastfetch.enable = true;
 }
