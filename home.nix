@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 let
-  nixGL = import ./nixGL.nix { inherit pkgs config; }; 
+  nixGL = import ./nixGL.nix { inherit pkgs config; };
 in
 {
   imports = [ ./options.nix ];
@@ -22,9 +22,6 @@ in
   # The home.packages option allows you to install Nix packages into your
   # environment.
   home.packages = [
-    # # Adds the 'hello' command to your environment. It prints a friendly
-    # # "Hello, world!" when run.
-    pkgs.hello
     pkgs.wev
     pkgs.grim
     pkgs.swappy
@@ -34,6 +31,10 @@ in
     pkgs.lazygit
     pkgs.gcc
     pkgs.luajitPackages.luarocks
+    pkgs.stylua
+    pkgs.lua-language-server
+    pkgs.nixd
+    pkgs.nixfmt-rfc-style
     pkgs.ripgrep
     pkgs.zip
     pkgs.nodejs_22
@@ -60,7 +61,9 @@ in
     # # the Nix store. Activating the configuration will then make '~/.screenrc' a
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
-    ".config/swappy/config" = { text = builtins.readFile ./swappy.conf; };
+    ".config/swappy/config" = {
+      text = builtins.readFile ./swappy.conf;
+    };
 
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
@@ -109,11 +112,11 @@ in
       theme = "bira";
       plugins = [
         "git"
-	"sudo"
-	"npm"
-	"docker"
-	"rust"
-	"systemd"
+        "sudo"
+        "npm"
+        "docker"
+        "rust"
+        "systemd"
       ];
     };
 
@@ -158,9 +161,22 @@ in
         position = "bottom";
         height = 22;
         output = [ "*" ];
-        modules-left = [ "sway/workspaces" "sway/window" "sway/mode" ];
+        modules-left = [
+          "sway/workspaces"
+          "sway/window"
+          "sway/mode"
+        ];
         modules-center = [ ];
-        modules-right = [ "mpris" "tray" "disk" "cpu" "memory" "battery" "pulseaudio" "clock" ];
+        modules-right = [
+          "mpris"
+          "tray"
+          "disk"
+          "cpu"
+          "memory"
+          "battery"
+          "pulseaudio"
+          "clock"
+        ];
 
         "hyprland/workspaces" = {
           all-outputs = false;
@@ -183,7 +199,12 @@ in
             "paused" = " ";
             "playing" = " ";
           };
-          "dynamic-order" = [ "title" "artist" "position" "length" ];
+          "dynamic-order" = [
+            "title"
+            "artist"
+            "position"
+            "length"
+          ];
           "dynamic-len" = 70;
           "interval" = 1;
         };
@@ -194,7 +215,6 @@ in
           show-passive-items = true;
         };
 
-
         "disk" = {
           "format" = "{free}";
         };
@@ -204,7 +224,11 @@ in
           "format-bluetooth" = " {icon} {volume}%";
           "format-muted" = "󰝟  {volume}%";
           "format-icons" = {
-            "default" = [ "󰕿 " "󰖀 " "󰕾 " ];
+            "default" = [
+              "󰕿 "
+              "󰖀 "
+              "󰕾 "
+            ];
           };
           "scroll-step" = 1;
           "on-click" = "pavucontrol";
@@ -213,7 +237,12 @@ in
         "battery" = {
           "format" = "{icon} {capacity}%";
           "format-charging" = "󱐋 {icon} {capacity}%";
-          "format-icons" = [ "󰂎" "󱊡" "󱊢" "󱊣" ];
+          "format-icons" = [
+            "󰂎"
+            "󱊡"
+            "󱊢"
+            "󱊣"
+          ];
         };
 
         "clock" = {
@@ -247,7 +276,13 @@ in
 
   programs.alacritty = {
     enable = true;
-    settings = { };
+    settings = {
+      window.startup_mode = "Maximized";
+      window.padding = {
+        x = 0;
+        y = 2;
+      };
+    };
   };
 
   programs.wofi.enable = true;
