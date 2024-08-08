@@ -1,6 +1,9 @@
 { config, pkgs, ... }:
 {
-  imports = [ ./options.nix ];
+  imports = [
+    ./options.nix
+    ./hyprland.nix
+  ];
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "guillaume";
@@ -17,25 +20,27 @@
 
   # The home.packages option allows you to install Nix packages into your
   # environment.
-  home.packages = [
-    pkgs.wev
-    pkgs.grim
-    pkgs.swappy
-    pkgs.slurp
-    pkgs.fswatch
-    pkgs.telegram-desktop
-    pkgs.lazygit
-    pkgs.gcc
-    pkgs.luajitPackages.luarocks
-    pkgs.stylua
-    pkgs.lua-language-server
-    pkgs.nixd
-    pkgs.nixfmt-rfc-style
-    pkgs.ripgrep
-    pkgs.zip
-    pkgs.nodejs_22
-    pkgs.discord
-    pkgs.tree
+  home.packages = with pkgs; [
+    wev
+    wl-clipboard
+    fswatch
+    telegram-desktop
+    lazygit
+    gcc
+    luajitPackages.luarocks
+    stylua
+    lua-language-server
+    nixd
+    nixfmt-rfc-style
+    ripgrep
+    zip
+    nodejs_22
+    discord
+    tree
+    _1password-gui
+    spotify
+    fd
+    playerctl
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
@@ -46,9 +51,9 @@
     # # You can also create simple shell scripts directly inside your
     # # configuration. For example, this adds a command 'my-hello' to your
     # # environment:
-    (pkgs.writeShellScriptBin "my-hello" ''
-      echo "Hello, ${config.home.username}!"
-    '')
+    # (pkgs.writeShellScriptBin "my-hello" ''
+    #   echo "Hello, ${config.home.username}!"
+    # '')
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -153,11 +158,6 @@
     defaultEditor = true;
   };
 
-  wayland.windowManager.hyprland = {
-    enable = true;
-    extraConfig = builtins.readFile ./hyprland.conf;
-  };
-
   wayland.windowManager.sway = {
     enable = true;
     extraConfig = builtins.readFile ./sway.config;
@@ -173,6 +173,9 @@
         height = 22;
         output = [ "*" ];
         modules-left = [
+          "hyprland/mode"
+          "hyprland/workspaces"
+          "hyprland/window"
           "sway/workspaces"
           "sway/window"
           "sway/mode"
