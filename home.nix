@@ -288,10 +288,13 @@
   programs.alacritty = {
     enable = true;
     settings = {
-      window.startup_mode = "Maximized";
-      window.padding = {
-        x = 0;
-        y = 2;
+      window = {
+        startup_mode = "Maximized";
+        padding = {
+          x = 0;
+          y = 2;
+        };
+        opacity = 0.95;
       };
     };
   };
