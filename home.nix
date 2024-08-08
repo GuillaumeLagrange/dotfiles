@@ -1,8 +1,4 @@
 { config, pkgs, ... }:
-
-let
-  nixGL = import ./nixGL.nix { inherit pkgs config; };
-in
 {
   imports = [ ./options.nix ];
   # Home Manager needs a bit of information about you and the paths it should
@@ -39,6 +35,8 @@ in
     pkgs.zip
     pkgs.nodejs_22
     pkgs.discord
+    pkgs.tree
+    pkgs.direnv
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
@@ -127,7 +125,16 @@ in
   };
 
   programs.direnv.enable = true;
-  programs.fzf.enable = true;
+
+  programs.fzf = {
+    enable = true;
+    tmux.enableShellIntegration = true;
+  };
+
+  programs.z-lua = {
+    enable = true;
+    enableAliases = true;
+  };
 
   programs.git = {
     userEmail = "guillaume@glagrange.eu";
@@ -283,6 +290,18 @@ in
         y = 2;
       };
     };
+  };
+
+  programs.tmux = {
+    enable = true;
+    newSession = true;
+    mouse = true;
+    keyMode = "vi";
+    plugins = [
+      pkgs.tmuxPlugins.vim-tmux-navigator
+      pkgs.tmuxPlugins.gruvbox
+      pkgs.tmuxPlugins.fzf-tmux-url
+    ];
   };
 
   programs.wofi.enable = true;
