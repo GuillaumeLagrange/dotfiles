@@ -36,7 +36,6 @@
     pkgs.nodejs_22
     pkgs.discord
     pkgs.tree
-    pkgs.direnv
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
@@ -124,7 +123,12 @@
     '';
   };
 
-  programs.direnv.enable = true;
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+
+  programs.gh.enable = true;
 
   programs.fzf = {
     enable = true;
