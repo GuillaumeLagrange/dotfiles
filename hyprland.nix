@@ -1,4 +1,10 @@
 { pkgs, ... }:
+<<<<<<< HEAD
+let
+  lock_script = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+in
+=======
+>>>>>>> 4e95488 (--wip-- [skip ci])
 {
   wayland.windowManager.hyprland = {
     enable = true;
@@ -8,23 +14,35 @@
       "$mainMod" = "SUPER";
       "$shiftMod" = "SUPER_SHIFT";
       "$ctrlMod" = "SUPER_CTRL";
+<<<<<<< HEAD
       "$volumeNotification" = "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
+=======
+>>>>>>> 4e95488 (--wip-- [skip ci])
 
-      exec-once = with pkgs; [
-        "${waybar}/bin/waybar"
-        "${_1password-gui}/bin/1password --silent"
-        "${networkmanagerapplet}/bin/nm-applet"
-        "${wpaperd}/bin/wpaperd"
-        "${protonmail-bridge}/bin/protonmail-bridge"
-        "${dunst}/bin/dunst"
-        "${blueman}/bin/blueman-applet"
-        # TODO: lock script with xss lock
-        # pkgs.xss-lock
+      exec-once = [
+        "${pkgs.waybar}/bin/waybar"
+        "${pkgs._1password-gui}/bin/1password --silent"
+        "${pkgs.networkmanagerapplet}/bin/nm-applet"
+        "${pkgs.wpaperd}/bin/wpaperd"
+        "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
+        "${pkgs.dunst}/bin/dunst"
+<<<<<<< HEAD
+        "${pkgs.blueman}/bin/blueman-applet"
+        "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"
       ];
 
       input = {
         # This requires pkgs.qwerty-fr to be installed
         kb_layout = "qwerty-fr";
+=======
+        # TODO: lock script with xss lock
+        # pkgs.xss-lock
+      ];
+
+      input = {
+        # TODO: Make this work once you understand what you are doing
+        # kb_layout = "${pkgs.qwerty-fr}/share/X11/xkb/symbols";
+>>>>>>> 4e95488 (--wip-- [skip ci])
         kb_options = "ctrl:nocaps";
         repeat_rate = 30;
         repeat_delay = 300;
@@ -122,6 +140,7 @@
 
       # Monitors
       # Home
+<<<<<<< HEAD
       "$mainHome" = "desc:Shenzhen KTC Technology Group OLED G27P6";
       "$mainHomeDefault" = "$mainHome, 2560x1440@240, 4480x0, 1";
       "$secondaryHome" = "desc:Dell Inc. DELL S2421HS 45WFW83";
@@ -150,12 +169,29 @@
         "10, monitor:$secondaryHome"
       ];
 
+=======
+      "$asusDefault" = "desc:Shenzhen KTC Technology Group OLED G27P6, 2560x1440@240, 4480x0, 1";
+      "$dellDefault" = "desc:Dell Inc. DELL S2421HS 45WFW83, 1920x1080@60, 7040x0, 1";
+      # Office
+      "$aocDefault" = "desc:AOC Q27P2W TAIN3HA011747, 2560x1440@60, 0x0, 1";
+      monitor = [
+        "eDP-1, 1920x1200@60, 2560x0, 1"
+        "$asusDefault"
+        "$dellDefault"
+        "$aocDefault"
+      ];
+>>>>>>> 4e95488 (--wip-- [skip ci])
       # Outputs submap
       "$monitorsSubmap" = "Monitors (s)ingle (r)eset (w)allpaper (d)ual";
       "$restartWpaperd" = "killall wpaperd && hyprctl dispatch exec /usr/bin/wpaperd";
 
+<<<<<<< HEAD
       "$backlight_step" = "20";
       bind = [
+=======
+      bind = [
+
+>>>>>>> 4e95488 (--wip-- [skip ci])
         "$mainMod, Return, exec, $terminal"
         "$mainMod, W, exec, firefox"
         "$shiftMod, A, killactive,"
@@ -165,6 +201,7 @@
         "$mainMod, V, exec, $nix-path/cliphist list | wofi --dmenu | $nix-path/cliphist decode | wl-copy"
         "$mainMod, P, pseudo, # dwindle"
         "$mainMod, E, togglesplit, # dwindle"
+<<<<<<< HEAD
 
         # Screenshot
         ", Print, exec, ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -"
@@ -264,10 +301,9 @@
       # Submpaps
       # Power submap
       $powerSubmap = Power (s)uspend (l)ock (e)xit (p)oweroff (r)eboot
-      $locker = (sh ~/scripts/lock.sh)
       bind = $mainMod, Escape, submap, $powerSubmap
       submap = $powerSubmap
-      bind = , L, exec, $locker
+      bind = , L, exec, ${lock_script}
       bind = , L, submap, reset
       bind = , S, exec, systemctl suspend
       bind = , S, submap, reset
@@ -302,5 +338,12 @@
       bind = , Escape, submap, reset
       submap=reset
     '';
+=======
+        # Screenshot"
+        ", Print, exec, ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -"
+      ];
+    };
+    extraConfig = builtins.readFile ./hyprland.conf;
+>>>>>>> 4e95488 (--wip-- [skip ci])
   };
 }

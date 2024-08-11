@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 {
   imports = [
     ./options.nix
@@ -6,8 +11,8 @@
   ];
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
-  home.username = "guillaume";
-  home.homeDirectory = "/home/guillaume";
+  home.username = lib.mkDefault "guillaume";
+  home.homeDirectory = lib.mkDefault "/home/guillaume";
 
   # This value determines the Home Manager release that your configuration is
   # compatible with. This helps avoid breakage when a new Home Manager release
@@ -41,19 +46,7 @@
     spotify
     fd
     playerctl
-
-    # # It is sometimes useful to fine-tune packages, for example, by applying
-    # # overrides. You can do that directly here, just don't forget the
-    # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
-    # # fonts?
-    # (pkgs.nerdfonts.override { fonts = [ "FantasqueSansMono" ]; })
-
-    # # You can also create simple shell scripts directly inside your
-    # # configuration. For example, this adds a command 'my-hello' to your
-    # # environment:
-    # (pkgs.writeShellScriptBin "my-hello" ''
-    #   echo "Hello, ${config.home.username}!"
-    # '')
+    qwerty-fr
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -160,6 +153,10 @@
 
   wayland.windowManager.sway = {
     enable = true;
+    config = {
+      bars = [ ];
+    };
+    checkConfig = false;
     extraConfig = builtins.readFile ./sway.config;
   };
 
@@ -260,8 +257,10 @@
         };
 
         "clock" = {
-          "format" = "  {:L%H:%M} ";
+          "format" = "  {:L%B %d, %R}";
+          "format-alt" = "  {:L%H:%M} ";
           "tooltip-format" = "<tt><small>{calendar}</small></tt>";
+          # "locale" = "en_GB";
           "calendar" = {
             "mode" = "year";
             "mode-mon-col" = 2;
@@ -278,10 +277,7 @@
           };
           "actions" = {
             "on-click-right" = "mode";
-            "on-click-forward" = "tz_up";
-            "on-click-backward" = "tz_down";
-            "on-scroll-up" = "shift_up";
-            "on-scroll-down" = "shift_down";
+            "on-click-left" = "mode";
           };
         };
       };
