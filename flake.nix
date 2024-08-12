@@ -8,10 +8,19 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-index-database = {
+      url = "github:nix-community/nix-index-database";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { nixpkgs, home-manager, ... }:
+    {
+      nixpkgs,
+      home-manager,
+      nix-index-database,
+      ...
+    }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -22,13 +31,10 @@
     {
       homeConfigurations."guillaume" = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
-
-        # Specify your home configuration modules here, for example,
-        # the path to your home.nix.
-        modules = [ ./home.nix ];
-
-        # Optionally use extraSpecialArgs
-        # to pass through arguments to home.nix
+        modules = [
+          ./home.nix
+          nix-index-database.hmModules.nix-index
+        ];
       };
 
       homeConfigurations."glagrange" = home-manager.lib.homeManagerConfiguration {
@@ -36,6 +42,7 @@
         modules = [
           ./arch.nix
           ./home.nix
+          nix-index-database.hmModules.nix-index
         ];
       };
     };
