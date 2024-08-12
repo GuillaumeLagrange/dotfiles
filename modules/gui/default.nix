@@ -21,12 +21,46 @@
       spotify
       qwerty-fr
       wev
+      wl-clipboard
     ];
 
     home.file = {
       ".config/swappy/config" = {
         text = builtins.readFile ./swappy.conf;
       };
+    };
+
+    programs.ssh = {
+      enable = true;
+      addKeysToAgent = "yes";
+      extraConfig = ''
+        # Charybdis
+        Match originalhost charybdis exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"
+            HostName charybdis.stockly.tech
+            Compression yes
+            Port 23
+
+        Host charybdis
+            HostName 192.168.1.10
+            Port 22
+            User guillaume
+            IdentityFile ~/.ssh/id_ed25519_charybdis
+            LocalForward 2524 localhost:2524   # Operations GRPC
+            LocalForward 2526 localhost:2526   # Auths GRPC
+            LocalForward 2527 localhost:2527   # Auths HTTP
+            LocalForward 2534 localhost:2534   # Files GRPC
+            LocalForward 2535 localhost:2535   # Files HTTP
+            LocalForward 2528 localhost:2528   # Backoffice GRCP
+            LocalForward 2529 localhost:2529   # Backoffice HTTP
+            LocalForward 2541 localhost:2541   # Backoffice Front
+            LocalForward 2545 localhost:2545   # Meilisearch
+
+        Host nas
+            HostName 192.168.1.15
+            Port 22
+            User guillaume
+            IdentityFile ~/.ssh/id_ed25519_nas
+      '';
     };
 
     wayland.windowManager.sway = {
