@@ -82,7 +82,7 @@
           height = 22;
           output = [ "*" ];
           modules-left = [
-            "hyprland/mode"
+            "hyprland/submap"
             "hyprland/workspaces"
             "hyprland/window"
             "sway/workspaces"
