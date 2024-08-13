@@ -68,7 +68,13 @@
       # Disable default config
       config = null;
       checkConfig = false;
-      extraConfig = builtins.readFile ./sway.config;
+      extraConfig =
+        builtins.readFile ./sway.config
+        + ''
+          bindsym $mod+v exec ${pkgs.cliphist}/bin/cliphist list | wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy
+          bindsym Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
+          bindsym Shift+Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
+        '';
     };
 
     programs.waybar = {
