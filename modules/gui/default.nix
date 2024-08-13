@@ -65,9 +65,8 @@
 
     wayland.windowManager.sway = {
       enable = true;
-      config = {
-        bars = [ ];
-      };
+      # Disable default config
+      config = null;
       checkConfig = false;
       extraConfig = builtins.readFile ./sway.config;
     };
