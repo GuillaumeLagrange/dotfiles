@@ -1,6 +1,7 @@
 {
   imports = [
-    ./headless.nix
     ./gui
+    ./headless.nix
+    ./stockly
   ];
 }

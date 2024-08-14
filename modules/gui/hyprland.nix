@@ -130,6 +130,9 @@ in
           "float, $pictureInPicture"
           "move 100%-34% 100%-34%, $pictureInPicture"
           "size 33% 33%, $pictureInPicture"
+
+          # Spotify to workspace 10
+          "workspace 10, class:Spotify"
         ];
 
         # Monitors
@@ -149,13 +152,13 @@ in
         ];
 
         workspace = [
-          "1, monitor:$mainHome"
+          "1, monitor:$mainHome, default:true"
           "3, monitor:$mainHome"
           "5, monitor:$mainHome"
           "7, monitor:$mainHome"
           "9, monitor:$mainHome"
 
-          "2, monitor:$secondaryHome"
+          "2, monitor:$secondaryHome, default:true"
           "4, monitor:$secondaryHome"
           "6, monitor:$secondaryHome"
           "8, monitor:$secondaryHome"

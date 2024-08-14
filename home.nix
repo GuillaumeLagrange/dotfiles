@@ -25,6 +25,7 @@
 
   headless.enable = lib.mkDefault true;
   gui.enable = lib.mkDefault true;
+  stockly.enable = lib.mkDefault true;
 
   # Home Manager can also manage your environment variables through
   # 'home.sessionVariables'. If you don't want to manage your shell through Home

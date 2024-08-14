@@ -3,6 +3,7 @@
 
   inputs = {
     # Specify the source of Home Manager and Nixpkgs.
+    datagrip-nixpkgs.url = "github:nixos/nixpkgs/3847a2a8595bba68214ac4b7e3da3fc00776989";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -19,11 +20,16 @@
       nixpkgs,
       home-manager,
       nix-index-database,
+      datagrip-nixpkgs,
       ...
     }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      datagrip-pkgs = import datagrip-nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
@@ -35,6 +41,9 @@
           ./home.nix
           nix-index-database.hmModules.nix-index
         ];
+        extraSpecialArgs = {
+          inherit datagrip-pkgs;
+        };
       };
 
       homeConfigurations."glagrange" = home-manager.lib.homeManagerConfiguration {
