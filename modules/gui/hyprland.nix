@@ -177,7 +177,7 @@ in
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
           "$mainMod, D, exec, $menu"
           "$mainMod, Tab, exec, rofimoji"
-          "$mainMod, V, exec, $nix-path/cliphist list | wofi --dmenu | $nix-path/cliphist decode | wl-copy"
+          "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
           "$mainMod, P, pseudo, # dwindle"
           "$mainMod, E, togglesplit, # dwindle"
 

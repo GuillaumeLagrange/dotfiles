@@ -41,6 +41,7 @@ in
           "Network"
           "WebBrowser"
         ];
+        icon = "firefox";
         mimeType = [
           "text/html"
           "text/xml"
@@ -51,6 +52,7 @@ in
         genericName = "Web Browser";
         exec = "firefox -p ${stockly-profile-name}";
         terminal = false;
+        icon = "firefox";
         categories = [
           "Application"
           "Network"
