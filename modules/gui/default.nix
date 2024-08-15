@@ -9,10 +9,14 @@
     gui.enable = lib.mkEnableOption "tools to work in a graphical environment";
   };
 
-  imports = [ ./hyprland.nix ];
+  imports = [
+    ./hyprland.nix
+    ./firefox.nix
+  ];
 
   config = lib.mkIf config.gui.enable {
     hyprland.enable = true;
+    firefox.enable = true;
 
     home.packages = with pkgs; [
       telegram-desktop
