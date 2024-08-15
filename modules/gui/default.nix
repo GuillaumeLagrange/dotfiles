@@ -22,6 +22,7 @@
       qwerty-fr
       wev
       wl-clipboard
+      playerctl
     ];
 
     home.file = {
