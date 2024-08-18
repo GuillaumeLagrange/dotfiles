@@ -27,6 +27,7 @@
       wev
       wl-clipboard
       playerctl
+      proton-pass
     ];
 
     home.file = {
@@ -71,12 +72,12 @@
     wayland.windowManager.sway = {
       enable = true;
       # Disable default config
-      config = null;
+      # config = null;
       checkConfig = false;
       extraConfig =
         builtins.readFile ./sway.config
         + ''
-          bindsym $mod+v exec ${pkgs.cliphist}/bin/cliphist list | wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy
+          bindsym $mod+v exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy
           bindsym Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
           bindsym Shift+Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
         '';
@@ -209,13 +210,13 @@
     programs.alacritty = {
       enable = true;
       settings = {
+        mouse.hide_when_typing = true;
         window = {
           startup_mode = "Maximized";
           padding = {
             x = 0;
             y = 2;
           };
-          opacity = 0.95;
         };
       };
     };
@@ -272,15 +273,15 @@
     };
 
     # TODO: Include wallpapers in home-manager repo to make this pure
-    programs.wpaperd = {
-      enable = true;
-      settings = {
-        default = {
-          path = "${config.home.homeDirectory}/documents/wallpapers";
-          duration = "1h";
-        };
-      };
-    };
+    # programs.wpaperd = {
+    #   enable = true;
+    #   settings = {
+    #     default = {
+    #       path = "${config.home.homeDirectory}/documents/wallpapers/gruvbox-mountain-village.png";
+    #       # duration = "1h";
+    #     };
+    #   };
+    # };
 
     services.cliphist.enable = true;
 

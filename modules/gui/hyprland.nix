@@ -51,15 +51,15 @@ in
         # Some default env vars.
         env = [
           "XCURSOR_SIZE,24"
-          "QT_QPA_PLATFORMTHEME,qt5ct" # change to qt6ct if you have that
+          "QT_QPA_PLATFORMTHEME,qt6ct" # change to qt6ct if you have that
         ];
 
         general = {
           gaps_in = 4;
           gaps_out = 4;
           border_size = 1;
-          "col.active_border" = "rgba(ea6962ff) rgba(a9b665ff) 45deg";
-          "col.inactive_border" = "rgba(595959aa)";
+          # "col.active_border" = "rgba(ea6962ff) rgba(a9b665ff) 45deg";
+          # "col.inactive_border" = "rgba(595959aa)";
           layout = "master";
           allow_tearing = false;
         };
@@ -78,7 +78,7 @@ in
           drop_shadow = true;
           shadow_range = 4;
           shadow_render_power = 3;
-          "col.shadow" = "rgba(1a1a1aee)";
+          # "col.shadow" = "rgba(1a1a1aee)";
         };
 
         animations = {
@@ -152,7 +152,7 @@ in
         ];
 
         workspace = [
-          "1, monitor:$mainHome, default:true"
+          "1, monitor:$mainHome, monitor:eDP-1, default:true"
           "3, monitor:$mainHome"
           "5, monitor:$mainHome"
           "7, monitor:$mainHome"

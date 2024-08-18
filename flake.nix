@@ -13,6 +13,10 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    stylix = {
+      url = "github:danth/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -21,6 +25,7 @@
       home-manager,
       nix-index-database,
       datagrip-nixpkgs,
+      stylix,
       ...
     }:
     let
@@ -39,6 +44,7 @@
         inherit pkgs;
         modules = [
           ./home.nix
+          stylix.homeManagerModules.stylix
           nix-index-database.hmModules.nix-index
         ];
         extraSpecialArgs = {
