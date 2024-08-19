@@ -24,12 +24,11 @@ in
         "$volumeNotification" = "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
 
         exec-once = [
-          "${pkgs.waybar}/bin/waybar"
           "${pkgs._1password-gui}/bin/1password --silent"
           "${pkgs.networkmanagerapplet}/bin/nm-applet"
           "${pkgs.wpaperd}/bin/wpaperd"
           "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
-          "${pkgs.dunst}/bin/dunst"
+          "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"
           "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"
         ];
@@ -189,6 +188,8 @@ in
 
           # Volume
           ", XF86AudioMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && $volumeNotification"
+          # Notification pannel toggle
+          "$mainMod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
 
           # Media play
           ", XF86AudioPause, exec, ${pkgs.playerctl}/bin/playerctl play-pause"

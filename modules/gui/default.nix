@@ -28,12 +28,22 @@
       wl-clipboard
       playerctl
       proton-pass
+      protonvpn-gui
+      transmission_4-gtk
+      adwaita-icon-theme
+      calibre
+      gnome-themes-extra
     ];
 
     home.file = {
       ".config/swappy/config" = {
         text = builtins.readFile ./swappy.conf;
       };
+    };
+
+    gtk.iconTheme = {
+      package = pkgs.gnome.adwaita-icon-theme;
+      name = "adwaita-icon-theme";
     };
 
     programs.ssh = {
@@ -86,6 +96,7 @@
     programs.waybar = {
       enable = true;
       style = builtins.readFile ./style.css;
+      systemd.enable = true;
       settings = {
         mainBar = {
           layer = "top";
