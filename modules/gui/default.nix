@@ -42,7 +42,7 @@
     };
 
     gtk.iconTheme = {
-      package = pkgs.gnome.adwaita-icon-theme;
+      package = pkgs.adwaita-icon-theme;
       name = "adwaita-icon-theme";
     };
 
@@ -283,17 +283,6 @@
       '';
     };
 
-    # TODO: Include wallpapers in home-manager repo to make this pure
-    # programs.wpaperd = {
-    #   enable = true;
-    #   settings = {
-    #     default = {
-    #       path = "${config.home.homeDirectory}/documents/wallpapers/gruvbox-mountain-village.png";
-    #       # duration = "1h";
-    #     };
-    #   };
-    # };
-
     services.cliphist.enable = true;
 
     services.swayidle = {
@@ -309,7 +298,7 @@
         [
           {
             timeout = lockTimeout;
-            command = "PATH=/usr/bin ~/scripts/lock.sh&";
+            command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
           }
           {
             timeout = lockTimeout + screenOffTimeout;

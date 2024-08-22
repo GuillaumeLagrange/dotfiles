@@ -17,7 +17,6 @@ in
       enable = true;
       settings = {
         "$terminal" = "${pkgs.alacritty}/bin/alacritty";
-        "$menu" = "${pkgs.wofi}/bin/wofi --show drun";
         "$mainMod" = "SUPER";
         "$shiftMod" = "SUPER_SHIFT";
         "$ctrlMod" = "SUPER_CTRL";
@@ -54,11 +53,9 @@ in
         ];
 
         general = {
-          gaps_in = 4;
-          gaps_out = 4;
+          gaps_in = 2;
+          gaps_out = 2;
           border_size = 1;
-          # "col.active_border" = "rgba(ea6962ff) rgba(a9b665ff) 45deg";
-          # "col.inactive_border" = "rgba(595959aa)";
           layout = "master";
           allow_tearing = false;
         };
@@ -104,6 +101,7 @@ in
           # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
           # new_is_master = true
           no_gaps_when_only = false;
+          mfact = 0.75;
         };
 
         gestures = {
@@ -174,8 +172,8 @@ in
           "$mainMod, W, exec, firefox"
           "$shiftMod, A, killactive,"
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
-          "$mainMod, D, exec, $menu"
-          "$mainMod, Tab, exec, rofimoji"
+          "$mainMod, D, exec, ${pkgs.wofi}/bin/wofi --show drun"
+          "$mainMod, Tab, exec, ${pkgs.wofi-emoji}/bin/wofi-emoji"
           "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
           "$mainMod, P, pseudo, # dwindle"
           "$mainMod, E, togglesplit, # dwindle"
@@ -235,16 +233,16 @@ in
           "$mainMod, 0, workspace, 10"
 
           # Move active window to a workspace with mainMod + SHIFT + [0-9]
-          "$mainMod SHIFT, 1, movetoworkspace, 1"
-          "$mainMod SHIFT, 2, movetoworkspace, 2"
-          "$mainMod SHIFT, 3, movetoworkspace, 3"
-          "$mainMod SHIFT, 4, movetoworkspace, 4"
-          "$mainMod SHIFT, 5, movetoworkspace, 5"
-          "$mainMod SHIFT, 6, movetoworkspace, 6"
-          "$mainMod SHIFT, 7, movetoworkspace, 7"
-          "$mainMod SHIFT, 8, movetoworkspace, 8"
-          "$mainMod SHIFT, 9, movetoworkspace, 9"
-          "$mainMod SHIFT, 0, movetoworkspace, 10"
+          "$mainMod SHIFT, 1, movetoworkspacesilent, 1"
+          "$mainMod SHIFT, 2, movetoworkspacesilent, 2"
+          "$mainMod SHIFT, 3, movetoworkspacesilent, 3"
+          "$mainMod SHIFT, 4, movetoworkspacesilent, 4"
+          "$mainMod SHIFT, 5, movetoworkspacesilent, 5"
+          "$mainMod SHIFT, 6, movetoworkspacesilent, 6"
+          "$mainMod SHIFT, 7, movetoworkspacesilent, 7"
+          "$mainMod SHIFT, 8, movetoworkspacesilent, 8"
+          "$mainMod SHIFT, 9, movetoworkspacesilent, 9"
+          "$mainMod SHIFT, 0, movetoworkspacesilent, 10"
 
           # Example special workspace (scratchpad)
           "$mainMod, S, togglespecialworkspace, scratchpad"
@@ -275,19 +273,22 @@ in
         bindn = [ ", mouse:274, exec, ${pkgs.wl-clipboard}/bin/wl-copy -pc" ];
       };
 
-      # TODO: Migrate lock script to pkgs.writeShellScriptBin
       extraConfig = ''
         # Submpaps
         # Power submap
-        $powerSubmap = Power (s)uspend (l)ock (e)xit (p)oweroff (r)eboot
+        $powerSubmap = Power (s)uspend (l)ock (e)xit (h)ibernate (p)oweroff (r)eboot
         bind = $mainMod, Escape, submap, $powerSubmap
         submap = $powerSubmap
         bind = , L, exec, ${lock_script}
         bind = , L, submap, reset
-        bind = , S, exec, systemctl suspend
+        bind = , S, exec, systemctl suspend-then-hibernate
         bind = , S, submap, reset
         bind = , E, exec, hyprctl dispatch exit
         bind = , E, submap, reset
+        bind = , E, exec, hyprctl dispatch exit
+        bind = , E, submap, reset
+        bind = , H, exec, systemctl hibernate
+        bind = , H, submap, reset
         bind = , P, exec, systemctl poweroff
         bind = , P, submap, reset
         bind = , R, exec, systemctl reboot

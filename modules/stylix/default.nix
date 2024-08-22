@@ -9,9 +9,14 @@
     neovim.enable = false;
     wofi.enable = false;
   };
-  stylix.fonts.monospace = {
-    name = "Hack Nerd Font";
-    package = pkgs.nerdfonts.override { fonts = [ "Hack" ]; };
+  stylix.fonts = {
+    monospace = {
+      name = "Hack Nerd Font";
+      package = pkgs.nerdfonts.override { fonts = [ "Hack" ]; };
+    };
+    emoji = {
+      package = pkgs.noto-fonts-emoji;
+    };
   };
   stylix.fonts = {
     sizes = {

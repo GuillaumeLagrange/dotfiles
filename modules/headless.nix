@@ -80,8 +80,13 @@
     };
 
     programs.git = {
+      enable = true;
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
+      ignores = [
+        ".envrc"
+        "*.swp"
+      ];
     };
 
     programs.neovim = {
