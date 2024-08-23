@@ -83,6 +83,11 @@
       enable = true;
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
+      extraConfig = {
+        push = {
+          autoSetupRemote = true;
+        };
+      };
       ignores = [
         ".envrc"
         "*.swp"

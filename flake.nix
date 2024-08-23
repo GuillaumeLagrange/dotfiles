@@ -2,9 +2,11 @@
   description = "Home Manager configuration of guillaume";
 
   inputs = {
-    # Specify the source of Home Manager and Nixpkgs.
-    datagrip-nixpkgs.url = "github:nixos/nixpkgs/3847a2a8595bba68214ac4b7e3da3fc00776989";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v0.4.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -17,6 +19,7 @@
       url = "github:danth/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nixpkgs-datagrip.url = "github:nixos/nixpkgs/3847a2a8595bba68214ac4b7e3da3fc00776989";
   };
 
   outputs =
@@ -24,17 +27,17 @@
       nixpkgs,
       home-manager,
       nix-index-database,
-      datagrip-nixpkgs,
+      nixpkgs-datagrip,
       stylix,
       ...
-    }:
+    }@inputs:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
-      datagrip-pkgs = import datagrip-nixpkgs {
+      pkgs-datagrip = import nixpkgs-datagrip {
         inherit system;
         config.allowUnfree = true;
       };
@@ -43,22 +46,18 @@
       homeConfigurations."guillaume" = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          ./home.nix
+          ./modules/home-manager.nix
           stylix.homeManagerModules.stylix
           nix-index-database.hmModules.nix-index
         ];
         extraSpecialArgs = {
-          inherit datagrip-pkgs;
+          inherit pkgs-datagrip;
         };
       };
 
-      homeConfigurations."glagrange" = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-        modules = [
-          ./arch.nix
-          ./home.nix
-          nix-index-database.hmModules.nix-index
-        ];
+      nixosConfigurations = {
+        xps = import ./hosts/xps/default.nix { inherit inputs; };
       };
+
     };
 }

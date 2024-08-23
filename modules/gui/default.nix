@@ -41,10 +41,10 @@
       };
     };
 
-    gtk.iconTheme = {
-      package = pkgs.adwaita-icon-theme;
-      name = "adwaita-icon-theme";
-    };
+    # gtk.iconTheme = {
+    #   package = pkgs.adwaita-icon-theme;
+    #   name = "adwaita-icon-theme";
+    # };
 
     programs.ssh = {
       enable = true;

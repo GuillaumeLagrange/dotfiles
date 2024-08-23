@@ -2,7 +2,7 @@
   pkgs,
   lib,
   config,
-  datagrip-pkgs,
+  pkgs-datagrip,
   ...
 }:
 let
@@ -59,7 +59,7 @@ in
     };
 
     home.packages = [
-      datagrip-pkgs.jetbrains.datagrip
+      pkgs-datagrip.jetbrains.datagrip
 
       (pkgs.writeShellScriptBin "reset_jetbrain_trail.sh" ''
         for product in DataGrip; do
