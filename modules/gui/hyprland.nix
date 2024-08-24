@@ -99,7 +99,7 @@ in
 
         master = {
           # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
-          # new_is_master = true
+          new_status = "inherit";
           no_gaps_when_only = false;
           mfact = 0.75;
         };
@@ -199,8 +199,8 @@ in
           ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%+"
           ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%- -n 1"
           # Stockly helpers
-          "$mainMod, Backslash, exec, kitty --title \"Charybdis nvim\" sh -c \"ssh -o ClearAllForwardings=yes -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s nvim'\""
-          "$shiftMod, Backslash, exec, kitty --title \"Charybdis bo\" sh -c \"ssh -q -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s bo'\""
+          "$mainMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"Charybdis nvim\" -e sh -c \"ssh -o ClearAllForwardings=yes -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s nvim'\""
+          "$shiftMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"Charybdis bo\" -e sh -c \"ssh -q -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s bo'\""
 
           # Move focus with mainMod + arrow keys
           "$mainMod, H, movefocus, l"

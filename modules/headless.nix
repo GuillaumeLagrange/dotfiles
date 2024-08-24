@@ -19,13 +19,14 @@
       tree
       killall
 
-      # Nvim management
+      # Nvim cross-project basics
       luajitPackages.luarocks
       stylua
       lua-language-server
       nixd
       nixfmt-rfc-style
       nodejs_22
+      vscode-langservers-extracted
     ];
 
     xdg.configFile = {
