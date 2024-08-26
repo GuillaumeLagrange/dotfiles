@@ -101,7 +101,7 @@ in
           # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
           new_status = "inherit";
           no_gaps_when_only = false;
-          mfact = 0.75;
+          mfact = 0.6;
         };
 
         gestures = {
@@ -164,12 +164,14 @@ in
 
         # Outputs submap
         "$monitorsSubmap" = "Monitors (s)ingle (r)eset (w)allpaper (d)ual";
-        "$restartWpaperd" = "killall wpaperd && hyprctl dispatch exec /usr/bin/wpaperd";
+        # "$restartWpaperd" = "killall wpaperd && hyprctl dispatch exec /usr/bin/wpaperd";
 
         "$backlight_step" = "20";
         bind = [
           "$mainMod, Return, exec, $terminal"
           "$mainMod, W, exec, firefox"
+          "$shiftMod, W, exec, firefox -p stockly"
+          "$ctrlMod, W, exec, chromium"
           "$shiftMod, A, killactive,"
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
           "$mainMod, D, exec, ${pkgs.wofi}/bin/wofi --show drun"
@@ -299,10 +301,10 @@ in
 
         bind = $mainMod, M, submap, $monitorsSubmap
         submap = $monitorsSubmap
-        bind = , S, exec, hyprctl keyword monitor "desc:AOC Q27P2W TAIN3HA011747, disable"
-        bind = , S, exec, hyprctl keyword monitor "desc:ASUSTek COMPUTER INC VG278 L1LMQS025816, disable"
-        bind = , S, exec, hyprctl keyword monitor "desc:Dell Inc. DELL S2421HS 45WFW83, disable"
-        bind = , S, exec, $restartWpaperd
+        bind = , S, exec, hyprctl keyword monitor "$mainHome, disable"
+        bind = , S, exec, hyprctl keyword monitor "$secondaryHome, disable"
+        bind = , S, exec, hyprctl keyword monitor "mainOffice, disable"
+        # bind = , S, exec, $restartWpaperd
         bind = , S, submap, reset
         # Home dual
         bind = , D, exec, hyprctl keyword monitor "desc:Dell Inc. DELL S2421HS 45WFW83, disable"

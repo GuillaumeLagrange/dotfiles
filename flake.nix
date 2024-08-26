@@ -11,10 +11,6 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nix-index-database = {
-      url = "github:nix-community/nix-index-database";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     stylix = {
       url = "github:danth/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,7 +22,6 @@
     {
       nixpkgs,
       home-manager,
-      nix-index-database,
       nixpkgs-datagrip,
       stylix,
       ...
@@ -35,7 +30,11 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnfree = true;
+        config = {
+          allowUnfree = true;
+          segger-jlink.acceptLicense = true;
+          permittedInsecurePackages = [ "segger-jlink-qt4-796s" ];
+        };
       };
       pkgs-datagrip = import nixpkgs-datagrip {
         inherit system;
@@ -46,9 +45,9 @@
       homeConfigurations."guillaume" = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          ./modules/home-manager.nix
           stylix.homeManagerModules.stylix
-          nix-index-database.hmModules.nix-index
+          ./modules/stylix/common.nix
+          ./modules/home-manager.nix
         ];
         extraSpecialArgs = {
           inherit pkgs-datagrip;
@@ -56,7 +55,7 @@
       };
 
       nixosConfigurations = {
-        xps = import ./hosts/xps/default.nix { inherit inputs; };
+        badlands = import ./hosts/badlands/default.nix { inherit inputs; };
       };
 
     };

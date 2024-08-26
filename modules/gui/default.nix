@@ -11,17 +11,18 @@
 
   imports = [
     ./hyprland.nix
+    ./sway.nix
     ./firefox.nix
   ];
 
   config = lib.mkIf config.gui.enable {
     hyprland.enable = true;
+    sway.enable = true;
     firefox.enable = true;
 
     home.packages = with pkgs; [
       telegram-desktop
       discord
-      _1password-gui
       spotify
       qwerty-fr
       wev
@@ -33,6 +34,9 @@
       adwaita-icon-theme
       calibre
       gnome-themes-extra
+      wdisplays
+      pavucontrol
+      dbeaver-bin
     ];
 
     home.file = {
@@ -64,12 +68,15 @@
             LocalForward 2524 localhost:2524   # Operations GRPC
             LocalForward 2526 localhost:2526   # Auths GRPC
             LocalForward 2527 localhost:2527   # Auths HTTP
+            LocalForward 2530 localhost:2530   # Shipments GRPC
             LocalForward 2534 localhost:2534   # Files GRPC
             LocalForward 2535 localhost:2535   # Files HTTP
             LocalForward 2528 localhost:2528   # Backoffice GRCP
             LocalForward 2529 localhost:2529   # Backoffice HTTP
             LocalForward 2541 localhost:2541   # Backoffice Front
             LocalForward 2545 localhost:2545   # Meilisearch
+
+            LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
 
         Host nas
             HostName 192.168.1.15
@@ -79,149 +86,11 @@
       '';
     };
 
-    wayland.windowManager.sway = {
-      enable = true;
-      # Disable default config
-      # config = null;
-      checkConfig = false;
-      extraConfig =
-        builtins.readFile ./sway.config
-        + ''
-          bindsym $mod+v exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy
-          bindsym Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
-          bindsym Shift+Print exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
-        '';
-    };
-
-    programs.waybar = {
-      enable = true;
-      style = builtins.readFile ./style.css;
-      systemd.enable = true;
-      settings = {
-        mainBar = {
-          layer = "top";
-          position = "bottom";
-          height = 22;
-          output = [ "*" ];
-          modules-left = [
-            "hyprland/submap"
-            "hyprland/workspaces"
-            "hyprland/window"
-            "sway/workspaces"
-            "sway/window"
-            "sway/mode"
-          ];
-          modules-center = [ ];
-          modules-right = [
-            "mpris"
-            "tray"
-            "disk"
-            "cpu"
-            "memory"
-            "battery"
-            "pulseaudio"
-            "clock"
-          ];
-
-          "hyprland/workspaces" = {
-            all-outputs = false;
-            show-special = true;
-          };
-
-          "hyprland/window" = {
-            separate-outputs = true;
-          };
-
-          "mpris" = {
-            "format" = " {player_icon} {status_icon} {dynamic} ";
-            "ignored-players" = [ ];
-            "player-icons" = {
-              "default" = " ";
-              "spotify" = " ";
-              "firefox" = " ";
-            };
-            "status-icons" = {
-              "paused" = " ";
-              "playing" = " ";
-            };
-            "dynamic-order" = [
-              "title"
-              "artist"
-              "position"
-              "length"
-            ];
-            "dynamic-len" = 70;
-            "interval" = 1;
-          };
-
-          "tray" = {
-            icon-size = 14;
-            spacing = 8;
-            show-passive-items = true;
-          };
-
-          "disk" = {
-            "format" = "{free}";
-          };
-
-          "pulseaudio" = {
-            "format" = "{icon} {volume}%";
-            "format-bluetooth" = " {icon} {volume}%";
-            "format-muted" = "󰝟  {volume}%";
-            "format-icons" = {
-              "default" = [
-                "󰕿 "
-                "󰖀 "
-                "󰕾 "
-              ];
-            };
-            "scroll-step" = 1;
-            "on-click" = "pavucontrol";
-          };
-
-          "battery" = {
-            "format" = "{icon} {capacity}%";
-            "format-charging" = "󱐋 {icon} {capacity}%";
-            "format-icons" = [
-              "󰂎"
-              "󱊡"
-              "󱊢"
-              "󱊣"
-            ];
-          };
-
-          "clock" = {
-            "format" = "  {:L%B %d, %R}";
-            "format-alt" = "  {:L%H:%M} ";
-            "tooltip-format" = "<tt><small>{calendar}</small></tt>";
-            # "locale" = "en_GB";
-            "calendar" = {
-              "mode" = "year";
-              "mode-mon-col" = 2;
-              "weeks-pos" = "left";
-              "on-scroll" = 1;
-              "on-click-right" = "mode";
-              "format" = {
-                "months" = "<span color='#ffead3'><b>{}</b></span>";
-                "days" = "<span color='#ecc6d9'><b>{}</b></span>";
-                "weeks" = "<span color='#99ffdd'><b>W{}</b></span>";
-                "weekdays" = "<span color='#ffcc66'><b>{}</b></span>";
-                "today" = "<span color='#ff6699'><b><u>{}</u></b></span>";
-              };
-            };
-            "actions" = {
-              "on-click-right" = "mode";
-              "on-click-left" = "mode";
-            };
-          };
-        };
-      };
-    };
-
     programs.alacritty = {
       enable = true;
       settings = {
         mouse.hide_when_typing = true;
+        env.TERM = "xterm-256color";
         window = {
           startup_mode = "Maximized";
           padding = {
@@ -344,6 +213,137 @@
           };
         };
       };
+    };
+
+    programs.waybar = {
+      enable = true;
+      style = builtins.readFile ./style.css;
+      settings = {
+        mainBar = {
+          layer = "top";
+          position = "bottom";
+          height = 22;
+          output = [ "*" ];
+          modules-left = [
+            "hyprland/submap"
+            "hyprland/workspaces"
+            "hyprland/window"
+            "sway/workspaces"
+            "sway/window"
+            "sway/mode"
+          ];
+          modules-center = [ ];
+          modules-right = [
+            "mpris"
+            "tray"
+            "disk"
+            "cpu"
+            "memory"
+            "battery"
+            "pulseaudio"
+            "clock"
+          ];
+
+          "hyprland/workspaces" = {
+            all-outputs = false;
+            show-special = true;
+          };
+
+          "hyprland/window" = {
+            separate-outputs = true;
+          };
+
+          "mpris" = {
+            "format" = " {player_icon} {status_icon} {dynamic} ";
+            "ignored-players" = [ ];
+            "player-icons" = {
+              "default" = " ";
+              "spotify" = " ";
+              "firefox" = " ";
+            };
+            "status-icons" = {
+              "paused" = " ";
+              "playing" = " ";
+            };
+            "dynamic-order" = [
+              "title"
+              "artist"
+              "position"
+              "length"
+            ];
+            "dynamic-len" = 70;
+            "interval" = 1;
+          };
+
+          "tray" = {
+            icon-size = 14;
+            spacing = 8;
+            show-passive-items = true;
+          };
+
+          "disk" = {
+            "format" = "{free}";
+          };
+
+          "pulseaudio" = {
+            "format" = "{icon} {volume}%";
+            "format-bluetooth" = " {icon} {volume}%";
+            "format-muted" = "󰝟  {volume}%";
+            "format-icons" = {
+              "default" = [
+                "󰕿 "
+                "󰖀 "
+                "󰕾 "
+              ];
+            };
+            "scroll-step" = 1;
+            "on-click" = "pavucontrol";
+          };
+
+          "battery" = {
+            "format" = "{icon} {capacity}%";
+            "format-charging" = "󱐋 {icon} {capacity}%";
+            "format-icons" = [
+              "󰂎"
+              "󱊡"
+              "󱊢"
+              "󱊣"
+            ];
+          };
+
+          "clock" = {
+            "format" = "  {:L%B %d, %R}";
+            "format-alt" = "  {:L%H:%M} ";
+            "tooltip-format" = "<tt><small>{calendar}</small></tt>";
+            # "locale" = "en_GB";
+            "calendar" = {
+              "mode" = "year";
+              "mode-mon-col" = 2;
+              "weeks-pos" = "left";
+              "on-scroll" = 1;
+              "on-click-right" = "mode";
+              "format" = {
+                "months" = "<span color='#ffead3'><b>{}</b></span>";
+                "days" = "<span color='#ecc6d9'><b>{}</b></span>";
+                "weeks" = "<span color='#99ffdd'><b>W{}</b></span>";
+                "weekdays" = "<span color='#ffcc66'><b>{}</b></span>";
+                "today" = "<span color='#ff6699'><b><u>{}</u></b></span>";
+              };
+            };
+            "actions" = {
+              "on-click-right" = "mode";
+              "on-click-left" = "mode";
+            };
+          };
+        };
+      };
+    };
+
+    programs.chromium.enable = true;
+
+    programs.vscode = {
+      enable = true;
+      package = pkgs.vscode.fhs;
     };
   };
 }

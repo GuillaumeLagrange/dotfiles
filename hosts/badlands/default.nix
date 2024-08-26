@@ -7,9 +7,9 @@ inputs.nixpkgs.lib.nixosSystem rec {
   };
   modules = [
     inputs.lanzaboote.nixosModules.lanzaboote
-    # inputs.home-manager.nixosModules.home-manager
+    inputs.home-manager.nixosModules.home-manager
     inputs.stylix.nixosModules.stylix
+    ../../modules/stylix/common.nix
     ./configuration.nix
-    # ../../modules/home-manager.nix
   ];
 }

@@ -1,6 +1,12 @@
 # Edit this configuration file to define what should be installed on
-{ pkgs, lib, ... }:
+{ pkgs, lib, ... }@inputs:
 
+let
+  jlinkGroup = "jlink";
+in
+let
+  userName = "guillaume";
+in
 {
   imports = [
     # Include the results of the hardware scan.
@@ -30,7 +36,7 @@
     "flakes"
   ];
 
-  networking.hostName = "xps";
+  networking.hostName = "badlands";
 
   # Enable networking
   networking.networkmanager.enable = true;
@@ -63,32 +69,19 @@
   services.logind = {
     lidSwitch = "suspend-then-hibernate";
     extraConfig = ''
-      HandlePowerKey=suspend
+      HandlePowerKey=suspend-then-hibernate;
     '';
   };
   systemd.sleep.extraConfig = "HibernateDelaySec=3h";
 
-  # Enable the X11 windowing system.
-  # You can disable this if you're only using the Wayland session.
-  services.xserver.enable = true;
-
-  # Gnome
   services.xserver = {
-    displayManager.gdm.enable = true;
-    desktopManager.gnome.enable = true;
-  };
-  # Disable gnome keyring as gnome is mostly here as a fallback
-  # Keyring cannot be unlocked through fprintd so we cannot avoid the popup on login
-  # services.gnome.gnome-keyring.enable = lib.mkForce false;
-
-  # Configure keymap in X11
-  services.xserver = {
+    # Enable X11 as a fallback
+    enable = true;
     xkb = {
       layout = "qwerty-fr";
-
       extraLayouts."qwerty-fr" =
         let
-          qwerty-fr = pkgs.callPackage ./qwerty-fr.nix { };
+          qwerty-fr = pkgs.qwerty-fr;
         in
         {
           description = qwerty-fr.meta.description;
@@ -96,10 +89,24 @@
           symbolsFile = "${qwerty-fr}/share/X11/xkb/symbols/us_qwerty-fr";
         };
     };
+
+    # Gnome
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
   };
+  # Disable gnome keyring as gnome is mostly here as a fallback
+  # Keyring cannot be unlocked through fprintd so we cannot avoid the popup on login
+  # services.gnome.gnome-keyring.enable = lib.mkForce false;
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
+
+  services.udev.extraRules = ''
+    # Allow non-root users to access SEGGER J-Link
+    SUBSYSTEM=="usb", ATTR{idVendor}=="1366", ATTR{idProduct}=="0105", MODE="0666", GROUP="${jlinkGroup}"
+
+    KERNEL=="ttyACM0", MODE:="666"
+  '';
 
   # Enable sound with pipewire.
   hardware.pulseaudio.enable = false;
@@ -113,15 +120,24 @@
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   programs.zsh.enable = true;
-  users.users.guillaume = {
+  users.users.${userName} = {
     isNormalUser = true;
     description = "Guillaume";
     extraGroups = [
       "networkmanager"
       "wheel"
+      jlinkGroup
     ];
     shell = pkgs.zsh;
   };
+
+  # Home-manager
+  home-manager = {
+    useUserPackages = true;
+    useGlobalPkgs = true;
+  };
+
+  home-manager.users.${userName} = import ../../modules/home-manager.nix;
 
   programs.firefox.enable = true;
   programs.sway = {
@@ -131,7 +147,6 @@
   programs.hyprland.enable = true;
   xdg.portal = {
     enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
   };
   programs.steam.enable = true;
 
@@ -143,36 +158,10 @@
     vim
     git
     wget
-    home-manager
     sbctl
   ];
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
-
-  # List services that you want to enable:
-
-  # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
-
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
-
-  # This value determines the NixOS release from which the default
-  # settings for stateful data, like file locations and database versions
-  # on your system were taken. It‘s perfectly fine and recommended to leave
-  # this value at the release version of the first install of this system.
-  # Before changing this value read the documentation for this option
-  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "24.05"; # Did you read the comment?
+  system.stateVersion = "24.05";
 
   hardware.bluetooth.enable = true;
 
@@ -188,4 +177,12 @@
 
   # Install the driver
   services.fprintd.enable = true;
+
+  programs._1password.enable = true;
+  programs._1password-gui = {
+    enable = true;
+    # Certain features, including CLI integration and system authentication support,
+    # require enabling PolKit integration on some desktop environments (e.g. Plasma).
+    polkitPolicyOwners = [ userName ];
+  };
 }

@@ -2,7 +2,7 @@
   pkgs,
   lib,
   config,
-  pkgs-datagrip,
+  # pkgs-datagrip,
   ...
 }:
 let
@@ -58,8 +58,10 @@ in
       '';
     };
 
+    home.sessionVariables.WLR_DRM_DEVICES = "/dev/dri/card1";
+
     home.packages = [
-      pkgs-datagrip.jetbrains.datagrip
+      # pkgs-datagrip.jetbrains.datagrip
 
       (pkgs.writeShellScriptBin "reset_jetbrain_trail.sh" ''
         for product in DataGrip; do
