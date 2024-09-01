@@ -159,6 +159,7 @@ in
     git
     wget
     sbctl
+    comma
   ];
 
   system.stateVersion = "24.05";

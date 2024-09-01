@@ -124,12 +124,6 @@
 
     programs.htop = {
       enable = true;
-      settings = {
-        hide_kernel_threads = true;
-        hide_userland_threads = true;
-        tree_view = 1;
-        delay = 30;
-      };
     };
 
     programs.fastfetch.enable = true;
