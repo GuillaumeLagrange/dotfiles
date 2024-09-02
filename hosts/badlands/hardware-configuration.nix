@@ -17,6 +17,7 @@
     "thunderbolt"
     "nvme"
     "rtsx_pci_sdmmc"
+    "atkbd"
   ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];

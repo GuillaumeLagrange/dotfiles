@@ -2,7 +2,7 @@
   pkgs,
   lib,
   config,
-  # pkgs-datagrip,
+  pkgs-datagrip,
   ...
 }:
 let

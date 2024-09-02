@@ -3,8 +3,6 @@
 
 let
   jlinkGroup = "jlink";
-in
-let
   userName = "guillaume";
 in
 {
@@ -170,15 +168,14 @@ in
   hardware.graphics.enable = true;
 
   # Fingerprint reader
+  services.fprintd.enable = true;
   # Start the driver at boot
   systemd.services.fprintd = {
     wantedBy = [ "multi-user.target" ];
     serviceConfig.Type = "simple";
   };
 
-  # Install the driver
-  services.fprintd.enable = true;
-
+  # Installed at OS level to benefit from browser plugin integration
   programs._1password.enable = true;
   programs._1password-gui = {
     enable = true;
