@@ -158,6 +158,7 @@ in
     wget
     sbctl
     comma
+    home-manager
   ];
 
   system.stateVersion = "24.05";

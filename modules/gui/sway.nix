@@ -5,8 +5,11 @@
   ...
 }:
 let
-  lock_script = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+  lock = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
   ssh_charybdis = "${(import ../stockly/charybdis.nix { inherit pkgs; })}/bin/ssh_charybdis.sh";
+  move-to-bottom-right = "${
+    (import ./move-to-bottom-right.nix { inherit pkgs; })
+  }/bin/move-to-bottom-right.sh";
 in
 {
   options = {
@@ -38,7 +41,7 @@ in
             "${modifier}+Shift+backslash" = "workspace 2; exec ${ssh_charybdis} bo";
             "${modifier}+Tab" = "exec ${pkgs.wofi-emoji}/bin/wofi-emoji";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
-            "${modifier}+n" = "exec ${pkgs.swaynotificationcenter}/bin/swaync-client -t";
+            "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu wofi -d -p 'Choose Action: '";
 
             "XF86AudioRaiseVolume" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
             "XF86AudioLowerVolume" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${volumeNotification}";
@@ -47,14 +50,15 @@ in
             "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%+";
             "XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%- -n 1";
 
+            "${modifier}+Ctrl+p" = "exec ${move-to-bottom-right}";
           };
           startup = [
             { command = "${pkgs.networkmanagerapplet}/bin/nm-applet"; }
             { command = "${pkgs.blueman}/bin/blueman-applet"; }
             { command = "${pkgs._1password-gui}/bin/1password --silent"; }
-            { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"; }
+            { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
-            { command = "${pkgs.swaynotificationcenter}/bin/swaync"; }
+            { command = "${pkgs.mako}/bin/mako"; }
             # Set keyboard layout here because nix cannot find qwerty-fr in the input block
             {
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";
@@ -74,11 +78,20 @@ in
               middle_emulation = "disabled";
             };
           };
+          window.commands = [
+            {
+              command = "floating enable, border pixel 1, sticky enable, exec ${move-to-bottom-right}, move scratchpad, scratchpad show";
+              criteria = {
+                title = "^Picture-in-Picture$";
+                app_id = "firefox";
+              };
+            }
+          ];
         };
         extraConfig =
           builtins.readFile ./sway.config
           + ''
-            set $Locker ${lock_script}
+            set $Locker ${lock}
           '';
       };
   };

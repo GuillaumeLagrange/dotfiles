@@ -46,17 +46,34 @@
       };
     in
     {
-      homeConfigurations."guillaume" = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-        modules = [
-          stylix.homeManagerModules.stylix
-          ./modules/stylix/common.nix
-          ./modules/home-manager.nix
-        ];
-        extraSpecialArgs = {
-          inherit pkgs-datagrip;
+      homeConfigurations={
+        "guillaume" = home-manager.lib.homeManagerConfiguration {
+          inherit pkgs;
+          modules = [
+            stylix.homeManagerModules.stylix
+            ./modules/stylix/common.nix
+            ./modules/home-manager.nix
+          ];
+          extraSpecialArgs = {
+            inherit pkgs-datagrip;
+          };
+        };
+
+        "headless" = home-manager.lib.homeManagerConfiguration {
+          inherit pkgs;
+          modules = [
+            { gui.enable = false; }
+            stylix.homeManagerModules.stylix
+            ./modules/stylix/common.nix
+            ./modules/home-manager.nix
+          ];
+          extraSpecialArgs = {
+            inherit pkgs-datagrip;
+          };
         };
       };
+
+
 
       nixosConfigurations = {
         badlands = import ./hosts/badlands/default.nix { inherit inputs; };

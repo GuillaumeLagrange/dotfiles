@@ -13,6 +13,7 @@
     home.packages = with pkgs; [
       gcc
       fswatch
+      tig
       lazygit
       ripgrep
       fd
@@ -35,7 +36,16 @@
 
     xdg.configFile = {
       "nvim" = {
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/home-manager/nvim";
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nvim";
+        recursive = true;
+      };
+
+      "tig/config" = {
+        text = ''
+          color cursor black green bold
+          color title-focus black blue bold
+          color title-blur black blue
+        '';
       };
     };
 
@@ -60,6 +70,8 @@
       initExtra = ''
         bindkey '^ ' autosuggest-accept
         alias insomnia-gen="ssh charybdis 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp charybdis:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
+
+        ${pkgs.fastfetch}/bin/fastfetch
       '';
     };
     home.shellAliases = {
@@ -114,7 +126,8 @@
       mouse = true;
       keyMode = "vi";
       terminal = "screen-256color";
-      extraConfig = "set -ag terminal-overrides \",xterm-256color:RGB\"";
+      baseIndex = 1;
+      extraConfig = builtins.readFile ./tmux.conf;
       plugins = [
         pkgs.tmuxPlugins.vim-tmux-navigator
         pkgs.tmuxPlugins.gruvbox

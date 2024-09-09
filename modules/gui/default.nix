@@ -37,6 +37,8 @@
       wdisplays
       pavucontrol
       dbeaver-bin
+      networkmanagerapplet
+      blueman
     ];
 
     home.file = {
@@ -344,6 +346,18 @@
     programs.vscode = {
       enable = true;
       package = pkgs.vscode.fhs;
+    };
+
+    services.mako = {
+      enable = true;
+      defaultTimeout = 10000;
+      extraConfig = ''
+        [app-name="Firefox"]
+        default-timeout=0
+
+        [app-name="NetworkManager Applet"]
+        default-timeout=5000
+      '';
     };
   };
 }

@@ -7,7 +7,7 @@
 {
   imports = [
     ./gui
-    ./headless.nix
+    ./headless
     ./stockly
     ./stylix/home-manager.nix
   ];
