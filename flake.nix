@@ -46,7 +46,7 @@
       };
     in
     {
-      homeConfigurations={
+      homeConfigurations = {
         "guillaume" = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
@@ -62,7 +62,10 @@
         "headless" = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
-            { gui.enable = false; }
+            {
+              gui.enable = false;
+              programs.zsh.oh-my-zsh.theme = "gnzsh";
+            }
             stylix.homeManagerModules.stylix
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
@@ -72,8 +75,6 @@
           };
         };
       };
-
-
 
       nixosConfigurations = {
         badlands = import ./hosts/badlands/default.nix { inherit inputs; };

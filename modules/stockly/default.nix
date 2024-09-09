@@ -72,6 +72,7 @@ in
       '')
 
       (pkgs.callPackage ./insomnia.nix { })
+      (pkgs.callPackage ./charybdis.nix { })
     ];
   };
 }

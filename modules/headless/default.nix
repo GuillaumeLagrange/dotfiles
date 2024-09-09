@@ -56,7 +56,7 @@
       history.size = 100000;
       oh-my-zsh = {
         enable = true;
-        theme = "bira";
+        theme = lib.mkDefault "bira";
         plugins = [
           "git"
           "sudo"

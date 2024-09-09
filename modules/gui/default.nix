@@ -55,18 +55,30 @@
     programs.ssh = {
       enable = true;
       addKeysToAgent = "yes";
+      matchBlocks = {
+        charybdisRemote = lib.hm.dag.entryBefore [ "charybdis" ] {
+          match = ''originalhost charybdis exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"'';
+          hostname = "charybdis.stockly.tech";
+          port = 23;
+          compression = true;
+        };
+        charybdis = {
+          port = 22;
+          hostname = "192.168.1.10";
+          user = "guillaume";
+          forwardAgent = true;
+          identityFile = "~/.ssh/id_ed25519_charybdis";
+        };
+        nas = {
+          hostname = "192.168.1.15";
+          port = 22;
+          user = "guillaume";
+          identityFile = "~/.ssh/id_ed25519_nas";
+        };
+      };
       extraConfig = ''
         # Charybdis
-        Match originalhost charybdis exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"
-            HostName charybdis.stockly.tech
-            Compression yes
-            Port 23
-
         Host charybdis
-            HostName 192.168.1.10
-            Port 22
-            User guillaume
-            IdentityFile ~/.ssh/id_ed25519_charybdis
             LocalForward 2524 localhost:2524   # Operations GRPC
             LocalForward 2526 localhost:2526   # Auths GRPC
             LocalForward 2527 localhost:2527   # Auths HTTP
@@ -80,13 +92,10 @@
 
             LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
 
-        Host nas
-            HostName 192.168.1.15
-            Port 22
-            User guillaume
-            IdentityFile ~/.ssh/id_ed25519_nas
       '';
     };
+
+    services.ssh-agent.enable = true;
 
     programs.alacritty = {
       enable = true;

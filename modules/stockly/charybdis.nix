@@ -4,5 +4,5 @@ pkgs.writeShellScriptBin "ssh_charybdis.sh" ''
   ${pkgs.procps}/bin/pgrep -f "Charybdis $1" | xargs -r kill;
 
   ${pkgs.alacritty}/bin/alacritty --title "Charybdis $1" -e \
-  sh -c "ssh -q -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s $1'";
+  zsh -c "ssh -q -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s $1'";
 ''
