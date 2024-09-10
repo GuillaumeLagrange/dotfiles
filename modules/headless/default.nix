@@ -71,6 +71,13 @@
         bindkey '^ ' autosuggest-accept
         alias insomnia-gen="ssh charybdis 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp charybdis:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
 
+        function update_environment_from_tmux() {
+          if [ -n "''${TMUX}" ]; then
+            eval "$(tmux show-environment -s)"
+          fi
+        }
+        add-zsh-hook preexec update_environment_from_tmux
+
         ${pkgs.fastfetch}/bin/fastfetch
       '';
     };

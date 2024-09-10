@@ -64,7 +64,7 @@
           modules = [
             {
               gui.enable = false;
-              programs.zsh.oh-my-zsh.theme = "gnzsh";
+              programs.zsh.oh-my-zsh.theme = "gnzh";
             }
             stylix.homeManagerModules.stylix
             ./modules/stylix/common.nix
