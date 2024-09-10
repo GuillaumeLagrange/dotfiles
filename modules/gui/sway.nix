@@ -64,6 +64,13 @@ in
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";
               always = true;
             }
+            {
+              command = ''
+                ${pkgs.procps}/bin/pgrep wpaperd | xargs -r kill &&\
+                ${pkgs.wpaperd}/bin/wpaperd
+              '';
+              always = true;
+            }
           ];
           input = {
             "type:keyboard" = {

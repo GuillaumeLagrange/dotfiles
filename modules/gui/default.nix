@@ -368,5 +368,15 @@
         default-timeout=5000
       '';
     };
+
+    programs.wpaperd = {
+      enable = true;
+      settings = {
+        default = {
+          path = ./wallpapers;
+          duration = "1h";
+        };
+      };
+    };
   };
 }
