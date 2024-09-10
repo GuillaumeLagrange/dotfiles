@@ -22,6 +22,8 @@
 
     home.sessionVariables = {
       EDITOR = "nvim";
+      # Allows nh to find the flake
+      FLAKE = "$HOME/dotfiles";
     };
 
     xdg.userDirs = {

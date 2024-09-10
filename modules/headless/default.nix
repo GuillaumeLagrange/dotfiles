@@ -23,6 +23,7 @@
       tree
       killall
       usbutils
+      nh
 
       # Nvim cross-project basics
       luajitPackages.luarocks
