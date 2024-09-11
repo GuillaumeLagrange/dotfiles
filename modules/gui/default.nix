@@ -39,6 +39,7 @@
       dbeaver-bin
       networkmanagerapplet
       blueman
+      ddcutil
     ];
 
     home.file = {
@@ -172,22 +173,22 @@
           lockTimeout = 60 * 10; # 10 minutes
           screenOffTimeout = 10;
           suspendTimeout = 2 * lockTimeout;
-          screenOffCommand = "swaymsg 'output * dpms off'";
-          screenOnCommand = "swaymsg 'output * dpms on'";
+          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off'";
+          screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on'";
         in
         [
           {
             timeout = lockTimeout;
-            command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+            command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh &";
           }
           {
             timeout = lockTimeout + screenOffTimeout;
-            command = "export PATH=/usr/bin && if pgrep -x swaylock; then ${screenOffCommand}; fi";
+            command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
             resumeCommand = "PATH=/usr/bin ${screenOnCommand}";
           }
           {
             timeout = screenOffTimeout;
-            command = "export PATH=/usr/bin && if pgrep -x swaylock; then ${screenOffCommand}; fi";
+            command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
             resumeCommand = "PATH=/usr/bin ${screenOnCommand}";
           }
           {

@@ -124,6 +124,7 @@ in
     extraGroups = [
       "networkmanager"
       "wheel"
+      "i2c"
       jlinkGroup
     ];
     shell = pkgs.zsh;
@@ -164,6 +165,7 @@ in
   system.stateVersion = "24.05";
 
   hardware.bluetooth.enable = true;
+  hardware.i2c.enable = true;
 
   # Enable OpenGL
   hardware.graphics.enable = true;
