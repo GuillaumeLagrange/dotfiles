@@ -40,6 +40,7 @@
       networkmanagerapplet
       blueman
       ddcutil
+      libreoffice
     ];
 
     home.file = {
