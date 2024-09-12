@@ -354,8 +354,7 @@
     programs.chromium.enable = true;
 
     programs.vscode = {
-      enable = true;
-      package = pkgs.vscode.fhs;
+      enable = false;
     };
 
     services.mako = {
