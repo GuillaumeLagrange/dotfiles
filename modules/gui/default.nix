@@ -31,6 +31,7 @@
       proton-pass
       protonvpn-gui
       transmission_4-gtk
+      transmission-remote-gtk
       adwaita-icon-theme
       calibre
       gnome-themes-extra
