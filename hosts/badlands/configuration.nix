@@ -160,6 +160,8 @@ in
     sbctl
     comma
     home-manager
+    # iOS tethering
+    libimobiledevice
   ];
 
   system.stateVersion = "24.05";
@@ -186,4 +188,7 @@ in
     # require enabling PolKit integration on some desktop environments (e.g. Plasma).
     polkitPolicyOwners = [ userName ];
   };
+
+  # iOS tethering
+  services.usbmuxd.enable = true;
 }
