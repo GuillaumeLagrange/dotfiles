@@ -118,6 +118,9 @@
         ".envrc"
         ".direnv/*"
         "*.swp"
+        ".pre-commit-config.yaml"
+        ".taplo.toml"
+        "Session.vim"
       ];
     };
 
