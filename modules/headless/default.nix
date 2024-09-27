@@ -14,7 +14,6 @@
       gcc
       fswatch
       tig
-      lazygit
       ripgrep
       fd
       zip
@@ -84,8 +83,19 @@
     };
     home.shellAliases = {
       lg = "lazygit";
+      lgl = "lazygit log";
+      lgb = "lazygit branch";
       grst = "git reset";
       grst1 = "git reset HEAD~1";
+    };
+
+    programs.lazygit = {
+      enable = true;
+      settings = {
+        gui.theme = {
+          selectedLineBgColor = [ "reverse" ];
+        };
+      };
     };
 
     programs.direnv = {
