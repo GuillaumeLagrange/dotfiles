@@ -361,6 +361,8 @@
 
     programs.chromium.enable = true;
 
+    programs.feh.enable = true;
+
     programs.vscode = {
       enable = false;
     };
