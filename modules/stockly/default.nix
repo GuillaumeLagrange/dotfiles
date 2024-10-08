@@ -55,6 +55,25 @@ in
           cargo machete && \
           cd -
         }
+
+        function review() {
+          if [ -z "$1" ]; then
+              echo "Usage: review <prefix>"
+              return 1
+          fi
+
+          git fetch --all
+
+          local branch_name
+          branch_name=$(git branch --list --remote "*/$1-*" | head -n 1 | sed 's/^\* //;s/ //g;s|^[^/]*/||')
+
+          if [ -z "$branch_name" ]; then
+              echo "No branch found matching pattern: $1-*"
+              return 1
+          fi
+
+          git switch "$branch_name" && git pull && git merge origin/master && git push
+        }
       '';
     };
 
