@@ -41,8 +41,6 @@ in
 
   # Set your time zone.
   time.timeZone = "Europe/Paris";
-  # Avoid time travellingl
-  time.hardwareClockInLocalTime = true;
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
