@@ -91,6 +91,9 @@
             LocalForward 2528 localhost:2528   # Backoffice GRCP
             LocalForward 2529 localhost:2529   # Backoffice HTTP
             LocalForward 2541 localhost:2541   # Backoffice Front
+            LocalForward 2538 localhost:2538   # Consumer Backoffice GRCP
+            LocalForward 2539 localhost:2539   # Consumer Backoffice HTTP
+            LocalForward 2542 localhost:2542   # Consumer Backoffice Front
             LocalForward 2545 localhost:2545   # Meilisearch
 
             LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
