@@ -91,7 +91,7 @@ in
       '')
 
       (pkgs.callPackage ./insomnia.nix { })
-      (pkgs.callPackage ./charybdis.nix { })
+      (pkgs.callPackage ./monster.nix { inherit lib; })
     ];
   };
 }

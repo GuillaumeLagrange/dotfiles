@@ -23,6 +23,7 @@
       killall
       usbutils
       nh
+      rustup
 
       # Nvim cross-project basics
       luajitPackages.luarocks
@@ -69,7 +70,7 @@
 
       initExtra = ''
         bindkey '^ ' autosuggest-accept
-        alias insomnia-gen="ssh charybdis 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp charybdis:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
+        alias insomnia-gen="ssh cerberus 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp cerberus:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
 
         function update_environment_from_tmux() {
           if [ -n "''${TMUX}" ]; then

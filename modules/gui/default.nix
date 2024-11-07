@@ -70,7 +70,20 @@
           hostname = "192.168.1.10";
           user = "guillaume";
           forwardAgent = true;
-          identityFile = "~/.ssh/id_ed25519_charybdis";
+          identityFile = "~/.ssh/id_ed25519_monster";
+        };
+        cerberusRemote = lib.hm.dag.entryBefore [ "cerberus" ] {
+          match = ''originalhost cerberus exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"'';
+          hostname = "cerberus.stockly.tech";
+          port = 24;
+          compression = true;
+        };
+        cerberus = {
+          port = 22;
+          hostname = "192.168.1.12";
+          user = "guillaume";
+          forwardAgent = true;
+          identityFile = "~/.ssh/id_ed25519_monster";
         };
         nas = {
           hostname = "192.168.1.15";
@@ -98,6 +111,23 @@
 
             LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
 
+        # Cerberus
+        Host cerberus
+            LocalForward 1574 localhost:1574   # Operations GRPC
+            LocalForward 1576 localhost:1576   # Auths GRPC
+            LocalForward 1577 localhost:1577   # Auths HTTP
+            LocalForward 1580 localhost:1580   # Shipments GRPC
+            LocalForward 1584 localhost:1584   # Files GRPC
+            LocalForward 1585 localhost:1585   # Files HTTP
+            LocalForward 1578 localhost:1578   # Backoffice GRCP
+            LocalForward 1579 localhost:1579   # Backoffice HTTP
+            LocalForward 1591 localhost:1591   # Backoffice Front
+            LocalForward 1588 localhost:1588   # Consumer Backoffice GRCP
+            LocalForward 1589 localhost:1589   # Consumer Backoffice HTTP
+            LocalForward 1592 localhost:1592   # Consumer Backoffice Front
+            LocalForward 1595 localhost:1595   # Meilisearch
+
+            LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
       '';
     };
 

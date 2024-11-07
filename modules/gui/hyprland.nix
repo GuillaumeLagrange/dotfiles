@@ -6,6 +6,7 @@
 }:
 let
   lock_script = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+  monster_name = "Cerberus";
 in
 {
   options = {
@@ -201,8 +202,8 @@ in
           ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%+"
           ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%- -n 1"
           # Stockly helpers
-          "$mainMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"Charybdis nvim\" -e sh -c \"ssh -o ClearAllForwardings=yes -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s nvim'\""
-          "$shiftMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"Charybdis bo\" -e sh -c \"ssh -q -t charybdis 'exec env LANG=C.UTF-8 tmux new-session -A -s bo'\""
+          "$mainMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"${monster_name} nvim\" -e sh -c \"ssh -o ClearAllForwardings=yes -t ${lib.toLower monster_name} 'exec env LANG=C.UTF-8 tmux new-session -A -s nvim'\""
+          "$shiftMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"${monster_name} bo\" -e sh -c \"ssh -q -t ${lib.toLower monster_name} 'exec env LANG=C.UTF-8 tmux new-session -A -s bo'\""
 
           # Move focus with mainMod + arrow keys
           "$mainMod, H, movefocus, l"

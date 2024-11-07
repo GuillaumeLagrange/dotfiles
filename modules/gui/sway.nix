@@ -6,7 +6,7 @@
 }:
 let
   lock = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
-  ssh_charybdis = "${(import ../stockly/charybdis.nix { inherit pkgs; })}/bin/ssh_charybdis.sh";
+  ssh_monster = "${(import ../stockly/monster.nix { inherit pkgs lib; })}/bin/ssh_monster.sh";
   move-to-bottom-right = "${
     (import ./move-to-bottom-right.nix { inherit pkgs; })
   }/bin/move-to-bottom-right.sh";
@@ -37,8 +37,8 @@ in
             "${modifier}+v" = "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
             "Print" = "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "Shift+Print" = "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
-            "${modifier}+backslash" = "workspace 3; exec ${ssh_charybdis} nvim";
-            "${modifier}+Shift+backslash" = "workspace 2; exec ${ssh_charybdis} bo";
+            "${modifier}+backslash" = "workspace 3; exec ${ssh_monster} nvim";
+            "${modifier}+Shift+backslash" = "workspace 2; exec ${ssh_monster} bo";
             "${modifier}+Tab" = "exec ${pkgs.wofi-emoji}/bin/wofi-emoji";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu wofi -d -p 'Choose Action: '";
