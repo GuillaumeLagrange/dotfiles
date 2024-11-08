@@ -139,6 +139,7 @@
     services.gpg-agent = {
       enable = true;
       enableExtraSocket = true;
+      pinentryPackage = pkgs.pinentry-gtk2;
     };
 
     programs.alacritty = {

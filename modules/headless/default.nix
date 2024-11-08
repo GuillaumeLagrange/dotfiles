@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  ssh_signing_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGLfMTgL6YtQh1YfA3P//TuZk+VcZzRGiK3dbC0Y2HT0 guillaume@nixos";
+in
 {
   options = {
     headless.enable = lib.mkEnableOption "tools to work in a headless environment";
@@ -116,14 +119,18 @@
       enableAliases = true;
     };
 
+    home.file.".ssh/allowed_signers".text = "* ${ssh_signing_public_key}";
     programs.git = {
       enable = true;
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
       extraConfig = {
-        push = {
-          autoSetupRemote = true;
-        };
+        commit.gpgsign = true;
+        gpg.format = "ssh";
+        gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
+        user.signingkey = ssh_signing_public_key;
+        log.showSignature = true;
+        push.autoSetupRemote = true;
       };
       ignores = [
         ".envrc"
