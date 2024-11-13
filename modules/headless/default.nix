@@ -58,6 +58,10 @@ in
       enable = true;
       autosuggestion.enable = true;
       history.size = 100000;
+      syntaxHighlighting = {
+        enable = true;
+        highlighters = [ "main" ];
+      };
       oh-my-zsh = {
         enable = true;
         theme = lib.mkDefault "bira";
@@ -70,7 +74,6 @@ in
           "systemd"
         ];
       };
-
       initExtra = ''
         bindkey '^ ' autosuggest-accept
         alias insomnia-gen="ssh cerberus 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp cerberus:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
