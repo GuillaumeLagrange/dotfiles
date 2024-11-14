@@ -37,6 +37,7 @@
       adwaita-icon-theme
       calibre
       gnome-themes-extra
+      gnome-tweaks
       wdisplays
       pavucontrol
       dbeaver-bin
@@ -300,5 +301,7 @@
         };
       };
     };
+
+    services.syncthing.enable = true;
   };
 }
