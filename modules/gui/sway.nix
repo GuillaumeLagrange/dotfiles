@@ -33,7 +33,7 @@ in
           keybindings = {
             "${modifier}+Return" = "exec ${pkgs.alacritty}/bin/alacritty";
             "${modifier}+Shift+a" = "kill";
-            "${modifier}+d" = "exec ${pkgs.wofi}/bin/wofi --show drun";
+            "${modifier}+d" = "exec ${pkgs.wofi}/bin/wofi --show drun --insensitive";
             "${modifier}+v" = "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
             "Print" = "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "Shift+Print" = "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
