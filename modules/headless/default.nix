@@ -27,6 +27,7 @@ in
       usbutils
       nh
       rustup
+      git-absorb
 
       # Nvim cross-project basics
       luajitPackages.luarocks
@@ -133,6 +134,8 @@ in
         gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
         user.signingkey = ssh_signing_public_key;
         log.showSignature = true;
+        rebase.autosquash = true;
+        absorb.autoStageIfNothingStaged = true;
         push.autoSetupRemote = true;
       };
       ignores = [
