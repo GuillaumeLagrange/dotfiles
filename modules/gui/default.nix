@@ -45,6 +45,7 @@
       blueman
       ddcutil
       libreoffice
+      d-spy
     ];
 
     home.file = {
