@@ -276,9 +276,7 @@
 
     programs.feh.enable = true;
 
-    programs.vscode = {
-      enable = false;
-    };
+    programs.vscode.enable = true;
 
     services.mako = {
       enable = true;
