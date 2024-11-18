@@ -28,6 +28,7 @@ in
       nh
       rustup
       git-absorb
+      devenv
 
       # Nvim cross-project basics
       luajitPackages.luarocks

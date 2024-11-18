@@ -34,6 +34,10 @@ in
     "flakes"
   ];
 
+  nix.extraOptions = ''
+    trusted-users = root guillaume
+  '';
+
   networking.hostName = "badlands";
 
   # Enable networking
