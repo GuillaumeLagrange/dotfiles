@@ -61,6 +61,7 @@ in
             { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
             { command = "${pkgs.mako}/bin/mako"; }
+            { command = "${pkgs.spotify}/bin/spotify"; }
             # Set keyboard layout here because nix cannot find qwerty-fr in the input block
             {
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";

@@ -82,10 +82,40 @@ in
 
         function update_environment_from_tmux() {
           if [ -n "''${TMUX}" ]; then
-            eval "$(tmux show-environment -s)"
+            eval "$(${pkgs.tmux}/bin/tmux show-environment -s)"
           fi
         }
         add-zsh-hook preexec update_environment_from_tmux
+
+        __tmux_fzf_get_session__() {
+            session=$(tmux list-sessions -F "#{session_name}" 2>/dev/null |
+                fzf --exit-0 --height 10)
+            echo "$session"
+        }
+
+        # Tmux session switcher (`tms foo` attaches to `foo` if exists, else creates it)
+        tms() {
+            [[ -n "$TMUX" ]] && change="switch-client" || change="attach-session"
+            if [[ -n "$1" ]]; then
+                if [[ "$1" == "-ask" ]]; then
+                    read -r -p "New tmux session name: " session_name
+                else
+                    session_name="$1"
+                fi
+                tmux $change -t "$session_name" 2>/dev/null || \
+                  (tmux new-session -d -s "$session_name" && \
+                  tmux $change -t "$session_name");
+                return
+            fi
+            session=$(eval __tmux_fzf_get_session__)
+            tmux $change -t "$session" || echo "No sessions found."
+        }
+
+        # Tmux session killer
+        tmk() {
+            session=$(eval __tmux_fzf_get_session__)
+            tmux kill-session -t "$session"
+        }
 
         ${pkgs.fastfetch}/bin/fastfetch
       '';
@@ -164,10 +194,16 @@ in
       terminal = "screen-256color";
       baseIndex = 1;
       extraConfig = builtins.readFile ./tmux.conf;
-      plugins = [
-        pkgs.tmuxPlugins.vim-tmux-navigator
-        pkgs.tmuxPlugins.gruvbox
-        pkgs.tmuxPlugins.fzf-tmux-url
+      plugins = with pkgs; [
+        tmuxPlugins.vim-tmux-navigator
+        tmuxPlugins.gruvbox
+        tmuxPlugins.tmux-fzf
+        tmuxPlugins.fzf-tmux-url
+        tmuxPlugins.resurrect
+        {
+          plugin = tmuxPlugins.continuum;
+          extraConfig = "set -g @continuum-restore 'on'";
+        }
       ];
     };
 
