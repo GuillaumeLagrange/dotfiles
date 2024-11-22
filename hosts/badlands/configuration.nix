@@ -125,6 +125,7 @@ in
       "networkmanager"
       "wheel"
       "i2c"
+      "docker"
       jlinkGroup
     ];
     shell = pkgs.zsh;
@@ -191,4 +192,6 @@ in
 
   # iOS tethering
   services.usbmuxd.enable = true;
+
+  virtualisation.docker.enable = true;
 }

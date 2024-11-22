@@ -23,29 +23,30 @@
     waybar.enable = true;
 
     home.packages = with pkgs; [
-      telegram-desktop
+      adwaita-icon-theme
+      blueman
+      calibre
+      d-spy
+      dbeaver-bin
+      ddcutil
       discord
-      spotify
-      qwerty-fr
-      wev
-      wl-clipboard
+      gnome-themes-extra
+      gnome-tweaks
+      libreoffice
+      networkmanagerapplet
+      pavucontrol
       playerctl
       proton-pass
       protonvpn-gui
-      transmission_4-gtk
+      qwerty-fr
+      spotify
+      telegram-desktop
       transmission-remote-gtk
-      adwaita-icon-theme
-      calibre
-      gnome-themes-extra
-      gnome-tweaks
+      transmission_4-gtk
+      vlc
       wdisplays
-      pavucontrol
-      dbeaver-bin
-      networkmanagerapplet
-      blueman
-      ddcutil
-      libreoffice
-      d-spy
+      wev
+      wl-clipboard
     ];
 
     home.file = {
@@ -150,6 +151,7 @@
         mouse.hide_when_typing = true;
         env.TERM = "xterm-256color";
         window = {
+          dynamic_title = false;
           startup_mode = "Maximized";
           padding = {
             x = 0;

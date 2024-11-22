@@ -12,31 +12,37 @@ in
     headless.enable = lib.mkEnableOption "tools to work in a headless environment";
   };
 
+  imports = [
+    ./tmux.nix
+  ];
+
   config = lib.mkIf config.headless.enable {
+    tmux.enable = true;
+
     home.packages = with pkgs; [
-      gcc
-      fswatch
-      tig
-      ripgrep
-      fd
-      zip
-      unzip
-      jq
-      tree
-      killall
-      usbutils
-      nh
-      rustup
-      git-absorb
       devenv
+      fd
+      fswatch
+      gcc
+      git-absorb
+      jq
+      killall
+      nh
+      ripgrep
+      rustup
+      tig
+      tree
+      unzip
+      usbutils
+      zip
 
       # Nvim cross-project basics
-      luajitPackages.luarocks
-      stylua
       lua-language-server
+      luajitPackages.luarocks
       nixd
       nixfmt-rfc-style
       nodejs_22
+      stylua
       vscode-langservers-extracted
     ];
 
@@ -80,41 +86,13 @@ in
         bindkey '^ ' autosuggest-accept
         alias insomnia-gen="ssh cerberus 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp cerberus:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
 
-        function update_environment_from_tmux() {
-          if [ -n "''${TMUX}" ]; then
-            eval "$(${pkgs.tmux}/bin/tmux show-environment -s)"
+        # Auto use poetry env
+        function vim() {
+          if [[ -f "pyproject.toml" ]] && poetry env info --path &>/dev/null; then
+            poetry run vim "$@"
+          else
+            command vim "$@"
           fi
-        }
-        add-zsh-hook preexec update_environment_from_tmux
-
-        __tmux_fzf_get_session__() {
-            session=$(tmux list-sessions -F "#{session_name}" 2>/dev/null |
-                fzf --exit-0 --height 10)
-            echo "$session"
-        }
-
-        # Tmux session switcher (`tms foo` attaches to `foo` if exists, else creates it)
-        tms() {
-            [[ -n "$TMUX" ]] && change="switch-client" || change="attach-session"
-            if [[ -n "$1" ]]; then
-                if [[ "$1" == "-ask" ]]; then
-                    read -r -p "New tmux session name: " session_name
-                else
-                    session_name="$1"
-                fi
-                tmux $change -t "$session_name" 2>/dev/null || \
-                  (tmux new-session -d -s "$session_name" && \
-                  tmux $change -t "$session_name");
-                return
-            fi
-            session=$(eval __tmux_fzf_get_session__)
-            tmux $change -t "$session" || echo "No sessions found."
-        }
-
-        # Tmux session killer
-        tmk() {
-            session=$(eval __tmux_fzf_get_session__)
-            tmux kill-session -t "$session"
         }
 
         ${pkgs.fastfetch}/bin/fastfetch
@@ -184,27 +162,6 @@ in
       viAlias = true;
       vimAlias = true;
       defaultEditor = true;
-    };
-
-    programs.tmux = {
-      enable = true;
-      newSession = true;
-      mouse = true;
-      keyMode = "vi";
-      terminal = "screen-256color";
-      baseIndex = 1;
-      extraConfig = builtins.readFile ./tmux.conf;
-      plugins = with pkgs; [
-        tmuxPlugins.vim-tmux-navigator
-        tmuxPlugins.gruvbox
-        tmuxPlugins.tmux-fzf
-        tmuxPlugins.fzf-tmux-url
-        tmuxPlugins.resurrect
-        {
-          plugin = tmuxPlugins.continuum;
-          extraConfig = "set -g @continuum-restore 'on'";
-        }
-      ];
     };
 
     programs.htop = {

@@ -58,6 +58,12 @@ in
             "${modifier}+Shift+equal" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05+";
             "${modifier}+Shift+minus" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05-";
 
+            # Audio controls
+            "XF86AudioPause" = "exec ${pkgs.playerctl}/bin/playerctl pause";
+            "XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl play-pause";
+            "XF86AudioNext" = "exec ${pkgs.playerctl}/bin/playerctl next";
+            "XF86AudioPrev" = "exec ${pkgs.playerctl}/bin/playerctl previous";
+
             "${modifier}+Ctrl+p" = "exec ${move-to-bottom-right}";
           };
           startup = [
@@ -68,6 +74,7 @@ in
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
             { command = "${pkgs.mako}/bin/mako"; }
             { command = "${pkgs.spotify}/bin/spotify"; }
+            { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }
             # Set keyboard layout here because nix cannot find qwerty-fr in the input block
             {
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";
@@ -95,6 +102,13 @@ in
             };
           };
           window.commands = [
+            # Does not work, keeping this around just in case
+            {
+              command = "urgent disable";
+              criteria = {
+                app_id = "Alacritty";
+              };
+            }
             {
               command = "floating enable, border pixel 1, sticky enable, exec ${move-to-bottom-right}, move scratchpad, scratchpad show";
               criteria = {

@@ -50,7 +50,7 @@
 
           "mpris" = {
             "format" = " {player_icon} {status_icon} {dynamic} ";
-            "ignored-players" = [ ];
+            "player" = "spotify";
             "player-icons" = {
               "default" = " ";
               "spotify" = " ";
