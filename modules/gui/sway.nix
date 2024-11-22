@@ -22,6 +22,7 @@ in
         modifier = "Mod4";
         volumeNotification = "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
         backlightStep = "10";
+        spotifyVolumeStep = "0.05";
       in
       {
         enable = true;
@@ -52,11 +53,12 @@ in
             "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%+";
             "XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%- -n 1";
 
-            # Spotify volume
-            "Shift+XF86AudioRaiseVolume" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05+";
-            "Shift+XF86AudioLowerVolume" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05-";
-            "${modifier}+Shift+equal" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05+";
-            "${modifier}+Shift+minus" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume 0.05-";
+            # Spotify control
+            "Shift+XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify play-pause";
+            "Shift+XF86AudioRaiseVolume" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}+";
+            "Shift+XF86AudioLowerVolume" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}-";
+            "${modifier}+Shift+equal" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}+";
+            "${modifier}+Shift+minus" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}-";
 
             # Audio controls
             "XF86AudioPause" = "exec ${pkgs.playerctl}/bin/playerctl pause";
