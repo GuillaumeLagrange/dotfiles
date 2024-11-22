@@ -9,9 +9,9 @@ inputs.nixpkgs.lib.nixosSystem rec {
     inputs.lanzaboote.nixosModules.lanzaboote
     inputs.home-manager.nixosModules.home-manager
     inputs.stylix.nixosModules.stylix
-    inputs.nix-index-database.nixosModules.nix-index
-    { programs.nix-index-database.comma.enable = true; }
     ../../modules/stylix/common.nix
     ./configuration.nix
+    inputs.nix-index-database.nixosModules.nix-index
+    { programs.nix-index-database.comma.enable = true; }
   ];
 }
