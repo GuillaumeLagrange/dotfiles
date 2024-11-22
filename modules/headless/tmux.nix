@@ -37,7 +37,7 @@
         modifier = "Mod4";
       in
       {
-        "${modifier}+Shift+Return" = "exec ${pkgs.alacritty}/bin/alacritty -e zsh -i -c tsm";
+        "${modifier}+Shift+Return" = "exec ${config.term} -e zsh -i -c tsm";
       };
 
     programs.zsh.initExtra = ''

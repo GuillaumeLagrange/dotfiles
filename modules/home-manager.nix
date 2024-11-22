@@ -12,6 +12,12 @@
     ./stylix/home-manager.nix
   ];
 
+  options.term = lib.mkOption {
+    type = lib.types.str;
+    default = "${pkgs.kitty}/bin/kitty --title Kitty";
+    description = "A shared term value";
+  };
+
   config = {
     home.username = lib.mkDefault "guillaume";
     home.homeDirectory = lib.mkDefault "/home/guillaume";
@@ -39,8 +45,21 @@
       createDirectories = false;
     };
 
+    fonts.fontconfig = {
+      enable = true;
+      defaultFonts = {
+        monospace = [
+          "Hack Nerd Font"
+          "Noto Color Emoji"
+        ];
+        emoji = [
+          "Noto Color Emoji"
+        ];
+      };
+    };
+
     programs.home-manager.enable = true;
 
-    home.stateVersion = "23.11"; # Please read the comment before changing.
+    home.stateVersion = "23.11"; # Do not touch this
   };
 }

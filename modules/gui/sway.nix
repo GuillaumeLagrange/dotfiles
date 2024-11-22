@@ -6,7 +6,7 @@
 }:
 let
   lock = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
-  ssh_monster = "${(import ../stockly/monster.nix { inherit pkgs lib; })}/bin/ssh_monster.sh";
+  ssh_monster = "${(import ../stockly/monster.nix { inherit pkgs lib config; })}/bin/ssh_monster.sh";
   move-to-bottom-right = "${
     (import ./move-to-bottom-right.nix { inherit pkgs; })
   }/bin/move-to-bottom-right.sh";
@@ -32,7 +32,7 @@ in
           modifier = modifier;
           floating.modifier = modifier;
           keybindings = {
-            "${modifier}+Return" = "exec ${pkgs.alacritty}/bin/alacritty";
+            "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
             "${modifier}+d" = "exec ${pkgs.wofi}/bin/wofi --show drun --insensitive";
             "${modifier}+v" = "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
@@ -104,13 +104,6 @@ in
             };
           };
           window.commands = [
-            # Does not work, keeping this around just in case
-            {
-              command = "urgent disable";
-              criteria = {
-                app_id = "Alacritty";
-              };
-            }
             {
               command = "floating enable, border pixel 1, sticky enable, exec ${move-to-bottom-right}, move scratchpad, scratchpad show";
               criteria = {

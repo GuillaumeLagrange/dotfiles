@@ -91,7 +91,9 @@ in
       '')
 
       (pkgs.callPackage ./insomnia.nix { })
-      (pkgs.callPackage ./monster.nix { inherit lib; })
+      (pkgs.callPackage ./monster.nix {
+        inherit pkgs lib config;
+      })
     ];
   };
 }

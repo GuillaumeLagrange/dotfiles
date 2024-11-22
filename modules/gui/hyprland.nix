@@ -17,7 +17,7 @@ in
     wayland.windowManager.hyprland = {
       enable = true;
       settings = {
-        "$terminal" = "${pkgs.alacritty}/bin/alacritty";
+        "$terminal" = "${config.term}";
         "$mainMod" = "SUPER";
         "$shiftMod" = "SUPER_SHIFT";
         "$ctrlMod" = "SUPER_CTRL";
