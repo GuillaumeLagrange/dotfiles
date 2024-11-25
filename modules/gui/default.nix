@@ -172,6 +172,7 @@
         confirm_os_window_close = 0;
         enable_audio_bell = "no";
         window_alert_on_bell = "no";
+        mouse_hide_wait = 0.5;
       };
     };
 
