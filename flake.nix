@@ -36,8 +36,6 @@
         inherit system;
         config = {
           allowUnfree = true;
-          segger-jlink.acceptLicense = true;
-          permittedInsecurePackages = [ "segger-jlink-qt4-796s" ];
         };
       };
       pkgs-datagrip = import nixpkgs-datagrip {
