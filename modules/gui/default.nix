@@ -33,6 +33,7 @@
       gnome-themes-extra
       gnome-tweaks
       libreoffice
+      lutris
       networkmanagerapplet
       pavucontrol
       playerctl
