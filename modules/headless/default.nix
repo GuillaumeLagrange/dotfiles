@@ -158,6 +158,7 @@ in
         ".pre-commit-config.yaml"
         ".taplo.toml"
         "Session.vim"
+        ".nvim.lua"
       ];
     };
 
