@@ -21,10 +21,18 @@ pkgs.writeShellScriptBin "move-to-bottom-right.sh" ''
   screen_width=$(${swaymsg} --t get_outputs | jq '.[] | select(.focused).rect.width')
   screen_height=$(${swaymsg} -t get_outputs | jq '.[] | select(.focused).rect.height')
 
-  # Calculate the size and position
+  # Get the current window dimensions
+  window_rect=$(${swaymsg} -t get_tree | jq '.. | select(.type?) | select(.focused==true).rect')
+  window_width=$(echo "$window_rect" | jq '.width')
+  window_height=$(echo "$window_rect" | jq '.height')
+
+  # Calculate the new width and height while keeping the aspect ratio
   new_width=$(echo "$screen_width * $PERCENT / 1" | ${bc})
-  new_height=$(echo "$screen_height * $PERCENT / 1" | ${bc})
+  new_height=$(echo "$window_height * $new_width / $window_width" | ${bc})
+
+  # Calculate the position to move the window to the bottom-right corner
   x_position=$(echo "$screen_width - $new_width / 1 - 12" | ${bc})
+  # TODO: Manage extremely high ratios not working because y becomes negative
   y_position=$(echo "$screen_height - $new_height / 1 - 32" | ${bc})
 
   # Resize and reposition the window
