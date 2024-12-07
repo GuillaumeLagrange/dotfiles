@@ -25,6 +25,7 @@
     home.packages = with pkgs; [
       adwaita-icon-theme
       blueman
+      btop
       calibre
       d-spy
       dbeaver-bin
