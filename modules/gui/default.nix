@@ -49,6 +49,9 @@
       wdisplays
       wev
       wl-clipboard
+
+      # codelldb debugger
+      vscode-extensions.vadimcn.vscode-lldb.adapter
     ];
 
     home.file = {
