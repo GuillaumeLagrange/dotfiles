@@ -25,6 +25,7 @@ in
       fswatch
       gcc
       git-absorb
+      gnumake
       jq
       killall
       nh
@@ -100,6 +101,7 @@ in
         fi
 
         ${pkgs.fastfetch}/bin/fastfetch
+        ${pkgs.fortune}/bin/fortune | ${pkgs.cowsay}/bin/cowsay | ${pkgs.lolcat}/bin/lolcat
       '';
     };
     home.shellAliases = {
