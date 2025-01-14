@@ -76,6 +76,7 @@
 
       nixosConfigurations = {
         badlands = import ./hosts/badlands/default.nix { inherit inputs; };
+        snakewater = import ./hosts/snakewater/default.nix { inherit inputs; };
       };
 
     };
