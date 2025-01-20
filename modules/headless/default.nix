@@ -37,6 +37,13 @@ in
       usbutils
       zip
 
+      # Codspeed to sort
+      yubioath-flutter
+      yubikey-manager
+
+      granted
+      git-lfs
+
       # Nvim cross-project basics
       lua-language-server
       luajitPackages.luarocks
@@ -145,10 +152,11 @@ in
       userName = "Guillaume Lagrange";
       extraConfig = {
         commit.gpgsign = true;
-        gpg.format = "ssh";
+        # gpg.format = "ssh";
         gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
-        user.signingkey = ssh_signing_public_key;
-        log.showSignature = true;
+        # user.signingkey = ssh_signing_public_key;
+        user.signingkey = "F2D858FB8D9616ED";
+        # log.showSignature = true;
         rebase.autosquash = true;
         absorb.autoStageIfNothingStaged = true;
         push.autoSetupRemote = true;

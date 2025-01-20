@@ -99,6 +99,10 @@ in
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
+  # Yubikey management
+  services.udev.packages = [ pkgs.yubikey-personalization ];
+  services.pcscd.enable = true;
+
   services.udev.extraRules = ''
     # Allow non-root users to access SEGGER J-Link
     SUBSYSTEM=="usb", ATTR{idVendor}=="1366", ATTR{idProduct}=="0105", MODE="0666", GROUP="${jlinkGroup}"
@@ -139,7 +143,7 @@ in
 
   home-manager.users.${userName} = import ../../modules/home-manager.nix;
 
-  programs.firefox.enable = true;
+  # programs.firefox.enable = true;
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;

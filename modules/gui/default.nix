@@ -151,8 +151,9 @@
     programs.gpg.enable = true;
     services.gpg-agent = {
       enable = true;
+      enableSshSupport = true;
       enableExtraSocket = true;
-      pinentryPackage = pkgs.pinentry-gtk2;
+      pinentryPackage = pkgs.pinentry-qt;
     };
 
     programs.alacritty = {

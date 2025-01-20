@@ -24,7 +24,7 @@
 
     headless.enable = lib.mkDefault true;
     gui.enable = lib.mkDefault true;
-    stockly.enable = lib.mkDefault true;
+    stockly.enable = lib.mkDefault false;
 
     home.sessionVariables = {
       EDITOR = "nvim";
