@@ -92,7 +92,6 @@ in
       };
       initExtra = ''
         bindkey '^ ' autosuggest-accept
-        alias insomnia-gen="ssh cerberus 'source ~/.zshrc && cdr dev_tools/InsomniaConfig && cargo run --release -- --certs-path /home/guillaume/stockly/Main/StocklyContinuousDeployment/certificates' && scp cerberus:stockly/Main/dev_tools/InsomniaConfig/insomnia_collection.json ~/"
 
         # Auto use poetry env
         function vim() {
@@ -115,6 +114,9 @@ in
       lg = "lazygit";
       lgl = "lazygit log";
       lgb = "lazygit branch";
+      # Git aliases
+      grbim = "git rebase -i $(git_main_branch)";
+      grbiom = "git rebase -i origin/$(git_main_branch)";
       grst = "git reset";
       grst1 = "git reset HEAD~1";
     };
