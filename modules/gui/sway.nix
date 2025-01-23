@@ -44,15 +44,15 @@ in
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu wofi -d -p 'Choose Action: '";
 
-            "${modifier}+equal" =
+            "--locked ${modifier}+equal" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
-            "${modifier}+minus" =
+            "--locked ${modifier}+minus" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${volumeNotification}";
-            "XF86AudioRaiseVolume" =
+            "--locked XF86AudioRaiseVolume" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
-            "XF86AudioLowerVolume" =
+            "--locked XF86AudioLowerVolume" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${volumeNotification}";
-            "XF86AudioMute" =
+            "--locked XF86AudioMute" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && ${volumeNotification}";
 
             "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%+";
@@ -62,21 +62,21 @@ in
             "Shift+XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set 1";
 
             # Spotify control
-            "Shift+XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify play-pause";
-            "Shift+XF86AudioRaiseVolume" =
+            "--locked Shift+XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify play-pause";
+            "--locked Shift+XF86AudioRaiseVolume" =
               "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}+";
-            "Shift+XF86AudioLowerVolume" =
+            "--locked Shift+XF86AudioLowerVolume" =
               "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}-";
-            "${modifier}+Shift+equal" =
+            "--locked ${modifier}+Shift+equal" =
               "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}+";
-            "${modifier}+Shift+minus" =
+            "--locked ${modifier}+Shift+minus" =
               "exec ${pkgs.playerctl}/bin/playerctl -p spotify volume ${spotifyVolumeStep}-";
 
             # Audio controls
-            "XF86AudioPause" = "exec ${pkgs.playerctl}/bin/playerctl pause";
-            "XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl play-pause";
-            "XF86AudioNext" = "exec ${pkgs.playerctl}/bin/playerctl next";
-            "XF86AudioPrev" = "exec ${pkgs.playerctl}/bin/playerctl previous";
+            "--locked XF86AudioPause" = "exec ${pkgs.playerctl}/bin/playerctl pause";
+            "--locked XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl play-pause";
+            "--locked XF86AudioNext" = "exec ${pkgs.playerctl}/bin/playerctl next";
+            "--locked XF86AudioPrev" = "exec ${pkgs.playerctl}/bin/playerctl previous";
 
             "${modifier}+Ctrl+p" = "exec ${move-to-bottom-right}";
           };
