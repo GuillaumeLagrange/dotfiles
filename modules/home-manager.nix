@@ -9,6 +9,7 @@
     ./gui
     ./headless
     ./stockly
+    ./codspeed
     ./stylix/home-manager.nix
   ];
 
@@ -24,6 +25,7 @@
 
     headless.enable = lib.mkDefault true;
     gui.enable = lib.mkDefault true;
+    codspeed.enable = lib.mkDefault true;
     stockly.enable = lib.mkDefault false;
 
     home.sessionVariables = {

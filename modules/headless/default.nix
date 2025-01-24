@@ -115,6 +115,7 @@ in
       lgl = "lazygit log";
       lgb = "lazygit branch";
       # Git aliases
+      cdr = "[ -d \"$(git rev-parse --show-toplevel 2>/dev/null)\" ] && cd $(git rev-parse --show-toplevel)";
       grbim = "git rebase -i $(git_main_branch)";
       grbiom = "git rebase -i origin/$(git_main_branch)";
       grst = "git reset";
