@@ -9,7 +9,7 @@
     ./gui
     ./headless
     ./stockly
-    ./codspeed
+    ./codspeed.nix
     ./stylix/home-manager.nix
   ];
 

@@ -117,7 +117,9 @@ in
       # Git aliases
       cdr = "[ -d \"$(git rev-parse --show-toplevel 2>/dev/null)\" ] && cd $(git rev-parse --show-toplevel)";
       grbim = "git rebase -i $(git_main_branch)";
+      "grbim!" = "git rebase --autosquash -i $(git_main_branch)";
       grbiom = "git rebase -i origin/$(git_main_branch)";
+      "grbiom!" = "git rebase --autosquash -i origin/$(git_main_branch)";
       grst = "git reset";
       grst1 = "git reset HEAD~1";
     };
@@ -148,19 +150,13 @@ in
       enableAliases = true;
     };
 
-    home.file.".ssh/allowed_signers".text = "* ${ssh_signing_public_key}";
     programs.git = {
       enable = true;
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
       extraConfig = {
         commit.gpgsign = true;
-        # gpg.format = "ssh";
-        gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
-        # user.signingkey = ssh_signing_public_key;
         user.signingkey = "F2D858FB8D9616ED";
-        # log.showSignature = true;
-        rebase.autosquash = true;
         absorb.autoStageIfNothingStaged = true;
         push.autoSetupRemote = true;
       };
@@ -187,5 +183,7 @@ in
     };
 
     programs.fastfetch.enable = true;
+
+    home.sessionPath = [ "$HOME/.cargo/bin" ];
   };
 }
