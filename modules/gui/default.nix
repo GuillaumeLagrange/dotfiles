@@ -142,11 +142,6 @@
     };
 
     services.ssh-agent.enable = true;
-    programs.zsh.initExtra = ''
-      # Preemptively add the ssh key used for signing commits and gh to avoid having to do a dummy fetch
-      # before comitting or pulling on a remote host
-      ssh-add ~/.ssh/id_ed25519 2> /dev/null
-    '';
 
     programs.gpg.enable = true;
     services.gpg-agent = {
