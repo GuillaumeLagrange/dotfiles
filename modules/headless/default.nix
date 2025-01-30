@@ -52,6 +52,7 @@ in
       nodejs_22
       stylua
       vscode-langservers-extracted
+      taplo
     ];
 
     xdg.configFile = {
