@@ -159,6 +159,7 @@ in
         user.signingkey = "F2D858FB8D9616ED";
         absorb.autoStageIfNothingStaged = true;
         push.autoSetupRemote = true;
+        rebase.updateRefs = true;
       };
       ignores = [
         ".envrc"
