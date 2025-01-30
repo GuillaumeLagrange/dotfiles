@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  tmp_session_regex = "(.*-\\d+)|(\\d+)";
+in
 {
   options = {
     tmux.enable = lib.mkEnableOption "tmux and related configuration";
@@ -13,7 +16,6 @@
 
     programs.tmux = {
       enable = true;
-      newSession = true;
       mouse = true;
       keyMode = "vi";
       terminal = "screen-256color";
@@ -50,9 +52,20 @@
       add-zsh-hook preexec update_environment_from_tmux
 
       __tmux_fzf_get_session__() {
-          session=$(tmux list-sessions -F "#{session_name}" 2>/dev/null |
-              fzf --exit-0 --height 10)
-          echo "$session"
+        local exclude_regex="$1"
+        local sessions
+
+        # Get a list of all tmux sessions
+        sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+
+        # If an exclude regex is provided, filter out matching sessions
+        if [[ -n "$exclude_regex" ]]; then
+            sessions=$(echo "$sessions" | grep -vP "$exclude_regex")
+        fi
+
+        # Use fzf to select a session
+        session=$(echo "$sessions" | fzf --exit-0 --height 10)
+        echo "$session"
       }
 
       # Tmux session manager
@@ -79,8 +92,8 @@
           tsm             # Select and attach to an existing session using fuzzy finder.
           tsm mysession   # Attach to 'mysession' or create a new session with this name.
       EOF
-                return
-            fi
+          return
+        fi
 
 
         [[ -n "$TMUX" ]] && echo 'Already in a tmux session' && return
@@ -94,7 +107,7 @@
         # Call without an argument to select an existing session to attach to
         # The created session will be an ephemeral session, to allow opening a single sessions
         # multiple time without coupling which window/pane is focused
-        session=$(eval __tmux_fzf_get_session__)
+        session=$(__tmux_fzf_get_session__ "${tmp_session_regex}")
         if [[ -n "$session" ]]; then
           tmux new-session -t $session \; set-option destroy-unattached
         else
@@ -110,5 +123,16 @@
         fi
       }
     '';
+
+    home.packages = [
+      (pkgs.writeShellScriptBin "tmux-delete-tmp-sessions" ''
+        REGEX="${tmp_session_regex}"
+
+        ${pkgs.tmux}/bin/tmux list-sessions -F "#{session_name}" | ${pkgs.gnugrep}/bin/grep -P "$REGEX" | while read -r session; do
+            ${pkgs.tmux}/bin/tmux kill-session -t "$session"
+            echo "Deleted tmux session: $session"
+        done
+      '')
+    ];
   };
 }
