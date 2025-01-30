@@ -27,6 +27,7 @@ in
     dates = "weekly";
     options = "--delete-older-than 30d";
   };
+  nix.optimise.automatic = true;
 
   # Enable flakes
   nix.settings.experimental-features = [
