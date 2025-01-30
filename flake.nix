@@ -55,6 +55,13 @@
             stylix.homeManagerModules.stylix
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
+            {
+              nixpkgs.overlays = [
+                (final: prev: {
+                  inherit (inputs.firefox.packages.${system}) firefox-nightly-bin;
+                })
+              ];
+            }
           ];
           extraSpecialArgs = {
             inherit pkgs-datagrip;

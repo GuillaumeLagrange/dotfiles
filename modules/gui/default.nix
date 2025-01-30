@@ -253,16 +253,16 @@
           {
             timeout = lockTimeout + screenOffTimeout;
             command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
-            resumeCommand = "PATH=/usr/bin ${screenOnCommand}";
+            resumeCommand = "${screenOnCommand}";
           }
           {
             timeout = screenOffTimeout;
             command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
-            resumeCommand = "PATH=/usr/bin ${screenOnCommand}";
+            resumeCommand = "${screenOnCommand}";
           }
           {
             timeout = suspendTimeout;
-            command = "PATH=/usr/bin systemctl suspend";
+            command = "${pkgs.systemd}/bin/systemctl suspend";
           }
         ];
     };
