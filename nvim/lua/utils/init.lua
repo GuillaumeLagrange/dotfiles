@@ -28,6 +28,31 @@ M.toggle_diagnostics = function()
   vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end
 
+M.get_git_main_branch = function()
+  -- Get the directory of the current buffer
+  local buffer_dir = vim.fn.expand('%:p:h')
+
+  vim.print(buffer_dir)
+
+  -- Get the list of local branches
+  -- local git_cmd = 'git -C ' .. vim.fn.shellescape(buffer_dir) .. ' branch --list --format=%(refname:short) 2>/dev/null'
+  local git_cmd = 'git -C ' .. vim.fn.shellescape(buffer_dir) .. " branch --list --format='%(refname:short)'"
+  vim.print(git_cmd)
+  local branches = vim.fn.system(git_cmd)
+
+  -- Check if the command succeeded
+  if vim.v.shell_error ~= 0 then
+    return nil
+  end
+
+  for branch in branches:gmatch('[^\r\n]+') do
+    vim.print(branch)
+    if branch == 'main' or branch == 'master' then
+      return branch
+    end
+  end
+end
+
 M.get_git_root = function()
   local dot_git_path = vim.fn.finddir('.git', '.;')
   if dot_git_path == '' then

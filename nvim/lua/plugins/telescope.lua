@@ -43,6 +43,15 @@ return {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
+          extensions = {
+            ---@type FrecencyOpts
+            frecency = {
+              auto_validate = true,
+              db_safe_mode = false,
+              matcher = 'fuzzy',
+              path_display = { truncate = 10 },
+            },
+          },
         },
       })
 
@@ -60,9 +69,6 @@ return {
       vim.keymap.set('n', '<leader>sf', function()
         require('telescope').extensions.frecency.frecency({
           workspace = 'CWD',
-          path_display = { truncate = 10 },
-          auto_validate = true,
-          db_validate_threshold = 1,
         })
       end, { desc = '[S]earch [f]iles' })
       vim.keymap.set('n', '<leader>sF', function()
