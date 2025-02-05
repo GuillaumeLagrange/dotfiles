@@ -101,7 +101,9 @@ in
   services.printing.enable = true;
 
   # Yubikey management
-  services.udev.packages = [ pkgs.yubikey-personalization ];
+  services.udev.packages = [
+    pkgs.yubikey-personalization
+  ];
   services.pcscd.enable = true;
 
   services.udev.extraRules = ''
@@ -174,6 +176,7 @@ in
 
   hardware.bluetooth.enable = true;
   hardware.i2c.enable = true;
+  hardware.keyboard.qmk.enable = true;
 
   # Enable OpenGL
   hardware.graphics.enable = true;

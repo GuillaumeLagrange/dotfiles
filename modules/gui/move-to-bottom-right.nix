@@ -7,7 +7,7 @@ let
   bc = "${pkgs.bc}/bin/bc";
 in
 pkgs.writeShellScriptBin "move-to-bottom-right.sh" ''
-  PERCENT="0.30"
+  PERCENT="0.35"
 
   # Get the id of the focused window
   window_id=$(${swaymsg} -t get_tree | jq '.. | select(.type?) | select(.focused==true).id')
