@@ -22,7 +22,8 @@ return {
       vim.api.nvim_command('Octo pr')
     end, { desc = 'Open PR for current branch' })
     vim.keymap.set('n', '<leader>ov', '<cmd>Octo review<CR>', { desc = 'Start or resume review' })
-    vim.keymap.set('n', '<leader>ot', '<cmd>Octo review thread<CR>', { desc = 'show_review_threads' })
+    vim.keymap.set('n', '<leader>ot', '<cmd>Octo review thread<CR>', { desc = 'Show review threads' })
+    vim.keymap.set('n', '<leader>or', '<cmd>Octo thread resolve<CR>', { desc = 'Resolve thread' })
 
     return {
       picker = 'telescope',
@@ -52,7 +53,7 @@ return {
           remove_label = { lhs = '<space>ld', desc = 'remove label' },
           goto_issue = { lhs = '<space>gi', desc = 'navigate to a local repo issue' },
           add_comment = { lhs = '<space>oca', desc = 'add comment' },
-          delete_comment = { lhs = '<space>cd', desc = 'delete comment' },
+          delete_comment = { lhs = '<space>ocd', desc = 'delete comment' },
           next_comment = { lhs = ']c', desc = 'go to next comment' },
           prev_comment = { lhs = '[c', desc = 'go to previous comment' },
           react_hooray = { lhs = '<space>rp', desc = 'add/remove 🎉 reaction' },
@@ -88,7 +89,7 @@ return {
           remove_label = { lhs = '<space>ld', desc = 'remove label' },
           goto_issue = { lhs = '<space>gi', desc = 'navigate to a local repo issue' },
           add_comment = { lhs = '<space>oca', desc = 'add comment' },
-          delete_comment = { lhs = '<space>cd', desc = 'delete comment' },
+          delete_comment = { lhs = '<space>ocd', desc = 'delete comment' },
           next_comment = { lhs = ']c', desc = 'go to next comment' },
           prev_comment = { lhs = '[c', desc = 'go to previous comment' },
           react_hooray = { lhs = '<space>rp', desc = 'add/remove 🎉 reaction' },
@@ -105,8 +106,8 @@ return {
         review_thread = {
           goto_issue = { lhs = '<space>gi', desc = 'navigate to a local repo issue' },
           add_comment = { lhs = '<space>oca', desc = 'add comment' },
-          add_suggestion = { lhs = '<space>sa', desc = 'add suggestion' },
-          delete_comment = { lhs = '<space>cd', desc = 'delete comment' },
+          add_suggestion = { lhs = '<space>osa', desc = 'add suggestion' },
+          delete_comment = { lhs = '<space>ocd', desc = 'delete comment' },
           next_comment = { lhs = ']c', desc = 'go to next comment' },
           prev_comment = { lhs = '[c', desc = 'go to previous comment' },
           select_next_entry = { lhs = ']q', desc = 'move to next changed file' },
@@ -132,8 +133,8 @@ return {
         review_diff = {
           submit_review = { lhs = '<leader>ovs', desc = 'submit review' },
           discard_review = { lhs = '<leader>ovd', desc = 'discard review' },
-          add_review_comment = { lhs = '<space>oca', desc = 'add a new review comment' },
-          add_review_suggestion = { lhs = '<space>osa', desc = 'add a new review suggestion' },
+          add_review_comment = { lhs = '<space>oca', desc = 'add a new review comment', mode = { 'n', 'x' } },
+          add_review_suggestion = { lhs = '<space>osa', desc = 'add a new review suggestion', mode = { 'n', 'x' } },
           focus_files = { lhs = '<leader>oe', desc = 'move focus to changed file panel' },
           toggle_files = { lhs = '<leader>ob', desc = 'hide/show changed files panel' },
           next_thread = { lhs = ']t', desc = 'move to next thread' },

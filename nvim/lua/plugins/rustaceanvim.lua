@@ -45,10 +45,10 @@ vim.g.rustaceanvim = {
       ['rust-analyzer'] = {
         cachePriming = false,
         rustfmt = {
-          extraArgs = {
-            '--config',
-            'format_code_in_doc_comments=true',
-          },
+          -- extraArgs = {
+          --   '--config',
+          --   'format_code_in_doc_comments=true',
+          -- },
         },
       },
     },

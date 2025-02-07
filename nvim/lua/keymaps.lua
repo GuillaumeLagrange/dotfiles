@@ -56,3 +56,8 @@ vim.keymap.set({ 'n', 'v' }, 'k', 'gk', { silent = true })
 -- better indenting
 vim.keymap.set('v', '<', '<gv')
 vim.keymap.set('v', '>', '>gv')
+
+-- diff mode
+vim.keymap.set('n', '<leader>dt', '<CMD>diffthis<CR>', { desc = 'Diff this' })
+vim.keymap.set({ 'n', 'v' }, '<leader>dg', '<CMD>diffget<CR>', { desc = 'Diff get' })
+vim.keymap.set({ 'n', 'v' }, '<leader>dp', '<CMD>diffput<CR>', { desc = 'Diff put' })

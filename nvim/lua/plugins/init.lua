@@ -129,34 +129,6 @@ return {
   },
 
   {
-    'nvim-tree/nvim-tree.lua',
-    config = function()
-      require('nvim-tree').setup({
-        hijack_cursor = true,
-        sync_root_with_cwd = true,
-        respect_buf_cwd = true,
-      })
-
-      -- Handle session restore
-      vim.api.nvim_create_autocmd({ 'BufEnter' }, {
-        pattern = 'NvimTree*',
-        callback = function()
-          local view = require('nvim-tree.view')
-          local is_visible = view.is_visible()
-
-          local api = require('nvim-tree.api')
-          if not is_visible then
-            api.tree.open()
-          end
-        end,
-      })
-
-      vim.keymap.set('n', '<leader>e', '<cmd>NvimTreeFindFileToggle<CR>', { desc = 'Toggle NvimTree' })
-      vim.keymap.set('n', '<leader>E', '<cmd>NvimTreeFindFileToggle!<CR>', { desc = 'Toggle NvimTree' })
-    end,
-  },
-
-  {
     'ThePrimeagen/harpoon',
     branch = 'harpoon2',
     opts = {
@@ -218,20 +190,6 @@ return {
     },
   },
 
-  {
-    'akinsho/git-conflict.nvim',
-    version = '*',
-    lazy = false,
-    opts = { highlights = { current = 'DiffChange' } },
-    keys = {
-      { '<leader>gcq', '<cmd>GitConflictListQf<CR>', mode = 'n', desc = 'Git conflicts to quickfix' },
-      { '<leader>gco', '<cmd>GitConflictChooseOurs<CR>', mode = 'n', desc = 'Git conflicts choose ours' },
-      { '<leader>gct', '<cmd>GitConflictChooseTheirs<CR>', mode = 'n', desc = 'Git conflicts choose theirs' },
-      { '<leader>gcb', '<cmd>GitConflictChooseBoth<CR>', mode = 'n', desc = 'Git conflicts choose both' },
-      { '<leader>gcn', '<cmd>GitConflictChooseNone<CR>', mode = 'n', desc = 'Git conflicts choose none' },
-    },
-  },
-
   { 'rickhowe/diffchar.vim' },
 
   {
@@ -282,6 +240,7 @@ return {
 
   {
     'sindrets/diffview.nvim',
+    lazy = false,
     config = function()
       require('diffview').setup()
 
