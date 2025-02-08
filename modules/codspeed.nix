@@ -20,5 +20,10 @@ in
       }
       compdef '_files -W "${codspeed_root}" -/' cdc
     '';
+
+    home.shellAliases = {
+      wt = "export CODSPEED_RUNNER_MODE=walltime";
+      instr = "export CODSPEED_RUNNER_MODE=instrumentation";
+    };
   };
 }
