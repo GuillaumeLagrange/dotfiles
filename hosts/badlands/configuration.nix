@@ -151,7 +151,6 @@ in
     enable = true;
     wrapperFeatures.gtk = true;
   };
-  programs.hyprland.enable = true;
   xdg.portal = {
     enable = true;
   };
