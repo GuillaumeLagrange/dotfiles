@@ -40,7 +40,7 @@ vim.opt.cursorline = true
 vim.opt.scrolloff = 3
 vim.opt.termguicolors = true
 
-vim.opt.tabstop = 2
+vim.opt.tabstop = 4
 
 vim.opt.updatetime = 1000
 

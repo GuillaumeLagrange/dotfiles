@@ -94,15 +94,6 @@ in
       initExtra = ''
         bindkey '^ ' autosuggest-accept
 
-        # Auto use poetry env
-        function vim() {
-          if [[ -f "pyproject.toml" ]] && poetry env info --path &>/dev/null; then
-            poetry run vim "$@"
-          else
-            command vim "$@"
-          fi
-        }
-
         if [[ "$TERM" == "xterm-kitty" ]]; then
           alias ssh="kitten ssh"
         fi

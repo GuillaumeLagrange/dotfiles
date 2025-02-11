@@ -51,7 +51,5 @@ return { -- Collection of various small independent plugins/modules
       verbose = { read = true, write = true, delete = true },
       hooks = { pre = { write = session.close_ephemeral_buffers } },
     })
-
-    require('mini.starter').setup({})
   end,
 }
