@@ -146,7 +146,7 @@ in
 
   home-manager.users.${userName} = import ../../modules/home-manager.nix;
 
-  # programs.firefox.enable = true;
+  programs.nix-ld.enable = true;
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;

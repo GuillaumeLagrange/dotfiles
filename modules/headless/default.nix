@@ -31,6 +31,7 @@ in
       nh
       ripgrep
       rustup
+      fnm
       tig
       tree
       unzip
@@ -42,14 +43,12 @@ in
       yubikey-manager
 
       granted
-      git-lfs
 
       # Nvim cross-project basics
       lua-language-server
       luajitPackages.luarocks
       nixd
       nixfmt-rfc-style
-      nodejs_22
       stylua
       vscode-langservers-extracted
       taplo
@@ -100,6 +99,14 @@ in
 
         ${pkgs.fastfetch}/bin/fastfetch
         ${pkgs.fortune}/bin/fortune | ${pkgs.cowsay}/bin/cowsay | ${pkgs.lolcat}/bin/lolcat
+
+        export PNPM_HOME="/home/guillaume/.local/share/pnpm"
+        case ":$PATH:" in
+          *":$PNPM_HOME:"*) ;;
+          *) export PATH="$PNPM_HOME:$PATH" ;;
+        esac
+
+        eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --shell zsh)"
       '';
     };
     home.shellAliases = {
@@ -144,6 +151,7 @@ in
 
     programs.git = {
       enable = true;
+      lfs.enable = true;
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
       extraConfig = {
