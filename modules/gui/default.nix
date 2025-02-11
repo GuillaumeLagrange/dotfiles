@@ -41,6 +41,7 @@
       proton-pass
       protonvpn-gui
       qwerty-fr
+      slack
       spotify
       telegram-desktop
       transmission-remote-gtk

@@ -47,7 +47,7 @@ return {
             ---@type FrecencyOpts
             frecency = {
               auto_validate = true,
-              db_safe_mode = false,
+              db_version = 'v2',
               matcher = 'fuzzy',
               path_display = { truncate = 10 },
             },
