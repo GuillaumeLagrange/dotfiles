@@ -4,9 +4,6 @@
   config,
   ...
 }:
-let
-  ssh_signing_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGLfMTgL6YtQh1YfA3P//TuZk+VcZzRGiK3dbC0Y2HT0 guillaume@nixos";
-in
 {
   options = {
     headless.enable = lib.mkEnableOption "tools to work in a headless environment";
@@ -47,6 +44,7 @@ in
       # Nvim cross-project basics
       lua-language-server
       luajitPackages.luarocks
+      nodePackages_latest.prettier # Markdown formatting
       nixd
       nixfmt-rfc-style
       stylua

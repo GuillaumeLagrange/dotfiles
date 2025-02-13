@@ -123,6 +123,13 @@ in
                 app_id = "firefox";
               };
             }
+            {
+              command = "floating enable, border pixel 1, sticky enable, move scratchpad, scratchpad show";
+              criteria = {
+                title = "^Huddle:*$";
+                class = "Slack";
+              };
+            }
           ];
         };
         extraConfig =
