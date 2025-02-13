@@ -21,6 +21,8 @@ return {
   },
   {
     'CopilotC-Nvim/CopilotChat.nvim',
+    event = { 'CmdlineEnter' },
+    keys = { { '<leader>cc', '<cmd>CopilotChat<cr>', desc = 'Open Copilot Chat' } },
     dependencies = {
       { 'github/copilot.vim' },
       { 'nvim-lua/plenary.nvim', branch = 'master' },

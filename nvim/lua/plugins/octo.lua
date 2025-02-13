@@ -16,6 +16,11 @@ return {
     'nvim-telescope/telescope.nvim',
     'nvim-tree/nvim-web-devicons',
   },
+  keys = {
+    '<leader>op',
+    '<leader>ov',
+  },
+  cmd = { 'Octo' },
   opts = function()
     vim.keymap.set('n', '<leader>op', function()
       require('utils').close_octo_buffers()

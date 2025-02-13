@@ -76,6 +76,8 @@ return {
         javastript = { 'prettier' },
         typescript = { 'prettier' },
         typescriptreact = { 'prettier' },
+        markdown = { 'prettier' },
+        mdx = { 'prettier' },
         toml = { 'taplo' },
       },
     },
@@ -128,73 +130,10 @@ return {
     end,
   },
 
-  {
-    'ThePrimeagen/harpoon',
-    branch = 'harpoon2',
-    opts = {
-      menu = {
-        width = vim.api.nvim_win_get_width(0) - 4,
-      },
-    },
-    keys = {
-      {
-        '<leader>H',
-        function()
-          require('harpoon'):list():append()
-        end,
-        desc = 'Harpoon File',
-      },
-      {
-        '<leader>h',
-        function()
-          local harpoon = require('harpoon')
-          harpoon.ui:toggle_quick_menu(harpoon:list())
-        end,
-        desc = 'Harpoon Quick Menu',
-      },
-      {
-        '<leader>1',
-        function()
-          require('harpoon'):list():select(1)
-        end,
-        desc = 'Harpoon to File 1',
-      },
-      {
-        '<leader>2',
-        function()
-          require('harpoon'):list():select(2)
-        end,
-        desc = 'Harpoon to File 2',
-      },
-      {
-        '<leader>3',
-        function()
-          require('harpoon'):list():select(3)
-        end,
-        desc = 'Harpoon to File 3',
-      },
-      {
-        '<leader>4',
-        function()
-          require('harpoon'):list():select(4)
-        end,
-        desc = 'Harpoon to File 4',
-      },
-      {
-        '<leader>5',
-        function()
-          require('harpoon'):list():select(5)
-        end,
-        desc = 'Harpoon to File 5',
-      },
-    },
-  },
-
   { 'rickhowe/diffchar.vim' },
 
   {
     'nvim-pack/nvim-spectre',
-
     keys = {
       { '<leader>sr', '<cmd>lua require("spectre").toggle()<CR>', mode = 'n', desc = 'Toggle Spectre' },
     },
@@ -231,50 +170,42 @@ return {
 
   {
     'OXY2DEV/markview.nvim',
-    lazy = false,
+    lazy = false, -- Docs says not to lazy load this plugin
     dependencies = {
       'nvim-treesitter/nvim-treesitter',
       'nvim-tree/nvim-web-devicons',
     },
-  },
-
-  {
-    'sindrets/diffview.nvim',
-    lazy = false,
     config = function()
-      require('diffview').setup()
+      require('markview').setup()
 
-      vim.keymap.set('n', '<leader>dvc', '<cmd>DiffviewClose<CR>', { desc = 'Close diffview' })
-      vim.keymap.set('n', '<leader>dvo', '<cmd>DiffviewOpen<CR>', { desc = 'Open diffview' })
-      vim.keymap.set('n', '<leader>dvm', function()
-        local main_branch = require('utils').get_git_main_branch()
-        vim.print(main_branch)
-        if main_branch then
-          vim.cmd('DiffviewOpen ' .. main_branch)
-        else
-          vim.cmd('DiffviewOpen')
-        end
-      end, { desc = 'Open diffview HEAD..main' })
-      vim.keymap.set('n', '<leader>dvf', '<cmd>DiffviewFileHistory %<CR>', { desc = 'Open diffview file history for current file' })
+      vim.keymap.set('n', '<leader>mv', '<cmd>Markview<CR>', { desc = 'Toggle markview' })
     end,
   },
 
   {
-    'christoomey/vim-tmux-navigator',
+    'sindrets/diffview.nvim',
     cmd = {
-      'TmuxNavigateLeft',
-      'TmuxNavigateDown',
-      'TmuxNavigateUp',
-      'TmuxNavigateRight',
-      'TmuxNavigatePrevious',
-      'TmuxNavigatorProcessList',
+      'DiffviewOpen',
+      'DiffviewFileHistory',
     },
     keys = {
-      { '<c-h>', '<cmd><C-U>TmuxNavigateLeft<cr>' },
-      { '<c-j>', '<cmd><C-U>TmuxNavigateDown<cr>' },
-      { '<c-k>', '<cmd><C-U>TmuxNavigateUp<cr>' },
-      { '<c-l>', '<cmd><C-U>TmuxNavigateRight<cr>' },
-      { '<c-\\>', '<cmd><C-U>TmuxNavigatePrevious<cr>' },
+      { '<leader>dvo', '<cmd>DiffviewOpen<CR>', mode = 'n', desc = 'Open diffview' },
+      { '<leader>dvc', '<cmd>DiffviewClose<CR>', mode = 'n', desc = 'Close diffview' },
+      {
+        '<leader>dvm',
+        function()
+          local main_branch = require('utils').get_git_main_branch()
+          vim.print(main_branch)
+          if main_branch then
+            vim.cmd('DiffviewOpen ' .. main_branch)
+          else
+            vim.cmd('DiffviewOpen')
+          end
+        end,
+        mode = 'n',
+        desc = 'Open diffview HEAD..main',
+      },
+      { '<leader>dvf', '<cmd>DiffviewFileHistory %<CR>', mode = 'n', desc = 'Open diffview file history for current file' },
     },
   },
 }
