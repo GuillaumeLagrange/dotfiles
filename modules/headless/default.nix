@@ -119,6 +119,11 @@
       "grbiom!" = "git rebase --autosquash -i origin/$(git_main_branch)";
       grst = "git reset";
       grst1 = "git reset HEAD~1";
+      gunwip = ''
+        while git rev-list --max-count=1 --format="%s" HEAD | grep -q "\--wip--"; do
+          git reset HEAD~1
+        done
+      '';
     };
 
     programs.lazygit = {

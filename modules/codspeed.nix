@@ -6,6 +6,7 @@
 }:
 let
   codspeed_root = "${config.home.homeDirectory}/codspeed";
+  vgbasedir = "${codspeed_root}/valgrind-codspeed";
 in
 {
   options = {
@@ -24,6 +25,18 @@ in
     home.shellAliases = {
       wt = "export CODSPEED_RUNNER_MODE=walltime";
       instr = "export CODSPEED_RUNNER_MODE=instrumentation";
+      mj = "make -j";
+      m = "make";
     };
+
+    home.packages = [
+      (pkgs.writeShellScriptBin "valgrind" ''
+        VALGRIND_LIB="${vgbasedir}/.in_place" \
+        VALGRIND_LIB_INNER="${vgbasedir}/.in_place" \
+        RUSTUP_FORCE_ARG0=cargo \
+        exec "${vgbasedir}/coregrind/valgrind" "$@"
+      '')
+
+    ];
   };
 }
