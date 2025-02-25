@@ -61,3 +61,6 @@ vim.keymap.set('v', '>', '>gv')
 vim.keymap.set('n', '<leader>dt', '<CMD>diffthis<CR>', { desc = 'Diff this' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dg', '<CMD>diffget<CR>', { desc = 'Diff get' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dp', '<CMD>diffput<CR>', { desc = 'Diff put' })
+
+-- Disable 'qq' for macro recording
+vim.api.nvim_set_keymap('n', 'qq', '<Nop>', { noremap = true, silent = true })
