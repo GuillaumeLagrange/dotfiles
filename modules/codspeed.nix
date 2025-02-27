@@ -27,6 +27,7 @@ in
       instr = "export CODSPEED_RUNNER_MODE=instrumentation";
       mj = "make -j";
       m = "make";
+      cm = "cmake ..";
     };
 
     home.packages = [

@@ -161,6 +161,8 @@
         commit.gpgsign = true;
         user.signingkey = "F2D858FB8D9616ED";
         absorb.autoStageIfNothingStaged = true;
+        absorb.oneFixupPerCommit = true;
+        absorb.maxStack = 50;
         push.autoSetupRemote = true;
         rebase.updateRefs = true;
       };

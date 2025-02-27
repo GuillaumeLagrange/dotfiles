@@ -9,5 +9,6 @@
     wpaperd.enable = false;
     hyprpaper.enable = false;
     hyprland.enable = false;
+    vscode.enable = false;
   };
 }
