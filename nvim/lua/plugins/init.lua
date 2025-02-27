@@ -112,19 +112,6 @@ return {
   },
 
   {
-    'akinsho/toggleterm.nvim',
-    version = '*',
-    opts = {
-      open_mapping = [[<C-\>]],
-      persist_mode = false, -- does not play nice with auto insert mode autocmds
-      -- direction = 'float',
-      float_opts = {
-        border = 'curved',
-      },
-    },
-  },
-
-  {
     'j-hui/fidget.nvim',
     opts = {
       notification = {
