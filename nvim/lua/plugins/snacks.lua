@@ -1,3 +1,12 @@
+vim.api.nvim_create_augroup('disable_folding', { clear = true })
+vim.api.nvim_create_autocmd({ 'BufEnter' }, {
+  pattern = 'term://*',
+  group = 'disable_folding',
+  callback = function()
+    vim.opt_local.foldmethod = 'indent'
+  end,
+})
+
 return {
   {
     'folke/snacks.nvim',
