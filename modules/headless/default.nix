@@ -44,6 +44,7 @@
       # Nvim cross-project basics
       lua-language-server
       luajitPackages.luarocks
+      imagemagick
       nodePackages_latest.prettier # Markdown formatting
       nixd
       nixfmt-rfc-style
