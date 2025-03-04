@@ -55,12 +55,21 @@ return {
     end,
   },
 
+  -- {
+  --   'sainnhe/gruvbox-material',
+  --   priority = 1000, -- Make sure to load this before all the other start plugins.
+  --   lazy = false,
+  --   init = function()
+  --     vim.cmd.colorscheme('gruvbox-material')
+  --   end,
+  -- },
+
   {
-    'sainnhe/gruvbox-material',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
-    lazy = false,
+    'ellisonleao/gruvbox.nvim',
+    priority = 1000,
+    opts = { transparent_mode = true, contrast = '' },
     init = function()
-      vim.cmd.colorscheme('gruvbox-material')
+      vim.cmd.colorscheme('gruvbox')
     end,
   },
 

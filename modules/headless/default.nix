@@ -141,7 +141,14 @@
       nix-direnv.enable = true;
     };
 
-    programs.gh.enable = true;
+    programs.gh = {
+      enable = true;
+      settings.aliases = {
+        co = "pr checkout";
+        pv = "pr view -w";
+        pc = "pr create -w";
+      };
+    };
 
     programs.fzf = {
       enable = true;
