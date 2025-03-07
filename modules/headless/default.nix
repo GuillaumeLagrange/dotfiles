@@ -39,8 +39,6 @@
       yubioath-flutter
       yubikey-manager
 
-      granted
-
       # Nvim cross-project basics
       lua-language-server
       luajitPackages.luarocks
@@ -166,6 +164,7 @@
       userEmail = "guillaume@glagrange.eu";
       userName = "Guillaume Lagrange";
       extraConfig = {
+        init.defaultBranch = "main";
         commit.gpgsign = true;
         user.signingkey = "F2D858FB8D9616ED";
         absorb.autoStageIfNothingStaged = true;
@@ -198,6 +197,9 @@
 
     programs.fastfetch.enable = true;
 
-    home.sessionPath = [ "$HOME/.cargo/bin" ];
+    home.sessionPath = [
+      "$HOME/.cargo/bin"
+      "$HOME/.local/bin" # uv tools
+    ];
   };
 }

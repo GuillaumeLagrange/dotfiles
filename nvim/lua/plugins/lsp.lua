@@ -112,7 +112,9 @@ return { -- LSP Configuration & Plugins
     require('lspconfig').jsonls.setup({})
     require('lspconfig').ts_ls.setup({})
     require('lspconfig').clangd.setup({ filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' } })
+    require('lspconfig').prismals.setup({})
     require('lspconfig').pyright.setup({})
+    -- require('lspconfig').pyright.setup({ cmd = { 'uv', 'run', 'pyright-langserver', '--stdio' } })
 
     local flakePath = '(builtins.getFlake "/home/guillaume/dotfiles")'
     require('lspconfig').nixd.setup({

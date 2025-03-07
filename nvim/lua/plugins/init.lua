@@ -55,23 +55,23 @@ return {
     end,
   },
 
-  -- {
-  --   'sainnhe/gruvbox-material',
-  --   priority = 1000, -- Make sure to load this before all the other start plugins.
-  --   lazy = false,
-  --   init = function()
-  --     vim.cmd.colorscheme('gruvbox-material')
-  --   end,
-  -- },
-
   {
-    'ellisonleao/gruvbox.nvim',
-    priority = 1000,
-    opts = { transparent_mode = true, contrast = '' },
+    'sainnhe/gruvbox-material',
+    priority = 1000, -- Make sure to load this before all the other start plugins.
+    lazy = false,
     init = function()
-      vim.cmd.colorscheme('gruvbox')
+      vim.cmd.colorscheme('gruvbox-material')
     end,
   },
+
+  -- {
+  --   'ellisonleao/gruvbox.nvim',
+  --   priority = 1000,
+  --   opts = { transparent_mode = true, contrast = '' },
+  --   init = function()
+  --     vim.cmd.colorscheme('gruvbox')
+  --   end,
+  -- },
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },

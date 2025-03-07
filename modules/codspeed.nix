@@ -22,6 +22,8 @@ in
       compdef '_files -W "${codspeed_root}" -/' cdc
     '';
 
+    programs.granted.enable = true;
+
     home.shellAliases = {
       wt = "export CODSPEED_RUNNER_MODE=walltime";
       instr = "export CODSPEED_RUNNER_MODE=instrumentation";
@@ -30,8 +32,10 @@ in
       cm = "cmake ..";
     };
 
-    home.packages = [
-      (pkgs.writeShellScriptBin "valgrind" ''
+    home.packages = with pkgs; [
+      awscli2
+
+      (writeShellScriptBin "valgrind" ''
         VALGRIND_LIB="${vgbasedir}/.in_place" \
         VALGRIND_LIB_INNER="${vgbasedir}/.in_place" \
         RUSTUP_FORCE_ARG0=cargo \

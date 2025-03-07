@@ -32,12 +32,9 @@ M.get_git_main_branch = function()
   -- Get the directory of the current buffer
   local buffer_dir = vim.fn.expand('%:p:h')
 
-  vim.print(buffer_dir)
-
   -- Get the list of local branches
   -- local git_cmd = 'git -C ' .. vim.fn.shellescape(buffer_dir) .. ' branch --list --format=%(refname:short) 2>/dev/null'
   local git_cmd = 'git -C ' .. vim.fn.shellescape(buffer_dir) .. " branch --list --format='%(refname:short)'"
-  vim.print(git_cmd)
   local branches = vim.fn.system(git_cmd)
 
   -- Check if the command succeeded
@@ -46,7 +43,6 @@ M.get_git_main_branch = function()
   end
 
   for branch in branches:gmatch('[^\r\n]+') do
-    vim.print(branch)
     if branch == 'main' or branch == 'master' then
       return branch
     end
@@ -107,6 +103,22 @@ M.close_windowless_buffers = function()
       end
     end
   end
+end
+
+-- Treesitter foldexpr can be very slow, this wrapper
+M.foldexpr = function()
+  local buf = vim.api.nvim_get_current_buf()
+  if vim.b[buf].ts_folds == nil then
+    if vim.bo[buf].filetype == '' then
+      return '0'
+    end
+    if vim.bo[buf].filetype:find('dashboard') then
+      vim.b[buf].ts_folds = false
+    else
+      vim.b[buf].ts_folds = pcall(vim.treesitter.get_parser, buf)
+    end
+  end
+  return vim.b[buf].ts_folds and vim.treesitter.foldexpr() or '0'
 end
 
 return M
