@@ -18,7 +18,9 @@
 
     home.packages = with pkgs; [
       devenv
+      fastfetch
       fd
+      fnm
       fswatch
       gcc
       git-absorb
@@ -28,7 +30,6 @@
       nh
       ripgrep
       rustup
-      fnm
       tig
       tree
       unzip
@@ -36,19 +37,19 @@
       zip
 
       # Codspeed to sort
-      yubioath-flutter
       yubikey-manager
+      yubioath-flutter
 
       # Nvim cross-project basics
+      imagemagick
       lua-language-server
       luajitPackages.luarocks
-      imagemagick
-      nodePackages_latest.prettier # Markdown formatting
       nixd
       nixfmt-rfc-style
+      nodePackages_latest.prettier # Markdown formatting
       stylua
-      vscode-langservers-extracted
       taplo
+      vscode-langservers-extracted
     ];
 
     xdg.configFile = {
@@ -93,9 +94,6 @@
         if [[ "$TERM" == "xterm-kitty" ]]; then
           alias ssh="kitten ssh"
         fi
-
-        ${pkgs.fastfetch}/bin/fastfetch
-        ${pkgs.fortune}/bin/fortune | ${pkgs.cowsay}/bin/cowsay | ${pkgs.lolcat}/bin/lolcat
 
         export PNPM_HOME="/home/guillaume/.local/share/pnpm"
         case ":$PATH:" in
