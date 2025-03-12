@@ -113,6 +113,7 @@ in
       in
       {
         "${modifier}+Shift+Return" = "exec ${config.term} -e zsh -i -c tsm";
+        "${modifier}+Backslash" = "exec ${config.term} -e zsh -i -c tsm";
       };
 
     programs.zsh.initExtra = ''

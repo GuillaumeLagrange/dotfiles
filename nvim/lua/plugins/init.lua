@@ -146,7 +146,8 @@ return {
     config = function()
       require('markview').setup()
 
-      vim.keymap.set('n', '<leader>mv', '<cmd>Markview<CR>', { desc = 'Toggle markview' })
+      vim.keymap.set('n', '<leader>mv', '<cmd>Markview Toggle<CR>', { desc = 'Toggle all markview' })
+      vim.keymap.set('n', '<leader>mV', '<cmd>Markview toggle<CR>', { desc = 'Toggle buffer markview' })
     end,
   },
 
