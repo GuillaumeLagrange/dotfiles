@@ -74,32 +74,6 @@
       enable = true;
       addKeysToAgent = "yes";
       matchBlocks = {
-        charybdisRemote = lib.hm.dag.entryBefore [ "charybdis" ] {
-          match = ''originalhost charybdis exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"'';
-          hostname = "charybdis.stockly.tech";
-          port = 23;
-          compression = true;
-        };
-        charybdis = {
-          port = 22;
-          hostname = "192.168.1.10";
-          user = "guillaume";
-          forwardAgent = true;
-          identityFile = "~/.ssh/id_ed25519_monster";
-        };
-        cerberusRemote = lib.hm.dag.entryBefore [ "cerberus" ] {
-          match = ''originalhost cerberus exec "[ $(${pkgs.wirelesstools}/bin/iwgetid --scheme)_ != Stockly_ ]"'';
-          hostname = "cerberus.stockly.tech";
-          port = 24;
-          compression = true;
-        };
-        cerberus = {
-          port = 22;
-          hostname = "192.168.1.12";
-          user = "guillaume";
-          forwardAgent = true;
-          identityFile = "~/.ssh/id_ed25519_monster";
-        };
         nas = {
           hostname = "192.168.1.15";
           port = 22;
