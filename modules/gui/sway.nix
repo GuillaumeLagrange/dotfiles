@@ -6,9 +6,50 @@
 }:
 let
   lock = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+
   move-to-bottom-right = "${
     (import ./move-to-bottom-right.nix { inherit pkgs; })
   }/bin/move-to-bottom-right.sh";
+
+  swap_workspaces = pkgs.writeShellScriptBin "swap-workspaces" ''
+    # Check if an argument is provided
+    if [ -z "$1" ]; then
+      echo "Usage: $0 <workspace_number>"
+      exit 1
+    fi
+
+    # Get the list of workspaces
+    workspaces=$(swaymsg -t get_workspaces | jq -r '.[].name')
+
+    # Get the current workspace
+    current_workspace=$(swaymsg -t get_workspaces | jq -r '.[] | select(.focused) | .name')
+
+    # Check if the current workspace is valid
+    if [ -z "$current_workspace" ]; then
+      echo "Failed to get the current workspace."
+      exit 1
+    fi
+
+    # Get the target workspace from the argument
+    target_workspace=$1
+
+    # Check if the target workspace exists
+    if ! echo "$workspaces" | grep -qx "$target_workspace"; then
+      echo "The target workspace $target_workspace does not exist."
+      exit 1
+    fi
+
+    # Check if the target workspace is the same as the current workspace
+    if [ "$current_workspace" = "$target_workspace" ]; then
+      echo "The target workspace is the same as the current workspace. No swap needed."
+      exit 0
+    fi
+
+    # Perform the swap
+    swaymsg "rename workspace $current_workspace to temporary; rename workspace $target_workspace to $current_workspace; rename workspace temporary to $target_workspace; workspace $current_workspace"
+
+    echo "Swapped workspace $current_workspace with $target_workspace."
+  '';
 in
 {
   options = {
@@ -79,6 +120,17 @@ in
             "--locked XF86AudioPrev" = "exec ${pkgs.playerctl}/bin/playerctl previous";
 
             "${modifier}+Ctrl+p" = "exec ${move-to-bottom-right}";
+
+            "${modifier}+Ctrl+1" = "exec swap-workspaces 1";
+            "${modifier}+Ctrl+2" = "exec swap-workspaces 2";
+            "${modifier}+Ctrl+3" = "exec swap-workspaces 3";
+            "${modifier}+Ctrl+4" = "exec swap-workspaces 4";
+            "${modifier}+Ctrl+5" = "exec swap-workspaces 5";
+            "${modifier}+Ctrl+6" = "exec swap-workspaces 6";
+            "${modifier}+Ctrl+7" = "exec swap-workspaces 7";
+            "${modifier}+Ctrl+8" = "exec swap-workspaces 8";
+            "${modifier}+Ctrl+9" = "exec swap-workspaces 9";
+            "${modifier}+Ctrl+0" = "exec swap-workspaces 0";
           };
           startup = [
             { command = "${pkgs.networkmanagerapplet}/bin/nm-applet"; }
@@ -138,5 +190,9 @@ in
             set $Locker ${lock}
           '';
       };
+
+    home.packages = [
+      swap_workspaces
+    ];
   };
 }
