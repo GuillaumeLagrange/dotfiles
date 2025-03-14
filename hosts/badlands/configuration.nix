@@ -169,9 +169,8 @@ in
     home-manager
     # iOS tethering
     libimobiledevice
+    distrobox
   ];
-
-  system.stateVersion = "24.05";
 
   hardware.bluetooth.enable = true;
   hardware.i2c.enable = true;
@@ -200,5 +199,10 @@ in
   # iOS tethering
   services.usbmuxd.enable = true;
 
-  virtualisation.docker.enable = true;
+  virtualisation.podman = {
+    enable = true;
+    dockerCompat = true;
+  };
+
+  system.stateVersion = "24.05";
 }
