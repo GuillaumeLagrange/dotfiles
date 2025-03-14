@@ -37,6 +37,7 @@
       lutris
       networkmanagerapplet
       pavucontrol
+      pomodoro-gtk
       playerctl
       proton-pass
       protonvpn-gui
@@ -61,9 +62,12 @@
       };
     };
 
-    gtk.iconTheme = {
-      package = pkgs.adwaita-icon-theme;
-      name = "adwaita-icon-theme";
+    gtk = {
+      enable = true;
+      iconTheme = {
+        package = pkgs.adwaita-icon-theme;
+        name = "Adwaita";
+      };
     };
 
     programs.ssh = {

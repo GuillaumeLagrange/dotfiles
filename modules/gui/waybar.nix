@@ -5,24 +5,6 @@
   ...
 }:
 
-let
-  waybar-module-pomodoro = pkgs.rustPlatform.buildRustPackage rec {
-    pname = "waybar-module-pomodoro";
-    version = "0.1.0"; # Use the appropriate version or commit hash
-    useFetchCargoVendor = true;
-
-    src = pkgs.fetchFromGitHub {
-      owner = "Andeskjerf";
-      repo = pname;
-      rev = "main"; # or a specific commit hash
-      hash = "sha256-BF7JqDIVDLX66VE/yKmb758rXnfb1rv/4hwzf3i0v5g=";
-    };
-
-    cargoHash = "sha256-N1xuKml9cRDix0SOVBKJydTN35EKk+ohnXhInsMG3HY=";
-
-    doCheck = false; # Disable tests
-  };
-in
 {
   options = {
     waybar.enable = lib.mkEnableOption "waybar and its configuration";
@@ -55,7 +37,6 @@ in
             "memory"
             "battery"
             "pulseaudio"
-            "custom/pomodoro"
             "clock"
           ];
 
@@ -149,14 +130,6 @@ in
               "on-click-right" = "mode";
               "on-click-left" = "mode";
             };
-          };
-
-          "custom/pomodoro" = {
-            format = "{}";
-            return-type = "json";
-            exec = "${waybar-module-pomodoro}/bin/waybar-module-pomodoro";
-            on-click = "${waybar-module-pomodoro}/bin/waybar-module-pomodoro toggle";
-            on-click-right = "${waybar-module-pomodoro}/bin/waybar-module-pomodoro reset";
           };
         };
       };
