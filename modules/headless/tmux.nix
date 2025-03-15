@@ -79,6 +79,13 @@ let
       echo "Deleted tmux session: $session"
     done
   '';
+
+  tmuxStart = pkgs.writeShellScriptBin "tmux-start" ''
+    # Remove leftover tmp sessions from the continuum save
+    sed -i.bak '/^state\|^grouped_session/d' ~/.tmux/resurrect/last 
+    tmux start-server && tmux-delete-tmp-sessions
+    echo "Tmux server started"
+  '';
 in
 {
   options = {
@@ -131,6 +138,7 @@ in
       tsmScript
       tskScript
       deleteTmpSessionsScript
+      tmuxStart
     ];
   };
 }
