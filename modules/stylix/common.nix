@@ -2,7 +2,7 @@
 { pkgs, ... }:
 {
   stylix.enable = true;
-  stylix.image = ./gruvbox-mountain-village.png;
+  # stylix.image = ./gruvbox-mountain-village.png;
   stylix.polarity = "dark";
   stylix.base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-material-dark-medium.yaml";
 

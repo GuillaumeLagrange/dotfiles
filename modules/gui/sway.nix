@@ -147,10 +147,7 @@ in
               always = true;
             }
             {
-              command = ''
-                ${pkgs.procps}/bin/pgrep wpaperd | xargs -r kill &&\
-                ${pkgs.wpaperd}/bin/wpaperd
-              '';
+              command = "${pkgs.wpaperd}/bin/wpaperd";
               always = true;
             }
           ];
