@@ -283,6 +283,9 @@
         [app-name="Firefox"]
         default-timeout=0
 
+        [app-name="Pomodoro"]
+        default-timeout=0
+
         [app-name="NetworkManager Applet"]
         default-timeout=5000
       '';
