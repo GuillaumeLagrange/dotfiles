@@ -199,10 +199,7 @@ in
   # iOS tethering
   services.usbmuxd.enable = true;
 
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-  };
+  virtualisation.docker.enable = true;
 
   system.stateVersion = "24.05";
 }

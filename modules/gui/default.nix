@@ -23,7 +23,6 @@
     waybar.enable = true;
 
     home.packages = with pkgs; [
-      adwaita-icon-theme
       blueman
       btop
       calibre
@@ -68,6 +67,14 @@
         package = pkgs.adwaita-icon-theme;
         name = "Adwaita";
       };
+    };
+
+    home.pointerCursor = {
+      gtk.enable = true;
+      x11.enable = true;
+      package = pkgs.bibata-cursors;
+      name = "Bibata-Modern-Classic";
+      size = 16;
     };
 
     programs.ssh = {
