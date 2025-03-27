@@ -172,6 +172,7 @@
         absorb.maxStack = 50;
         push.autoSetupRemote = true;
         rebase.updateRefs = true;
+        diff.lfstext.textconv = "cat"; # Codspeed
       };
       ignores = [
         ".envrc"

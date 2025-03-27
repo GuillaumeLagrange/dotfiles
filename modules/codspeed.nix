@@ -44,6 +44,12 @@ in
 
     programs.granted.enable = true;
 
+    programs.git = {
+      extraConfig = {
+        diff.lfstext.textconv = "cat";
+      };
+    };
+
     home.shellAliases = {
       wt = "export CODSPEED_RUNNER_MODE=walltime";
       instr = "export CODSPEED_RUNNER_MODE=instrumentation";
@@ -54,6 +60,8 @@ in
 
     home.packages = with pkgs; [
       awscli2
+      mongodb-compass
+      mongodb-tools
 
       (writeShellScriptBin "valgrind" ''
         VALGRIND_LIB="${vgbasedir}/.in_place" \
