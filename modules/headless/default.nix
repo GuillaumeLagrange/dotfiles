@@ -104,7 +104,9 @@
         eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --shell zsh)"
       '';
     };
+
     home.shellAliases = {
+      nfu = "nix flake update && nh os switch -a && gcam 'chore: update flake' ";
       lg = "lazygit";
       lgl = "lazygit log";
       lgb = "lazygit branch";
