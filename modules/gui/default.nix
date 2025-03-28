@@ -88,43 +88,6 @@
           identityFile = "~/.ssh/id_ed25519_nas";
         };
       };
-      extraConfig = ''
-        # Charybdis
-        Host charybdis
-            LocalForward 2524 localhost:2524   # Operations GRPC
-            LocalForward 2526 localhost:2526   # Auths GRPC
-            LocalForward 2527 localhost:2527   # Auths HTTP
-            LocalForward 2530 localhost:2530   # Shipments GRPC
-            LocalForward 2534 localhost:2534   # Files GRPC
-            LocalForward 2535 localhost:2535   # Files HTTP
-            LocalForward 2528 localhost:2528   # Backoffice GRCP
-            LocalForward 2529 localhost:2529   # Backoffice HTTP
-            LocalForward 2541 localhost:2541   # Backoffice Front
-            LocalForward 2538 localhost:2538   # Consumer Backoffice GRCP
-            LocalForward 2539 localhost:2539   # Consumer Backoffice HTTP
-            LocalForward 2542 localhost:2542   # Consumer Backoffice Front
-            LocalForward 2545 localhost:2545   # Meilisearch
-
-            LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
-
-        # Cerberus
-        Host cerberus
-            LocalForward 1574 localhost:1574   # Operations GRPC
-            LocalForward 1576 localhost:1576   # Auths GRPC
-            LocalForward 1577 localhost:1577   # Auths HTTP
-            LocalForward 1580 localhost:1580   # Shipments GRPC
-            LocalForward 1584 localhost:1584   # Files GRPC
-            LocalForward 1585 localhost:1585   # Files HTTP
-            LocalForward 1578 localhost:1578   # Backoffice GRCP
-            LocalForward 1579 localhost:1579   # Backoffice HTTP
-            LocalForward 1591 localhost:1591   # Backoffice Front
-            LocalForward 1588 localhost:1588   # Consumer Backoffice GRCP
-            LocalForward 1589 localhost:1589   # Consumer Backoffice HTTP
-            LocalForward 1592 localhost:1592   # Consumer Backoffice Front
-            LocalForward 1595 localhost:1595   # Meilisearch
-
-            LocalForward 4003 localhost:4003   # Shipments GRPC 🚨 PROD
-      '';
     };
 
     services.ssh-agent.enable = true;

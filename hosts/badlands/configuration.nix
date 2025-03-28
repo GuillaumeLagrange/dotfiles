@@ -2,7 +2,6 @@
 { pkgs, lib, ... }@inputs:
 
 let
-  jlinkGroup = "jlink";
   userName = "guillaume";
 in
 {
@@ -106,13 +105,6 @@ in
   ];
   services.pcscd.enable = true;
 
-  services.udev.extraRules = ''
-    # Allow non-root users to access SEGGER J-Link
-    SUBSYSTEM=="usb", ATTR{idVendor}=="1366", ATTR{idProduct}=="0105", MODE="0666", GROUP="${jlinkGroup}"
-
-    KERNEL=="ttyACM0", MODE:="666"
-  '';
-
   # Enable sound with pipewire.
   services.pulseaudio.enable = false;
   security.rtkit.enable = true;
@@ -133,18 +125,9 @@ in
       "wheel"
       "i2c"
       "docker"
-      jlinkGroup
     ];
     shell = pkgs.zsh;
   };
-
-  # Home-manager
-  home-manager = {
-    useUserPackages = true;
-    useGlobalPkgs = true;
-  };
-
-  home-manager.users.${userName} = import ../../modules/home-manager.nix;
 
   programs.nix-ld.enable = true;
   programs.sway = {
@@ -167,6 +150,7 @@ in
     sbctl
     comma
     home-manager
+    nh
     # iOS tethering
     libimobiledevice
     distrobox
