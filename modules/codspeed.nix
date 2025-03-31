@@ -70,6 +70,20 @@ in
         exec "${vgbasedir}/coregrind/valgrind" "$@"
       '')
 
+      # Cargo install cargo-codspeed
+      (writeShellScriptBin "cicc" ''
+        cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked
+      '')
+
+      # Cargo install codspeed runner
+      (writeShellScriptBin "cicr" ''
+        cd ${codspeed_root}/runner && cargo install --path . --locked
+      '')
+
+      # Go to the latest directory of the codspeed runner
+      (writeShellScriptBin "cdtmp" ''
+        cd $(ls -td /tmp/profile.*.out | head -n 1)
+      '')
     ];
   };
 }
