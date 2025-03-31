@@ -106,7 +106,7 @@
     };
 
     home.shellAliases = {
-      nfu = "nix flake update && nh os switch -a && gcam 'chore: update flake' ";
+      nfu = "nix flake update && nh os switch -a && nh home switch && gcam 'chore: update flake' ";
       lg = "lazygit";
       lgl = "lazygit log";
       lgb = "lazygit branch";
