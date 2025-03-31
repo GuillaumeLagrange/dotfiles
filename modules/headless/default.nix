@@ -101,6 +101,12 @@
           *) export PATH="$PNPM_HOME:$PATH" ;;
         esac
 
+        function virtualenv_prompt_info() {
+          if [ -n "$CONTAINER_ID" ]; then
+            echo -n "📦 $CONTAINER_ID"
+          fi
+        }
+
         eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --shell zsh)"
       '';
     };
