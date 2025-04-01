@@ -107,7 +107,7 @@
           fi
         }
 
-        eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --shell zsh)"
+        eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --version-file-strategy recursive --shell zsh)"
       '';
     };
 

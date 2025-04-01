@@ -3,7 +3,19 @@ local log = require('utils.log')
 local M = {}
 
 local is_underline_enabled = true
-vim.diagnostic.config({ underline = is_underline_enabled })
+vim.diagnostic.config({
+  underline = is_underline_enabled,
+  virtual_text = {
+    severity = {
+      max = vim.diagnostic.severity.WARN,
+    },
+  },
+  virtual_lines = {
+    severity = {
+      min = vim.diagnostic.severity.ERROR,
+    },
+  },
+})
 M.toggle_diagnostic_underline = function()
   is_underline_enabled = not is_underline_enabled
   vim.diagnostic.config({ underline = is_underline_enabled })

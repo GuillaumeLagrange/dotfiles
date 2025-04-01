@@ -20,26 +20,6 @@ in
         cd "${codspeed_root}/$@"
       }
       compdef '_files -W "${codspeed_root}" -/' cdc
-
-      docker-cargo() {
-        if [ "$#" -lt 2 ]; then
-          echo "Usage: docker-cargo <docker-image> <cargo-command> [additional-args...]"
-          return 1
-        fi
-
-        local image="$1"
-        shift
-        local cargo_command="$@"
-
-        docker run --rm -it \
-          -u $(id -u):$(id -g) \
-          -v "$(pwd)":/home/src \
-          -v "$HOME/.cargo/registry":/home/src/.cargo/registry \
-          -v "$HOME/.cargo/git":/home/src/.cargo/git \
-          -e CARGO_HOME=/home/src/.cargo \
-          "$image" \
-          sh -c "$cargo_command"
-      }
     '';
 
     programs.granted.enable = true;

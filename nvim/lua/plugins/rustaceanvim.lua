@@ -40,6 +40,10 @@ vim.g.rustaceanvim = {
         noremap = true,
         desc = 'Expand macro',
       })
+      vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lrr', '<Cmd>RustLsp rebuildProcMacros<CR>', {
+        noremap = true,
+        desc = 'Rebuild proc macros',
+      })
     end,
     default_settings = {
       ['rust-analyzer'] = {
