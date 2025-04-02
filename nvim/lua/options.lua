@@ -51,6 +51,8 @@ vim.o.foldmethod = 'expr'
 vim.o.foldlevelstart = 99
 vim.wo.foldexpr = "v:lua.require('utils').foldexpr()"
 
+vim.o.formatexpr = "v:lua.require('conform').formatexpr()"
+
 vim.o.swapfile = false
 vim.o.autoread = true
 

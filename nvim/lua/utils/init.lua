@@ -2,7 +2,7 @@ local log = require('utils.log')
 
 local M = {}
 
-local is_underline_enabled = true
+local is_underline_enabled = false
 vim.diagnostic.config({
   underline = is_underline_enabled,
   virtual_text = {
