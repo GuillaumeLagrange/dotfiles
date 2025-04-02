@@ -61,9 +61,11 @@ in
     LC_TIME = "en_GB.UTF-8";
   };
 
-  powerManagement = {
-    enable = true;
-    powertop.enable = true;
+  # Laptop power management
+  services = {
+    thermald.enable = true;
+    power-profiles-daemon.enable = false;
+    tlp.enable = true;
   };
 
   services.logind = {
