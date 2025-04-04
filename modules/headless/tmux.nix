@@ -83,7 +83,7 @@ let
   tmuxStart = pkgs.writeShellScriptBin "tmux-start" ''
     # Remove leftover tmp sessions from the continuum save
     sed -i.bak '/^state\|^grouped_session/d' ~/.tmux/resurrect/last 
-    tmux start-server && tmux-delete-tmp-sessions
+    tmux start-server
     echo "Tmux server started"
   '';
 in

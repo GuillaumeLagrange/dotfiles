@@ -62,10 +62,10 @@ in
   };
 
   # Laptop power management
-  services = {
-    thermald.enable = true;
-    power-profiles-daemon.enable = false;
-    tlp.enable = true;
+  services.thermald.enable = true;
+  powerManagement = {
+    enable = true;
+    powertop.enable = true;
   };
 
   services.logind = {

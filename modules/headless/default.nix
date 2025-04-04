@@ -81,7 +81,6 @@
         theme = lib.mkDefault "bira";
         plugins = [
           "git"
-          "sudo"
           "npm"
           "docker"
           "rust"
