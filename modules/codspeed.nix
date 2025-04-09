@@ -38,6 +38,26 @@ in
       cm = "cmake ..";
     };
 
+    xdg.desktopEntries = {
+      mongodb-compass = {
+        name = "MongoDB Compass";
+        comment = "The MongoDB GUI";
+        genericName = "MongoDB Compass";
+        exec = "mongodb-compass --password-store=\"gnome-libsecret\" --ignore-additional-command-line-flags";
+        icon = "mongodb-compass";
+        categories = [
+          "GNOME"
+          "GTK"
+          "Utility"
+        ];
+        mimeType = [
+          "x-scheme-handler/mongodb"
+          "x-scheme-handler/mongodb+srv"
+        ];
+        startupNotify = true;
+      };
+    };
+
     home.packages = with pkgs; [
       awscli2
       mongodb-compass
