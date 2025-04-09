@@ -153,9 +153,14 @@ in
     comma
     home-manager
     nh
+    qemu
     # iOS tethering
     libimobiledevice
     distrobox
+  ];
+
+  boot.binfmt.emulatedSystems = [
+    "aarch64-linux"
   ];
 
   hardware.bluetooth.enable = true;
