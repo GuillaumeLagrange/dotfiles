@@ -62,6 +62,7 @@ in
       awscli2
       mongodb-compass
       mongodb-tools
+      uv
 
       (writeShellScriptBin "valgrind" ''
         VALGRIND_LIB="${vgbasedir}/.in_place" \
