@@ -43,6 +43,7 @@
       qwerty-fr
       slack
       spotify
+      signal-desktop
       telegram-desktop
       transmission-remote-gtk
       transmission_4-gtk

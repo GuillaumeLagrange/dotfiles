@@ -191,6 +191,10 @@ in
   services.usbmuxd.enable = true;
 
   virtualisation.docker.enable = true;
+  virtualisation.virtualbox.host.enable = true;
+  users.extraGroups.vboxusers.members = [ userName ];
+  # Temporary work around: https://github.com/NixOS/nixpkgs/issues/363887#issuecomment-2536693220
+  boot.kernelParams = [ "kvm.enable_virt_at_load=0" ];
 
   system.stateVersion = "24.05";
 }
