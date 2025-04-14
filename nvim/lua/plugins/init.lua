@@ -60,18 +60,42 @@ return {
     priority = 1000, -- Make sure to load this before all the other start plugins.
     lazy = false,
     init = function()
+      vim.g.gruvbox_material_transparent_background = 1
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = vim.api.nvim_create_augroup('custom_highlights_gruvboxmaterial', {}),
+        pattern = 'gruvbox-material',
+        callback = function()
+          local config = vim.fn['gruvbox_material#get_configuration']()
+          local palette = vim.fn['gruvbox_material#get_palette'](config.background, config.foreground, config.colors_override)
+          local set_hl = vim.fn['gruvbox_material#highlight']
+
+          set_hl('DiffText', palette.none, palette.bg_visual_yellow)
+          set_hl('NormalFloat', palette.none, palette.bg1)
+        end,
+      })
+
       vim.cmd.colorscheme('gruvbox-material')
     end,
   },
 
-  -- {
-  --   'ellisonleao/gruvbox.nvim',
-  --   priority = 1000,
-  --   opts = { transparent_mode = true, contrast = '' },
-  --   init = function()
-  --     vim.cmd.colorscheme('gruvbox')
-  --   end,
-  -- },
+  {
+    'ellisonleao/gruvbox.nvim',
+    lazy = true,
+    opts = { transparent_mode = true, contrast = '' },
+  },
+
+  {
+    'folke/tokyonight.nvim',
+    lazy = true,
+    opts = {
+      transparent = true,
+    },
+  },
+
+  {
+    'olimorris/onedarkpro.nvim',
+    lazy = true,
+  },
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },

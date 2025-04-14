@@ -4,7 +4,6 @@ vim.g.loaded_netrwPlugin = 1
 
 -- Set to true if you have a Nerd Font installed
 vim.g.have_nerd_font = true
-vim.g.gruvbox_material_transparent_background = 1
 
 -- [[ Setting options ]]
 vim.opt.number = true
