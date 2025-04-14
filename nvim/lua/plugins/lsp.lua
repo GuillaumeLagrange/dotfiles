@@ -114,20 +114,7 @@ return { -- LSP Configuration & Plugins
     require('lspconfig').clangd.setup({ filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' } })
     require('lspconfig').prismals.setup({})
     require('lspconfig').ruff.setup({ cmd = { 'uv', 'run', 'ruff', 'server' } })
-    require('lspconfig').basedpyright.setup({
-      cmd = { 'uv', 'run', 'basedpyright-langserver', '--stdio' },
-      settings = {
-        basedpyright = {
-          analysis = {
-            diagnosticSeverityOverrides = {
-              reportUnusedCallResult = 'none',
-              reportAny = 'none',
-              reportImplicitRelativeImport = 'none',
-            },
-          },
-        },
-      },
-    })
+    require('lspconfig').pyright.setup({ cmd = { 'uv', 'run', 'pyright-langserver', '--stdio' } })
 
     local flakePath = '(builtins.getFlake "/home/guillaume/dotfiles")'
     require('lspconfig').nixd.setup({
