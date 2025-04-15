@@ -71,6 +71,8 @@ return {
 
           set_hl('DiffText', palette.none, palette.bg_visual_yellow)
           set_hl('NormalFloat', palette.none, palette.bg1)
+          vim.api.nvim_set_hl(0, 'MiniFilesCursorLine', { bg = palette.bg_visual_green[1] })
+          vim.api.nvim_set_hl(0, 'TreesitterContext', { bg = palette.bg_dim[1] })
         end,
       })
 

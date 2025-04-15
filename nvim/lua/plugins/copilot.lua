@@ -12,6 +12,8 @@ return {
   {
     'github/copilot.vim',
     lazy = false,
+    -- TODO: Update this once I don't need support for node 18
+    commit = '87038123804796ca7af20d1b71c3428d858a9124',
     init = function()
       vim.keymap.set('i', '<M-w>', '<Plug>(copilot-accept-word)', { desc = 'Accept copilot word' })
       vim.keymap.set('i', '<M-l>', '<Plug>(copilot-accept-line)', { desc = 'Accept copilot line' })
