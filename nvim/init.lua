@@ -8,6 +8,7 @@ require('autocmds')
 require('keymaps')
 require('term')
 require('session')
+require('diagnostics')
 
 -- [[ lazyvim ]]
 local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
