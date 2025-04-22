@@ -199,6 +199,13 @@
       defaultEditor = true;
     };
 
+    programs.gpg = {
+      enable = true;
+      publicKeys = [
+        { source = ./guiom.pub.gpg; }
+      ];
+    };
+
     programs.htop = {
       enable = true;
     };
