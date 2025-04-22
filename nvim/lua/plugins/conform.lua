@@ -11,8 +11,8 @@ return {
       formatters_by_ft = {
         lua = { 'stylua' },
         python = { 'isort', lsp_format = 'last' },
-        javascript = { 'prettier', timeout_ms = 1000 },
-        typescript = { 'prettier', timeout_ms = 1000, lsp_format = 'last' },
+        javascript = { 'prettier', timeout_ms = 2000 },
+        typescript = { 'prettier', timeout_ms = 2000, lsp_format = 'last' },
         typescriptreact = { 'prettier' },
         cmake = { 'gersemi' },
         markdown = { 'prettier' },
