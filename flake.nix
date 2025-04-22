@@ -68,15 +68,15 @@
           };
         };
 
-        "headless" = home-manager.lib.homeManagerConfiguration {
+        "guillaume@gullywash" = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
             {
               gui.enable = false;
+              codspeed.enable = false;
               programs.zsh.oh-my-zsh.theme = "gnzh";
             }
             stylix.homeManagerModules.stylix
-            ./modules/stylix/common.nix
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {
