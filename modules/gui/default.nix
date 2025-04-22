@@ -88,10 +88,22 @@
           user = "guillaume";
           identityFile = "~/.ssh/id_ed25519_nas";
         };
+        gullywash = {
+          hostname = "192.168.1.191";
+          port = 22;
+          forwardAgent = true;
+          user = "guillaume";
+          remoteForwards = [
+            {
+              # gpgconf --list-dir agent-extra-socket on local machine
+              host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
+              # gpgconf --list-dir agent-socket on remote machine
+              bind.address = "/run/user/1000/gnupg/S.gpg-agent";
+            }
+          ];
+        };
       };
     };
-
-    services.ssh-agent.enable = true;
 
     programs.gpg.enable = true;
     services.gpg-agent = {
