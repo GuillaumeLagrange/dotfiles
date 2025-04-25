@@ -141,6 +141,8 @@ in
             { command = "${pkgs.mako}/bin/mako"; }
             { command = "${pkgs.spotify}/bin/spotify"; }
             { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }
+            # Allows nautilus to find applications to open files properly
+            { command = "dbus-update-activation-environment PATH"; }
             # Set keyboard layout here because nix cannot find qwerty-fr in the input block
             {
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";

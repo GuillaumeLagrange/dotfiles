@@ -30,21 +30,30 @@
 
     home.sessionVariables = {
       EDITOR = "nvim";
+      TERMINAL = "kitty";
       # Allows nh to find the flake
       FLAKE = "$HOME/dotfiles";
     };
 
-    xdg.userDirs = {
-      enable = true;
-      download = "${config.home.homeDirectory}/downloads";
-      desktop = "${config.home.homeDirectory}";
-      documents = "${config.home.homeDirectory}/documents";
-      music = "${config.home.homeDirectory}/media/music";
-      videos = "${config.home.homeDirectory}/media/videos";
-      pictures = "${config.home.homeDirectory}/media/pictures";
-      publicShare = "${config.home.homeDirectory}/media/public";
-      templates = "${config.home.homeDirectory}/media/templates";
-      createDirectories = false;
+    xdg = {
+      userDirs = {
+        enable = true;
+        download = "${config.home.homeDirectory}/downloads";
+        desktop = "${config.home.homeDirectory}";
+        documents = "${config.home.homeDirectory}/documents";
+        music = "${config.home.homeDirectory}/media/music";
+        videos = "${config.home.homeDirectory}/media/videos";
+        pictures = "${config.home.homeDirectory}/media/pictures";
+        publicShare = "${config.home.homeDirectory}/media/public";
+        templates = "${config.home.homeDirectory}/media/templates";
+        createDirectories = false;
+      };
+      mimeApps = {
+        enable = true;
+        defaultApplications = {
+          "text/plain" = "nvim.desktop";
+        };
+      };
     };
 
     fonts.fontconfig = {
