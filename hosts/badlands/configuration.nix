@@ -39,6 +39,11 @@ in
   '';
 
   networking.hostName = "badlands";
+  # While working on VM
+  networking.extraHosts = ''
+    10.50.56.59 glagrange.eu
+    10.50.56.59 radarr.glagrange.eu
+  '';
 
   # Enable networking
   networking.networkmanager.enable = true;

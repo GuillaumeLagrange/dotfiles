@@ -4,6 +4,10 @@
   config,
   ...
 }:
+let
+  # gullywashIp = "192.168.1.191"; # home
+  gullywashIp = "10.50.56.59"; # office
+in
 {
   options = {
     gui.enable = lib.mkEnableOption "tools to work in a graphical environment";
@@ -91,7 +95,7 @@
           identityFile = "~/.ssh/id_ed25519_nas";
         };
         gullywash = {
-          hostname = "192.168.1.191";
+          hostname = gullywashIp;
           port = 22;
           forwardAgent = true;
           user = "guillaume";
@@ -106,7 +110,6 @@
         };
       };
     };
-
     programs.gpg.enable = true;
     services.gpg-agent = {
       enable = true;
