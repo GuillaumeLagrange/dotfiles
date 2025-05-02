@@ -1,0 +1,131 @@
+services:
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      - TZ=${TZ}
+      - PUID=${UID}
+      - PGID=${GID}
+    ports:
+      - "9091:9091/tcp" # forward 9091 (transmission) to host
+      # - "7878:7878/tcp"
+      - "8989:8989/tcp"
+      - "9696:9696/tcp"
+    volumes:
+      - ${WG_CONF_PATH}:/config/wg_confs/wg0.conf
+      - /lib/modules:/lib/modules
+    restart: unless-stopped
+    healthcheck: # check if the wg is running
+      test: ["CMD-SHELL", "ping -c1 www.google.com"]
+      interval: 1m
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+
+  # transmission:
+  #   image: linuxserver/transmission:latest
+  #   container_name: transmission
+  #   network_mode: "service:wireguard" # runs using the wireguard networking
+  #   depends_on:
+  #     wireguard:
+  #       condition: service_healthy # waits until wireguard is started
+  #   environment:
+  #     # load a docker mod to handle protonvpn upmp port opening
+  #     # this can also be done in another container using natupmpc
+  #     # this mod will auto update transmission with the opened port
+  #     - DOCKER_MODS=jordanpotter/docker-mods:transmission-nat-pmp
+  #     - GATEWAY=${WG_GATEWAY}
+  #     # end
+  #     - PUID=${UID}
+  #     - PGID=${GID}
+  #     - TZ=${TZ}
+  #     - USER=${TRANSMISSION_USER}
+  #     - PASS=${TRANSMISSION_PASS}
+  #   volumes:
+  #     - transmission-config:/config
+  #     - ${DOWNLOADS_DIR_PATH}:/downloads
+  #   restart: unless-stopped
+  #
+  # sonarr:
+  #   image: lscr.io/linuxserver/sonarr:latest
+  #   container_name: sonarr
+  #   network_mode: "service:wireguard" # runs using the wireguard networking
+  #   depends_on:
+  #     wireguard:
+  #       condition: service_healthy # waits until wireguard is started
+  #   environment:
+  #     - PUID=${UID}
+  #     - PGID=${GID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - sonarr-config:/config
+  #     - ${DOWNLOADS_DIR_PATH}:/downloads
+  #     - ${MEDIA_DIR_PATH}:/media
+  #   restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:wireguard" # runs using the wireguard networking
+    ports:
+      - "7878:7878/tcp"
+    depends_on:
+      wireguard:
+        condition: service_healthy # waits until wireguard is started
+    environment:
+      - PUID=${UID}
+      - PGID=${GID}
+      - TZ=${TZ}
+    volumes:
+      - radarr-config:/config
+      - ${MEDIA_DIR_PATH}:/media
+      - ${DOWNLOADS_DIR_PATH}:/downloads
+    restart: unless-stopped
+
+  # prowlarr:
+  #   image: lscr.io/linuxserver/prowlarr:latest
+  #   container_name: prowlarr
+  #   network_mode: "service:wireguard" # runs using the wireguard networking
+  #   depends_on:
+  #     wireguard:
+  #       condition: service_healthy # waits until wireguard is started
+  #   environment:
+  #     - PUID=${UID}
+  #     - PGID=${GID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - prowlarr-config:/config
+  #   restart: unless-stopped
+
+  # jellyfin:
+  #   image: jellyfin/jellyfin
+  #   container_name: jellyfin
+  #   user: ${UID}:${GID}
+  #   ports:
+  #     - "127.0.0.1:8096:8096/tcp"
+  #   volumes:
+  #     - jellyfin-config:/config
+  #     - jellyfin-cache:/cache
+  #     - type: bind
+  #       source: ${MEDIA_DIR_PATH}
+  #       target: /media
+  #       read_only: true
+  #   restart: unless-stopped
+  #   environment:
+  #     - JELLYFIN_PublishedServerUrl=${JELLYFIN_URL}
+  #   extra_hosts:
+  #     - 'host.docker.internal:host-gateway'
+
+volumes:
+  prowlarr-config:
+  radarr-config:
+  sonarr-config:
+  transmission-config:
+  jellyfin-config:
+  jellyfin-cache:

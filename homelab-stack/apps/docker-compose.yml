@@ -1,0 +1,121 @@
+services:
+
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - heimdall-config:/config
+    ports:
+      - 127.0.0.1:8081:80
+    restart: unless-stopped
+
+
+  # wastebin:
+  #   image: 'quxfoo/wastebin:latest'
+  #   environment:
+  #     - WASTEBIN_DATABASE_PATH=/data/state.db
+  #   ports:
+  #     - "127.0.0.1:8088:8088"
+  #   volumes:
+  #     - wastebin-data:/data
+  #   restart: unless-stopped
+
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    environment:
+      - LANG=en
+      - WG_HOST=${HOSTNAME}
+      - WG_DEFAULT_ADDRESS=10.26.198.x
+      - WG_DEFAULT_DNS=10.26.199.3
+      - PASSWORD_HASH=${PASSWORD_HASH}
+    volumes:
+      - wg-easy-config:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+      - "127.0.0.1:51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      wg-easy:
+        ipv4_address: 10.26.199.2
+  #
+  # pihole:
+  #   container_name: pihole
+  #   image: pihole/pihole:latest
+  #   ports:
+  #     - "53:53/tcp"
+  #     - "53:53/udp"
+  #     - "127.0.0.1:8387:80/tcp"
+  #   environment:
+  #     TZ: ${TZ}
+  #     FTLCONF_dns_listeningMode: 'all'
+  #   volumes:
+  #     - pihole-data:/etc/pihole
+  #   restart: unless-stopped
+  #   networks:
+  #     wg-easy:
+  #       ipv4_address: 10.26.199.3
+
+  # syncthing:
+  #   image: lscr.io/linuxserver/syncthing:latest
+  #   container_name: syncthing
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - syncthing-config:/config
+  #     - /home/clemclem/Sync/:/data
+  #   ports:
+  #     - 127.0.0.1:8384:8384
+  #     - 22000:22000/tcp
+  #     - 22000:22000/udp
+  #     - 21027:21027/udp
+  #   restart: unless-stopped
+
+  # mealie:
+  #   image: ghcr.io/mealie-recipes/mealie:v2.8.0
+  #   container_name: mealie
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:9925:9000"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1000M
+  #   volumes:
+  #     - mealie-data:/app/data/
+  #   environment:
+  #     ALLOW_SIGNUP: "true"
+  #     PUID: 1000
+  #     PGID: 1000
+  #     TZ: ${TZ}
+  #     BASE_URL: $(MEALIE_BASE_URL)
+
+networks:
+  wg-easy:
+    ipam:
+      config:
+        - subnet: 10.26.199.0/24
+
+volumes:
+  mealie-data:
+  pihole-data:
+  audiobookshelf-metadata:
+  audiobookshelf-config:
+  heimdall-config:
+  hedgedoc-config:
+  thelounge-config:
+  wastebin-data:
+  wg-easy-config:
+  syncthing-config:

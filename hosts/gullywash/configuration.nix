@@ -13,6 +13,7 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
+    ./nginx.nix
   ];
 
   nix.settings.experimental-features = [
@@ -38,7 +39,7 @@
     isNormalUser = true;
     extraGroups = [
       "wheel"
-      "podman"
+      "docker"
     ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICB1BgyotMSfKqSwUoeMKJcC6d+y468PRjPrcnvMxZBW cardno:29_644_001"
@@ -46,6 +47,7 @@
     shell = pkgs.zsh;
   };
 
+  programs.nix-ld.enable = true;
   environment.systemPackages = with pkgs; [
     neovim
     wget
@@ -66,16 +68,7 @@
     enable = true;
   };
 
-  virtualisation.containers.enable = true;
-  virtualisation = {
-    podman = {
-      enable = true;
-      # Create a `docker` alias for podman, to use it as a drop-in replacement
-      dockerCompat = true;
-      # Required for containers under podman-compose to be able to talk to each other.
-      defaultNetwork.settings.dns_enabled = true;
-    };
-  };
+  virtualisation.docker.enable = true;
 
   system.stateVersion = "24.11"; # Don't touch this ever
 }
