@@ -22,12 +22,17 @@
 
     firefoxMain = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.firefox-nightly-bin}/bin/firefox-nightly";
+      default = "${pkgs.firefox}/bin/firefox";
     };
 
     firefoxAlt = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.firefox-nightly-bin}/bin/firefox-nightly --new-instance";
+      default = "${pkgs.firefox}/bin/firefox --new-instance";
+    };
+
+    firefoxDesktopEntry = lib.mkOption {
+      type = lib.types.str;
+      default = "${pkgs.firefox}/share/applications/firefox.desktop";
     };
 
     chromium = lib.mkOption {
@@ -69,16 +74,16 @@
         enable = true;
         defaultApplications = {
           "text/plain" = "nvim.desktop";
-          "x-scheme-handler/http" = "firefox-nightly.desktop";
-          "x-scheme-handler/https" = "firefox-nightly.desktop";
-          "x-scheme-handler/chrome" = "firefox-nightly.desktop";
-          "text/html" = "firefox-nightly.desktop";
-          "application/x-extension-htm" = "firefox-nightly.desktop";
-          "application/x-extension-html" = "firefox-nightly.desktop";
-          "application/x-extension-shtml" = "firefox-nightly.desktop";
-          "application/xhtml+xml" = "firefox-nightly.desktop";
-          "application/x-extension-xhtml" = "firefox-nightly.desktop";
-          "application/x-extension-xht" = "firefox-nightly.desktop";
+          "x-scheme-handler/http" = config.firefoxDesktopEntry;
+          "x-scheme-handler/https" = config.firefoxDesktopEntry;
+          "x-scheme-handler/chrome" = config.firefoxDesktopEntry;
+          "text/html" = config.firefoxDesktopEntry;
+          "application/x-extension-htm" = config.firefoxDesktopEntry;
+          "application/x-extension-html" = config.firefoxDesktopEntry;
+          "application/x-extension-shtml" = config.firefoxDesktopEntry;
+          "application/xhtml+xml" = config.firefoxDesktopEntry;
+          "application/x-extension-xhtml" = config.firefoxDesktopEntry;
+          "application/x-extension-xht" = config.firefoxDesktopEntry;
         };
       };
     };

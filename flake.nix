@@ -20,10 +20,6 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    firefox = {
-      url = "github:nix-community/flake-firefox-nightly";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -55,13 +51,6 @@
             stylix.homeManagerModules.stylix
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
-            {
-              nixpkgs.overlays = [
-                (final: prev: {
-                  inherit (inputs.firefox.packages.${system}) firefox-nightly-bin;
-                })
-              ];
-            }
           ];
           extraSpecialArgs = {
             inherit pkgs-datagrip;
