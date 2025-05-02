@@ -14,7 +14,7 @@ in
 
   config = lib.mkIf config.stockly.enable {
     programs.zsh = {
-      initExtra = ''
+      initContent = ''
         # Path to where the Stockly git repository is cloned on this computer
         export STOCKLY_MAIN=${stockly_main}
 

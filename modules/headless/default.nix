@@ -87,7 +87,7 @@
           "systemd"
         ];
       };
-      initExtra = ''
+      initContent = ''
         bindkey '^ ' autosuggest-accept
 
         if [[ "$TERM" == "xterm-kitty" ]]; then

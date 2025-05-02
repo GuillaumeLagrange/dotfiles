@@ -17,7 +17,7 @@
   ];
 
   config = lib.mkIf config.gui.enable {
-    hyprland.enable = false;
+    hyprland.enable = true;
     sway.enable = true;
     firefox.enable = true;
     waybar.enable = true;

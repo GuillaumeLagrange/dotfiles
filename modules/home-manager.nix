@@ -13,10 +13,27 @@
     ./stylix/home-manager.nix
   ];
 
-  options.term = lib.mkOption {
-    type = lib.types.str;
-    default = "${pkgs.kitty}/bin/kitty --title Kitty";
-    description = "A shared term value";
+  options = {
+    term = lib.mkOption {
+      type = lib.types.str;
+      default = "${pkgs.kitty}/bin/kitty --title Kitty";
+      description = "A shared term value";
+    };
+
+    firefoxMain = lib.mkOption {
+      type = lib.types.str;
+      default = "${pkgs.firefox-nightly-bin}/bin/firefox-nightly";
+    };
+
+    firefoxAlt = lib.mkOption {
+      type = lib.types.str;
+      default = "${pkgs.firefox-nightly-bin}/bin/firefox-nightly --new-instance";
+    };
+
+    chromium = lib.mkOption {
+      type = lib.types.str;
+      default = "${pkgs.chromium}/bin/chromium";
+    };
   };
 
   config = {
@@ -32,7 +49,7 @@
       EDITOR = "nvim";
       TERMINAL = "kitty";
       # Allows nh to find the flake
-      FLAKE = "$HOME/dotfiles";
+      NH_FLAKE = "$HOME/dotfiles";
     };
 
     xdg = {
@@ -52,6 +69,16 @@
         enable = true;
         defaultApplications = {
           "text/plain" = "nvim.desktop";
+          "x-scheme-handler/http" = "firefox-nightly.desktop";
+          "x-scheme-handler/https" = "firefox-nightly.desktop";
+          "x-scheme-handler/chrome" = "firefox-nightly.desktop";
+          "text/html" = "firefox-nightly.desktop";
+          "application/x-extension-htm" = "firefox-nightly.desktop";
+          "application/x-extension-html" = "firefox-nightly.desktop";
+          "application/x-extension-shtml" = "firefox-nightly.desktop";
+          "application/xhtml+xml" = "firefox-nightly.desktop";
+          "application/x-extension-xhtml" = "firefox-nightly.desktop";
+          "application/x-extension-xht" = "firefox-nightly.desktop";
         };
       };
     };

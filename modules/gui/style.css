@@ -59,14 +59,22 @@ button:hover {
     background: rgba(0, 0, 0, 0.2);
 }
 
-/* For sway: active -> focused */
+/* Style for active workspace in Hyprland */
+#workspaces button.active {
+    background-color: @orange;
+    color: #000000;
+    box-shadow: inset 0 -3px #ffffff;
+}
+
+/* Style for focused workspace in Sway */
 #workspaces button.focused {
     background-color: @orange;
     color: #000000;
     box-shadow: inset 0 -3px #ffffff;
 }
 
-#workspaces button.visible:not(.focused) {
+/* Style for visible but not active/focused workspaces */
+#workspaces button.visible:not(.active):not(.focused) {
     background-color: @grey;
     box-shadow: inset 0 -3px #ffffff;
 }

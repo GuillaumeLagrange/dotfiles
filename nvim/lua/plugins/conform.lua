@@ -16,7 +16,7 @@ return {
         typescriptreact = { 'prettier' },
         cmake = { 'gersemi' },
         markdown = { 'prettier' },
-        mdx = { 'prettier' },
+        mdx = { 'prettier', timeout_ms = 2000 },
         toml = { 'taplo' },
       },
     },

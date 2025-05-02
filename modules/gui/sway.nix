@@ -85,6 +85,11 @@ in
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu wofi -d -p 'Choose Action: '";
 
+            # Browsers
+            "${modifier}+w" = "exec ${config.firefoxMain}";
+            "${modifier}+Shift+w" = "exec ${config.firefoxAlt}";
+            "${modifier}+Ctrl+w" = "exec ${config.chromium}";
+
             "--locked ${modifier}+equal" =
               "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
             "--locked ${modifier}+minus" =

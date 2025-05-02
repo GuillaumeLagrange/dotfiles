@@ -6,7 +6,6 @@
 }:
 let
   lock_script = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
-  monster_name = "Cerberus";
 in
 {
   options = {
@@ -21,7 +20,8 @@ in
         "$mainMod" = "SUPER";
         "$shiftMod" = "SUPER_SHIFT";
         "$ctrlMod" = "SUPER_CTRL";
-        "$volumeNotification" = "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
+        "$volumeNotification" =
+          "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
 
         exec-once = [
           "${pkgs._1password-gui}/bin/1password --silent"
@@ -31,6 +31,7 @@ in
           "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"
           "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"
+          "${pkgs.waybar}/bin/waybar"
         ];
 
         input = {
@@ -59,6 +60,8 @@ in
           border_size = 1;
           layout = "master";
           allow_tearing = false;
+          "col.active_border" = "rgba(ea6962ff) rgba(a9b665ff) 45deg";
+          "col.inactive_border" = "rgba(595959aa)";
         };
 
         decoration = {
@@ -72,10 +75,11 @@ in
             vibrancy = 0.1696;
           };
 
-          drop_shadow = true;
-          shadow_range = 4;
-          shadow_render_power = 3;
-          # "col.shadow" = "rgba(1a1a1aee)";
+          shadow = {
+            enabled = true;
+            range = 4;
+            render_power = 3;
+          };
         };
 
         animations = {
@@ -100,8 +104,7 @@ in
 
         master = {
           # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
-          new_status = "inherit";
-          no_gaps_when_only = false;
+          new_status = "slave";
           mfact = 0.6;
         };
 
@@ -170,14 +173,14 @@ in
         "$backlight_step" = "20";
         bind = [
           "$mainMod, Return, exec, $terminal"
-          "$mainMod, W, exec, firefox"
-          "$shiftMod, W, exec, firefox -p stockly"
-          "$ctrlMod, W, exec, chromium"
+          "$mainMod, W, exec, ${config.firefoxMain}"
+          "$shiftMod, W, exec, ${config.firefoxAlt}"
+          "$ctrlMod, W, exec, ${config.chromium}"
           "$shiftMod, A, killactive,"
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
           "$mainMod, D, exec, ${pkgs.wofi}/bin/wofi --show drun"
           "$mainMod, Tab, exec, ${pkgs.wofi-emoji}/bin/wofi-emoji"
-          "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
+          "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
           "$mainMod, P, pseudo, # dwindle"
           "$mainMod, E, togglesplit, # dwindle"
 
@@ -201,9 +204,6 @@ in
           # Sreen brightness controls
           ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%+"
           ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%- -n 1"
-          # Stockly helpers
-          "$mainMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"${monster_name} nvim\" -e sh -c \"ssh -o ClearAllForwardings=yes -t ${lib.toLower monster_name} 'exec env LANG=C.UTF-8 tmux new-session -A -s nvim'\""
-          "$shiftMod, Backslash, exec, ${pkgs.alacritty}/bin/alacritty --title \"${monster_name} bo\" -e sh -c \"ssh -q -t ${lib.toLower monster_name} 'exec env LANG=C.UTF-8 tmux new-session -A -s bo'\""
 
           # Move focus with mainMod + arrow keys
           "$mainMod, H, movefocus, l"

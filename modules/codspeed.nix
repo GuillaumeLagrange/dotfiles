@@ -14,7 +14,7 @@ in
   };
 
   config = lib.mkIf config.codspeed.enable {
-    programs.zsh.initExtra = ''
+    programs.zsh.initContent = ''
       # Easy navigation in the codspeed repositories
       cdc() {
         cd "${codspeed_root}/$@"
@@ -36,6 +36,7 @@ in
       mj = "make -j";
       m = "make";
       cm = "cmake ..";
+      bazel = "bazelisk";
     };
 
     xdg.desktopEntries = {

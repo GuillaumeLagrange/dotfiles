@@ -132,6 +132,7 @@ in
   };
 
   programs.nix-ld.enable = true;
+  programs.hyprland.enable = true;
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;

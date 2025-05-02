@@ -122,7 +122,11 @@ in
         "${modifier}+Backslash" = "kill; exec ${config.term} -e zsh -i -c tsm";
       };
 
-    programs.zsh.initExtra = ''
+    wayland.windowManager.hyprland.settings.bind = [
+      "$mainMod, Backslash, exec, ${config.term} -e zsh -i -c tsm"
+    ];
+
+    programs.zsh.initContent = ''
       # Make attaching and detaching tmux sessions over ssh play nice with ssh-agent
       function update_environment_from_tmux() {
         if [ -n "''${TMUX}" ]; then
