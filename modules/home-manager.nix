@@ -84,6 +84,8 @@
           "application/xhtml+xml" = config.firefoxDesktopEntry;
           "application/x-extension-xhtml" = config.firefoxDesktopEntry;
           "application/x-extension-xht" = config.firefoxDesktopEntry;
+          "image/jpeg" = config.firefoxDesktopEntry;
+          "image/png" = config.firefoxDesktopEntry;
         };
       };
     };
