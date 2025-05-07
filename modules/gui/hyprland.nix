@@ -26,7 +26,6 @@ in
         exec-once = [
           "${pkgs._1password-gui}/bin/1password --silent"
           "${pkgs.networkmanagerapplet}/bin/nm-applet"
-          "${pkgs.wpaperd}/bin/wpaperd"
           "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
           "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"
@@ -168,7 +167,7 @@ in
 
         # Outputs submap
         "$monitorsSubmap" = "Monitors (s)ingle (r)eset (w)allpaper (d)ual";
-        # "$restartWpaperd" = "killall wpaperd && hyprctl dispatch exec /usr/bin/wpaperd";
+        "$restartWpaperd" = "systemctl --user restart wpaperd";
 
         "$backlight_step" = "20";
         bind = [

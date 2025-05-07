@@ -153,10 +153,6 @@ in
               command = "swaymsg input type:keyboard xkb_layout qwerty-fr";
               always = true;
             }
-            {
-              command = "${pkgs.wpaperd}/bin/wpaperd";
-              always = true;
-            }
           ];
           input = {
             "type:keyboard" = {
