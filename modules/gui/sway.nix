@@ -68,7 +68,6 @@ in
         enable = true;
         # Disable default config
         config = {
-          bars = [ { command = "${pkgs.waybar}/bin/waybar"; } ];
           modifier = modifier;
           floating.modifier = modifier;
           keybindings = {

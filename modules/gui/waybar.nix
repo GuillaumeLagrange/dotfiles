@@ -14,6 +14,7 @@
     programs.waybar = {
       enable = true;
       style = builtins.readFile ./style.css;
+      systemd.enable = true;
       settings = {
         mainBar = {
           layer = "top";

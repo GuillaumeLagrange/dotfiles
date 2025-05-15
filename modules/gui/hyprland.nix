@@ -30,7 +30,6 @@ in
           "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"
           "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"
-          "${pkgs.waybar}/bin/waybar"
         ];
 
         input = {

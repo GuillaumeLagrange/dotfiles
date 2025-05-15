@@ -263,17 +263,20 @@
 
     services.mako = {
       enable = true;
-      defaultTimeout = 10000;
-      extraConfig = ''
-        [app-name="Firefox"]
-        default-timeout=0
-
-        [app-name="Pomodoro"]
-        default-timeout=0
-
-        [app-name="NetworkManager Applet"]
-        default-timeout=5000
-      '';
+      settings = {
+        default-timeout = 10000;
+      };
+      # FIXME: Fix this
+      # settings = ''
+      #   [app-name="Firefox"]
+      #   default-timeout=0
+      #
+      #   [app-name="Pomodoro"]
+      #   default-timeout=0
+      #
+      #   [app-name="NetworkManager Applet"]
+      #   default-timeout=5000
+      # '';
     };
 
     services.wpaperd = {
