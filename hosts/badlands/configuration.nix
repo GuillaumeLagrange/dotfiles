@@ -43,8 +43,8 @@ in
   # Enable networking
   networking.networkmanager.enable = true;
 
-  # Set your time zone.
-  time.timeZone = "Europe/Paris";
+  # Update timezone with `systemctl start tzupdate`
+  services.tzupdate.enable = true;
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
