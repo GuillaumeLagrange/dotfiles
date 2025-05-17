@@ -168,7 +168,7 @@ in
         "$monitorsSubmap" = "Monitors (s)ingle (r)eset (w)allpaper (d)ual";
         "$restartWpaperd" = "systemctl --user restart wpaperd";
 
-        "$backlight_step" = "20";
+        "$backlight_step" = "10";
         bind = [
           "$mainMod, Return, exec, $terminal"
           "$mainMod, W, exec, ${config.firefoxMain}"
@@ -188,20 +188,14 @@ in
           # Bluetooth
           "$mainMod, B, exec, ${pkgs.blueman}/bin/blueman-manager"
 
-          # Volume
-          ", XF86AudioMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && $volumeNotification"
           # Notification pannel toggle
           "$mainMod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
-
-          # Media play
-          ", XF86AudioPause, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-          ", XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-          ", XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next"
-          ", XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous"
 
           # Sreen brightness controls
           ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%+"
           ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set $backlight_step%- -n 1"
+          "SHIFT, XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set 100%"
+          "SHIFT, XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set 1"
 
           # Move focus with mainMod + arrow keys
           "$mainMod, H, movefocus, l"
@@ -258,11 +252,22 @@ in
           "$shiftMod, X, movecurrentworkspacetomonitor, -1"
         ];
 
-        # Holdable binds
-        binde = [
+        bindel = [
           # Volume
           ", XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && $volumeNotification"
           ", XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && $volumeNotification"
+        ];
+
+        bindl = [
+          # Volume
+          ", XF86AudioMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && $volumeNotification"
+
+          # Media play
+          ", XF86AudioPause, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
+          ", XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
+          ", XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next"
+          ", XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous"
+
         ];
 
         bindm = [
