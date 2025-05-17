@@ -201,8 +201,8 @@
           lockTimeout = 60 * 10; # 10 minutes
           screenOffTimeout = 10;
           suspendTimeout = 2 * lockTimeout;
-          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off'";
-          screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on'";
+          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms off";
+          screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
         in
         [
           {
@@ -211,12 +211,12 @@
           }
           {
             timeout = lockTimeout + screenOffTimeout;
-            command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
+            command = "if ${pkgs.procps}/bin/pgrep swaylock; then ${screenOffCommand}; fi";
             resumeCommand = "${screenOnCommand}";
           }
           {
             timeout = screenOffTimeout;
-            command = "if ${pkgs.procps}/bin/pgrep -x swaylock; then ${screenOffCommand}; fi";
+            command = "if ${pkgs.procps}/bin/pgrep swaylock; then ${screenOffCommand}; fi";
             resumeCommand = "${screenOnCommand}";
           }
           {
