@@ -157,7 +157,11 @@
 
     programs.fzf = {
       enable = true;
-      tmux.enableShellIntegration = true;
+    };
+
+    programs.atuin = {
+      enable = true;
+      enableZshIntegration = true;
     };
 
     programs.z-lua = {
