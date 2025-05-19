@@ -22,14 +22,34 @@ return {
     end,
   },
   {
-    'CopilotC-Nvim/CopilotChat.nvim',
-    event = { 'CmdlineEnter' },
-    keys = { { '<leader>cc', '<cmd>CopilotChat<cr>', desc = 'Open Copilot Chat' } },
-    dependencies = {
-      { 'github/copilot.vim' },
-      { 'nvim-lua/plenary.nvim', branch = 'master' },
+    'olimorris/codecompanion.nvim',
+    opts = {
+      adapters = {
+        openai = function()
+          return require('codecompanion.adapters').extend('copilot', {
+            schema = {
+              model = {
+                default = 'claude-3-7-sonnet',
+              },
+            },
+          })
+        end,
+      },
     },
-    build = 'make tiktoken',
-    opts = {},
+    keys = {
+      {
+        '<leader>cc',
+        function()
+          require('codecompanion').toggle()
+        end,
+        desc = 'Toggle Code Companion',
+      },
+      -- { '<leader>cC', function() require('codecompanion').toggle(true) end, desc = 'Toggle Code Companion (force)' },
+      -- { '<leader>c?', function() require('codecompanion').info() end, desc = 'Code Companion Info' },
+    },
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-treesitter/nvim-treesitter',
+    },
   },
 }
