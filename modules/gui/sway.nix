@@ -73,16 +73,16 @@ in
           keybindings = {
             "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
-            "${modifier}+d" = "exec ${pkgs.wofi}/bin/wofi --show drun --insensitive";
+            "${modifier}+d" = "exec ${pkgs.fuzzel}/bin/fuzzel";
             "${modifier}+v" =
-              "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
+              "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
             "Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "Shift+Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "${modifier}+Tab" = "exec ${pkgs.wofi-emoji}/bin/wofi-emoji";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
-            "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu wofi -d -p 'Choose Action: '";
+            "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 
             # Browsers
             "${modifier}+w" = "exec ${config.firefoxMain}";

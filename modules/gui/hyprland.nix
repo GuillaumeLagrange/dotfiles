@@ -176,9 +176,9 @@ in
           "$ctrlMod, W, exec, ${config.chromium}"
           "$shiftMod, A, killactive,"
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
-          "$mainMod, D, exec, ${pkgs.wofi}/bin/wofi --show drun"
-          "$mainMod, Tab, exec, ${pkgs.wofi-emoji}/bin/wofi-emoji"
-          "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.wofi}/bin/wofi --dmenu | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
+          "$mainMod, D, exec, ${pkgs.fuzzel}/bin/fuzzel"
+          "$mainMod, Tab, exec, ${pkgs.bemoji}/bin/bemoji"
+          "$mainMod, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
           "$mainMod, P, pseudo, # dwindle"
           "$mainMod, E, togglesplit, # dwindle"
 

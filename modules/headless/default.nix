@@ -46,7 +46,7 @@
       luajitPackages.luarocks
       nixd
       nixfmt-rfc-style
-      nodePackages_latest.prettier # Markdown formatting
+      # nodePackages_latest.prettier # Markdown formatting
       stylua
       taplo
       vscode-langservers-extracted
@@ -162,6 +162,11 @@
     programs.atuin = {
       enable = true;
       enableZshIntegration = true;
+      settings = {
+        enter_accept = true;
+        filter_mode = "host";
+        filter_mode_shell_up_key_binding = "session";
+      };
     };
 
     programs.z-lua = {
