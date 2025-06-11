@@ -4,7 +4,7 @@
 }:
 pkgs.writeShellScriptBin "git-push-stack" ''
   # Get base ref from first argument, default to origin/main if not provided
-  base_ref=''${1:-origin/$(git_main_branch)}
+  base_ref=''${1:-origin/main}
 
   # Get the current branch name
   current_branch=$(git branch --show-current)
@@ -26,7 +26,7 @@ pkgs.writeShellScriptBin "git-push-stack" ''
   for branch in $all_branches; do
       if [ -n "$branch" ]; then
           echo "Pushing branch: $branch"
-          # git push origin --force-with-lease "$branch"
+          git push origin --force-with-lease "$branch"
       fi
   done
 ''
