@@ -50,6 +50,12 @@
       stylua
       taplo
       vscode-langservers-extracted
+
+
+      (pkgs.callPackage ./gitPushStack.nix {
+        inherit pkgs lib config;
+      })
+
     ];
 
     xdg.configFile = {

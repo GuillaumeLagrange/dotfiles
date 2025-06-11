@@ -37,6 +37,8 @@ in
       m = "make";
       cm = "cmake ..";
       bazel = "bazelisk";
+      # Go to the latest directory of the codspeed runner
+      cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
     };
 
     xdg.desktopEntries = {
@@ -80,11 +82,6 @@ in
       # Cargo install codspeed runner
       (writeShellScriptBin "cicr" ''
         cd ${codspeed_root}/runner && cargo install --path . --locked
-      '')
-
-      # Go to the latest directory of the codspeed runner
-      (writeShellScriptBin "cdtmp" ''
-        cd $(ls -td /tmp/profile.*.out | head -n 1)
       '')
     ];
   };

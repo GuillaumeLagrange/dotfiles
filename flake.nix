@@ -48,7 +48,7 @@
         "guillaume" = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
-            stylix.homeManagerModules.stylix
+            stylix.homeModules.stylix
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
           ];
@@ -65,7 +65,7 @@
               codspeed.enable = false;
               programs.zsh.oh-my-zsh.theme = "gnzh";
             }
-            stylix.homeManagerModules.stylix
+            stylix.homeModules.stylix
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {
