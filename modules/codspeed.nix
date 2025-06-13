@@ -66,6 +66,7 @@ in
       mongodb-compass
       mongodb-tools
       uv
+      kdePackages.kcachegrind
 
       (writeShellScriptBin "valgrind" ''
         VALGRIND_LIB="${vgbasedir}/.in_place" \
