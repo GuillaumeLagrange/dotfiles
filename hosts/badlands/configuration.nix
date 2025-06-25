@@ -96,6 +96,7 @@ in
   # Gnome
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
+  services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
