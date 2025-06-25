@@ -89,13 +89,11 @@ in
         };
     };
 
-    # Gnome
-    displayManager.gdm.enable = true;
-    desktopManager.gnome.enable = true;
   };
-  # Disable gnome keyring as gnome is mostly here as a fallback
-  # Keyring cannot be unlocked through fprintd so we cannot avoid the popup on login
-  # services.gnome.gnome-keyring.enable = lib.mkForce false;
+
+  # Gnome
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -157,6 +155,8 @@ in
     # iOS tethering
     libimobiledevice
     distrobox
+
+    linuxPackages.perf
   ];
 
   boot.binfmt.emulatedSystems = [

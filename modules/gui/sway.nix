@@ -166,6 +166,7 @@ in
               middle_emulation = "disabled";
             };
           };
+          bars = [ ];
           window.commands = [
             {
               command = "floating enable, border pixel 1, sticky enable, exec ${move-to-bottom-right}, move scratchpad, scratchpad show";
