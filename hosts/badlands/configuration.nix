@@ -42,6 +42,8 @@ in
 
   # Enable networking
   networking.networkmanager.enable = true;
+  # Allow wireguard to use systemd-resolved
+  services.resolved.enable = true;
 
   time.timeZone = "Europe/Paris";
 

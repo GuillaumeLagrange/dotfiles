@@ -51,6 +51,7 @@
       wdisplays
       wev
       wl-clipboard
+      wireguard-tools
 
       # codelldb debugger
       vscode-extensions.vadimcn.vscode-lldb.adapter
@@ -84,14 +85,8 @@
       enable = true;
       addKeysToAgent = "yes";
       matchBlocks = {
-        nas = {
-          hostname = "192.168.1.15";
-          port = 22;
-          user = "guillaume";
-          identityFile = "~/.ssh/id_ed25519_nas";
-        };
         gullywash = {
-          hostname = "192.168.1.191";
+          hostname = "gullywash.glagrange.eu";
           port = 22;
           forwardAgent = true;
           user = "guillaume";

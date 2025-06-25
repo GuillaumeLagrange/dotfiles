@@ -37,8 +37,17 @@
   };
 
   # Key is expected to bee at /root/zfs_passfile
-  fileSystems."/main" = {
-    device = "tank/main";
+  fileSystems."/media" = {
+    device = "tank/main/media";
+    fsType = "zfs";
+    options = [
+      "zfsutil"
+      "nofail"
+    ];
+  };
+
+  fileSystems."/configs" = {
+    device = "tank/main/configs";
     fsType = "zfs";
     options = [
       "zfsutil"
@@ -56,5 +65,4 @@
   # networking.interfaces.enp0s3.useDHCP = lib.mkDefault true;
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-  virtualisation.virtualbox.guest.enable = true;
 }

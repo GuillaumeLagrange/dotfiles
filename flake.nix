@@ -79,7 +79,7 @@
 
       nixosConfigurations = {
         badlands = import ./hosts/badlands/default.nix { inherit inputs; };
-        gullywash = import ./hosts/gullywash/default.nix { inherit inputs; };
+        gullywash = import ./hosts/gullywash/default.nix { inherit inputs sshPublicKey; };
 
         guiom-nixos-installation = nixpkgs.lib.nixosSystem {
           inherit system;
