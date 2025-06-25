@@ -30,6 +30,7 @@ return {
         map('n', '[h', gs.prev_hunk, 'Prev Hunk')
         map({ 'n', 'v' }, '<leader>ghw', ':Gitsigns stage_hunk<CR>', 'Stage Hunk')
         map({ 'n', 'v' }, '<leader>ghr', ':Gitsigns reset_hunk<CR>', 'Reset Hunk')
+        map('n', '<leader>gb', gs.blame, 'Git blame')
         map('n', '<leader>ghu', gs.undo_stage_hunk, 'Undo Stage Hunk')
         map('n', '<leader>ghp', gs.preview_hunk_inline, 'Preview Hunk Inline')
       end,
@@ -107,7 +108,7 @@ return {
     lazy = false,
     keys = {
       { '<leader>gs', '<cmd>Git<CR>', mode = 'n', desc = 'Git status' },
-      { '<leader>gb', '<cmd>Git blame<cr>', mode = 'n', desc = 'Git blame' },
+      -- { '<leader>gb', '<cmd>Git blame<cr>', mode = 'n', desc = 'Git blame' },
       { '<leader>gr', '<cmd>Gread<cr>', mode = 'n', desc = 'Read buffer' },
       { '<leader>gw', '<cmd>Gwrite<cr>', mode = 'n', desc = 'Write buffer' },
       { '<leader>gd', '<cmd>Gdiff<cr>', mode = 'n', desc = 'Git diff' },
