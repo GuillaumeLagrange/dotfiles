@@ -12,7 +12,7 @@ return {
         lua = { 'stylua' },
         python = { 'isort', lsp_format = 'last' },
         javascript = { 'prettier', timeout_ms = 2000 },
-        typescript = { 'prettier', timeout_ms = 2000, lsp_format = 'last' },
+        typescript = { 'prettier', timeout_ms = 2000 },
         typescriptreact = { 'prettier' },
         cmake = { 'gersemi' },
         markdown = { 'prettier' },
