@@ -42,13 +42,16 @@
         inherit system;
         config.allowUnfree = true;
       };
+
+      # Shared SSH key configuration
+      sshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICB1BgyotMSfKqSwUoeMKJcC6d+y468PRjPrcnvMxZBW cardno:29_644_001";
     in
     {
       homeConfigurations = {
         "guillaume" = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
-            stylix.homeManagerModules.stylix
+            stylix.homeModules.stylix
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
           ];
@@ -65,7 +68,7 @@
               codspeed.enable = false;
               programs.zsh.oh-my-zsh.theme = "gnzh";
             }
-            stylix.homeManagerModules.stylix
+            stylix.homeModules.stylix
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {
@@ -77,6 +80,45 @@
       nixosConfigurations = {
         badlands = import ./hosts/badlands/default.nix { inherit inputs; };
         gullywash = import ./hosts/gullywash/default.nix { inherit inputs; };
+
+        guiom-nixos-installation = nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            "${nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+            {
+              # Set ISO name
+              isoImage.isoName = "guiom-nixos-installation.iso";
+
+              # Enable flakes
+              nix.settings.experimental-features = [
+                "nix-command"
+                "flakes"
+              ];
+
+              # Enable SSH daemon and force it to start
+              services.openssh = {
+                enable = true;
+                settings = {
+                  PasswordAuthentication = false;
+                  PermitRootLogin = "yes";
+                };
+              };
+              systemd.services.sshd.wantedBy = pkgs.lib.mkForce [ "multi-user.target" ];
+
+              environment.systemPackages = with pkgs; [
+                neovim
+                wpa_supplicant
+              ];
+
+              # Configure root user with SSH key
+              users.users.root.openssh.authorizedKeys.keys = [ sshPublicKey ];
+
+              # Network configuration - enable both wired and wireless
+              networking.networkmanager.enable = true;
+              networking.wireless.enable = false; # NetworkManager handles wifi
+            }
+          ];
+        };
       };
 
     };

@@ -6,6 +6,7 @@
   config,
   lib,
   pkgs,
+  sshPublicKey,
   ...
 }:
 
@@ -43,6 +44,7 @@
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICB1BgyotMSfKqSwUoeMKJcC6d+y468PRjPrcnvMxZBW cardno:29_644_001"
     ];
+    openssh.authorizedKeys.keys = [ sshPublicKey ];
     shell = pkgs.zsh;
   };
 

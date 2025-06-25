@@ -14,6 +14,12 @@
 2. Make sure flakes are enabled and Home-Manager is installed
 3. Apply the configuration: `home-manager switch --flake .#<username>`
 
+### Building Installation ISO
+
+```bash
+nix build .#nixosConfigurations.guiom-nixos-installation.config.system.build.isoImage
+```
+
 ## Content
 
 ### nix
