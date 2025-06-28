@@ -7,6 +7,9 @@
   ...
 }:
 
+let
+  unifiedBindMount = "/unified_bind_mount";
+in
 {
   imports = [ ];
 
@@ -52,6 +55,70 @@
     options = [
       "zfsutil"
       "nofail"
+    ];
+  };
+
+  # Bind mount to granuarly mount inside containers and keep them awayre that it's the same filesystem
+  fileSystems."${unifiedBindMount}" = {
+    device = "none";
+    fsType = "tmpfs";
+    options = [
+      "size=20M"
+      "mode=755"
+    ];
+  };
+
+  # Series downloads bind mounts
+  fileSystems."${unifiedBindMount}/series_downloads/series" = {
+    device = "/media/series";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+    ];
+    depends = [
+      "/media"
+      "${unifiedBindMount}"
+    ];
+  };
+
+  fileSystems."${unifiedBindMount}/series_downloads/downloads" = {
+    device = "/media/downloads";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+    ];
+    depends = [
+      "/media"
+      "${unifiedBindMount}"
+    ];
+  };
+
+  # Movies downloads bind mounts
+  fileSystems."${unifiedBindMount}/movies_downloads/movies" = {
+    device = "/media/movies";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+    ];
+    depends = [
+      "/media"
+      "${unifiedBindMount}"
+    ];
+  };
+
+  fileSystems."${unifiedBindMount}/movies_downloads/downloads" = {
+    device = "/media/downloads";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+    ];
+    depends = [
+      "/media"
+      "${unifiedBindMount}"
     ];
   };
 
