@@ -83,6 +83,8 @@
 
   virtualisation.containers.enable = true;
   virtualisation.docker.enable = true;
+  # Limit ZFS ARC to 4GB (25% of 16GB RAM)
+  boot.kernelParams = [ "zfs.zfs_arc_max=4294967296" ];
 
   system.stateVersion = "24.11"; # Don't touch this ever
 }
