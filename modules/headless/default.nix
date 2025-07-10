@@ -28,6 +28,7 @@
       jq
       killall
       nh
+      pciutils
       ripgrep
       rustup
       tig
@@ -133,6 +134,7 @@
           git reset HEAD~1
         done
       '';
+      dc = "docker-compose";
     };
 
     programs.lazygit = {
@@ -143,6 +145,7 @@
         };
       };
     };
+    programs.lazydocker.enable = true;
 
     programs.bash.enable = true;
 
