@@ -14,7 +14,7 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
-    ./zfs-notifications.nix
+    ./zfs.nix
   ];
 
   nix.settings.experimental-features = [

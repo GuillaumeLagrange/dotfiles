@@ -3,6 +3,24 @@ let
   gMailConfigPath = "/configs/gmail";
 in
 {
+  # ZFS tuning
+  # Limit ZFS ARC to 4GB (25% of 16GB RAM)
+  boot.kernelParams = [ "zfs.zfs_arc_max=4294967296" ];
+  # ZFS module parameters
+  boot.extraModprobeConfig = ''
+    # Disable ABD scatter to prevent memory bloat with random I/O workloads
+    options zfs zfs_abd_scatter_enabled=0
+
+    # Optional: If you want to set a higher minimum size for scatter (if re-enabled later)
+    # options zfs zfs_abd_scatter_min_size=16777216
+
+    # Optional: Other memory-related tunings for 16GB system
+    # options zfs zfs_arc_min=2147483648             # 2GB minimum ARC
+    # options zfs zfs_arc_meta_limit_percent=50      # Limit metadata to 50% of ARC
+    # options zfs zfs_arc_sys_free=1073741824        # Keep 1GB system memory free
+  '';
+
+  # Notifications
   programs.msmtp.enable = false;
 
   system.activationScripts.generateMsmtpConfig = ''
@@ -39,11 +57,19 @@ in
     mailutils
   ];
 
-  # ZFS configuration
   services.zfs = {
     autoScrub = {
       enable = true;
       interval = "monthly";
+    };
+    autoSnapshot = {
+      enable = true;
+      flags = "-k -p -u";
+      weekly = 4; # Keep 4 weekly snapshots
+      monthly = 0; # Disable monthly snapshots
+      daily = 0; # Disable daily snapshots
+      hourly = 0; # Disable hourly snapshots
+      frequent = 0; # Disable frequent snapshots
     };
     zed = {
       enableMail = true;
