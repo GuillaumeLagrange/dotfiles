@@ -13,7 +13,7 @@ return {
         python = { 'isort', lsp_format = 'last' },
         javascript = { 'prettier', timeout_ms = 2000 },
         typescript = { 'prettier', timeout_ms = 2000 },
-        typescriptreact = { 'prettier' },
+        typescriptreact = { 'prettier', timeout_ms = 2000 },
         cmake = { 'gersemi' },
         markdown = { 'prettier' },
         mdx = { 'prettier', timeout_ms = 2000 },

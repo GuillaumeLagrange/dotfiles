@@ -61,5 +61,12 @@ vim.keymap.set('n', '<leader>dt', '<CMD>diffthis<CR>', { desc = 'Diff this' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dg', '<CMD>diffget<CR>', { desc = 'Diff get' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dp', '<CMD>diffput<CR>', { desc = 'Diff put' })
 
+-- Copy path
+vim.keymap.set('n', '<leader>yp', function()
+  local path = vim.fn.expand('%:.')
+  vim.fn.setreg('+', path)
+  print('Copied path: ' .. path)
+end, { desc = 'Copy file path to clipboard' })
+
 -- Disable 'qq' for macro recording
 vim.api.nvim_set_keymap('n', 'qq', '<Nop>', { noremap = true, silent = true })
