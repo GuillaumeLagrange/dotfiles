@@ -17,6 +17,7 @@
     tmux.enable = true;
 
     home.packages = with pkgs; [
+      btop
       devenv
       fastfetch
       fd
