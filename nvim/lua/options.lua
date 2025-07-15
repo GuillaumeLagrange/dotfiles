@@ -55,4 +55,6 @@ vim.o.formatexpr = "v:lua.require('conform').formatexpr()"
 vim.o.swapfile = false
 vim.o.autoread = true
 
+vim.o.winborder = 'bold'
+
 vim.o.exrc = true
