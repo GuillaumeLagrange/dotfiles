@@ -136,6 +136,8 @@
         done
       '';
       dc = "docker-compose";
+      tarc = "tarc -czf";
+      tarx = "tarc -xzf";
     };
 
     programs.lazygit = {
