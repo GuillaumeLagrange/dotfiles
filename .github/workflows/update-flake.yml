@@ -1,0 +1,48 @@
+# name: Nix CI
+#
+# on:
+#   push:
+#     branches: [main, update-flake-lock]
+#   pull_request:
+#   schedule:
+#     - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
+#
+# jobs:
+#   update-flake:
+#     if: github.event_name == 'schedule'
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: write
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           token: ${{ secrets.GITHUB_TOKEN }}
+#       
+#       - uses: DeterminateSystems/nix-installer-action@main
+#       - uses: DeterminateSystems/magic-nix-cache-action@main
+#       
+#       - uses: cachix/cachix-action@v12
+#         with:
+#           name: guillaumelagrange
+#           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+#       
+#       - uses: DeterminateSystems/update-flake-lock@main
+#         with:
+#           pr-title: "Update flake.lock"
+#           pr-body: "Automated flake.lock update"
+#           branch: "update-flake-lock"
+#
+#   build:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       
+#       - uses: DeterminateSystems/nix-installer-action@main
+#       - uses: DeterminateSystems/magic-nix-cache-action@main
+#       
+#       - name: Build configurations
+#         run: |
+#           nix build .#nixosConfigurations.badlands.config.system.build.toplevel
+#           nix build .#homeConfigurations.guillaume.activationPackage
+#           nix build .#homeConfigurations."guillaume@gullywash".activationPackage
