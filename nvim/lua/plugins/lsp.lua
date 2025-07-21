@@ -115,6 +115,7 @@ return { -- LSP Configuration & Plugins
     require('lspconfig').prismals.setup({})
     require('lspconfig').ruff.setup({ cmd = { 'uv', 'run', 'ruff', 'server' } })
     require('lspconfig').pyright.setup({ cmd = { 'uv', 'run', 'pyright-langserver', '--stdio' } })
+    require('lspconfig').zls.setup({})
 
     local flakePath = '(builtins.getFlake "/home/guillaume/dotfiles")'
     require('lspconfig').nixd.setup({
