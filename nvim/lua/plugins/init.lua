@@ -166,8 +166,8 @@ return {
   {
     'OXY2DEV/markview.nvim',
     lazy = false, -- Docs says not to lazy load this plugin
+    priority = 49, -- Should load before treesitter
     dependencies = {
-      'nvim-treesitter/nvim-treesitter',
       'nvim-tree/nvim-web-devicons',
     },
     config = function()

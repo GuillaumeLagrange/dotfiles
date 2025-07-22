@@ -88,7 +88,7 @@ vim.g.rustaceanvim = {
 return {
   {
     'mrcjkb/rustaceanvim',
-    version = '^5', -- Recommended
+    version = '^6', -- Recommended
     ft = { 'rust' },
     dev = true,
   },
