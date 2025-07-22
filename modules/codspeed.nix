@@ -42,6 +42,7 @@ in
       codlocal = "export CODSPEED_API_URL=$CODSPEED_API_URL_LOCAL && export CODSPEED_UPLOAD_URL=$CODSPEED_UPLOAD_URL_LOCAL";
       codstaging = "export CODSPEED_API_URL=$CODSPEED_API_URL_STAGING && export CODSPEED_UPLOAD_URL=$CODSPEED_UPLOAD_URL_STAGING";
       codprod = "unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
+      moon = "pnpm moon";
 
     };
     home.sessionVariables = {
