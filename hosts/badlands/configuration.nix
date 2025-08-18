@@ -20,12 +20,6 @@ in
   boot.loader.efi.canTouchEfiVariables = true;
   boot.supportedFilesystems = [ "btrfs" ];
 
-  # Auto garbage collect
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 30d";
-  };
   nix.optimise.automatic = true;
 
   # Enable flakes
@@ -153,7 +147,6 @@ in
     sbctl
     comma
     home-manager
-    nh
     qemu
     # iOS tethering
     libimobiledevice
@@ -161,6 +154,15 @@ in
 
     linuxPackages.perf
   ];
+
+  programs.nh = {
+    enable = true;
+    clean = {
+      enable = true;
+      dates = "weekly";
+      extraArgs = "--keep 5";
+    };
+  };
 
   boot.binfmt.emulatedSystems = [
     "aarch64-linux"
