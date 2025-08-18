@@ -8,6 +8,7 @@ in
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
+    ../common.nix
   ];
 
   # Bootloader with secure-boot
@@ -22,24 +23,12 @@ in
 
   nix.optimise.automatic = true;
 
-  # Enable flakes
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-
-  nix.extraOptions = ''
-    trusted-users = root guillaume
-  '';
-
   networking.hostName = "badlands";
 
   # Enable networking
   networking.networkmanager.enable = true;
   # Allow wireguard to use systemd-resolved
   services.resolved.enable = true;
-
-  time.timeZone = "Europe/Paris";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
@@ -111,21 +100,12 @@ in
     pulse.enable = true;
   };
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
-  programs.zsh.enable = true;
-  users.users.${userName} = {
-    isNormalUser = true;
-    description = "Guillaume";
-    extraGroups = [
-      "networkmanager"
-      "wheel"
-      "i2c"
-      "docker"
-    ];
-    shell = pkgs.zsh;
-  };
+  # Additional groups for badlands-specific hardware
+  users.users.guillaume.extraGroups = [
+    "networkmanager"
+    "i2c"
+  ];
 
-  programs.nix-ld.enable = true;
   programs.hyprland.enable = true;
   programs.sway = {
     enable = true;
@@ -143,10 +123,8 @@ in
   environment.systemPackages = with pkgs; [
     vim
     git
-    wget
     sbctl
     comma
-    home-manager
     qemu
     # iOS tethering
     libimobiledevice
@@ -154,15 +132,6 @@ in
 
     linuxPackages.perf
   ];
-
-  programs.nh = {
-    enable = true;
-    clean = {
-      enable = true;
-      dates = "weekly";
-      extraArgs = "--keep 5";
-    };
-  };
 
   boot.binfmt.emulatedSystems = [
     "aarch64-linux"
@@ -195,9 +164,8 @@ in
   # iOS tethering
   services.usbmuxd.enable = true;
 
-  virtualisation.docker.enable = true;
   virtualisation.virtualbox.host.enable = true;
-  users.extraGroups.vboxusers.members = [ userName ];
+  users.extraGroups.vboxusers.members = [ "guillaume" ];
   # Temporary work around: https://github.com/NixOS/nixpkgs/issues/363887#issuecomment-2536693220
   boot.kernelParams = [ "kvm.enable_virt_at_load=0" ];
 
