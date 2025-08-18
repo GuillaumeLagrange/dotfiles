@@ -89,6 +89,7 @@
           hostname = "gullywash.glagrange.eu";
           port = 22;
           forwardAgent = true;
+          addressFamily = "inet"; # Force IPV4
           user = "guillaume";
           remoteForwards = [
             {
