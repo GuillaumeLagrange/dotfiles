@@ -25,7 +25,6 @@ in
 
         exec-once = [
           "${pkgs._1password-gui}/bin/1password --silent"
-          "${pkgs.networkmanagerapplet}/bin/nm-applet"
           "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
           "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"

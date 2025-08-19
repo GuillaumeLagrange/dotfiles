@@ -137,7 +137,6 @@ in
             "${modifier}+Ctrl+0" = "exec swap-workspaces 0";
           };
           startup = [
-            { command = "${pkgs.networkmanagerapplet}/bin/nm-applet"; }
             { command = "${pkgs.blueman}/bin/blueman-applet"; }
             { command = "${pkgs._1password-gui}/bin/1password --silent"; }
             { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
@@ -184,11 +183,9 @@ in
             }
           ];
         };
-        extraConfig =
-          builtins.readFile ./sway.config
-          + ''
-            set $Locker ${lock}
-          '';
+        extraConfig = builtins.readFile ./sway.config + ''
+          set $Locker ${lock}
+        '';
       };
 
     home.packages = [

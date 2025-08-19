@@ -34,7 +34,6 @@
       gnome-tweaks
       libreoffice
       lutris
-      networkmanagerapplet
       pavucontrol
       pomodoro-gtk
       playerctl
@@ -52,6 +51,8 @@
       wev
       wl-clipboard
       wireguard-tools
+
+      adwaita-icon-theme
 
       # codelldb debugger
       vscode-extensions.vadimcn.vscode-lldb.adapter
@@ -72,6 +73,8 @@
         name = "Adwaita";
       };
     };
+    services.network-manager-applet.enable = true;
+    services.pasystray.enable = true;
 
     home.pointerCursor = {
       gtk.enable = true;
