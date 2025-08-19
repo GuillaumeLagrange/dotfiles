@@ -1,6 +1,6 @@
 { inputs, sshPublicKey, ... }:
 
-inputs.nixpkgs-stable.lib.nixosSystem rec {
+inputs.nixpkgs.lib.nixosSystem rec {
   system = "x86_64-linux";
   specialArgs = {
     pkgs-datagrip = import inputs.nixpkgs-datagrip { inherit system; };

@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  pkgs-unstable,
   lib,
   ...
 }:
@@ -20,19 +21,24 @@
       description = "A shared term value";
     };
 
+    firefoxPackage = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs-unstable.firefox;
+    };
+
     firefoxMain = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.firefox}/bin/firefox";
+      default = "${config.firefoxPackage}/bin/firefox";
     };
 
     firefoxAlt = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.firefox}/bin/firefox --new-instance";
+      default = "${config.firefoxPackage}/bin/firefox --new-instance";
     };
 
     firefoxDesktopEntry = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.firefox}/share/applications/firefox.desktop";
+      default = "${config.firefoxPackage}/share/applications/firefox.desktop";
     };
 
     chromium = lib.mkOption {

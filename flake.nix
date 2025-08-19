@@ -2,19 +2,18 @@
   description = "Home Manager configuration of guillaume";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-datagrip.url = "github:nixos/nixpkgs/3847a2a8595bba68214ac4b7e3da3fc00776989";
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     lanzaboote = {
       url = "github:nix-community/lanzaboote/v0.4.2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-25.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     stylix = {
-      url = "github:danth/stylix";
+      url = "github:nix-community/stylix/release-25.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-index-database = {
@@ -25,9 +24,9 @@
 
   outputs =
     {
-      nixpkgs,
       home-manager,
-      nixpkgs-datagrip,
+      nixpkgs,
+      nixpkgs-unstable,
       stylix,
       ...
     }@inputs:
@@ -39,9 +38,11 @@
           allowUnfree = true;
         };
       };
-      pkgs-datagrip = import nixpkgs-datagrip {
+      pkgs-unstable = import nixpkgs-unstable {
         inherit system;
-        config.allowUnfree = true;
+        config = {
+          allowUnfree = true;
+        };
       };
 
       # Shared SSH key configuration
@@ -57,7 +58,7 @@
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {
-            inherit pkgs-datagrip;
+            inherit pkgs-unstable;
           };
         };
 
@@ -73,7 +74,7 @@
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {
-            inherit pkgs-datagrip;
+            inherit pkgs-unstable;
           };
         };
       };

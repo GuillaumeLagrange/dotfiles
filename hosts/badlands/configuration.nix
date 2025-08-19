@@ -77,9 +77,12 @@ in
   };
 
   # Gnome
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
-  services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
+  # Uncomment this when switching back to 25.11
+  # services.displayManager.gdm.enable = true;
+  # services.desktopManager.gnome.enable = true;
+  # services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
 
   # Enable CUPS to print documents.
   services.printing.enable = true;

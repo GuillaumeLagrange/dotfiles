@@ -27,7 +27,6 @@
       btop
       calibre
       d-spy
-      dbeaver-bin
       ddcutil
       discord
       gnome-themes-extra
