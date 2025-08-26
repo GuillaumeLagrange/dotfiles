@@ -9,6 +9,7 @@ in
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ../common.nix
+    ./oneleet.nix
   ];
 
   # Bootloader with secure-boot
@@ -171,6 +172,9 @@ in
   users.extraGroups.vboxusers.members = [ "guillaume" ];
   # Temporary work around: https://github.com/NixOS/nixpkgs/issues/363887#issuecomment-2536693220
   boot.kernelParams = [ "kvm.enable_virt_at_load=0" ];
+
+  # Enable oneleet
+  programs.oneleet.enable = true;
 
   system.stateVersion = "24.05";
 }

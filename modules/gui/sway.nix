@@ -142,7 +142,6 @@ in
             { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
             { command = "${pkgs.mako}/bin/mako"; }
-            { command = "${pkgs.spotify}/bin/spotify"; }
             { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }
             # Allows nautilus to find applications to open files properly
             { command = "dbus-update-activation-environment PATH"; }
