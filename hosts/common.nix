@@ -49,6 +49,7 @@
   programs.nix-index-database.comma.enable = true;
 
   # Clean up nix store automatically
+  nix.optimise.automatic = true;
   programs.nh = {
     enable = true;
     clean = {

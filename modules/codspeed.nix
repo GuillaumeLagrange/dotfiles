@@ -43,6 +43,8 @@ in
       codstaging = "export CODSPEED_API_URL=$CODSPEED_API_URL_STAGING && export CODSPEED_UPLOAD_URL=$CODSPEED_UPLOAD_URL_STAGING";
       codprod = "unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       moon = "pnpm moon";
+      # Compress the latest runner output to the monorepo samples
+      local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/local-run.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
 
     };
     home.sessionVariables = {
@@ -95,6 +97,16 @@ in
       # Cargo install codspeed runner
       (writeShellScriptBin "cicr" ''
         cd ${codspeed_root}/runner && cargo install --path . --locked
+      '')
+
+      (writeShellScriptBin "local_run_helper" ''
+        # Find the latest runner output
+        runner_profile_dir = $(ls -td /tmp/profile.*.out | head -n 1)
+        target_dir = ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/
+
+        tar -czf \
+          $target_dir/local-run.tar.gz \
+          $runner_profile_dir
       '')
     ];
   };
