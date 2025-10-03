@@ -99,8 +99,8 @@ return { -- LSP Configuration & Plugins
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
-    -- Enable lua lsp
-    require('lspconfig').lua_ls.setup({
+    -- Enable LSP servers
+    vim.lsp.config.lua_ls = {
       settings = {
         Lua = {
           diagnostics = {
@@ -108,17 +108,41 @@ return { -- LSP Configuration & Plugins
           },
         },
       },
-    })
-    require('lspconfig').jsonls.setup({})
-    require('lspconfig').ts_ls.setup({})
-    require('lspconfig').clangd.setup({ filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' } })
-    require('lspconfig').prismals.setup({})
-    require('lspconfig').ruff.setup({ cmd = { 'uv', 'run', 'ruff', 'server' } })
-    require('lspconfig').pyright.setup({ cmd = { 'uv', 'run', 'pyright-langserver', '--stdio' } })
-    require('lspconfig').zls.setup({})
+    }
+    vim.lsp.enable('lua_ls')
+
+    vim.lsp.enable('jsonls')
+    vim.lsp.enable('ts_ls')
+
+    vim.lsp.config.clangd = {
+      filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
+    }
+    vim.lsp.enable('clangd')
+
+    vim.lsp.enable('prismals')
+
+    vim.lsp.config.ruff = {
+      cmd = { 'uv', 'run', 'ruff', 'server' },
+    }
+    vim.lsp.enable('ruff')
+
+    vim.lsp.config.pyright = {
+      cmd = { 'uv', 'run', 'pyright-langserver', '--stdio' },
+    }
+    vim.lsp.enable('pyright')
+
+    vim.lsp.enable('zls')
+
+    -- vim.lsp.config.copilot = {
+    --   cmd = { 'copilot-language-server', '--stdio' },
+    --   root_markers = { '.git' },
+    -- }
+    -- vim.lsp.enable('copilot')
+    --  TODO: Use native inline when it's on stable
+    -- vim.lsp.inline_completion.enable()
 
     local flakePath = '(builtins.getFlake "/home/guillaume/dotfiles")'
-    require('lspconfig').nixd.setup({
+    vim.lsp.config.nixd = {
       settings = {
         nixd = {
           nixpkgs = {
@@ -134,6 +158,7 @@ return { -- LSP Configuration & Plugins
           },
         },
       },
-    })
+    }
+    vim.lsp.enable('nixd')
   end,
 }

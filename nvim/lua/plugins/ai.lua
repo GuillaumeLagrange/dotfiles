@@ -12,8 +12,6 @@ return {
   {
     'github/copilot.vim',
     lazy = false,
-    -- TODO: Update this once I don't need support for node 18
-    commit = '87038123804796ca7af20d1b71c3428d858a9124',
     init = function()
       vim.keymap.set('i', '<M-w>', '<Plug>(copilot-accept-word)', { desc = 'Accept copilot word' })
       vim.keymap.set('i', '<M-l>', '<Plug>(copilot-accept-line)', { desc = 'Accept copilot line' })
@@ -22,34 +20,21 @@ return {
     end,
   },
   {
-    'olimorris/codecompanion.nvim',
+    'folke/sidekick.nvim',
     opts = {
-      adapters = {
-        openai = function()
-          return require('codecompanion.adapters').extend('copilot', {
-            schema = {
-              model = {
-                default = 'claude-3-7-sonnet',
-              },
-            },
-          })
-        end,
+      nes = {
+        enabled = true,
+        debounce = 100,
       },
     },
     keys = {
       {
         '<leader>cc',
         function()
-          require('codecompanion').toggle()
+          require('sidekick.cli').toggle({ name = 'claude' })
         end,
-        desc = 'Toggle Code Companion',
+        desc = 'Toggle Sidekick CLI',
       },
-      -- { '<leader>cC', function() require('codecompanion').toggle(true) end, desc = 'Toggle Code Companion (force)' },
-      -- { '<leader>c?', function() require('codecompanion').info() end, desc = 'Code Companion Info' },
-    },
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      'nvim-treesitter/nvim-treesitter',
     },
   },
 }

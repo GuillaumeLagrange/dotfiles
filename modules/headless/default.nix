@@ -53,6 +53,7 @@
       stylua
       taplo
       vscode-langservers-extracted
+      pkgs-unstable.copilot-language-server
 
       (pkgs.callPackage ./gitPushStack.nix {
         inherit pkgs lib config;
