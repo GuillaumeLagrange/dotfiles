@@ -110,7 +110,8 @@ in
     "i2c"
   ];
 
-  programs.hyprland.enable = true;
+  programs.hyprland.enable = false;
+  programs.niri.enable = true;
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;

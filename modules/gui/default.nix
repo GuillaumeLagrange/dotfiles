@@ -11,13 +11,15 @@
 
   imports = [
     ./hyprland.nix
+    ./niri.nix
     ./sway.nix
     ./firefox.nix
     ./waybar.nix
   ];
 
   config = lib.mkIf config.gui.enable {
-    hyprland.enable = true;
+    hyprland.enable = false;
+    niri.enable = true;
     sway.enable = true;
     firefox.enable = true;
     waybar.enable = true;
