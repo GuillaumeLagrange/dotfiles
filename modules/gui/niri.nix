@@ -13,6 +13,7 @@
     # Just install niri package - config will be in ~/.config/niri/config.kdl
     home.packages = with pkgs; [
       niri
+      (import ./lock.nix { inherit pkgs; })
     ];
 
     # Basic niri config file - keeping it minimal
@@ -39,6 +40,20 @@
 
       prefer-no-csd
 
+      layout {
+          gaps 4
+
+          focus-ring {
+              width 1
+              active-color "#ad530d"
+              inactive-color "#505050"
+          }
+
+          border {
+              off
+          }
+      }
+
       binds {
           // Hotkey overlay
           Mod+Shift+Slash { show-hotkey-overlay; }
@@ -46,7 +61,7 @@
           // Application launching
           Mod+Return { spawn "${pkgs.kitty}/bin/kitty" "--title" "Kitty"; }
           Mod+D { spawn "vicinae" "toggle"; }
-          Super+Alt+L { spawn "swaylock"; }
+          Super+Alt+L { spawn "lock.sh"; }
 
           // Browser launchers
           Mod+W { spawn "${config.firefoxMain}"; }

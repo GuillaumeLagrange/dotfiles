@@ -136,7 +136,6 @@ in
           startup = [
             { command = "${pkgs.blueman}/bin/blueman-applet"; }
             { command = "${pkgs._1password-gui}/bin/1password --silent"; }
-            { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
             { command = "${pkgs.mako}/bin/mako"; }
             { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }

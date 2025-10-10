@@ -28,6 +28,8 @@
             "sway/workspaces"
             "sway/window"
             "sway/mode"
+            "niri/workspaces"
+            "niri/window"
           ];
           modules-center = [ ];
           modules-right = [
@@ -47,6 +49,14 @@
           };
 
           "hyprland/window" = {
+            separate-outputs = true;
+          };
+
+          "niri/workspaces" = {
+            all-outputs = false;
+          };
+
+          "niri/window" = {
             separate-outputs = true;
           };
 
