@@ -44,14 +44,15 @@
           Mod+Shift+Slash { show-hotkey-overlay; }
 
           // Application launching
-          Mod+Return { spawn "${config.term}"; }
-          Mod+D { spawn "vicinae"; }
+          Mod+Return { spawn "${pkgs.kitty}/bin/kitty" "--title" "Kitty"; }
+          Mod+D { spawn "vicinae" "toggle"; }
           Super+Alt+L { spawn "swaylock"; }
 
           // Browser launchers
           Mod+W { spawn "${config.firefoxMain}"; }
           Mod+Shift+W { spawn "${config.firefoxAlt}"; }
           Mod+Ctrl+W { spawn "${config.chromium}"; }
+
 
           // Additional apps
           Mod+B { spawn "${pkgs.blueman}/bin/blueman-manager"; }
