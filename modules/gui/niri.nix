@@ -16,9 +16,15 @@
       (import ./lock.nix { inherit pkgs; })
     ];
 
+    home.sessionVariables = {
+      DISPLAY = ":0";
+    };
+
     # Basic niri config file - keeping it minimal
     xdg.configFile."niri/config.kdl".text = ''
       input {
+          focus-follows-mouse max-scroll-amount="10%"
+
           keyboard {
               xkb {
                   layout "qwerty-fr"
@@ -37,6 +43,8 @@
       spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
       spawn-at-startup "${pkgs.mako}/bin/mako"
       spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
+      // Spawn xwayland manually because NixOS stable does not have 25.08 yet
+      spawn-at-startup "${pkgs.xwayland-satellite}/bin/xwayland-satellite"
 
       prefer-no-csd
 
@@ -44,7 +52,7 @@
           gaps 4
 
           focus-ring {
-              width 1
+              width 2
               active-color "#ad530d"
               inactive-color "#505050"
           }
