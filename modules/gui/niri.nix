@@ -171,6 +171,9 @@
           Mod+Shift+U         { move-workspace-down; }
           Mod+Shift+I         { move-workspace-up; }
 
+          // Move workspace to next monitor
+          Mod+X { move-workspace-to-monitor-right; }
+
           // Mouse wheel workspace navigation
           Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
           Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
