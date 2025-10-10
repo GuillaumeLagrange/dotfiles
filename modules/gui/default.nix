@@ -15,6 +15,7 @@
     ./sway.nix
     ./firefox.nix
     ./waybar.nix
+    ./vicinae.nix
   ];
 
   config = lib.mkIf config.gui.enable {
@@ -23,6 +24,7 @@
     sway.enable = true;
     firefox.enable = true;
     waybar.enable = true;
+    vicinae.enable = true;
 
     home.packages = with pkgs; [
       blueman
