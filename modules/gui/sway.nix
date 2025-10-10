@@ -73,7 +73,7 @@ in
           keybindings = {
             "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
-            "${modifier}+d" = "exec ${pkgs.fuzzel}/bin/fuzzel";
+            "${modifier}+d" = "exec vicinae toggle";
             "${modifier}+v" =
               "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
             "Print" =

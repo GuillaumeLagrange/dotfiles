@@ -26,7 +26,7 @@
           }
 
           touchpad {
-              natural-scroll true
+              natural-scroll
           }
       }
 
@@ -34,7 +34,6 @@
       spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
       spawn-at-startup "${pkgs.swaynotificationcenter}/bin/swaync"
       spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
-      spawn-at-startup "${pkgs.waybar}/bin/waybar"
 
       prefer-no-csd
 
@@ -65,7 +64,7 @@
 
       window-rule {
           match app-id=r#"^spotify$"#
-          open-on-workspace 10
+          open-on-workspace "10"
       }
     '';
   };
