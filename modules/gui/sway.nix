@@ -74,13 +74,10 @@ in
             "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
             "${modifier}+d" = "exec vicinae toggle";
-            "${modifier}+v" =
-              "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
             "Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "Shift+Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
-            "${modifier}+Tab" = "exec ${pkgs.wofi-emoji}/bin/wofi-emoji";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 

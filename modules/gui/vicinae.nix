@@ -14,15 +14,12 @@
       autoStart = true;
       # settings = {
       #   faviconService = "twenty";
+      #   keybinding = "vim";
       #   theme.name = "vicinae-dark";
       #   window = {
       #     csd = true;
       #     opacity = 0.95;
       #     rounding = 10;
-      #   };
-      #   keybindings = {
-      #     selectNext = "Ctrl+N";
-      #     selectPrevious = "Ctrl+P";
       #   };
       # };
     };
