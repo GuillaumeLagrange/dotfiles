@@ -62,6 +62,11 @@
           }
       }
 
+      workspace "browser"
+      workspace "terminal"
+      workspace "code"
+      workspace "perso"
+
       binds {
           // Hotkey overlay
           Mod+Shift+Slash { show-hotkey-overlay; }
@@ -182,19 +187,23 @@
           Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
           Mod+Ctrl+Shift+WheelScrollUp   { move-column-left; }
 
+          // Named workspace navigation
+          Mod+1 { focus-workspace "browser"; }
+          Mod+2 { focus-workspace "terminal"; }
+          Mod+3 { focus-workspace "code"; }
+          Mod+0 { focus-workspace "perso"; }
+          Mod+Ctrl+1 { move-column-to-workspace "browser"; }
+          Mod+Ctrl+2 { move-column-to-workspace "terminal"; }
+          Mod+Ctrl+3 { move-column-to-workspace "code"; }
+          Mod+Ctrl+0 { move-column-to-workspace "perso"; }
+
           // Workspace by index
-          Mod+1 { focus-workspace 1; }
-          Mod+2 { focus-workspace 2; }
-          Mod+3 { focus-workspace 3; }
           Mod+4 { focus-workspace 4; }
           Mod+5 { focus-workspace 5; }
           Mod+6 { focus-workspace 6; }
           Mod+7 { focus-workspace 7; }
           Mod+8 { focus-workspace 8; }
           Mod+9 { focus-workspace 9; }
-          Mod+Ctrl+1 { move-column-to-workspace 1; }
-          Mod+Ctrl+2 { move-column-to-workspace 2; }
-          Mod+Ctrl+3 { move-column-to-workspace 3; }
           Mod+Ctrl+4 { move-column-to-workspace 4; }
           Mod+Ctrl+5 { move-column-to-workspace 5; }
           Mod+Ctrl+6 { move-column-to-workspace 6; }
@@ -238,6 +247,12 @@
       window-rule {
           geometry-corner-radius 4
           clip-to-geometry true
+      }
+
+      window-rule {
+          match app-id=r#"^firefox$"#
+          open-on-workspace "browser"
+          default-column-width { proportion 1.0; }
       }
 
       window-rule {
