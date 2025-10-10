@@ -35,7 +35,7 @@
 
       spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
       spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
-      spawn-at-startup "${pkgs.swaynotificationcenter}/bin/swaync"
+      spawn-at-startup "${pkgs.mako}/bin/mako"
       spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
 
       prefer-no-csd
@@ -71,7 +71,7 @@
 
           // Additional apps
           Mod+B { spawn "${pkgs.blueman}/bin/blueman-manager"; }
-          Mod+N { spawn "${pkgs.swaynotificationcenter}/bin/swaync-client" "-t"; }
+          Mod+N { spawn "${pkgs.mako}/bin/makoctl" "menu" "${pkgs.fuzzel}/bin/fuzzel" "-d" "-p" "Choose Action: "; }
 
           // Media and system keys
           XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+"; }
@@ -225,6 +225,11 @@
           Mod+Shift+E { quit; }
           Ctrl+Alt+Delete { quit; }
           Mod+Shift+P { power-off-monitors; }
+      }
+
+      window-rule {
+          geometry-corner-radius 4
+          clip-to-geometry true
       }
 
       window-rule {
