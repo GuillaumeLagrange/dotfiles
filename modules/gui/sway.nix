@@ -73,14 +73,11 @@ in
           keybindings = {
             "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
-            "${modifier}+d" = "exec ${pkgs.fuzzel}/bin/fuzzel";
-            "${modifier}+v" =
-              "exec ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | wl-copy";
+            "${modifier}+d" = "exec vicinae toggle";
             "Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
             "Shift+Print" =
               "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
-            "${modifier}+Tab" = "exec ${pkgs.wofi-emoji}/bin/wofi-emoji";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 
@@ -139,7 +136,6 @@ in
           startup = [
             { command = "${pkgs.blueman}/bin/blueman-applet"; }
             { command = "${pkgs._1password-gui}/bin/1password --silent"; }
-            { command = "${pkgs.xss-lock}/bin/xss-lock -- ${lock}"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
             { command = "${pkgs.mako}/bin/mako"; }
             { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }

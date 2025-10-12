@@ -15,6 +15,7 @@
     ./sway.nix
     ./firefox.nix
     ./waybar.nix
+    ./vicinae.nix
   ];
 
   config = lib.mkIf config.gui.enable {
@@ -23,6 +24,7 @@
     sway.enable = true;
     firefox.enable = true;
     waybar.enable = true;
+    vicinae.enable = true;
 
     home.packages = with pkgs; [
       blueman
@@ -149,12 +151,18 @@
 
     services.swayidle = {
       enable = true;
+      events = [
+        {
+          event = "before-sleep";
+          command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+        }
+      ];
       timeouts =
         let
           lockTimeout = 60 * 10; # 10 minutes
           screenOffTimeout = 10;
           suspendTimeout = 2 * lockTimeout;
-          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms off";
+          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms off || ${pkgs.niri}/bin/niri msg action power-off-monitors";
           screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
         in
         [

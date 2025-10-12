@@ -1,6 +1,11 @@
 {
   description = "Home Manager configuration of guillaume";
 
+  nixConfig = {
+    extra-substituters = [ "https://vicinae.cachix.org" ];
+    extra-trusted-public-keys = [ "vicinae.cachix.org-1:1kDrfienkGHPYbkpNj1mWTr7Fm1+zcenzgTizIcI3oc=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -20,6 +25,11 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    vicinae = {
+      # Last commit with a successful cachix build
+      url = "github:vicinaehq/vicinae/d751a3dfff15d50bb5b6b8e0be2eaefefcd09f90";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs =
@@ -28,6 +38,7 @@
       nixpkgs,
       nixpkgs-unstable,
       stylix,
+      vicinae,
       ...
     }@inputs:
     let
@@ -54,6 +65,7 @@
           inherit pkgs;
           modules = [
             stylix.homeModules.stylix
+            vicinae.homeManagerModules.default
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
           ];
