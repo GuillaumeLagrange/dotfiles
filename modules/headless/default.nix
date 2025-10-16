@@ -165,6 +165,7 @@
         co = "pr checkout";
         pv = "pr view -w";
         pc = "pr create -w";
+        rv = "repo view -w";
       };
     };
 

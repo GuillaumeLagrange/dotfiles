@@ -26,6 +26,7 @@
         ws_web = "Web";
         ws_term = "Term";
         ws_code = "Code";
+        ws_scratchpad = "Scratchpad";
         ws_perso = "Perso";
 
         # Function to quote each element in a space-separated string
@@ -76,6 +77,7 @@
         workspace "${ws_web}"
         workspace "${ws_term}"
         workspace "${ws_code}"
+        workspace "${ws_scratchpad}"
         workspace "${ws_perso}"
 
         binds {
@@ -86,6 +88,7 @@
             Mod+Return { spawn ${quoteArgs config.term}; }
             Mod+D { spawn "vicinae" "toggle"; }
             Super+Alt+L { spawn "lock.sh"; }
+            Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
 
             // Browser launchers
             Mod+W { spawn "${config.firefoxMain}"; }
@@ -120,17 +123,18 @@
 
             // Window management
             Mod+O repeat=false { toggle-overview; }
+            Mod+Tab repeat=false { toggle-overview; }
             Mod+Q repeat=false { close-window; }
 
             // Focus navigation
-            Mod+Left  { focus-column-left; }
+            Mod+Left  { focus-column-or-monitor-left; }
             Mod+Down  { focus-window-down; }
             Mod+Up    { focus-window-up; }
-            Mod+Right { focus-column-right; }
-            Mod+H     { focus-column-left; }
+            Mod+Right { focus-column-or-monitor-right; }
+            Mod+H     { focus-column-or-monitor-left; }
             Mod+U     { focus-window-down; }
             Mod+I     { focus-window-up; }
-            Mod+L     { focus-column-right; }
+            Mod+L     { focus-column-or-monitor-right; }
 
             // Window movement
             Mod+Shift+Left  { move-column-left; }
@@ -183,6 +187,7 @@
             Mod+Ctrl+K         { move-workspace-up; }
 
             // Move workspace to next monitor
+            Mod+Z { move-workspace-to-monitor-left; }
             Mod+X { move-workspace-to-monitor-right; }
 
             // Mouse wheel workspace navigation
@@ -205,25 +210,27 @@
             Mod+1 { focus-workspace "${ws_web}"; }
             Mod+2 { focus-workspace "${ws_term}"; }
             Mod+3 { focus-workspace "${ws_code}"; }
-            Mod+0 { focus-workspace "${ws_perso}"; }
+            Mod+4 { focus-workspace "${ws_scratchpad}"; }
+            Mod+5 { focus-workspace "${ws_perso}"; }
             Mod+Shift+1 { move-column-to-workspace "${ws_web}"; }
             Mod+Shift+2 { move-column-to-workspace "${ws_term}"; }
             Mod+Shift+3 { move-column-to-workspace "${ws_code}"; }
-            Mod+Shift+0 { move-column-to-workspace "${ws_perso}"; }
+            Mod+Shift+4 { move-column-to-workspace "${ws_scratchpad}"; }
+            Mod+Shift+5 { move-column-to-workspace "${ws_perso}"; }
 
             // Workspace by index
-            Mod+4 { focus-workspace 4; }
-            Mod+5 { focus-workspace 5; }
-            Mod+6 { focus-workspace 6; }
-            Mod+7 { focus-workspace 7; }
-            Mod+8 { focus-workspace 8; }
-            Mod+9 { focus-workspace 9; }
-            Mod+Ctrl+4 { move-column-to-workspace 4; }
-            Mod+Ctrl+5 { move-column-to-workspace 5; }
-            Mod+Ctrl+6 { move-column-to-workspace 6; }
-            Mod+Ctrl+7 { move-column-to-workspace 7; }
-            Mod+Ctrl+8 { move-column-to-workspace 8; }
-            Mod+Ctrl+9 { move-column-to-workspace 9; }
+            // Mod+4 { focus-workspace 4; }
+            // Mod+5 { focus-workspace 5; }
+            // Mod+6 { focus-workspace 6; }
+            // Mod+7 { focus-workspace 7; }
+            // Mod+8 { focus-workspace 8; }
+            // Mod+9 { focus-workspace 9; }
+            // Mod+Ctrl+4 { move-column-to-workspace 4; }
+            // Mod+Ctrl+5 { move-column-to-workspace 5; }
+            // Mod+Ctrl+6 { move-column-to-workspace 6; }
+            // Mod+Ctrl+7 { move-column-to-workspace 7; }
+            // Mod+Ctrl+8 { move-column-to-workspace 8; }
+            // Mod+Ctrl+9 { move-column-to-workspace 9; }
 
             // Column management
             Mod+BracketLeft  { consume-or-expel-window-left; }
@@ -248,8 +255,8 @@
             Mod+Shift+Equal { set-window-height "+10%"; }
 
             // Floating windows
-            Mod+V       { toggle-window-floating; }
-            Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+            Mod+Space { switch-focus-between-floating-and-tiling; }
+            Mod+Shift+Space       { toggle-window-floating; }
 
             // System actions
             Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
@@ -261,17 +268,6 @@
         window-rule {
             geometry-corner-radius 4
             clip-to-geometry true
-        }
-
-        window-rule {
-            match app-id=r#"^firefox$"#
-            open-on-workspace "${ws_web}"
-            default-column-width { proportion 1.0; }
-        }
-
-        window-rule {
-            match app-id=r#"^spotify$"#
-            open-on-workspace "10"
         }
       '';
   };
