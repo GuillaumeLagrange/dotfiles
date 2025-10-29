@@ -39,20 +39,21 @@ in
       bazel = "bazelisk";
       # Go to the latest directory of the codspeed runner
       cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
-      codlocal = "export CODSPEED_API_URL=$CODSPEED_API_URL_LOCAL && export CODSPEED_UPLOAD_URL=$CODSPEED_UPLOAD_URL_LOCAL";
-      codstaging = "export CODSPEED_API_URL=$CODSPEED_API_URL_STAGING && export CODSPEED_UPLOAD_URL=$CODSPEED_UPLOAD_URL_STAGING";
+      coddev = ''
+        eval $(op signin)
+        export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/dev_api_url")
+        export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/dev_upload_url")
+      '';
+      codstaging = ''
+        eval $(op signin)
+        export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/staging_api_url")
+        export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/staging_upload_url")
+      '';
       codprod = "unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       moon = "pnpm moon";
       # Compress the latest runner output to the monorepo samples
       local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/local-run.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
 
-    };
-    home.sessionVariables = {
-      CODSPEED_API_URL_LOCAL = "https://z7worpfffi.execute-api.eu-west-1.amazonaws.com/dev/";
-      CODSPEED_UPLOAD_URL_LOCAL = "https://vpskktkxa2.execute-api.eu-west-1.amazonaws.com/upload";
-
-      CODSPEED_API_URL_STAGING = "https://gql.staging.preview.codspeed.io/";
-      CODSPEED_UPLOAD_URL_STAGING = "https://api.staging.preview.codspeed.io/upload";
     };
 
     xdg.desktopEntries = {
