@@ -22,6 +22,9 @@ return { -- Collection of various small independent plugins/modules
         trim_left = '<',
         trim_right = '>',
       },
+      options = {
+        use_as_default_explorer = false, -- Do not handle directory opens
+      },
     })
 
     require('mini.bufremove').setup()

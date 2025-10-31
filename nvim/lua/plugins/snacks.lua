@@ -7,7 +7,10 @@ return {
     opts = {
       bigfile = { enabled = true },
       dashboard = { enabled = true },
-      explorer = { enabled = true },
+      explorer = {
+        enabled = true,
+        replace_netrw = true, -- Handle directory opens
+      },
       indent = {
         enabled = true,
         indent = {
@@ -141,6 +144,13 @@ return {
           Snacks.picker.recent()
         end,
         desc = 'Recent',
+      },
+      {
+        '<leader>fw',
+        function()
+          Snacks.picker.files({ cwd = '.github/workflows' })
+        end,
+        desc = 'Find Workflow Files',
       },
       -- git
       {
