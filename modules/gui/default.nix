@@ -141,10 +141,6 @@
         window_alert_on_bell = "no";
         mouse_hide_wait = 0.5;
       };
-      font = {
-        name = "Hack Nerd Font";
-        size = 11;
-      };
     };
 
     programs.fuzzel = {

@@ -26,9 +26,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     vicinae = {
-      # Last commit with a successful cachix build
-      url = "github:vicinaehq/vicinae/d751a3dfff15d50bb5b6b8e0be2eaefefcd09f90";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      url = "github:vicinaehq/vicinae";
+      # No nixpkgs follow to make use of cache
     };
   };
 
