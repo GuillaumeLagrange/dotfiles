@@ -59,6 +59,10 @@
         inherit pkgs lib config;
       })
 
+      (pkgs.callPackage ./untar.nix {
+        inherit pkgs;
+      })
+
     ];
 
     xdg.configFile = {
@@ -139,7 +143,6 @@
       '';
       dc = "docker-compose";
       tarc = "tar -czf";
-      tarx = "tar -xzf";
     };
 
     programs.lazygit = {
