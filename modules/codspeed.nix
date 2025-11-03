@@ -41,15 +41,17 @@ in
       cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
       coddev = ''
         eval $(op signin)
+        export CODSPEED_CONFIG_NAME=dev
         export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/dev_api_url")
         export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/dev_upload_url")
       '';
       codstaging = ''
         eval $(op signin)
+        export CODSPEED_CONFIG_NAME=staging
         export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/staging_api_url")
         export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/staging_upload_url")
       '';
-      codprod = "unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
+      codprod = "unset CODSPEED_CONFIG_NAME && unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       moon = "pnpm moon";
       # Compress the latest runner output to the monorepo samples
       local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/local-run.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
