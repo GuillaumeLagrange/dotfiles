@@ -1,5 +1,5 @@
 # Edit this configuration file to define what should be installed on
-{ pkgs, lib, ... }@inputs:
+{ pkgs, lib, ... }:
 
 let
   userName = "guillaume";
@@ -12,13 +12,8 @@ in
     ./oneleet.nix
   ];
 
-  # Bootloader with secure-boot
-  # https://github.com/nix-community/lanzaboote/blob/master/docs/QUICK_START.md
-  boot.loader.systemd-boot.enable = lib.mkForce false;
-  boot.lanzaboote = {
-    enable = true;
-    pkiBundle = "/etc/secureboot";
-  };
+  # Bootloader
+  # Secure boot is handled in secure_boot.nix
   boot.loader.efi.canTouchEfiVariables = true;
   boot.supportedFilesystems = [ "btrfs" ];
 
@@ -128,7 +123,6 @@ in
   environment.systemPackages = with pkgs; [
     vim
     git
-    sbctl
     comma
     qemu
     # iOS tethering

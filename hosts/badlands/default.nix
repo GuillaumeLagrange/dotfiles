@@ -3,7 +3,7 @@
 inputs.nixpkgs.lib.nixosSystem rec {
   system = "x86_64-linux";
   modules = [
-    inputs.lanzaboote.nixosModules.lanzaboote
+    (import ../../modules/secure_boot.nix { lanzaboote = inputs.lanzaboote; })
     inputs.home-manager.nixosModules.home-manager
     inputs.stylix.nixosModules.stylix
     ../../modules/stylix/common.nix
