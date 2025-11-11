@@ -28,6 +28,7 @@
       git-absorb
       gnumake
       jq
+      just
       killall
       nh
       pciutils

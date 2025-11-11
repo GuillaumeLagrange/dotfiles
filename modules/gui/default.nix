@@ -226,6 +226,10 @@
       enable = true;
       settings = {
         default-timeout = 10000;
+
+        "app-name=Slack" = {
+          invisible = 1;
+        };
       };
       # FIXME: Fix this
       # settings = ''
