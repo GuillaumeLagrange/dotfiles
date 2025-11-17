@@ -54,7 +54,7 @@ in
       codprod = "unset CODSPEED_CONFIG_NAME && unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       moon = "pnpm moon";
       # Compress the latest runner output to the monorepo samples
-      local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/local-run.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
+      local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/tools/dev_data/sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
 
     };
 
@@ -94,12 +94,12 @@ in
 
       # Cargo install cargo-codspeed
       (writeShellScriptBin "cicc" ''
-        cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked
+        direnv exec ${codspeed_root}/rust bash -c 'cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked'
       '')
 
       # Cargo install codspeed runner
       (writeShellScriptBin "cicr" ''
-        cd ${codspeed_root}/runner && cargo install --path . --locked
+        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path . --locked'
       '')
 
       (writeShellScriptBin "local_run_helper" ''
