@@ -1,5 +1,6 @@
 {
   pkgs,
+  pkgs-unstable,
   lib,
   config,
   ...
@@ -82,7 +83,7 @@ in
       awscli2
       mongodb-compass
       mongodb-tools
-      uv
+      pkgs-unstable.uv
       kdePackages.kcachegrind
 
       (writeShellScriptBin "valgrind" ''
