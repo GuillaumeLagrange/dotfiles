@@ -116,9 +116,30 @@
 
         function virtualenv_prompt_info() {
           if [ -n "$CONTAINER_ID" ]; then
-            echo -n "📦 $CONTAINER_ID"
+            echo -n "📦 $CONTAINER_ID "
+          fi
+
+          if [ -n "$CODSPEED_CONFIG_NAME" ]; then
+            echo -n "🐰 $CODSPEED_CONFIG_NAME "
           fi
         }
+
+        # Override oh-my-zsh to look for `GIT_MAIN_BRANCH` env var first
+        git_main_branch () {
+          command git rev-parse --git-dir &> /dev/null || return
+          local ref
+          for ref in refs/{heads,remotes/{origin,upstream}}/{''${GIT_MAIN_BRANCH:-main},trunk,mainline,default,stable,master}
+          do
+                  if command git show-ref -q --verify $ref
+                  then
+                          echo ''${ref:t}
+                          return 0
+                  fi
+          done
+          echo master
+          return 1
+        }
+
 
         eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --version-file-strategy recursive --shell zsh)"
       '';
