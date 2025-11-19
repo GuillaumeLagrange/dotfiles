@@ -16,6 +16,7 @@
     ./firefox.nix
     ./waybar.nix
     ./vicinae.nix
+    ./options.nix
   ];
 
   config = lib.mkIf config.gui.enable {

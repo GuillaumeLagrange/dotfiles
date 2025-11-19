@@ -74,10 +74,8 @@ in
             "${modifier}+Return" = "exec ${config.term}";
             "${modifier}+Shift+a" = "kill";
             "${modifier}+d" = "exec vicinae toggle";
-            "Print" =
-              "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
-            "Shift+Print" =
-              "exec ${pkgs.grim}/bin/grim -g \"$(${pkgs.slurp}/bin/slurp)\" - | ${pkgs.swappy}/bin/swappy -f -";
+            "Print" = "exec ${config.screenshotTool}";
+            "Shift+Print" = "exec ${config.screenshotTool}";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 
@@ -86,22 +84,16 @@ in
             "${modifier}+Shift+w" = "exec ${config.firefoxAlt}";
             "${modifier}+Ctrl+w" = "exec ${config.chromium}";
 
-            "--locked ${modifier}+equal" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
-            "--locked ${modifier}+minus" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${volumeNotification}";
-            "--locked XF86AudioRaiseVolume" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ --limit 1.0 && ${volumeNotification}";
-            "--locked XF86AudioLowerVolume" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && ${volumeNotification}";
-            "--locked XF86AudioMute" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && ${volumeNotification}";
+            "--locked ${modifier}+equal" = "exec ${config.audioUp}";
+            "--locked ${modifier}+minus" = "exec ${config.audioDown}";
+            "--locked XF86AudioRaiseVolume" = "exec ${config.audioUp}";
+            "--locked XF86AudioLowerVolume" = "exec ${config.audioDown}";
+            "--locked XF86AudioMute" = "exec ${config.audioMute}";
 
-            "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%+";
-            "XF86MonBrightnessDown" =
-              "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%- -n 1";
-            "Shift+XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set 100%";
-            "Shift+XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl set 1";
+            "XF86MonBrightnessUp" = "exec ${config.brightnessUp}";
+            "XF86MonBrightnessDown" = "exec ${config.brightnessDown}";
+            "Shift+XF86MonBrightnessUp" = "exec ${config.brightnessMin}";
+            "Shift+XF86MonBrightnessDown" = "exec ${config.brightnessMax}";
 
             # Spotify control
             "--locked Shift+XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify play-pause";

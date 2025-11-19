@@ -14,39 +14,6 @@
     ./stylix/home-manager.nix
   ];
 
-  options = {
-    term = lib.mkOption {
-      type = lib.types.str;
-      default = "${pkgs.kitty}/bin/kitty --title Kitty";
-      description = "A shared term value";
-    };
-
-    firefoxPackage = lib.mkOption {
-      type = lib.types.package;
-      default = pkgs-unstable.firefox;
-    };
-
-    firefoxMain = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.firefoxPackage}/bin/firefox";
-    };
-
-    firefoxAlt = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.firefoxPackage}/bin/firefox --new-instance";
-    };
-
-    firefoxDesktopEntry = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.firefoxPackage}/share/applications/firefox.desktop";
-    };
-
-    chromium = lib.mkOption {
-      type = lib.types.str;
-      default = "${pkgs.chromium}/bin/chromium";
-    };
-  };
-
   config = {
     home.username = lib.mkDefault "guillaume";
     home.homeDirectory = lib.mkDefault "/home/guillaume";

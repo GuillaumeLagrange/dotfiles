@@ -23,11 +23,11 @@
     # Basic niri config file - keeping it minimal
     xdg.configFile."niri/config.kdl".text =
       let
-        ws_web = "Web";
-        ws_term = "Term";
-        ws_code = "Code";
-        ws_scratchpad = "Scratchpad";
-        ws_perso = "Perso";
+        ws_web = "1. Web";
+        ws_term = "2. Term";
+        ws_code = "3. Code";
+        ws_scratchpad = "4. Scratch";
+        ws_perso = "5. Perso";
 
         # Function to quote each element in a space-separated string
         quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
@@ -101,10 +101,9 @@
             Mod+N { spawn "${pkgs.mako}/bin/makoctl" "menu" "${pkgs.fuzzel}/bin/fuzzel" "-d" "-p" "Choose Action: "; }
 
             // Media and system keys
-            XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+"; }
-            XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-"; }
-            XF86AudioMute allow-when-locked=true { spawn "sh" "-c" "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
-            XF86AudioMicMute allow-when-locked=true { spawn "sh" "-c" "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"; }
+            XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audioUp}"; }
+            XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audioDown}"; }
+            XF86AudioMute allow-when-locked=true { spawn "sh" "-c" "${config.audioMute}"; }
 
             // Media player controls
             XF86AudioPlay allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "play-pause"; }
@@ -113,11 +112,12 @@
             XF86AudioNext allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "next"; }
 
             // Brightness controls
-            XF86MonBrightnessUp allow-when-locked=true { spawn "${pkgs.brightnessctl}/bin/brightnessctl" "--class=backlight" "set" "+10%"; }
-            XF86MonBrightnessDown allow-when-locked=true { spawn "${pkgs.brightnessctl}/bin/brightnessctl" "--class=backlight" "set" "10%-"; }
+            XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightnessUp}"; }
+            XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightnessDown}"; }
 
             // Screenshots
             Print { screenshot; }
+            Shift+Print { spawn "sh" "-c" "${config.screenshotTool}"; }
             Ctrl+Print { screenshot-screen; }
             Alt+Print { screenshot-window; }
 
