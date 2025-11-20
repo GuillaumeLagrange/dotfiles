@@ -119,6 +119,10 @@
             echo -n "📦 $CONTAINER_ID "
           fi
 
+          if [ -n "$CODSPEED_RUNNER_MODE" ]; then
+            echo -n "🐇 $CODSPEED_RUNNER_MODE "
+          fi
+
           if [ -n "$CODSPEED_CONFIG_NAME" ]; then
             echo -n "🐰 $CODSPEED_CONFIG_NAME "
           fi

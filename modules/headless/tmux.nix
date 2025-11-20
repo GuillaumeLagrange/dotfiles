@@ -66,45 +66,40 @@ let
     echo "Tmux server started"
   '';
 
-  # Automatically rename windows based on repository paths
+  # Automatically rename windows based on git root or current directory
   tmuxRename = pkgs.writeShellScriptBin "tmux-rename" ''
     set -euo pipefail
 
     # Get the session name (default to current session)
     SESSION="''${1:-$(${pkgs.tmux}/bin/tmux display-message -p '#S')}"
 
-    # Base path to check for repositories (default to ~/codspeed)
-    BASE_PATH="''${2:-$HOME/codspeed}"
-
-    # Expand the base path
-    BASE_PATH=$(eval echo "$BASE_PATH")
-
-    echo "Renaming windows in session '$SESSION' based on repos in '$BASE_PATH'"
+    echo "Renaming windows in session '$SESSION' based on git repos or current directory"
 
     # Get list of windows in the session
     ${pkgs.tmux}/bin/tmux list-windows -t "$SESSION" -F "#{window_index}" | while read -r window_index; do
       # Get the current path of the first pane in the window
       pane_path=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index.0" -p "#{pane_current_path}")
 
-      # Check if the path starts with the base path
-      if [[ "$pane_path" == "$BASE_PATH"* ]]; then
-        # Remove the base path and extract the repo name (first directory after base path)
-        relative_path="''${pane_path#$BASE_PATH/}"
-        repo_name=$(echo "$relative_path" | cut -d'/' -f1)
+      # Try to find git root from the pane's current path
+      git_root=$(cd "$pane_path" 2>/dev/null && ${pkgs.git}/bin/git rev-parse --show-toplevel 2>/dev/null || echo "")
 
-        # Only rename if we found a valid repo name
-        if [[ -n "$repo_name" ]] && [[ "$repo_name" != "$relative_path" || ! "$relative_path" =~ / ]]; then
-          current_name=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index" -p "#{window_name}")
-          if [[ "$current_name" != "$repo_name" ]]; then
-            echo "  Window $window_index: '$current_name' -> '$repo_name'"
-            ${pkgs.tmux}/bin/tmux rename-window -t "$SESSION:$window_index" "$repo_name"
-          else
-            echo "  Window $window_index: '$current_name' (already correct)"
-          fi
-        fi
+      # Use git root if found, otherwise use the pane's current path
+      display_path="''${git_root:-$pane_path}"
+
+      # Convert to use ~ if it's under $HOME
+      if [[ "$display_path" == "$HOME"* ]]; then
+        display_path="~''${display_path#$HOME}"
+      fi
+
+      # Get the current window name
+      current_name=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index" -p "#{window_name}")
+
+      # Rename the window if different
+      if [[ "$current_name" != "$display_path" ]]; then
+        echo "  Window $window_index: '$current_name' -> '$display_path'"
+        ${pkgs.tmux}/bin/tmux rename-window -t "$SESSION:$window_index" "$display_path"
       else
-        current_name=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index" -p "#{window_name}")
-        echo "  Window $window_index: '$current_name' (not in $BASE_PATH, skipping)"
+        echo "  Window $window_index: '$current_name' (already correct)"
       fi
     done
 
