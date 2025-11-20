@@ -227,6 +227,7 @@
       extraConfig = {
         init.defaultBranch = "main";
         commit.gpgsign = true;
+        tag.gpgsign = true;
         user.signingkey = "F2D858FB8D9616ED";
         absorb.autoStageIfNothingStaged = true;
         absorb.oneFixupPerCommit = true;
