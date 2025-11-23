@@ -138,6 +138,7 @@
       settings = {
         title = "Ghostty";
         confirm-close-surface = false;
+        mouse-hide-while-typing = true;
         keybind = [
           "ctrl+tab=esc:[27;5;9~"
           "ctrl+shift+tab=esc:[27;6;9~"
