@@ -18,8 +18,7 @@ in
   options = {
     term = lib.mkOption {
       type = lib.types.str;
-      default = "${pkgs.kitty}/bin/kitty --title Kitty";
-      description = "A shared term value";
+      default = "${pkgs.ghostty}/bin/ghostty";
     };
 
     firefoxPackage = lib.mkOption {
@@ -67,11 +66,11 @@ in
       type = lib.types.str;
       default = "exec ${pkgs.brightnessctl}/bin/brightnessctl set ${backlightStep}%- -n 1";
     };
-    brightnessMin = lib.mkOption {
+    brightnessMax = lib.mkOption {
       type = lib.types.str;
       default = "exec ${pkgs.brightnessctl}/bin/brightnessctl set 100%";
     };
-    brightnessMax = lib.mkOption {
+    brightnessMin = lib.mkOption {
       type = lib.types.str;
       default = "exec ${pkgs.brightnessctl}/bin/brightnessctl set 1";
     };

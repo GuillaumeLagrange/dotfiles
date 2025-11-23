@@ -113,7 +113,9 @@
 
             // Brightness controls
             XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightnessUp}"; }
+            Shift+XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightnessMax}"; }
             XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightnessDown}"; }
+            Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightnessMin}"; }
 
             // Screenshots
             Print { screenshot; }

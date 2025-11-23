@@ -11,6 +11,10 @@ let
     echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10
   '';
 
+  tmuxAttachTmp = pkgs.writeShellScriptBin "tmux-attach-tmp" ''
+    tmux new-session -t $(tmux-fzf-get-session) \; set destroy-unattached on
+  '';
+
   # Tmux session manager script
   tsmScript = pkgs.writeShellScriptBin "tsm" ''
         if [[ "$1" == "-h" || "$1" == "--help" ]]; then
@@ -158,6 +162,7 @@ in
     home.packages = [
       tmuxFzfGetSession
       tsmScript
+      tmuxAttachTmp
       tskScript
       tmuxStart
       tmuxRename

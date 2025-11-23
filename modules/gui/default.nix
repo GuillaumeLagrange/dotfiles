@@ -107,6 +107,11 @@
             }
           ];
         };
+        "*" = {
+          setEnv = {
+            TERM = "xterm-256color";
+          };
+        };
       };
     };
 
@@ -116,22 +121,6 @@
       enableSshSupport = true;
       enableExtraSocket = true;
       pinentry.package = pkgs.pinentry-qt;
-    };
-
-    programs.alacritty = {
-      enable = true;
-      settings = {
-        mouse.hide_when_typing = true;
-        env.TERM = "xterm-256color";
-        window = {
-          dynamic_title = false;
-          startup_mode = "Maximized";
-          padding = {
-            x = 0;
-            y = 2;
-          };
-        };
-      };
     };
 
     programs.kitty = {
@@ -144,11 +133,17 @@
       };
     };
 
-    programs.fuzzel = {
+    programs.ghostty = {
       enable = true;
+      settings = {
+        title = "Ghostty";
+        confirm-close-surface = false;
+        keybind = [
+          "ctrl+tab=esc:[27;5;9~"
+          "ctrl+shift+tab=esc:[27;6;9~"
+        ];
+      };
     };
-
-    services.cliphist.enable = true;
 
     services.swayidle = {
       enable = true;
