@@ -142,6 +142,16 @@
         keybind = [
           "ctrl+tab=esc:[27;5;9~"
           "ctrl+shift+tab=esc:[27;6;9~"
+          "alt+one=unbind"
+          "alt+two=unbind"
+          "alt+three=unbind"
+          "alt+four=unbind"
+          "alt+five=unbind"
+          "alt+six=unbind"
+          "alt+seven=unbind"
+          "alt+eight=unbind"
+          "alt+nine=unbind"
+          "alt+zero=unbind"
         ];
       };
     };
