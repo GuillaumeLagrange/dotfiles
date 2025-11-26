@@ -136,7 +136,14 @@ in
     "aarch64-linux"
   ];
 
-  hardware.bluetooth.enable = true;
+  hardware.bluetooth = {
+    enable = true;
+    settings = {
+      Policy = {
+        ReconnectAttempts = 0;
+      };
+    };
+  };
   hardware.i2c.enable = true;
   hardware.keyboard.qmk.enable = true;
 
