@@ -32,7 +32,24 @@
         # Function to quote each element in a space-separated string
         quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
       in
+      let
+        mkOutput = monitor: ''
+          output "${monitor.name}" {
+              mode "${monitor.resolution}${lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}.000"}"
+              position x=${toString monitor.position.x} y=${toString monitor.position.y}
+          }
+        '';
+      in
       ''
+        ${mkOutput config.monitors.laptop}
+
+        // Home setup
+        ${mkOutput config.monitors.mainHome}
+        ${mkOutput config.monitors.secondaryHome}
+
+        // Office setup
+        ${mkOutput config.monitors.mainOffice}
+
         input {
             focus-follows-mouse max-scroll-amount="10%"
 
@@ -91,9 +108,9 @@
             Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
 
             // Browser launchers
-            Mod+W { spawn "${config.firefoxMain}"; }
-            Mod+Shift+W { spawn ${quoteArgs config.firefoxAlt}; }
-            Mod+Ctrl+W { spawn "${config.chromium}"; }
+            Mod+W { spawn "${config.firefox.main}"; }
+            Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }
+            Mod+Ctrl+W { spawn "${config.browsers.chromium}"; }
 
 
             // Additional apps
@@ -101,9 +118,9 @@
             Mod+N { spawn "${pkgs.mako}/bin/makoctl" "menu" "${pkgs.fuzzel}/bin/fuzzel" "-d" "-p" "Choose Action: "; }
 
             // Media and system keys
-            XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audioUp}"; }
-            XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audioDown}"; }
-            XF86AudioMute allow-when-locked=true { spawn "sh" "-c" "${config.audioMute}"; }
+            XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }
+            XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.down}"; }
+            XF86AudioMute allow-when-locked=true { spawn "sh" "-c" "${config.audio.mute}"; }
 
             // Media player controls
             XF86AudioPlay allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "play-pause"; }
@@ -112,10 +129,10 @@
             XF86AudioNext allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "next"; }
 
             // Brightness controls
-            XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightnessUp}"; }
-            Shift+XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightnessMax}"; }
-            XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightnessDown}"; }
-            Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightnessMin}"; }
+            XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightness.up}"; }
+            Shift+XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightness.max}"; }
+            XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightness.down}"; }
+            Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "sh" "-c" "${config.brightness.min}"; }
 
             // Screenshots
             Print { screenshot; }

@@ -170,9 +170,9 @@ in
         "$backlight_step" = "10";
         bind = [
           "$mainMod, Return, exec, $terminal"
-          "$mainMod, W, exec, ${config.firefoxMain}"
-          "$shiftMod, W, exec, ${config.firefoxAlt}"
-          "$ctrlMod, W, exec, ${config.chromium}"
+          "$mainMod, W, exec, ${config.firefox.main}"
+          "$shiftMod, W, exec, ${config.firefox.alt}"
+          "$ctrlMod, W, exec, ${config.browsers.chromium}"
           "$shiftMod, A, killactive,"
           "$mainMod, Space, exec, hyprctl --batch \"dispatch togglefloating active\""
           "$mainMod, D, exec, ${pkgs.fuzzel}/bin/fuzzel"
