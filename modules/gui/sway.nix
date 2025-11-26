@@ -80,20 +80,20 @@ in
             "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 
             # Browsers
-            "${modifier}+w" = "exec ${config.firefoxMain}";
-            "${modifier}+Shift+w" = "exec ${config.firefoxAlt}";
-            "${modifier}+Ctrl+w" = "exec ${config.chromium}";
+            "${modifier}+w" = "exec ${config.firefox.main}";
+            "${modifier}+Shift+w" = "exec ${config.firefox.alt}";
+            "${modifier}+Ctrl+w" = "exec ${config.browsers.chromium}";
 
-            "--locked ${modifier}+equal" = "exec ${config.audioUp}";
-            "--locked ${modifier}+minus" = "exec ${config.audioDown}";
-            "--locked XF86AudioRaiseVolume" = "exec ${config.audioUp}";
-            "--locked XF86AudioLowerVolume" = "exec ${config.audioDown}";
-            "--locked XF86AudioMute" = "exec ${config.audioMute}";
+            "--locked ${modifier}+equal" = "exec ${config.audio.up}";
+            "--locked ${modifier}+minus" = "exec ${config.audio.down}";
+            "--locked XF86AudioRaiseVolume" = "exec ${config.audio.up}";
+            "--locked XF86AudioLowerVolume" = "exec ${config.audio.down}";
+            "--locked XF86AudioMute" = "exec ${config.audio.mute}";
 
-            "XF86MonBrightnessUp" = "exec ${config.brightnessUp}";
-            "XF86MonBrightnessDown" = "exec ${config.brightnessDown}";
-            "Shift+XF86MonBrightnessUp" = "exec ${config.brightnessMin}";
-            "Shift+XF86MonBrightnessDown" = "exec ${config.brightnessMax}";
+            "XF86MonBrightnessUp" = "exec ${config.brightness.up}";
+            "XF86MonBrightnessDown" = "exec ${config.brightness.down}";
+            "Shift+XF86MonBrightnessUp" = "exec ${config.brightness.min}";
+            "Shift+XF86MonBrightnessDown" = "exec ${config.brightness.max}";
 
             # Spotify control
             "--locked Shift+XF86AudioPlay" = "exec ${pkgs.playerctl}/bin/playerctl -p spotify play-pause";
@@ -170,9 +170,31 @@ in
             }
           ];
         };
-        extraConfig = builtins.readFile ./sway.config + ''
-          set $Locker ${lock}
-        '';
+        extraConfig =
+          let
+            mkOutputConfig = name: monitor: ''
+              ${name} mode ${monitor.resolution}${lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}HZ"} position ${toString monitor.position.x} ${toString monitor.position.y}
+            '';
+          in
+          builtins.readFile ./sway.config + ''
+            set $Locker ${lock}
+            set $laptop "${config.monitors.laptop.name}"
+            set $main_home "${config.monitors.mainHome.name}"
+            set $secondary_home "${config.monitors.secondaryHome.name}"
+            set $main_office "${config.monitors.mainOffice.name}"
+
+            # Output configuration generated from options
+            output {
+                ${mkOutputConfig "$laptop" config.monitors.laptop}
+
+                # Home
+                ${mkOutputConfig "$main_home" config.monitors.mainHome}
+                ${mkOutputConfig "$secondary_home" config.monitors.secondaryHome}
+
+                # Office
+                ${mkOutputConfig "$main_office" config.monitors.mainOffice}
+            }
+          '';
       };
 
     home.packages = [
