@@ -33,6 +33,28 @@
         quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
       in
       ''
+        output "eDP-1" {
+            mode "1920x1200"
+            position x=0 y=1440
+        }
+
+        // Home setup
+        output "Shenzhen KTC Technology Group OLED G27P6 Unknown" {
+            mode "2560x1440@60.000"
+            position x=1920 y=1440
+        }
+
+        output "Dell Inc. DELL S2421HS 45WFW83" {
+            mode "1920x1080"
+            position x=4480 y=1440
+        }
+
+        // Office setup
+        output "Dell Inc. DELL P2423D FL44W14" {
+            mode "2560x1440@75.000"
+            position x=1920 y=1440
+        }
+
         input {
             focus-follows-mouse max-scroll-amount="10%"
 
