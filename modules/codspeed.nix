@@ -26,7 +26,7 @@ in
     programs.granted.enable = true;
 
     programs.git = {
-      extraConfig = {
+      settings = {
         diff.lfstext.textconv = "cat";
       };
     };

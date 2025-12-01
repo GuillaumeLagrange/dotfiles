@@ -9,9 +9,12 @@
   };
 
   config = lib.mkIf config.vicinae.enable {
-    services.vicinae = {
+    programs.vicinae = {
       enable = true;
-      autoStart = true;
+      systemd = {
+        enable = true;
+        autoStart = true;
+      };
       # Configuration done within the app for now
     };
   };

@@ -1,33 +1,25 @@
 {
   description = "Home Manager configuration of guillaume";
 
-  nixConfig = {
-    extra-substituters = [ "https://vicinae.cachix.org" ];
-    extra-trusted-public-keys = [ "vicinae.cachix.org-1:1kDrfienkGHPYbkpNj1mWTr7Fm1+zcenzgTizIcI3oc=" ];
-  };
-
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v0.4.2";
-      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:nix-community/lanzaboote/v0.4.3";
+      # Fails to build otherwise for now after 25.11 switch, retry later
+      # inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.05";
+      url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     stylix = {
-      url = "github:nix-community/stylix/release-25.05";
+      url = "github:nix-community/stylix/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-index-database = {
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-    vicinae = {
-      url = "github:vicinaehq/vicinae";
-      # No nixpkgs follow to make use of cache
     };
   };
 
@@ -37,7 +29,6 @@
       nixpkgs,
       nixpkgs-unstable,
       stylix,
-      vicinae,
       ...
     }@inputs:
     let
@@ -64,7 +55,6 @@
           inherit pkgs;
           modules = [
             stylix.homeModules.stylix
-            vicinae.homeManagerModules.default
             ./modules/stylix/common.nix
             ./modules/home-manager.nix
           ];

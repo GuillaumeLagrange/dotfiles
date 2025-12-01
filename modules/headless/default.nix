@@ -155,9 +155,9 @@
     programs.git = {
       enable = true;
       lfs.enable = true;
-      userEmail = "guillaume@glagrange.eu";
-      userName = "Guillaume Lagrange";
-      extraConfig = {
+      settings = {
+        user.email = "guillaume@glagrange.eu";
+        user.name = "Guillaume Lagrange";
         init.defaultBranch = "main";
         commit.gpgsign = true;
         tag.gpgsign = true;

@@ -13,12 +13,9 @@
     # Just install niri package - config will be in ~/.config/niri/config.kdl
     home.packages = with pkgs; [
       niri
+      xwayland-satellite
       (import ./lock.nix { inherit pkgs; })
     ];
-
-    home.sessionVariables = {
-      DISPLAY = ":0";
-    };
 
     # Basic niri config file - keeping it minimal
     xdg.configFile."niri/config.kdl".text =
@@ -35,7 +32,9 @@
       let
         mkOutput = monitor: ''
           output "${monitor.name}" {
-              mode "${monitor.resolution}${lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}.000"}"
+              mode "${monitor.resolution}${
+                lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}.000"
+              }"
               position x=${toString monitor.position.x} y=${toString monitor.position.y}
           }
         '';
@@ -72,8 +71,6 @@
         spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
         spawn-at-startup "${pkgs.mako}/bin/mako"
         spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
-        // Spawn xwayland manually because NixOS stable does not have 25.08 yet
-        spawn-at-startup "${pkgs.xwayland-satellite}/bin/xwayland-satellite"
 
         prefer-no-csd
 

@@ -48,9 +48,9 @@ in
     powertop.enable = true;
   };
 
-  services.logind = {
-    lidSwitch = "suspend-then-hibernate";
-    powerKey = "suspend-then-hibernate";
+  services.logind.settings.Login = {
+    HandleLidSwitch = "suspend-then-hibernate";
+    HandlePowerKey = "suspend-then-hibernate";
   };
   systemd.sleep.extraConfig = "HibernateDelaySec=3h";
 
@@ -73,12 +73,9 @@ in
   };
 
   # Gnome
-  # Uncomment this when switching back to 25.11
-  # services.displayManager.gdm.enable = true;
-  # services.desktopManager.gnome.enable = true;
-  # services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
+  services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -129,7 +126,7 @@ in
     libimobiledevice
     distrobox
 
-    linuxPackages.perf
+    perf
   ];
 
   boot.binfmt.emulatedSystems = [

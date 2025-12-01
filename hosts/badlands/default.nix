@@ -1,6 +1,6 @@
 { inputs, ... }:
 
-inputs.nixpkgs.lib.nixosSystem rec {
+inputs.nixpkgs.lib.nixosSystem {
   system = "x86_64-linux";
   modules = [
     (import ../../modules/secure_boot.nix { lanzaboote = inputs.lanzaboote; })

@@ -90,7 +90,7 @@
 
     programs.ssh = {
       enable = true;
-      addKeysToAgent = "yes";
+      enableDefaultConfig = false;
       matchBlocks = {
         gullywash = {
           hostname = "gullywash.glagrange.eu";
@@ -108,6 +108,7 @@
           ];
         };
         "*" = {
+          addKeysToAgent = "yes";
           setEnv = {
             TERM = "xterm-256color";
           };
