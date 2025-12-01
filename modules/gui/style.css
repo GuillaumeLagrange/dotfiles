@@ -59,14 +59,12 @@ button:hover {
     background: rgba(0, 0, 0, 0.2);
 }
 
-/* Style for active workspace in Hyprland */
 #workspaces button.active {
-    background-color: @orange;
+    background-color: @blue;
     color: #000000;
     box-shadow: inset 0 -3px #ffffff;
 }
 
-/* Style for focused workspace in Sway */
 #workspaces button.focused {
     background-color: @orange;
     color: #000000;
@@ -338,4 +336,5 @@ label:focus {
 #privacy-item.audio-out {
     background-color: #0069d4;
 }
+
 
