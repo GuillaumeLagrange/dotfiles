@@ -10,14 +10,18 @@
   };
 
   config = lib.mkIf config.niri.enable {
-    # Just install niri package - config will be in ~/.config/niri/config.kdl
     home.packages = with pkgs; [
       niri
       xwayland-satellite
       (import ./lock.nix { inherit pkgs; })
+      # Script to sort named workspaces alphabetically
+      (pkgs.writers.writePython3Bin "niri-sort-workspaces" { doCheck = false; } (
+        builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
+          builtins.readFile ./niri-sort-workspaces.py
+        )
+      ))
     ];
 
-    # Basic niri config file - keeping it minimal
     xdg.configFile."niri/config.kdl".text =
       let
         ws_web = "1. Web";
@@ -202,9 +206,12 @@
             Mod+Ctrl+J         { move-workspace-down; }
             Mod+Ctrl+K         { move-workspace-up; }
 
-            // Move workspace to next monitor
-            Mod+Z { move-workspace-to-monitor-left; }
-            Mod+X { move-workspace-to-monitor-right; }
+            // Move workspace to next monitor (with auto-sort)
+            Mod+Z { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-left && niri-sort-workspaces"; }
+            Mod+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-right && niri-sort-workspaces"; }
+
+            // Manual workspace sort
+            Mod+Shift+S { spawn "niri-sort-workspaces"; }
 
             // Mouse wheel workspace navigation
             Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
