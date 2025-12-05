@@ -33,7 +33,7 @@ in
 
     home.shellAliases = {
       wt = "export CODSPEED_RUNNER_MODE=walltime";
-      instr = "export CODSPEED_RUNNER_MODE=instrumentation";
+      sim = "export CODSPEED_RUNNER_MODE=simulation";
       mj = "make -j";
       m = "make";
       cm = "cmake ..";

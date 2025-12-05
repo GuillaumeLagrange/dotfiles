@@ -52,7 +52,7 @@ in
     HandleLidSwitch = "suspend-then-hibernate";
     HandlePowerKey = "suspend-then-hibernate";
   };
-  systemd.sleep.extraConfig = "HibernateDelaySec=3h";
+  systemd.sleep.extraConfig = "HibernateDelaySec=24h";
 
   services.xserver = {
     # Enable X11 as a fallback
