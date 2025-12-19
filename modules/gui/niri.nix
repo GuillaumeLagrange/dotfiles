@@ -294,6 +294,11 @@
             geometry-corner-radius 4
             clip-to-geometry true
         }
+
+        // Disable alt tab
+        recent-windows {
+          off
+        }
       '';
   };
 }

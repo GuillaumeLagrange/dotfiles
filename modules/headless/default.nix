@@ -20,7 +20,6 @@
 
     home.packages = with pkgs; [
       btop
-      devenv
       fastfetch
       fd
       fnm
