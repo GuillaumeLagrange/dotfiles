@@ -1,4 +1,4 @@
-# Guiom's Configuration Files
+# Guiom's Configuration
 
 ## Usage
 
