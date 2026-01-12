@@ -79,10 +79,10 @@
         prefer-no-csd
 
         layout {
-            gaps 4
+            gaps 2
 
             focus-ring {
-                width 2
+                width 1
                 active-color "#ad530d"
                 inactive-color "#505050"
             }

@@ -103,6 +103,10 @@ in
         direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path . --locked'
       '')
 
+      (writeShellScriptBin "cieh" ''
+        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./packages/exec-harness --locked'
+      '')
+
       (writeShellScriptBin "local_run_helper" ''
         # Find the latest runner output
         runner_profile_dir = $(ls -td /tmp/profile.*.out | head -n 1)

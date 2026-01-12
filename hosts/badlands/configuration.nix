@@ -125,6 +125,7 @@ in
     # iOS tethering
     libimobiledevice
     distrobox
+    polkit_gnome
 
     perf
   ];
