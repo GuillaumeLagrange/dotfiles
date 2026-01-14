@@ -34,6 +34,7 @@ in
     home.shellAliases = {
       wt = "export CODSPEED_RUNNER_MODE=walltime";
       sim = "export CODSPEED_RUNNER_MODE=simulation";
+      mem = "export CODSPEED_RUNNER_MODE=memory";
       mj = "make -j";
       m = "make";
       cm = "cmake ..";
@@ -106,6 +107,10 @@ in
 
       (writeShellScriptBin "cieh" ''
         direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/exec-harness --locked'
+      '')
+
+      (writeShellScriptBin "cicm" ''
+        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/memtrack --locked'
       '')
 
       (writeShellScriptBin "local_run_helper" ''
