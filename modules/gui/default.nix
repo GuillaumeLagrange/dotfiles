@@ -10,6 +10,7 @@
   };
 
   imports = [
+    ./audio.nix
     ./hyprland.nix
     ./niri.nix
     ./sway.nix
