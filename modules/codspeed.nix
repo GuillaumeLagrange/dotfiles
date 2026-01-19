@@ -57,7 +57,7 @@ in
       moon = "pnpm moon";
       turbo = "pnpm turbo";
       # Compress the latest runner output to the monorepo samples
-      local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/tools/dev_data/sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
+      local_run_helper = "tar -czf sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
 
     };
 
