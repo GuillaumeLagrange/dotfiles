@@ -72,23 +72,22 @@
         }
 
         spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
-        spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
         spawn-at-startup "${pkgs.mako}/bin/mako"
         spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
 
         prefer-no-csd
 
         layout {
-            gaps 2
+            gaps 4
 
             focus-ring {
-                width 1
+                width 2
                 active-color "#ad530d"
                 inactive-color "#505050"
             }
 
             border {
-                off
+              off
             }
         }
 

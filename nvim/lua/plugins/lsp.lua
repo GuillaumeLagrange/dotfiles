@@ -133,6 +133,8 @@ return { -- LSP Configuration & Plugins
 
     vim.lsp.enable('zls')
 
+    vim.lsp.enable('yamlls')
+
     -- vim.lsp.config.copilot = {
     --   cmd = { 'copilot-language-server', '--stdio' },
     --   root_markers = { '.git' },
