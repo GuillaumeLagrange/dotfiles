@@ -49,14 +49,8 @@
           "text/plain" = "nvim.desktop";
           "x-scheme-handler/http" = config.firefox.desktopEntry;
           "x-scheme-handler/https" = config.firefox.desktopEntry;
-          "x-scheme-handler/chrome" = config.firefox.desktopEntry;
           "text/html" = config.firefox.desktopEntry;
-          "application/x-extension-htm" = config.firefox.desktopEntry;
-          "application/x-extension-html" = config.firefox.desktopEntry;
-          "application/x-extension-shtml" = config.firefox.desktopEntry;
           "application/xhtml+xml" = config.firefox.desktopEntry;
-          "application/x-extension-xhtml" = config.firefox.desktopEntry;
-          "application/x-extension-xht" = config.firefox.desktopEntry;
           "image/jpeg" = config.firefox.desktopEntry;
           "image/png" = config.firefox.desktopEntry;
         };
