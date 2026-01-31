@@ -161,7 +161,7 @@ in
 
       desktopEntry = lib.mkOption {
         type = lib.types.str;
-        default = "${config.firefox.package}/share/applications/firefox.desktop";
+        default = "firefox.desktop";
       };
     };
 
