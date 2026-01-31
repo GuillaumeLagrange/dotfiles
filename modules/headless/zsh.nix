@@ -18,6 +18,7 @@
           "docker"
           "rust"
           "systemd"
+          "globalias" # Auto expand shell aliases
         ];
       };
       initContent = ''
