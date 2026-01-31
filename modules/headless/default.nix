@@ -47,6 +47,7 @@
       # Nvim cross-project basics
       imagemagick
       lua-language-server
+      yaml-language-server
       luajitPackages.luarocks
       nixd
       nixfmt-rfc-style

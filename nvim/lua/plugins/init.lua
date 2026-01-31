@@ -204,4 +204,10 @@ return {
       { '<leader>dvf', '<cmd>DiffviewFileHistory %<CR>', mode = 'n', desc = 'Open diffview file history for current file' },
     },
   },
+
+  {
+    'esmuellert/codediff.nvim',
+    dependencies = { 'MunifTanjim/nui.nvim' },
+    cmd = 'CodeDiff',
+  },
 }
