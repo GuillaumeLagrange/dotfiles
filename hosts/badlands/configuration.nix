@@ -43,10 +43,17 @@ in
 
   # Laptop power management
   services.thermald.enable = true;
+  services.power-profiles-daemon.enable = true;
   powerManagement = {
     enable = true;
     powertop.enable = true;
   };
+
+  # Auto-switch power profiles based on AC status
+  services.udev.extraRules = ''
+    SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ATTR{online}=="1", RUN+="${pkgs.power-profiles-daemon}/bin/powerprofilesctl set balanced"
+    SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ATTR{online}=="0", RUN+="${pkgs.power-profiles-daemon}/bin/powerprofilesctl set power-saver"
+  '';
 
   services.logind.settings.Login = {
     HandleLidSwitch = "suspend-then-hibernate";

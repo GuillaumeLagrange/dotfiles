@@ -161,21 +161,19 @@ window#waybar.empty #window {
 }
 
 #power-profiles-daemon {
-    padding-right: 15px;
+    padding: 0 10px 0 8px;
 }
 
 #power-profiles-daemon.performance {
-    background-color: #f53c3c;
-    color: #ffffff;
+    background-color: @red;
 }
 
 #power-profiles-daemon.balanced {
-    background-color: #2980b9;
-    color: #ffffff;
+    background-color: @blue;
 }
 
 #power-profiles-daemon.power-saver {
-    background-color: #2ecc71;
+    background-color: @green;
 }
 
 label:focus {

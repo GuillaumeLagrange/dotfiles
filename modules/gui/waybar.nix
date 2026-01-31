@@ -39,6 +39,7 @@
             "cpu"
             "memory"
             "battery"
+            "power-profiles-daemon"
             "pulseaudio"
             "clock"
           ];
@@ -58,6 +59,15 @@
 
           "niri/window" = {
             separate-outputs = true;
+          };
+
+          "power-profiles-daemon" = {
+            "format" = "{icon}";
+            "format-icons" = {
+              "power-saver" = "󰾆";
+              "balanced" = "󰾅";
+              "performance" = "󰓅";
+            };
           };
 
           "mpris" = {
