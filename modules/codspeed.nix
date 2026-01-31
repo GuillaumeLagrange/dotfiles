@@ -32,8 +32,7 @@ in
     };
 
     home.shellAliases = {
-      wt = "export CODSPEED_RUNNER_MODE=walltime";
-      sim = "export CODSPEED_RUNNER_MODE=simulation";
+      cs = "codspeed";
       mj = "make -j";
       m = "make";
       cm = "cmake ..";
@@ -54,8 +53,9 @@ in
       '';
       codprod = "unset CODSPEED_CONFIG_NAME && unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       moon = "pnpm moon";
+      turbo = "pnpm turbo";
       # Compress the latest runner output to the monorepo samples
-      local_run_helper = "tar -czf ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/tools/dev_data/sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
+      local_run_helper = "tar -czf sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
 
     };
 
@@ -101,6 +101,14 @@ in
       # Cargo install codspeed runner
       (writeShellScriptBin "cicr" ''
         direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path . --locked'
+      '')
+
+      (writeShellScriptBin "cieh" ''
+        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/exec-harness --locked'
+      '')
+
+      (writeShellScriptBin "cicm" ''
+        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/memtrack --locked'
       '')
 
       (writeShellScriptBin "local_run_helper" ''
