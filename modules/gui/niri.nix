@@ -72,7 +72,6 @@
         }
 
         spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
-        spawn-at-startup "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
         spawn-at-startup "${pkgs.mako}/bin/mako"
         spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
 
@@ -88,7 +87,7 @@
             }
 
             border {
-                off
+              off
             }
         }
 
@@ -207,10 +206,7 @@
             Mod+Ctrl+K         { move-workspace-up; }
 
             // Move workspace to next monitor (with auto-sort)
-            Mod+Z { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-left && niri-sort-workspaces"; }
-            Mod+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-right && niri-sort-workspaces"; }
-            Mod+Shift+Z { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-up && niri-sort-workspaces"; }
-            Mod+Shift+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-down && niri-sort-workspaces"; }
+            Mod+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-next && niri-sort-workspaces"; }
 
             // Manual workspace sort
             Mod+Shift+S { spawn "niri-sort-workspaces"; }
