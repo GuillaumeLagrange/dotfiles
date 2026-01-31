@@ -121,7 +121,7 @@ in
       enable = true;
       mouse = true;
       keyMode = "vi";
-      terminal = "screen-256color";
+      terminal = "tmux-256color";
       baseIndex = 1;
       extraConfig = builtins.readFile ./tmux.conf;
       plugins = with pkgs; [
