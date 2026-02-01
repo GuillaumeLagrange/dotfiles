@@ -74,6 +74,8 @@ return {
           set_hl('NormalFloat', palette.none, palette.bg1)
           vim.api.nvim_set_hl(0, 'MiniFilesCursorLine', { bg = palette.bg_visual_green[1] })
           vim.api.nvim_set_hl(0, 'TreesitterContext', { bg = palette.bg_dim[1] })
+          vim.api.nvim_set_hl(0, 'FloatBorder', { bg = 'NONE' })
+          vim.api.nvim_set_hl(0, 'NormalFloat', { bg = 'NONE' })
         end,
       })
 
