@@ -21,6 +21,7 @@
           "globalias" # Auto expand shell aliases
         ];
       };
+
       initContent = ''
         bindkey '^ ' autosuggest-accept
 
@@ -68,5 +69,10 @@
         eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --version-file-strategy recursive --shell zsh)"
       '';
     };
+
+    home.sessionVariables = {
+      GLOBALIAS_FILTER_VALUES = "(l z ll ls la)";
+    };
+
   };
 }
