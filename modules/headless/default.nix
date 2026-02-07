@@ -51,6 +51,7 @@
       luajitPackages.luarocks
       nixd
       nixfmt-rfc-style
+      pkgs-unstable.oxfmt
       # nodePackages_latest.prettier # Markdown formatting
       stylua
       taplo
