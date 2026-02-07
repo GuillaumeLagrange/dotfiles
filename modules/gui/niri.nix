@@ -13,7 +13,6 @@
     home.packages = with pkgs; [
       niri
       xwayland-satellite
-      (import ./lock.nix { inherit pkgs; })
       # Script to sort named workspaces alphabetically
       (pkgs.writers.writePython3Bin "niri-sort-workspaces" { doCheck = false; } (
         builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
@@ -104,7 +103,7 @@
             // Application launching
             Mod+Return { spawn ${quoteArgs config.term}; }
             Mod+D { spawn "vicinae" "toggle"; }
-            Super+Alt+L { spawn "lock.sh"; }
+            Super+Alt+L { spawn "${config.lock}"; }
             Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
 
             // Browser launchers

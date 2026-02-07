@@ -11,6 +11,7 @@
 
   imports = [
     ./audio.nix
+    ./lock.nix
     ./hyprland.nix
     ./niri.nix
     ./sway.nix
@@ -163,7 +164,7 @@
       events = [
         {
           event = "before-sleep";
-          command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+          command = "${config.lock}";
         }
       ];
       timeouts =
@@ -177,7 +178,7 @@
         [
           {
             timeout = lockTimeout;
-            command = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh &";
+            command = "${config.lock} &";
           }
           {
             timeout = lockTimeout + screenOffTimeout;

@@ -5,7 +5,7 @@
   ...
 }:
 let
-  lock = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
+  lock = "${config.lock}";
 
   move-to-bottom-right = "${
     (import ./move-to-bottom-right.nix { inherit pkgs; })
@@ -173,10 +173,13 @@ in
         extraConfig =
           let
             mkOutputConfig = name: monitor: ''
-              ${name} mode ${monitor.resolution}${lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}HZ"} position ${toString monitor.position.x} ${toString monitor.position.y}
+              ${name} mode ${monitor.resolution}${
+                lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}HZ"
+              } position ${toString monitor.position.x} ${toString monitor.position.y}
             '';
           in
-          builtins.readFile ./sway.config + ''
+          builtins.readFile ./sway.config
+          + ''
             set $Locker ${lock}
             set $laptop "${config.monitors.laptop.name}"
             set $main_home "${config.monitors.mainHome.name}"

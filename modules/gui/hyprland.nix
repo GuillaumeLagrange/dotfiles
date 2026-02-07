@@ -4,9 +4,6 @@
   config,
   ...
 }:
-let
-  lock_script = "${(import ./lock.nix { inherit pkgs; })}/bin/lock.sh";
-in
 {
   options = {
     hyprland.enable = lib.mkEnableOption "hyprland and its associated config";
@@ -28,7 +25,7 @@ in
           "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
           "${pkgs.swaynotificationcenter}/bin/swaync"
           "${pkgs.blueman}/bin/blueman-applet"
-          "${pkgs.xss-lock}/bin/xss-lock -- ${lock_script}"
+          "${pkgs.xss-lock}/bin/xss-lock -- ${config.lock}"
         ];
 
         input = {
@@ -284,7 +281,7 @@ in
         $powerSubmap = Power (s)uspend (l)ock (e)xit (h)ibernate (p)oweroff (r)eboot
         bind = $mainMod, Escape, submap, $powerSubmap
         submap = $powerSubmap
-        bind = , L, exec, ${lock_script}
+        bind = , L, exec, ${config.lock}
         bind = , L, submap, reset
         bind = , S, exec, systemctl suspend-then-hibernate
         bind = , S, submap, reset
