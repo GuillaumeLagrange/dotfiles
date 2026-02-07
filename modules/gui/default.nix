@@ -41,22 +41,22 @@
       libreoffice
       lutris
       pavucontrol
-      pomodoro-gtk
       playerctl
+      pomodoro-gtk
       proton-pass
       protonvpn-gui
       qwerty-fr
+      signal-desktop
       slack
       spotify
-      signal-desktop
       telegram-desktop
       transmission-remote-gtk
       transmission_4-gtk
       vlc
       wdisplays
       wev
-      wl-clipboard
       wireguard-tools
+      wl-clipboard
 
       adwaita-icon-theme
 

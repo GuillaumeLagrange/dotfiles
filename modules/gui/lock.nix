@@ -25,6 +25,9 @@ in
     programs.hyprlock = {
       enable = true;
       settings = {
+        general = {
+          hide_cursor = true;
+        };
         auth = {
           "fingerprint:enabled" = true;
         };
@@ -33,8 +36,13 @@ in
 
     home.packages = [
       lockScript
-    ];
 
+      # Very ugly, but supports fprintd, needs to be enabled manually via
+      # systemctl --user enable --now hyprpolkitagent.service
+      # TODO: Patch soteria and get rid of this
+      pkgs.hyprpolkitagent
+
+    ];
   };
 
   options.lock = lib.mkOption {
