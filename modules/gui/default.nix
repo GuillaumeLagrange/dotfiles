@@ -80,7 +80,6 @@
       };
     };
     services.network-manager-applet.enable = true;
-    services.pasystray.enable = true;
 
     home.pointerCursor = {
       gtk.enable = true;
@@ -182,12 +181,14 @@
           }
           {
             timeout = lockTimeout + screenOffTimeout;
-            command = "if ${pkgs.procps}/bin/pgrep swaylock; then ${screenOffCommand}; fi";
+            # TODO: Make this pgrep check part of the lock options
+            command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
             resumeCommand = "${screenOnCommand}";
           }
           {
             timeout = screenOffTimeout;
-            command = "if ${pkgs.procps}/bin/pgrep swaylock; then ${screenOffCommand}; fi";
+            # TODO: Make this pgrep check part of the lock options
+            command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
             resumeCommand = "${screenOnCommand}";
           }
           {
