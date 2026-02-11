@@ -16,6 +16,7 @@
     ./niri.nix
     ./sway.nix
     ./firefox.nix
+    ./noctalia.nix
     ./waybar.nix
     ./vicinae.nix
     ./options.nix
@@ -26,23 +27,19 @@
     niri.enable = true;
     sway.enable = true;
     firefox.enable = true;
-    waybar.enable = true;
-    vicinae.enable = true;
+    waybar.enable = false;
+    vicinae.enable = false;
 
     home.packages = with pkgs; [
-      blueman
       btop
       calibre
       d-spy
       ddcutil
       discord
-      gnome-themes-extra
-      gnome-tweaks
       libreoffice
       lutris
       pavucontrol
       playerctl
-      pomodoro-gtk
       proton-pass
       protonvpn-gui
       qwerty-fr
@@ -79,7 +76,7 @@
         name = "Adwaita";
       };
     };
-    services.network-manager-applet.enable = true;
+    # services.network-manager-applet.enable = true;
 
     home.pointerCursor = {
       gtk.enable = true;
@@ -141,6 +138,10 @@
         title = "Ghostty";
         confirm-close-surface = false;
         mouse-hide-while-typing = true;
+        font-family = "Hack Nerd Font";
+        font-size = 10;
+        background-opacity = 0.95;
+        # theme = "noctalia";
         keybind = [
           "ctrl+tab=esc:[27;5;9~"
           "ctrl+shift+tab=esc:[27;6;9~"
@@ -166,36 +167,36 @@
           command = "${config.lock}";
         }
       ];
-      timeouts =
-        let
-          lockTimeout = 60 * 10; # 10 minutes
-          screenOffTimeout = 10;
-          suspendTimeout = 2 * lockTimeout;
-          screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms off || ${pkgs.niri}/bin/niri msg action power-off-monitors";
-          screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
-        in
-        [
-          {
-            timeout = lockTimeout;
-            command = "${config.lock} &";
-          }
-          {
-            timeout = lockTimeout + screenOffTimeout;
-            # TODO: Make this pgrep check part of the lock options
-            command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
-            resumeCommand = "${screenOnCommand}";
-          }
-          {
-            timeout = screenOffTimeout;
-            # TODO: Make this pgrep check part of the lock options
-            command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
-            resumeCommand = "${screenOnCommand}";
-          }
-          {
-            timeout = suspendTimeout;
-            command = "${pkgs.systemd}/bin/systemctl suspend-then-hibernate";
-          }
-        ];
+      # timeouts =
+      #   let
+      #     lockTimeout = 60 * 10; # 10 minutes
+      #     screenOffTimeout = 10;
+      #     suspendTimeout = 2 * lockTimeout;
+      #     screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms off || ${pkgs.niri}/bin/niri msg action power-off-monitors";
+      #     screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on' || ${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
+      #   in
+      #   [
+      #     {
+      #       timeout = lockTimeout;
+      #       command = "${config.lock} &";
+      #     }
+      #     {
+      #       timeout = lockTimeout + screenOffTimeout;
+      #       # TODO: Make this pgrep check part of the lock options
+      #       command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
+      #       resumeCommand = "${screenOnCommand}";
+      #     }
+      #     {
+      #       timeout = screenOffTimeout;
+      #       # TODO: Make this pgrep check part of the lock options
+      #       command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
+      #       resumeCommand = "${screenOnCommand}";
+      #     }
+      #     {
+      #       timeout = suspendTimeout;
+      #       command = "${pkgs.systemd}/bin/systemctl suspend-then-hibernate";
+      #     }
+      #   ];
     };
 
     systemd.user = {
@@ -233,37 +234,37 @@
 
     programs.vscode.enable = true;
 
-    services.mako = {
-      enable = true;
-      settings = {
-        default-timeout = 10000;
+    # services.mako = {
+    #   enable = true;
+    #   settings = {
+    #     default-timeout = 10000;
+    #
+    #     "app-name=Slack" = {
+    #       invisible = 1;
+    #     };
+    #   };
+    #   # FIXME: Fix this
+    #   # settings = ''
+    #   #   [app-name="Firefox"]
+    #   #   default-timeout=0
+    #   #
+    #   #   [app-name="Pomodoro"]
+    #   #   default-timeout=0
+    #   #
+    #   #   [app-name="NetworkManager Applet"]
+    #   #   default-timeout=5000
+    #   # '';
+    # };
 
-        "app-name=Slack" = {
-          invisible = 1;
-        };
-      };
-      # FIXME: Fix this
-      # settings = ''
-      #   [app-name="Firefox"]
-      #   default-timeout=0
-      #
-      #   [app-name="Pomodoro"]
-      #   default-timeout=0
-      #
-      #   [app-name="NetworkManager Applet"]
-      #   default-timeout=5000
-      # '';
-    };
-
-    services.wpaperd = {
-      enable = true;
-      settings = {
-        default = {
-          path = ./wallpapers;
-          duration = "1h";
-        };
-      };
-    };
+    # services.wpaperd = {
+    #   enable = true;
+    #   settings = {
+    #     default = {
+    #       path = ./wallpapers;
+    #       duration = "1h";
+    #     };
+    #   };
+    # };
 
     services.syncthing.enable = true;
   };

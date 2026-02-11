@@ -61,6 +61,13 @@
     };
   };
 
+  # System-wide font packages
+  fonts.packages = with pkgs; [
+    nerd-fonts.hack
+    noto-fonts
+    noto-fonts-color-emoji
+  ];
+
   # Hardware configuration common to both Intel systems
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;

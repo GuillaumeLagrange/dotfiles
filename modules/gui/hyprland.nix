@@ -24,8 +24,6 @@
           "${pkgs._1password-gui}/bin/1password --silent"
           "${pkgs.protonmail-bridge}/bin/protonmail-bridge"
           "${pkgs.swaynotificationcenter}/bin/swaync"
-          "${pkgs.blueman}/bin/blueman-applet"
-          "${pkgs.xss-lock}/bin/xss-lock -- ${config.lock}"
         ];
 
         input = {

@@ -52,6 +52,8 @@
         // Office setup
         ${mkOutput config.monitors.mainOffice}
 
+        include "${config.home.homeDirectory}/.config/niri/noctalia.kdl"
+
         input {
             focus-follows-mouse max-scroll-amount="10%"
 
@@ -71,8 +73,7 @@
         }
 
         spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
-        spawn-at-startup "${pkgs.mako}/bin/mako"
-        spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
+        spawn-at-startup "QT_QPA_PLATFORMTHEME=gtk3" "noctalia-shell"
 
         prefer-no-csd
 
@@ -102,7 +103,12 @@
 
             // Application launching
             Mod+Return { spawn ${quoteArgs config.term}; }
-            Mod+D { spawn "vicinae" "toggle"; }
+            Mod+D { spawn "noctalia-shell" "ipc" "call" "launcher" "toggle"; }
+            Mod+V { spawn "noctalia-shell" "ipc" "call" "launcher" "clipboard"; }
+            Mod+S { spawn "noctalia-shell" "ipc" "call" "settings" "toggle"; }
+            Mod+B { spawn "noctalia-shell" "ipc" "call" "bluetooth" "togglePanel"; }
+            Mod+N { spawn "noctalia-shell" "ipc" "call" "notifications" "toggleHistory"; }
+            Mod+Backspace { spawn "noctalia-shell" "ipc" "call" "controlCenter" "toggle"; }
             Super+Alt+L { spawn "${config.lock}"; }
             Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
 
@@ -111,10 +117,6 @@
             Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }
             Mod+Ctrl+W { spawn "${config.browsers.chromium}"; }
 
-
-            // Additional apps
-            Mod+B { spawn "${pkgs.blueman}/bin/blueman-manager"; }
-            Mod+N { spawn "${pkgs.mako}/bin/makoctl" "menu" "${pkgs.fuzzel}/bin/fuzzel" "-d" "-p" "Choose Action: "; }
 
             // Media and system keys
             XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }

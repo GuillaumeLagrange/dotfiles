@@ -77,7 +77,7 @@ in
             "Print" = "exec ${config.screenshotTool}";
             "Shift+Print" = "exec ${config.screenshotTool}";
             "${modifier}+b" = "exec ${pkgs.blueman}/bin/blueman-manager";
-            "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
+            # "${modifier}+n" = "exec ${pkgs.mako}/bin/makoctl menu fuzzel -d -p 'Choose Action: '";
 
             # Browsers
             "${modifier}+w" = "exec ${config.firefox.main}";
@@ -126,10 +126,10 @@ in
             "${modifier}+Ctrl+0" = "exec swap-workspaces 0";
           };
           startup = [
-            { command = "${pkgs.blueman}/bin/blueman-applet"; }
+            # { command = "${pkgs.blueman}/bin/blueman-applet"; }
             { command = "${pkgs._1password-gui}/bin/1password --silent"; }
             { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
-            { command = "${pkgs.mako}/bin/mako"; }
+            # { command = "${pkgs.mako}/bin/mako"; }
             { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }
             # Allows nautilus to find applications to open files properly
             { command = "dbus-update-activation-environment PATH"; }

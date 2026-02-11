@@ -79,10 +79,17 @@ in
 
   };
 
-  # Gnome
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
-  services.gnome.gcr-ssh-agent.enable = false; # It overrides gpg agent
+  services.displayManager.sddm = {
+    enable = true;
+    # To use Wayland (Experimental for SDDM)
+    wayland.enable = true;
+  };
+  services.desktopManager.plasma6.enable = true;
+  environment.plasma6.excludePackages = with pkgs.kdePackages; [
+    plasma-browser-integration
+    konsole
+    elisa
+  ];
 
   # Enable CUPS to print documents.
   services.printing.enable = true;

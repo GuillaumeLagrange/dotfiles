@@ -21,6 +21,10 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    noctalia = {
+      url = "github:noctalia-dev/noctalia-shell";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs =
@@ -29,6 +33,7 @@
       nixpkgs,
       nixpkgs-unstable,
       stylix,
+      noctalia,
       ...
     }@inputs:
     let
@@ -56,6 +61,7 @@
           modules = [
             stylix.homeModules.stylix
             ./modules/stylix/common.nix
+            noctalia.homeModules.default
             ./modules/home-manager.nix
           ];
           extraSpecialArgs = {

@@ -13,6 +13,7 @@
       wofi.enable = false;
       firefox.enable = false;
       vscode.enable = false;
+      noctalia-shell.enable = false;
     };
   };
 }

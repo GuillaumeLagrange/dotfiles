@@ -71,7 +71,7 @@
     };
 
     home.sessionVariables = {
-      GLOBALIAS_FILTER_VALUES = "(l z ll ls la gca grbi gca! gc! gc grba grst)";
+      GLOBALIAS_FILTER_VALUES = "(l z ll ls la gca grbi gca! gc! gc grba grst grep)";
     };
 
   };
