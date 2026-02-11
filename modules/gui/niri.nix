@@ -114,7 +114,8 @@
 
             // Additional apps
             Mod+B { spawn "${pkgs.blueman}/bin/blueman-manager"; }
-            Mod+N { spawn "${pkgs.mako}/bin/makoctl" "menu" "${pkgs.fuzzel}/bin/fuzzel" "-d" "-p" "Choose Action: "; }
+            Mod+N { spawn "${pkgs.mako}/bin/makoctl" "restore"; }
+            Mod+Shift+N { spawn "${pkgs.mako}/bin/makoctl" "dismiss" "-a"; }
 
             // Media and system keys
             XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }
