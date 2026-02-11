@@ -44,6 +44,9 @@ let
           exit 1
         fi
 
+        # Transparently start the server if it's not running
+        ${pkgs.tmux}/bin/tmux start-server
+
         if [[ -z "$1" ]]; then
           session=$(${tmuxFzfGetSession}/bin/tmux-fzf-get-session)
         else
@@ -63,11 +66,6 @@ let
     if [[ -n "$session" ]]; then
       ${pkgs.tmux}/bin/tmux kill-session -t "$session"
     fi
-  '';
-
-  tmuxStart = pkgs.writeShellScriptBin "tmux-start" ''
-    tmux start-server
-    echo "Tmux server started"
   '';
 
   # Automatically rename windows based on git root or current directory
@@ -164,7 +162,6 @@ in
       tsmScript
       tmuxAttachTmp
       tskScript
-      tmuxStart
       tmuxRename
     ];
   };

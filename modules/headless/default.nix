@@ -103,6 +103,10 @@
       '';
       dc = "docker-compose";
       tarc = "tar -czf";
+
+      # Systemctl aliases
+      scu = "systemctl --user";
+      sc = "sudo systemctl";
     };
 
     programs.lazygit = {
