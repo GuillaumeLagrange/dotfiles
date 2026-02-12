@@ -166,21 +166,6 @@ return {
   },
 
   {
-    'OXY2DEV/markview.nvim',
-    lazy = false, -- Docs says not to lazy load this plugin
-    priority = 49, -- Should load before treesitter
-    dependencies = {
-      'nvim-tree/nvim-web-devicons',
-    },
-    config = function()
-      require('markview').setup()
-
-      vim.keymap.set('n', '<leader>mv', '<cmd>Markview Toggle<CR>', { desc = 'Toggle all markview' })
-      vim.keymap.set('n', '<leader>mV', '<cmd>Markview toggle<CR>', { desc = 'Toggle buffer markview' })
-    end,
-  },
-
-  {
     'sindrets/diffview.nvim',
     cmd = {
       'DiffviewOpen',

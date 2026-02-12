@@ -295,6 +295,12 @@
         recent-windows {
           off
         }
+
+        // Make niri accept xdg activations more reliably, even if it's the app's fault in the first place
+        debug {
+          honor-xdg-activation-with-invalid-serial
+        }
+
       '';
   };
 }
