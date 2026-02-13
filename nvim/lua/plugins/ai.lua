@@ -29,6 +29,10 @@ return {
         debounce = 100,
       },
     },
+    init = function()
+      -- Make Shift+Enter send the correct sequence in neovim terminal buffers (for Claude Code)
+      vim.keymap.set('t', '<S-Enter>', '\x1b[13;2u', { desc = 'Send Shift+Enter to terminal' })
+    end,
     keys = {
       {
         '<tab>',
