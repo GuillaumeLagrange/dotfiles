@@ -60,6 +60,8 @@
 
       adwaita-icon-theme
 
+      obsidian
+
       # codelldb debugger
       vscode-extensions.vadimcn.vscode-lldb.adapter
     ];
