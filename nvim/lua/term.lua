@@ -8,7 +8,13 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
 vim.api.nvim_create_autocmd('BufLeave', {
   pattern = 'term://*',
   callback = function()
-    vim.cmd('stopinsert')
+    -- Only stop insert mode when leaving for a non-terminal buffer
+    vim.schedule(function()
+      local buf = vim.api.nvim_get_current_buf()
+      if vim.bo[buf].buftype ~= 'terminal' then
+        vim.cmd('stopinsert')
+      end
+    end)
   end,
 })
 
