@@ -5,6 +5,14 @@
   ...
 }:
 
+let
+  niri-windows-script = pkgs.writers.writePython3Bin "niri-windows" { doCheck = false; } (
+    builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
+      builtins.readFile ./niri-windows.py
+    )
+  );
+in
+
 {
   options = {
     waybar.enable = lib.mkEnableOption "waybar and its configuration";
@@ -13,7 +21,7 @@
   config = lib.mkIf config.waybar.enable {
     programs.waybar = {
       enable = true;
-      style = builtins.readFile ./style.css;
+      style = builtins.readFile ./waybar.css;
       systemd.enable = true;
       settings = {
         mainBar = {
@@ -29,9 +37,11 @@
             "sway/window"
             "sway/mode"
             "niri/workspaces"
+            "custom/niri-windows"
+          ];
+          modules-center = [
             "niri/window"
           ];
-          modules-center = [ ];
           modules-right = [
             "mpris"
             "tray"
@@ -59,6 +69,11 @@
 
           "niri/window" = {
             separate-outputs = true;
+          };
+
+          "custom/niri-windows" = {
+            exec = "${niri-windows-script}/bin/niri-windows";
+            return-type = "json";
           };
 
           "power-profiles-daemon" = {
