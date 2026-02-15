@@ -25,7 +25,7 @@ return {
     'folke/sidekick.nvim',
     opts = {
       nes = {
-        enabled = true,
+        enabled = false,
         debounce = 100,
       },
     },
