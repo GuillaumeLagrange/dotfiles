@@ -38,9 +38,9 @@ in
             "sway/mode"
             "niri/workspaces"
             "custom/niri-windows"
+            "niri/window"
           ];
           modules-center = [
-            "niri/window"
           ];
           modules-right = [
             "mpris"
@@ -68,6 +68,7 @@ in
           };
 
           "niri/window" = {
+            icon = false;
             separate-outputs = true;
           };
 
