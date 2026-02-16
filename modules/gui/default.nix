@@ -38,6 +38,7 @@
       discord
       gnome-themes-extra
       gnome-tweaks
+      libnotify
       libreoffice
       lutris
       pavucontrol

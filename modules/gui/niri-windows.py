@@ -1,6 +1,8 @@
 import json
+import os
 import subprocess
 
+OUTPUT_NAME = os.environ.get("WAYBAR_OUTPUT_NAME")
 
 EVENTS = {
     "WindowsChanged",
@@ -10,7 +12,6 @@ EVENTS = {
     "WorkspacesChanged",
     "WorkspaceActivated",
     "WorkspaceActiveWindowChanged",
-    "OverviewOpenedOrClosed",
 }
 
 
@@ -25,9 +26,12 @@ def query(cmd):
 def output():
     workspaces = query("workspaces")
     windows = query("windows")
-    overview = query("overview-state")
 
-    focused_ws = next((ws for ws in workspaces if ws.get("is_focused")), None)
+    focused_ws = next(
+        (ws for ws in workspaces
+         if ws.get("is_active") and ws.get("output") == OUTPUT_NAME),
+        None,
+    )
     if focused_ws is None:
         print(json.dumps({"text": "", "tooltip": "", "class": "empty"}),
               flush=True)
@@ -49,9 +53,7 @@ def output():
 
     dots = []
     for w in ws_windows:
-        if w.get("is_focused"):
-            dots.append("\u25cf")
-        elif overview["is_open"] and w["id"] == active_window_id:
+        if w["id"] == active_window_id:
             dots.append("\u25cf")
         else:
             dots.append("\u25cb")
