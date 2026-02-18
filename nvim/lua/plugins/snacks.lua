@@ -148,7 +148,7 @@ return {
       {
         '<leader>fw',
         function()
-          Snacks.picker.files({ cwd = '.github/workflows' })
+          Snacks.picker.files({ cwd = '.github' })
         end,
         desc = 'Find Workflow Files',
       },
