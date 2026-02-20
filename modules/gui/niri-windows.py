@@ -81,3 +81,6 @@ for line in proc.stdout:
 
     if any(key in event for key in EVENTS):
         output()
+
+    if "WorkspacesChanged" in event:
+        subprocess.run(["niri-sort-workspaces"], capture_output=True)

@@ -63,9 +63,9 @@ return {
       {
         '<leader><space>',
         function()
-          Snacks.picker.files()
+          Snacks.picker.smart({ filter = { cwd = true } })
         end,
-        desc = 'Find Files',
+        desc = 'Smart Find Files',
       },
       {
         '<leader>,',
