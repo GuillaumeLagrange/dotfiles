@@ -22,7 +22,7 @@
   programs.nix-ld.enable = true;
 
   # Time zone configuration
-  time.timeZone = "Europe/Paris";
+  time.timeZone = "Europe/Tallinn";
 
   # Enable zsh globally
   programs.zsh.enable = true;
@@ -64,4 +64,12 @@
   # Hardware configuration common to both Intel systems
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+
+  # Accept the much inferior way of doing things...
+  system.activationScripts.binbash = {
+    text = ''
+      mkdir -p /bin
+      ln -sf ${pkgs.bash}/bin/bash /bin/bash
+    '';
+  };
 }

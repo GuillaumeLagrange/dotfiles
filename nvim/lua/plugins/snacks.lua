@@ -152,6 +152,13 @@ return {
         end,
         desc = 'Find Workflow Files',
       },
+      {
+        '<leader>fp',
+        function()
+          Snacks.picker.files({ cwd = '~/.claude/plans' })
+        end,
+        desc = 'Find Workflow Files',
+      },
       -- git
       {
         '<leader>gb',
