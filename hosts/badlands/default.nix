@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, mkHomeManagerModule, ... }:
 
 inputs.nixpkgs.lib.nixosSystem {
   system = "x86_64-linux";
@@ -10,5 +10,8 @@ inputs.nixpkgs.lib.nixosSystem {
     ./configuration.nix
     inputs.nix-index-database.nixosModules.nix-index
     { programs.nix-index-database.comma.enable = true; }
+    (mkHomeManagerModule {
+      extraModules = [ ../../modules/stylix/common.nix ];
+    })
   ];
 }

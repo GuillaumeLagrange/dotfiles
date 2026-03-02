@@ -48,6 +48,27 @@
 
       # Shared SSH key configuration
       sshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICB1BgyotMSfKqSwUoeMKJcC6d+y468PRjPrcnvMxZBW cardno:29_644_001";
+
+      # Helper to wire Home Manager as a NixOS module with shared config
+      mkHomeManagerModule =
+        {
+          extraModules ? [ ],
+          extraConfig ? { },
+        }:
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.extraSpecialArgs = { inherit pkgs-unstable; };
+          home-manager.users.guillaume = {
+            imports = [
+              stylix.homeModules.stylix
+              ./modules/home-manager.nix
+            ]
+            ++ extraModules;
+            stylix.overlays.enable = false;
+          }
+          // extraConfig;
+        };
     in
     {
       homeConfigurations = {
@@ -81,8 +102,10 @@
       };
 
       nixosConfigurations = {
-        badlands = import ./hosts/badlands/default.nix { inherit inputs; };
-        gullywash = import ./hosts/gullywash/default.nix { inherit inputs sshPublicKey; };
+        badlands = import ./hosts/badlands/default.nix { inherit inputs mkHomeManagerModule; };
+        gullywash = import ./hosts/gullywash/default.nix {
+          inherit inputs sshPublicKey mkHomeManagerModule;
+        };
 
         guiom-nixos-installation = nixpkgs.lib.nixosSystem {
           inherit system;
