@@ -22,7 +22,7 @@
   programs.nix-ld.enable = true;
 
   # Time zone configuration
-  time.timeZone = "Europe/Tallinn";
+  time.timeZone = "Europe/Paris";
 
   # Enable zsh globally
   programs.zsh.enable = true;
