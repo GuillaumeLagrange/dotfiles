@@ -4,7 +4,7 @@ return {
     build = ':TSUpdate',
     lazy = false,
     opts = {
-      ensure_installed = { 'bash', 'c', 'html', 'lua', 'markdown', 'vim', 'vimdoc', 'rust' },
+      ensure_installed = { 'bash', 'c', 'html', 'lua', 'markdown', 'vim', 'vimdoc', 'rust', 'typescript' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -25,9 +25,6 @@ return {
           node_decremental = '<bs>',
         },
       },
-    },
-    dependencies = {
-      'OXY2DEV/markview.nvim',
     },
     config = function(_, opts)
       require('nvim-treesitter.configs').setup(opts)
