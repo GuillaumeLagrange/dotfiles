@@ -68,5 +68,11 @@ vim.keymap.set('n', '<leader>yp', function()
   print('Copied path: ' .. path)
 end, { desc = 'Copy file path to clipboard' })
 
+vim.keymap.set('n', '<leader>yP', function()
+  local path = vim.fn.expand('%:p')
+  vim.fn.setreg('+', path)
+  print('Copied path: ' .. path)
+end, { desc = 'Copy absolute file path to clipboard' })
+
 -- Disable 'qq' for macro recording
 vim.api.nvim_set_keymap('n', 'qq', '<Nop>', { noremap = true, silent = true })

@@ -52,7 +52,6 @@ in
         export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/staging_upload_url")
       '';
       codprod = "unset CODSPEED_CONFIG_NAME && unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
-      moon = "pnpm moon";
       turbo = "pnpm turbo";
       # Compress the latest runner output to the monorepo samples
       local_run_helper = "tar -czf sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
