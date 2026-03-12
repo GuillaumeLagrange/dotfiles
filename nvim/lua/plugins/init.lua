@@ -197,4 +197,11 @@ return {
     dependencies = { 'MunifTanjim/nui.nvim' },
     cmd = 'CodeDiff',
   },
+
+  {
+    'barrettruth/preview.nvim',
+    init = function()
+      vim.g.preview = { typst = true, latex = true, mermaid = true, markdown = true }
+    end,
+  },
 }
