@@ -13,6 +13,15 @@ let
   screenshotTool = pkgs.writeShellScriptBin "screenshot_tool" ''
     ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
   '';
+  screenrecordTool = pkgs.writeShellScriptBin "screenrecord_tool" ''
+    if ${pkgs.procps}/bin/pkill -x wl-screenrec; then
+      ${pkgs.libnotify}/bin/notify-send "Screen recording saved"
+    else
+      mkdir -p "$HOME/videos" || exit 1
+      GEOMETRY=$(${pkgs.slurp}/bin/slurp) || exit 1
+      ${pkgs.wl-screenrec}/bin/wl-screenrec -g "$GEOMETRY" -f "$HOME/videos/recording-$(date +%Y%m%d-%H%M%S).mp4" &
+    fi
+  '';
 in
 {
   options = {
@@ -214,6 +223,11 @@ in
     screenshotTool = lib.mkOption {
       type = lib.types.str;
       default = "${screenshotTool}/bin/screenshot_tool";
+    };
+
+    screenrecordTool = lib.mkOption {
+      type = lib.types.str;
+      default = "${screenrecordTool}/bin/screenrecord_tool";
     };
   };
 }

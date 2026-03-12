@@ -156,6 +156,9 @@ in
 
   # Enable OpenGL
   hardware.graphics.enable = true;
+  hardware.graphics.extraPackages = with pkgs; [
+    intel-media-driver
+  ];
 
   # Fingerprint reader
   services.fprintd.enable = true;
