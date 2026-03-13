@@ -126,6 +126,7 @@ in
   # List packages installed in system profile.
   environment.etc."distrobox/distrobox.conf".text = ''
     container_additional_volumes="/nix/store:/nix/store:ro /etc/profiles/per-user:/etc/profiles/per-user:ro /etc/static/profiles/per-user:/etc/static/profiles/per-user:ro"
+    container_init_hook="echo 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:\$PATH\"' >> /etc/profile.d/fix-path.sh"
   '';
 
   environment.systemPackages = with pkgs; [
