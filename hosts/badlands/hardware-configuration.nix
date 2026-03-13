@@ -26,7 +26,10 @@
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/03dd624d-ec77-4a4c-bee7-c1682d2a5afe";
     fsType = "btrfs";
-    options = [ "subvol=root" ];
+    options = [
+      "subvol=root"
+      "compress=zstd:1"
+    ];
   };
 
   boot.initrd.luks.devices."enc".device = "/dev/disk/by-uuid/a875bbda-d79e-431f-96cb-d0794c736a4b";
@@ -34,25 +37,28 @@
   fileSystems."/nix" = {
     device = "/dev/disk/by-uuid/03dd624d-ec77-4a4c-bee7-c1682d2a5afe";
     fsType = "btrfs";
-    options = [ "subvol=nix" ];
+    options = [
+      "subvol=nix"
+      "compress=zstd:1"
+    ];
   };
 
   fileSystems."/var/log" = {
     device = "/dev/disk/by-uuid/03dd624d-ec77-4a4c-bee7-c1682d2a5afe";
     fsType = "btrfs";
-    options = [ "subvol=log" ];
+    options = [
+      "subvol=log"
+      "compress=zstd:1"
+    ];
   };
 
   fileSystems."/home" = {
     device = "/dev/disk/by-uuid/03dd624d-ec77-4a4c-bee7-c1682d2a5afe";
     fsType = "btrfs";
-    options = [ "subvol=home" ];
-  };
-
-  fileSystems."/persist" = {
-    device = "/dev/disk/by-uuid/03dd624d-ec77-4a4c-bee7-c1682d2a5afe";
-    fsType = "btrfs";
-    options = [ "subvol=persist" ];
+    options = [
+      "subvol=home"
+      "compress=zstd:1"
+    ];
   };
 
   fileSystems."/boot" = {
