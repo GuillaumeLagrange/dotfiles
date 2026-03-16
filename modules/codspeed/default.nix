@@ -21,6 +21,14 @@ in
         cd "${codspeed_root}/$@"
       }
       compdef '_files -W "${codspeed_root}" -/' cdc
+
+      # cod: wrapper that evals the script output for env commands
+      cod() {
+        case "$1" in
+          setup) command cod "$@" ;;
+          *)     eval "$(command cod "$@")" ;;
+        esac
+      }
     '';
 
     programs.granted.enable = true;
@@ -39,23 +47,9 @@ in
       bazel = "bazelisk";
       # Go to the latest directory of the codspeed runner
       cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
-      coddev = ''
-        eval $(op signin)
-        export CODSPEED_CONFIG_NAME=dev
-        export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/dev_api_url")
-        export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/dev_upload_url")
-      '';
-      codstaging = ''
-        eval $(op signin)
-        export CODSPEED_CONFIG_NAME=staging
-        export CODSPEED_API_URL=$(op read "op://Private/codspeed_urls/staging_api_url")
-        export CODSPEED_UPLOAD_URL=$(op read "op://Private/codspeed_urls/staging_upload_url")
-      '';
-      codprod = "unset CODSPEED_CONFIG_NAME && unset CODSPEED_API_URL && unset CODSPEED_UPLOAD_URL";
       turbo = "pnpm turbo";
       # Compress the latest runner output to the monorepo samples
       local_run_helper = "tar -czf sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
-
     };
 
     xdg.desktopEntries = {
@@ -119,6 +113,8 @@ in
           $target_dir/local-run.tar.gz \
           $runner_profile_dir
       '')
+
+      (writeShellScriptBin "cod" (builtins.readFile ./cod.sh))
     ];
   };
 }
