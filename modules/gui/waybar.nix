@@ -43,6 +43,7 @@ in
           modules-center = [
           ];
           modules-right = [
+            "custom/screenrecord"
             "mpris"
             "tray"
             "disk"
@@ -75,6 +76,19 @@ in
           "custom/niri-windows" = {
             exec = "${niri-windows-script}/bin/niri-windows";
             return-type = "json";
+          };
+
+          "custom/screenrecord" = {
+            exec = ''${pkgs.writeShellScript "waybar-screenrecord" ''
+              if ${pkgs.procps}/bin/pgrep -x wl-screenrec > /dev/null; then
+                echo '{"text": "⏺ REC", "class": "recording"}'
+              else
+                echo '{"text": "", "class": "idle"}'
+              fi
+            ''}'';
+            return-type = "json";
+            signal = 8;
+            on-click = "${config.screenrecordScreenTool}";
           };
 
           "power-profiles-daemon" = {

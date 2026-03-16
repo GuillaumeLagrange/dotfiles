@@ -140,8 +140,9 @@
             Ctrl+Print { screenshot-screen; }
             Alt+Print { screenshot-window; }
 
-            // Screen recording (toggle: press once to select region & start, press again to stop)
-            Mod+Print { spawn "sh" "-c" "${config.screenrecordTool}"; }
+            // Screen recording (press again to stop)
+            Mod+Print hotkey-overlay-title="Toggle Screen Recording" { spawn "sh" "-c" "${config.screenrecordScreenTool}"; }
+            Mod+Shift+Print hotkey-overlay-title="Toggle Region Recording" { spawn "sh" "-c" "${config.screenrecordRegionTool}"; }
 
             // Window management
             Mod+O repeat=false { toggle-overview; }

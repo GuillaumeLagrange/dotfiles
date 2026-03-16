@@ -216,6 +216,24 @@ window#waybar.empty #window {
     animation-direction: alternate;
 }
 
+#custom-screenrecord {
+    padding: 0 8px;
+    margin: 4px;
+    border-radius: 4px;
+}
+
+#custom-screenrecord.recording {
+    background-color: @red;
+    color: #000000;
+}
+
+#custom-screenrecord.idle {
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
 #power-profiles-daemon {
     padding: 0 10px 0 8px;
 }

@@ -13,14 +13,41 @@ let
   screenshotTool = pkgs.writeShellScriptBin "screenshot_tool" ''
     ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
   '';
-  screenrecordTool = pkgs.writeShellScriptBin "screenrecord_tool" ''
-    if ${pkgs.procps}/bin/pkill -x wl-screenrec; then
-      ${pkgs.libnotify}/bin/notify-send "Screen recording saved"
+  signalWaybar = "${pkgs.procps}/bin/pkill -RTMIN+8 waybar 2>/dev/null || true";
+  screenrecordStop = ''
+    ${pkgs.killall}/bin/killall -s SIGINT wl-screenrec 2>/dev/null && \
+      ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord stopped"
+    ${signalWaybar}
+  '';
+  # Nix function: takes extra wl-screenrec args as a string
+  screenrecordStart = extraArgs: ''
+    file=/tmp/"screenrec-$(date +%s)".mp4
+    echo "$file" > /tmp/screenrec-path
+
+    ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord starting..."
+    ${signalWaybar}
+    ${pkgs.wl-screenrec}/bin/wl-screenrec ${extraArgs} -f "$file"
+    # After wl-screenrec exits (stopped via SIGINT), copy to clipboard
+    ${pkgs.wl-clipboard}/bin/wl-copy "file:/$file" -t text/uri-list
+    ${signalWaybar}
+  '';
+  screenrecordScreenTool = pkgs.writeShellScriptBin "screenrecord_screen" ''
+    if ${pkgs.procps}/bin/pgrep -x wl-screenrec > /dev/null; then
+      ${screenrecordStop}
     else
-      mkdir -p "$HOME/videos" || exit 1
-      GEOMETRY=$(${pkgs.slurp}/bin/slurp) || exit 1
-      ${pkgs.wl-screenrec}/bin/wl-screenrec -g "$GEOMETRY" -f "$HOME/videos/recording-$(date +%Y%m%d-%H%M%S).mp4" &
+      ${screenrecordStart ""}
     fi
+  '';
+  screenrecordRegionTool = pkgs.writeShellScriptBin "screenrecord_region" ''
+    if ${pkgs.procps}/bin/pgrep -x wl-screenrec > /dev/null; then
+      ${screenrecordStop}
+    else
+      GEOMETRY=$(${pkgs.slurp}/bin/slurp -b '#00000090') || exit 1
+      ${screenrecordStart ''-g "$GEOMETRY"''}
+    fi
+  '';
+  screenrecordStopTool = pkgs.writeShellScriptBin "screenrecord_stop" ''
+    ${screenrecordStop}
   '';
 in
 {
@@ -225,9 +252,19 @@ in
       default = "${screenshotTool}/bin/screenshot_tool";
     };
 
-    screenrecordTool = lib.mkOption {
+    screenrecordScreenTool = lib.mkOption {
       type = lib.types.str;
-      default = "${screenrecordTool}/bin/screenrecord_tool";
+      default = "${screenrecordScreenTool}/bin/screenrecord_screen";
+    };
+
+    screenrecordRegionTool = lib.mkOption {
+      type = lib.types.str;
+      default = "${screenrecordRegionTool}/bin/screenrecord_region";
+    };
+
+    screenrecordStopTool = lib.mkOption {
+      type = lib.types.str;
+      default = "${screenrecordStopTool}/bin/screenrecord_stop";
     };
   };
 }
