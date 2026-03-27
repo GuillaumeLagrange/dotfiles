@@ -43,17 +43,8 @@
         templates = "${config.home.homeDirectory}/media/templates";
         createDirectories = false;
       };
-      mimeApps = {
-        enable = true;
-        defaultApplications = {
-          "text/plain" = "nvim.desktop";
-          "x-scheme-handler/http" = config.firefox.desktopEntry;
-          "x-scheme-handler/https" = config.firefox.desktopEntry;
-          "text/html" = config.firefox.desktopEntry;
-          "application/xhtml+xml" = config.firefox.desktopEntry;
-          "image/jpeg" = config.firefox.desktopEntry;
-          "image/png" = config.firefox.desktopEntry;
-        };
+      configFile."mimeapps.list" = {
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/mimeapps.list";
       };
     };
 

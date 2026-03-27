@@ -57,6 +57,11 @@ in
       default = "${pkgs.ghostty}/bin/ghostty";
     };
 
+    termDesktopEntry = lib.mkOption {
+      type = lib.types.str;
+      default = builtins.head (builtins.attrNames (builtins.readDir "${pkgs.ghostty}/share/applications"));
+    };
+
     monitors = {
       laptop = lib.mkOption {
         type = lib.types.submodule {
@@ -195,10 +200,6 @@ in
         default = "${config.firefox.package}/bin/firefox --new-instance";
       };
 
-      desktopEntry = lib.mkOption {
-        type = lib.types.str;
-        default = "firefox.desktop";
-      };
     };
 
     browsers = {

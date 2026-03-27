@@ -75,6 +75,11 @@
 
     stylix.enable = true;
 
+    xdg.terminal-exec = {
+      enable = true;
+      settings.default = [ config.termDesktopEntry ];
+    };
+
     gtk = {
       enable = true;
       iconTheme = {

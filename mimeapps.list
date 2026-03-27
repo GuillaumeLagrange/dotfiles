@@ -1,0 +1,14 @@
+[Added Associations]
+application/pdf=firefox.desktop;
+
+[Default Applications]
+application/xhtml+xml=firefox.desktop
+image/jpeg=firefox.desktop
+image/png=firefox.desktop
+text/html=firefox.desktop
+text/plain=nvim.desktop
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+application/pdf=firefox.desktop
+
+[Removed Associations]
