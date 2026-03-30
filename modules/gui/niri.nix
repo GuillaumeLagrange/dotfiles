@@ -96,6 +96,9 @@
         workspace "${ws_scratchpad}"
         workspace "${ws_perso}"
 
+        // Niri does not support $XDG_PICTURES_DIR: https://github.com/niri-wm/niri/issues/3346
+        screenshot-path "~/pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
         binds {
             // Hotkey overlay
             Mod+Shift+Slash { show-hotkey-overlay; }
