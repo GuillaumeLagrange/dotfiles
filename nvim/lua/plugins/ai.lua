@@ -31,7 +31,12 @@ return {
     },
     init = function()
       -- Make Shift+Enter send the correct sequence in neovim terminal buffers (for Claude Code)
-      vim.keymap.set('t', '<S-Enter>', '\x1b[13;2u', { desc = 'Send Shift+Enter to terminal' })
+      vim.keymap.set('t', '<S-Enter>', function()
+        local chan = vim.b.terminal_job_id
+        if chan then
+          vim.api.nvim_chan_send(chan, '\x1b[13;2u')
+        end
+      end, { desc = 'Send Shift+Enter to terminal' })
     end,
     keys = {
       {
