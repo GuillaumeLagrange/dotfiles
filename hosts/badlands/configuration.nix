@@ -161,6 +161,24 @@ in
     intel-media-driver
   ];
 
+  # Throwaway: find what creates ~/Downloads
+  systemd.services.watch-downloads = {
+    description = "Watch for ~/Downloads directory creation";
+    wantedBy = [ "multi-user.target" ];
+    path = with pkgs; [
+      bash
+      bpftrace
+      coreutils
+    ];
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${./watch-downloads.sh}";
+      StandardOutput = "journal";
+      StandardError = "journal";
+      Restart = "no";
+    };
+  };
+
   # Fingerprint reader
   services.fprintd.enable = true;
   # Start the driver at boot
