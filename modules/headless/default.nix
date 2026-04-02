@@ -45,6 +45,7 @@
       yubioath-flutter
 
       # Nvim cross-project basics
+      tree-sitter
       imagemagick
       lua-language-server
       yaml-language-server
