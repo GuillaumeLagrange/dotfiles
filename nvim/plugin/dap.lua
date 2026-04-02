@@ -1,0 +1,116 @@
+-- local arrows = require('icons').arrows
+--
+-- -- Set up icons
+-- local icons = {
+--   Stopped = { '', 'DiagnosticWarn', 'DapStoppedLine' },
+--   Breakpoint = '',
+--   BreakpointCondition = '',
+--   BreakpointRejected = { '', 'DiagnosticError' },
+--   LogPoint = arrows.right,
+-- }
+-- for name, sign in pairs(icons) do
+--   sign = type(sign) == 'table' and sign or { sign }
+--   vim.fn.sign_define('Dap' .. name, {
+--         -- stylua: ignore
+--         text = sign[1] --[[@as string]] .. ' ',
+--     texthl = sign[2] or 'DiagnosticInfo',
+--     linehl = sign[3],
+--     numhl = sign[3],
+--   })
+-- end
+--
+-- -- DAP UI
+-- require('dapui').setup({
+--   icons = {
+--     collapsed = arrows.right,
+--     current_frame = arrows.right,
+--     expanded = arrows.down,
+--   },
+--   floating = { border = 'rounded' },
+--   layouts = {
+--     {
+--       elements = {
+--         { id = 'stacks', size = 0.30 },
+--         { id = 'breakpoints', size = 0.20 },
+--         { id = 'scopes', size = 0.50 },
+--       },
+--       position = 'left',
+--       size = 40,
+--     },
+--   },
+-- })
+--
+-- require('nvim-dap-virtual-text').setup({ virt_text_pos = 'inline' })
+--
+-- require('nvim-dap-vscode-js').setup({
+--   debugger_path = vim.fn.stdpath('data') .. '/lazy/vscode-js-debug',
+--   adapters = { 'pwa-node', 'pwa-chrome', 'pwa-msedge', 'node-terminal', 'pwa-extensionHost' },
+-- })
+--
+-- -- Keymaps
+-- vim.keymap.set('n', '<leader>de', function()
+--   require('dapui').eval()
+--   require('dapui').eval()
+-- end, { desc = 'Evaluate expression' })
+--
+-- vim.keymap.set('n', '<leader>db', function()
+--   require('dap').toggle_breakpoint()
+-- end, { desc = 'Toggle breakpoint' })
+--
+-- vim.keymap.set('n', '<leader>dB', '<cmd>FzfLua dap_breakpoints<cr>', { desc = 'List breakpoints' })
+--
+-- vim.keymap.set('n', '<leader>dc', function()
+--   require('dap').set_breakpoint(vim.fn.input('Breakpoint condition: '))
+-- end, { desc = 'Breakpoint condition' })
+--
+-- vim.keymap.set('n', '<F5>', function() require('dap').continue() end, { desc = 'Continue' })
+-- vim.keymap.set('n', '<F10>', function() require('dap').step_over() end, { desc = 'Step over' })
+-- vim.keymap.set('n', '<F11>', function() require('dap').step_into() end, { desc = 'Step into' })
+-- vim.keymap.set('n', '<F12>', function() require('dap').step_out() end, { desc = 'Step Out' })
+--
+-- vim.keymap.set('n', '<leader>dl', function()
+--   require('osv').launch({ port = 8086 })
+-- end, { desc = 'Launch Lua adapter' })
+--
+-- -- DAP config
+-- local dap = require('dap')
+-- local dapui = require('dapui')
+--
+-- dap.listeners.after.event_initialized['dapui_config'] = function()
+--   dapui.open({})
+-- end
+-- dap.listeners.before.event_terminated['dapui_config'] = function()
+--   dapui.close({})
+-- end
+-- dap.listeners.before.event_exited['dapui_config'] = function()
+--   dapui.close({})
+-- end
+--
+-- -- Lua configurations
+-- dap.adapters.nlua = function(callback, config)
+--   callback({ type = 'server', host = config.host or '127.0.0.1', port = config.port or 8086 })
+-- end
+-- dap.configurations['lua'] = {
+--   {
+--     type = 'nlua',
+--     request = 'attach',
+--     name = 'Attach to running Neovim instance',
+--   },
+-- }
+--
+-- -- C configurations
+-- dap.adapters.codelldb = {
+--   type = 'server',
+--   host = '127.0.0.1',
+--   port = 13000,
+--   executable = {
+--     command = 'codelldb',
+--     args = { '--port', '13000' },
+--   },
+-- }
+--
+-- -- Add configurations from launch.json
+-- require('dap.ext.vscode').load_launchjs(nil, {
+--   ['codelldb'] = { 'c' },
+--   ['pwa-node'] = { 'typescript', 'javascript' },
+-- })
