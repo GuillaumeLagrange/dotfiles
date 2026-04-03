@@ -76,6 +76,7 @@ in
           "custom/niri-windows" = {
             exec = "${niri-windows-script}/bin/niri-windows";
             return-type = "json";
+            on-click = "${pkgs.niri}/bin/niri msg action toggle-overview";
           };
 
           "custom/screenrecord" = {
