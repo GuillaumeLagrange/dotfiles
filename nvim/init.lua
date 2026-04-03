@@ -18,74 +18,6 @@ vim.g.preview = { typst = true, latex = true, mermaid = true, markdown = true }
 vim.g.gruvbox_material_transparent_background = 1
 vim.g.copilot_node_command = vim.fn.trim(vim.fn.system('fnm exec --using=22 which node'))
 
-vim.g.auto_ra_attach = true
-vim.g.rustaceanvim = {
-  tools = {},
-  ---@type RustaceanLspClientOpts
-  server = {
-    load_vscode_settings = true,
-    auto_attach = function(bufnr)
-      local bufname = vim.api.nvim_buf_get_name(bufnr)
-      if vim.startswith(bufname, 'octo://') or vim.startswith(bufname, 'fugitive://') then
-        return false
-      end
-      return vim.g.auto_ra_attach
-    end,
-    on_attach = function(client, bufnr)
-      vim.api.nvim_create_autocmd({ 'BufEnter' }, {
-        desc = 'Automatically reload cargo settings',
-        pattern = { '*.rs' },
-        callback = function()
-          vim.cmd('RustAnalyzer reloadSettings')
-        end,
-      })
-
-      vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lrd', '<Cmd>RustLsp debuggables<CR>', {
-        noremap = true,
-        desc = 'List rust debuggables',
-      })
-      vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lre', '<Cmd>RustLsp expandMacro<CR>', {
-        noremap = true,
-        desc = 'Expand macro',
-      })
-      vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lrr', '<Cmd>RustLsp rebuildProcMacros<CR>', {
-        noremap = true,
-        desc = 'Rebuild proc macros',
-      })
-    end,
-    default_settings = {
-      ['rust-analyzer'] = {
-        cachePriming = false,
-        rustfmt = {},
-        files = {
-          excludeDirs = {
-            '_build',
-            '.dart_tool',
-            '.flatpak-builder',
-            '.git',
-            '.gitlab',
-            '.gitlab-ci',
-            '.gradle',
-            '.idea',
-            '.next',
-            '.project',
-            '.scannerwork',
-            '.settings',
-            '.venv',
-            'archetype-resources',
-            'bin',
-            'hooks',
-            'node_modules',
-            'po',
-            'screenshots',
-            'target',
-          },
-        },
-      },
-    },
-  },
-}
-
 -- [[ PackClean command — remove plugins no longer in vim.pack.add() ]]
 vim.api.nvim_create_user_command('PackClean', function()
   local orphans = vim
@@ -103,6 +35,10 @@ vim.api.nvim_create_user_command('PackClean', function()
   else
     vim.notify('No orphaned plugins found')
   end
+end, {})
+
+vim.api.nvim_create_user_command('PackUpdate', function()
+  vim.pack.update()
 end, {})
 
 -- [[ PackChanged hooks — must be defined before vim.pack.add() ]]
@@ -197,5 +133,5 @@ vim.pack.add({
   'https://github.com/windwp/nvim-autopairs',
 
   -- Rust
-  { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('6.x') },
+  { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('8.x') },
 })
