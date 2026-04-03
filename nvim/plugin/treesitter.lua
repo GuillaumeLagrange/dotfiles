@@ -4,11 +4,18 @@ require('nvim-treesitter').setup()
 local ensure_installed = { 'bash', 'c', 'html', 'lua', 'markdown', 'vim', 'vimdoc', 'rust', 'typescript' }
 require('nvim-treesitter').install(ensure_installed)
 
--- Auto-install parser on FileType if not already installed
+-- Auto-install parser on FileType if not already installed, and start
+-- treesitter highlighting for non-bundled parsers (bundled ones like lua,
+-- markdown, etc. are started by their ftplugin).
 vim.api.nvim_create_autocmd('FileType', {
   callback = function(ev)
     local lang = vim.treesitter.language.get_lang(ev.match) or ev.match
-    if not pcall(vim.treesitter.language.inspect, lang) and vim.list_contains(require('nvim-treesitter').get_available(), lang) then
+    if pcall(vim.treesitter.language.inspect, lang) then
+      -- Parser exists: start highlighting if not already active
+      if not vim.b[ev.buf].ts_highlight then
+        vim.treesitter.start(ev.buf)
+      end
+    elseif vim.list_contains(require('nvim-treesitter').get_available(), lang) then
       vim.print('Installing treesitter parser for ' .. lang)
       require('nvim-treesitter').install(lang)
     end
