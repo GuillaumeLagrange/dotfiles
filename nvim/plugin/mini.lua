@@ -47,6 +47,6 @@ require('mini.sessions').setup({
   autoread = true,
   autowrite = true,
   file = 'Session.vim',
-  verbose = { read = true, write = true, delete = true },
+  verbose = { read = false, write = false, delete = true },
   hooks = { pre = { write = session.close_ephemeral_buffers } },
 })
