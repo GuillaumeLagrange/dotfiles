@@ -1,3 +1,7 @@
+vim.pack.add({
+  'https://github.com/folke/snacks.nvim',
+})
+
 ---@type snacks.Config
 require('snacks').setup({
   bigfile = { enabled = true },

@@ -17,7 +17,3 @@ vim.api.nvim_create_autocmd('ColorScheme', {
 })
 
 vim.cmd.colorscheme('gruvbox-material')
-
--- Alternative colorschemes
-require('gruvbox').setup({ transparent_mode = true, contrast = '' })
-require('tokyonight').setup({ transparent = true })

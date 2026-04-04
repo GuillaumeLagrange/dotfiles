@@ -1,3 +1,12 @@
+-- vim.pack.add({
+-- 'https://github.com/nvim-neotest/nvim-nio',
+-- 'https://github.com/rcarriga/nvim-dap-ui',
+-- 'https://github.com/theHamsta/nvim-dap-virtual-text',
+-- 'https://github.com/mxsdev/nvim-dap-vscode-js',
+-- 'https://github.com/jbyuki/one-small-step-for-vimkind',
+-- 'https://github.com/mfussenegger/nvim-dap',
+-- })
+--
 -- local arrows = require('icons').arrows
 --
 -- -- Set up icons

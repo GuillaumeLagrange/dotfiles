@@ -1,3 +1,7 @@
+vim.pack.add({
+  'https://github.com/sindrets/diffview.nvim',
+})
+
 vim.keymap.set('n', '<leader>dvo', '<cmd>DiffviewOpen<CR>', { desc = 'Open diffview' })
 vim.keymap.set('n', '<leader>dvc', '<cmd>DiffviewClose<CR>', { desc = 'Close diffview' })
 vim.keymap.set('n', '<leader>dvm', function()

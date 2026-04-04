@@ -1,3 +1,16 @@
+vim.pack.add({
+  'https://github.com/tpope/vim-fugitive',
+  'https://github.com/tpope/vim-rhubarb',
+
+  'https://github.com/lewis6991/gitsigns.nvim',
+})
+
+vim.keymap.set('n', '<leader>gs', '<cmd>Git<CR>', { desc = 'Git status' })
+vim.keymap.set('n', '<leader>gr', '<cmd>Gread<cr>', { desc = 'Read buffer' })
+vim.keymap.set('n', '<leader>gw', '<cmd>Gwrite<cr>', { desc = 'Write buffer' })
+vim.keymap.set('n', '<leader>gd', '<cmd>Gdiff<cr>', { desc = 'Git diff' })
+vim.keymap.set({ 'n', 'v' }, '<leader>gy', ':GBrowse!<CR>', { desc = 'Git yank key' })
+
 require('gitsigns').setup({
   signs = {
     add = { text = '▎' },

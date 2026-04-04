@@ -56,82 +56,38 @@ vim.api.nvim_create_autocmd('PackChanged', {
 
 -- [[ Install and load all plugins ]]
 vim.pack.add({
-  -- Simple plugins (no config needed or configured via globals)
+  -- Keep fist
+  'https://github.com/sainnhe/gruvbox-material',
+
+  -- Simple plugins
   'https://github.com/tpope/vim-sleuth',
   'https://github.com/tpope/vim-abolish',
   'https://github.com/tpope/vim-surround',
-  'https://github.com/pteroctopus/faster.nvim',
-  'https://github.com/numToStr/Comment.nvim',
-  'https://github.com/rickhowe/diffchar.vim',
-
-  -- Colorschemes
-  'https://github.com/sainnhe/gruvbox-material',
-  'https://github.com/ellisonleao/gruvbox.nvim',
-  'https://github.com/folke/tokyonight.nvim',
-  'https://github.com/olimorris/onedarkpro.nvim',
-
-  -- Git
-  'https://github.com/lewis6991/gitsigns.nvim',
-  'https://github.com/tpope/vim-fugitive',
-  'https://github.com/tpope/vim-rhubarb',
-  'https://github.com/sindrets/diffview.nvim',
 
   -- UI
-  'https://github.com/folke/snacks.nvim',
-  'https://github.com/nvim-lualine/lualine.nvim',
   'https://github.com/nvim-tree/nvim-web-devicons',
   'https://github.com/ofseed/copilot-status.nvim',
-  'https://github.com/folke/which-key.nvim',
-  'https://github.com/j-hui/fidget.nvim',
   'https://github.com/folke/todo-comments.nvim',
   'https://github.com/nvim-lua/plenary.nvim',
-  'https://github.com/barrettruth/preview.nvim',
-
-  -- Treesitter
-  { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'main' },
-  'https://github.com/HiPhish/rainbow-delimiters.nvim',
-  'https://github.com/nvim-treesitter/nvim-treesitter-context',
-
-  -- LSP
-  'https://github.com/neovim/nvim-lspconfig',
-  'https://github.com/folke/lazydev.nvim',
-
-  -- Completion (dependencies first)
-  'https://github.com/L3MON4D3/LuaSnip',
-  'https://github.com/rafamadriz/friendly-snippets',
-  { src = 'https://github.com/saghen/blink.cmp', version = vim.version.range('1.x') },
-
-  -- Mini
-  'https://github.com/echasnovski/mini.nvim',
 
   -- Search & replace
   'https://github.com/nvim-pack/nvim-spectre',
 
-  -- Code diff
-  'https://github.com/MunifTanjim/nui.nvim',
-  'https://github.com/esmuellert/codediff.nvim',
-
-  -- Formatting
-  'https://github.com/stevearc/conform.nvim',
-
-  -- AI
-  'https://github.com/github/copilot.vim',
-  'https://github.com/folke/sidekick.nvim',
-
   -- Tmux
   'https://github.com/christoomey/vim-tmux-navigator',
 
-  -- DAP (dependencies first)
-  -- 'https://github.com/nvim-neotest/nvim-nio',
-  -- 'https://github.com/rcarriga/nvim-dap-ui',
-  -- 'https://github.com/theHamsta/nvim-dap-virtual-text',
-  -- 'https://github.com/mxsdev/nvim-dap-vscode-js',
-  -- 'https://github.com/jbyuki/one-small-step-for-vimkind',
-  -- 'https://github.com/mfussenegger/nvim-dap',
-
-  -- Autopairs
-  'https://github.com/windwp/nvim-autopairs',
-
   -- Rust
   { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('8.x') },
+
+  -- [[ PURGATORY BELOW ]]
+
+  -- Code diff
+  'https://github.com/rickhowe/diffchar.vim',
+  'https://github.com/MunifTanjim/nui.nvim',
+  'https://github.com/esmuellert/codediff.nvim',
+
+  'https://github.com/barrettruth/preview.nvim',
+  'https://github.com/j-hui/fidget.nvim',
+
+  'https://github.com/pteroctopus/faster.nvim', -- handled by snacks?
 })

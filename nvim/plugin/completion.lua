@@ -1,3 +1,9 @@
+vim.pack.add({
+  'https://github.com/L3MON4D3/LuaSnip',
+  'https://github.com/rafamadriz/friendly-snippets',
+  { src = 'https://github.com/saghen/blink.cmp', version = vim.version.range('1.x') },
+})
+
 require('blink.cmp').setup({
   keymap = {
     preset = 'default',

@@ -1,3 +1,9 @@
+vim.pack.add({
+  { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'main' },
+  'https://github.com/HiPhish/rainbow-delimiters.nvim',
+  'https://github.com/nvim-treesitter/nvim-treesitter-context',
+})
+
 require('nvim-treesitter').setup()
 
 -- Install parsers for these languages if not already installed

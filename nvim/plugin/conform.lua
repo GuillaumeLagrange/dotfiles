@@ -1,3 +1,7 @@
+vim.pack.add({
+  'https://github.com/stevearc/conform.nvim',
+})
+
 require('conform').setup({
   notify_on_error = true,
   format_on_save = true,
