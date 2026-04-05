@@ -1,5 +1,7 @@
 [Added Associations]
 application/pdf=firefox.desktop;
+x-scheme-handler/tg=org.telegram.desktop.desktop;
+x-scheme-handler/tonsite=org.telegram.desktop.desktop;
 
 [Default Applications]
 application/xhtml+xml=firefox.desktop
@@ -10,5 +12,7 @@ text/plain=nvim.desktop
 x-scheme-handler/http=firefox.desktop
 x-scheme-handler/https=firefox.desktop
 application/pdf=firefox.desktop
+x-scheme-handler/tg=org.telegram.desktop.desktop
+x-scheme-handler/tonsite=org.telegram.desktop.desktop
 
 [Removed Associations]

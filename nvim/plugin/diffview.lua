@@ -14,3 +14,23 @@ vim.keymap.set('n', '<leader>dvm', function()
   end
 end, { desc = 'Open diffview HEAD..main' })
 vim.keymap.set('n', '<leader>dvf', '<cmd>DiffviewFileHistory %<CR>', { desc = 'Open diffview file history for current file' })
+vim.keymap.set('n', '<leader>dvh', '<cmd>DiffviewFileHistory<CR>', { desc = 'Open diffview git log history' })
+
+require('diffview').setup({
+  keymaps = {
+    file_history_panel = {
+      {
+        'n',
+        '<leader>do',
+        function()
+          local view = require('diffview.lib').get_current_view()
+          local entry = view.panel:get_item_at_cursor()
+          if entry and entry.commit then
+            vim.cmd('DiffviewOpen ' .. entry.commit.hash .. '^!')
+          end
+        end,
+        { desc = 'Open commit as DiffviewOpen' },
+      },
+    },
+  },
+})
