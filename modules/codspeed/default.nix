@@ -78,7 +78,6 @@ in
       mongodb-tools
       pkgs-unstable.uv
       kdePackages.kcachegrind
-      rustdesk
 
       (writeShellScriptBin "valgrind" ''
         VALGRIND_LIB="${vgbasedir}/.in_place" \
