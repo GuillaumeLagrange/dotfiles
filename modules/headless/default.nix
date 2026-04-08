@@ -12,11 +12,13 @@
 
   imports = [
     ./tmux.nix
+    ./zellij.nix
     ./zsh.nix
   ];
 
   config = lib.mkIf config.headless.enable {
     tmux.enable = true;
+    zellij.enable = true;
 
     home.packages = with pkgs; [
       btop

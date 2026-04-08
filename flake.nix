@@ -58,6 +58,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
+          home-manager.backupFileExtension = "backup";
           home-manager.extraSpecialArgs = { inherit pkgs-unstable; };
           home-manager.users.guillaume = {
             imports = [

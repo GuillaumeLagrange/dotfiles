@@ -108,6 +108,7 @@
             Mod+D { spawn "vicinae" "toggle"; }
             Super+Alt+L { spawn "${config.lock}"; }
             Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
+            Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
 
             // Browser launchers
             Mod+W { spawn "${config.firefox.main}"; }
