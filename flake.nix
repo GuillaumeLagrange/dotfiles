@@ -19,6 +19,7 @@
     stylix = {
       url = "github:nix-community/stylix/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
     };
     nix-index-database = {
       url = "github:nix-community/nix-index-database";
