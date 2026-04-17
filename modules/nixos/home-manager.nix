@@ -11,8 +11,8 @@
   home-manager.extraSpecialArgs = { inherit pkgs-unstable; };
   home-manager.users.guillaume = {
     imports = [
-      inputs.stylix.homeModules.stylix
-      ./home-manager.nix
+      (import ../stylix { inherit inputs; })
+      ../home-manager
     ];
     stylix.overlays.enable = false;
   };

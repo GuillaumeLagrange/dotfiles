@@ -15,12 +15,6 @@
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./zfs.nix
-    ../common.nix
-  ];
-
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
   ];
 
   # Bootloader

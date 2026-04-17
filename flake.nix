@@ -30,7 +30,7 @@
   outputs =
     inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } (
-      { config, withSystem, ... }:
+      { withSystem, ... }:
       {
         systems = [
           "x86_64-linux"
@@ -40,53 +40,43 @@
         perSystem =
           { system, ... }:
           let
-            pkgs = import inputs.nixpkgs {
-              inherit system;
-              config.allowUnfree = true;
-            };
-            pkgs-unstable = import inputs.nixpkgs-unstable {
-              inherit system;
-              config.allowUnfree = true;
-            };
+            mkPkgs = src: import src { inherit system; config.allowUnfree = true; };
           in
           {
             _module.args = {
-              inherit pkgs pkgs-unstable;
+              pkgs = mkPkgs inputs.nixpkgs;
+              pkgs-unstable = mkPkgs inputs.nixpkgs-unstable;
             };
           };
 
         flake =
           let
-            sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
+            sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/home-manager/headless/guiom_ssh.pub);
+
+            mkHome =
+              { pkgs, pkgs-unstable }:
+              extraModules:
+              inputs.home-manager.lib.homeManagerConfiguration {
+                inherit pkgs;
+                extraSpecialArgs = { inherit pkgs-unstable; };
+                modules = [
+                  (import ./modules/stylix { inherit inputs; })
+                  ./modules/home-manager
+                ] ++ extraModules;
+              };
 
             linux = withSystem "x86_64-linux" (
               { pkgs, pkgs-unstable, ... }:
               {
-                homeConfigurations."guillaume" = inputs.home-manager.lib.homeManagerConfiguration {
-                  inherit pkgs;
-                  modules = [
-                    inputs.stylix.homeModules.stylix
-                    ./modules/stylix/common.nix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = { inherit pkgs-unstable; };
-                };
+                homeConfigurations."guillaume" = mkHome { inherit pkgs pkgs-unstable; } [ ];
 
                 nixosConfigurations = {
-                  badlands = import ./hosts/badlands/default.nix {
-                    inherit inputs pkgs-unstable;
-                    inherit (config.flake.nixosModules) hm;
-                  };
-                  gullywash = import ./hosts/gullywash/default.nix {
-                    inherit inputs pkgs-unstable sshPublicKey;
-                    inherit (config.flake.nixosModules) hm;
-                  };
+                  badlands = import ./hosts/badlands { inherit inputs pkgs-unstable; };
+                  gullywash = import ./hosts/gullywash { inherit inputs pkgs-unstable sshPublicKey; };
 
                   guiom-nixos-installation = inputs.nixpkgs.lib.nixosSystem {
                     system = "x86_64-linux";
-                    modules = [
-                      (import ./modules/nixos-installation-media.nix { inherit inputs sshPublicKey; })
-                    ];
+                    modules = [ (import ./modules/nixos/installation-media.nix { inherit inputs sshPublicKey; }) ];
                   };
                 };
               }
@@ -95,29 +85,11 @@
             darwin = withSystem "aarch64-darwin" (
               { pkgs, pkgs-unstable, ... }:
               {
-                # IN PROGRESS: mac-mini configuration of my home-manager flake
-                homeConfigurations."codspeed" = inputs.home-manager.lib.homeManagerConfiguration {
-                  inherit pkgs;
-                  modules = [
-                    {
-                      home.username = "codspeed";
-                      home.homeDirectory = "/Users/codspeed";
-                      gui.enable = false;
-                      stockly.enable = false;
-                      programs.zsh.oh-my-zsh.theme = "gnzh";
-                      # GPG agent is forwarded via SSH, prevent local auto-start
-                      programs.gpg.settings.no-autostart = true;
-                    }
-                    inputs.stylix.homeModules.stylix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = { inherit pkgs-unstable; };
-                };
+                homeConfigurations."codspeed" = mkHome { inherit pkgs pkgs-unstable; } [ ./hosts/mac-mini/home.nix ];
               }
             );
           in
           {
-            nixosModules.hm = import ./modules/home-manager-nixos.nix { inherit inputs; };
             homeConfigurations = linux.homeConfigurations // darwin.homeConfigurations;
             inherit (linux) nixosConfigurations;
           };

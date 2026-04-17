@@ -8,7 +8,6 @@ in
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
-    ../common.nix
     ./oneleet.nix
   ];
 
@@ -16,8 +15,6 @@ in
   # Secure boot is handled in secure_boot.nix
   boot.loader.efi.canTouchEfiVariables = true;
   boot.supportedFilesystems = [ "btrfs" ];
-
-  nix.optimise.automatic = true;
 
   networking.hostName = "badlands";
 

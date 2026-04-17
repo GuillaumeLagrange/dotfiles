@@ -11,7 +11,6 @@
     ./headless
     ./stockly
     ./codspeed
-    ./stylix/home-manager.nix
   ];
 
   config = {
