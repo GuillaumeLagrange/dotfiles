@@ -68,45 +68,29 @@ let
     fi
   '';
 
-  # Automatically rename windows based on git root or current directory
-  tmuxRename = pkgs.writeShellScriptBin "tmux-rename" ''
-    set -euo pipefail
+  # Shared logic: resolve a display name for a tmux window from a pane path
+  tmuxWindowName = pkgs.writeShellScriptBin "tmux-window-name" (
+    builtins.replaceStrings
+      [ "@git@" ]
+      [ "${pkgs.git}/bin/git" ]
+      (builtins.readFile ./tmux-window-name.sh)
+  );
 
-    # Get the session name (default to current session)
-    SESSION="''${1:-$(${pkgs.tmux}/bin/tmux display-message -p '#S')}"
+  # Rename all windows in a session
+  tmuxRename = pkgs.writeShellScriptBin "tmux-rename" (
+    builtins.replaceStrings
+      [ "@tmux@" "@tmux-window-name@" ]
+      [ "${pkgs.tmux}/bin/tmux" "${tmuxWindowName}/bin/tmux-window-name" ]
+      (builtins.readFile ./tmux-rename.sh)
+  );
 
-    echo "Renaming windows in session '$SESSION' based on git repos or current directory"
-
-    # Get list of windows in the session
-    ${pkgs.tmux}/bin/tmux list-windows -t "$SESSION" -F "#{window_index}" | while read -r window_index; do
-      # Get the current path of the first pane in the window
-      pane_path=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index.0" -p "#{pane_current_path}")
-
-      # Try to find git root from the pane's current path
-      git_root=$(cd "$pane_path" 2>/dev/null && ${pkgs.git}/bin/git rev-parse --show-toplevel 2>/dev/null || echo "")
-
-      # Use git root if found, otherwise use the pane's current path
-      display_path="''${git_root:-$pane_path}"
-
-      # Convert to use ~ if it's under $HOME
-      if [[ "$display_path" == "$HOME"* ]]; then
-        display_path="~''${display_path#$HOME}"
-      fi
-
-      # Get the current window name
-      current_name=$(${pkgs.tmux}/bin/tmux display-message -t "$SESSION:$window_index" -p "#{window_name}")
-
-      # Rename the window if different
-      if [[ "$current_name" != "$display_path" ]]; then
-        echo "  Window $window_index: '$current_name' -> '$display_path'"
-        ${pkgs.tmux}/bin/tmux rename-window -t "$SESSION:$window_index" "$display_path"
-      else
-        echo "  Window $window_index: '$current_name' (already correct)"
-      fi
-    done
-
-    echo "Done!"
-  '';
+  # Rename just the current window (for hooks)
+  tmuxRenameCurrent = pkgs.writeShellScriptBin "tmux-rename-current" (
+    builtins.replaceStrings
+      [ "@tmux@" "@tmux-window-name@" ]
+      [ "${pkgs.tmux}/bin/tmux" "${tmuxWindowName}/bin/tmux-window-name" ]
+      (builtins.readFile ./tmux-rename-current.sh)
+  );
 in
 {
   options = {
@@ -135,15 +119,16 @@ in
       ];
     };
 
-    wayland.windowManager.sway.config.keybindings =
+    wayland.windowManager.sway.config.keybindings = lib.mkIf pkgs.stdenv.isLinux (
       let
         modifier = "Mod4";
       in
       {
         "${modifier}+Backslash" = "kill; exec ${config.term} -e zsh -i -c tsm";
-      };
+      }
+    );
 
-    wayland.windowManager.hyprland.settings.bind = [
+    wayland.windowManager.hyprland.settings.bind = lib.mkIf pkgs.stdenv.isLinux [
       "$mainMod, Backslash, exec, ${config.term} -e zsh -i -c tsm"
     ];
 
@@ -155,6 +140,14 @@ in
         fi
       }
       add-zsh-hook preexec update_environment_from_tmux
+
+      # Auto-rename tmux window on directory change
+      function tmux_rename_current_window() {
+        if [ -n "''${TMUX}" ]; then
+          ${tmuxRenameCurrent}/bin/tmux-rename-current > /dev/null 2>&1
+        fi
+      }
+      add-zsh-hook chpwd tmux_rename_current_window
     '';
 
     home.packages = [
@@ -162,7 +155,9 @@ in
       tsmScript
       tmuxAttachTmp
       tskScript
+      tmuxWindowName
       tmuxRename
+      tmuxRenameCurrent
     ];
   };
 }
