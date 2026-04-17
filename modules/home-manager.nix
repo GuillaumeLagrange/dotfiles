@@ -3,12 +3,16 @@
   pkgs,
   pkgs-unstable,
   lib,
+  hmModules,
   ...
 }:
 {
   imports = [
     ./gui
-    ./headless
+    hmModules.headless
+    hmModules.headless-tmux
+    hmModules.headless-zellij
+    hmModules.headless-zsh
     ./stockly
     ./codspeed
     ./stylix/home-manager.nix
@@ -18,7 +22,6 @@
     home.username = lib.mkDefault "guillaume";
     home.homeDirectory = lib.mkDefault "/home/guillaume";
 
-    headless.enable = lib.mkDefault true;
     gui.enable = lib.mkDefault true;
     codspeed.enable = lib.mkDefault true;
     stockly.enable = lib.mkDefault false;

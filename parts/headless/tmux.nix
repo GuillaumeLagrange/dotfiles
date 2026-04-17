@@ -100,72 +100,65 @@
       );
     in
     {
-      options = {
-        tmux.enable = lib.mkEnableOption "tmux and related configuration";
-      };
-
-      config = lib.mkIf config.tmux.enable {
-
-        programs.tmux = {
-          enable = true;
-          mouse = true;
-          keyMode = "vi";
-          terminal = "tmux-256color";
-          baseIndex = 1;
-          extraConfig = builtins.readFile ./tmux.conf;
-          plugins = with pkgs; [
-            tmuxPlugins.vim-tmux-navigator
-            tmuxPlugins.gruvbox
-            tmuxPlugins.tmux-fzf
-            tmuxPlugins.fzf-tmux-url
-            tmuxPlugins.resurrect
-            {
-              plugin = tmuxPlugins.continuum;
-              extraConfig = "set -g @continuum-restore 'on'";
-            }
-          ];
-        };
-
-        wayland.windowManager.sway.config.keybindings = lib.mkIf pkgs.stdenv.isLinux (
-          let
-            modifier = "Mod4";
-          in
+      programs.tmux = {
+        enable = true;
+        mouse = true;
+        keyMode = "vi";
+        terminal = "tmux-256color";
+        baseIndex = 1;
+        extraConfig = builtins.readFile ./tmux.conf;
+        plugins = with pkgs; [
+          tmuxPlugins.vim-tmux-navigator
+          tmuxPlugins.gruvbox
+          tmuxPlugins.tmux-fzf
+          tmuxPlugins.fzf-tmux-url
+          tmuxPlugins.resurrect
           {
-            "${modifier}+Backslash" = "kill; exec ${config.term} -e zsh -i -c tsm";
+            plugin = tmuxPlugins.continuum;
+            extraConfig = "set -g @continuum-restore 'on'";
           }
-        );
-
-        wayland.windowManager.hyprland.settings.bind = lib.mkIf pkgs.stdenv.isLinux [
-          "$mainMod, Backslash, exec, ${config.term} -e zsh -i -c tsm"
-        ];
-
-        programs.zsh.initContent = ''
-          # Make attaching and detaching tmux sessions over ssh play nice with ssh-agent
-          function update_environment_from_tmux() {
-            if [ -n "''${TMUX}" ]; then
-              eval "$(${pkgs.tmux}/bin/tmux show-environment -s)"
-            fi
-          }
-          add-zsh-hook preexec update_environment_from_tmux
-
-          # Auto-rename tmux window on directory change
-          function tmux_rename_current_window() {
-            if [ -n "''${TMUX}" ]; then
-              ${tmuxRenameCurrent}/bin/tmux-rename-current > /dev/null 2>&1
-            fi
-          }
-          add-zsh-hook chpwd tmux_rename_current_window
-        '';
-
-        home.packages = [
-          tmuxFzfGetSession
-          tsmScript
-          tmuxAttachTmp
-          tskScript
-          tmuxWindowName
-          tmuxRename
-          tmuxRenameCurrent
         ];
       };
+
+      wayland.windowManager.sway.config.keybindings = lib.mkIf pkgs.stdenv.isLinux (
+        let
+          modifier = "Mod4";
+        in
+        {
+          "${modifier}+Backslash" = "kill; exec ${config.term} -e zsh -i -c tsm";
+        }
+      );
+
+      wayland.windowManager.hyprland.settings.bind = lib.mkIf pkgs.stdenv.isLinux [
+        "$mainMod, Backslash, exec, ${config.term} -e zsh -i -c tsm"
+      ];
+
+      programs.zsh.initContent = ''
+        # Make attaching and detaching tmux sessions over ssh play nice with ssh-agent
+        function update_environment_from_tmux() {
+          if [ -n "''${TMUX}" ]; then
+            eval "$(${pkgs.tmux}/bin/tmux show-environment -s)"
+          fi
+        }
+        add-zsh-hook preexec update_environment_from_tmux
+
+        # Auto-rename tmux window on directory change
+        function tmux_rename_current_window() {
+          if [ -n "''${TMUX}" ]; then
+            ${tmuxRenameCurrent}/bin/tmux-rename-current > /dev/null 2>&1
+          fi
+        }
+        add-zsh-hook chpwd tmux_rename_current_window
+      '';
+
+      home.packages = [
+        tmuxFzfGetSession
+        tsmScript
+        tmuxAttachTmp
+        tskScript
+        tmuxWindowName
+        tmuxRename
+        tmuxRenameCurrent
+      ];
     };
 }
