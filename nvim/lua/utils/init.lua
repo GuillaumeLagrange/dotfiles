@@ -6,6 +6,12 @@ M.toggle_inlay_hints = function(bufnr)
   vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr }), { bufnr })
 end
 
+-- True when this nvim is running inside another nvim's :terminal.
+-- The parent nvim sets $NVIM to its server address for child processes.
+M.is_nested_nvim = function()
+  return os.getenv('NVIM') ~= nil
+end
+
 M.toggle_relative_number = function()
   ---@diagnostic disable-next-line: undefined-field
   if vim.opt_local.relativenumber:get() then

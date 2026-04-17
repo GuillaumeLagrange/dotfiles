@@ -19,6 +19,11 @@ vim.keymap.set('n', '<leader>uC', toggle_copilot, { desc = 'Toggle Copilot' })
 vim.keymap.set('i', '<M-u>', toggle_copilot, { desc = 'Toggle Copilot' })
 
 require('sidekick').setup({
+  copilot = {
+    status = {
+      enabled = false,
+    },
+  },
   nes = {
     enabled = false,
     debounce = 100,

@@ -12,6 +12,34 @@ vim.opt.mouse = 'a'
 vim.opt.showmode = false
 -- Sync clipboard between OS and Neovim.
 vim.opt.clipboard = 'unnamedplus'
+
+-- Use OSC52 as clipboard provider when SSHed (copies to local clipboard).
+-- When running nested inside another nvim's :terminal, the parent doesn't
+-- forward OSC52 responses, so paste would hang for 10s before timing out.
+-- Fall back to the unnamed register for paste in that case.
+if os.getenv('SSH_TTY') then
+  local osc52 = require('vim.ui.clipboard.osc52')
+  local register_paste = function()
+    return vim.split(vim.fn.getreg(''), '\n')
+  end
+  vim.print(require('utils').is_nested_nvim())
+  local paste = require('utils').is_nested_nvim() and {
+    ['+'] = register_paste,
+    ['*'] = register_paste,
+  } or {
+    ['+'] = osc52.paste('+'),
+    ['*'] = osc52.paste('*'),
+  }
+  vim.g.clipboard = {
+    name = 'OSC 52',
+    copy = {
+      ['+'] = osc52.copy('+'),
+      ['*'] = osc52.copy('*'),
+    },
+    paste = paste,
+  }
+end
+
 -- Enable break indent
 vim.opt.breakindent = true
 -- Save undo history

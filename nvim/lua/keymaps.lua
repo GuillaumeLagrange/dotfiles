@@ -15,7 +15,6 @@ end, { desc = 'Go to next [D]iagnostic message' })
 
 vim.keymap.set('n', '<leader>D', function()
   vim.diagnostic.open_float()
-  vim.diagnostic.open_float()
 end, { desc = 'Jump to [D]iagnostic window' })
 
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
