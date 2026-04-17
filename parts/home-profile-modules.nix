@@ -37,6 +37,7 @@
     ];
 
     homeProfileLinuxModules = with config.flake.modules.homeManager; [
+      profile-linux
       headless-linux
       codspeed-linux
     ];
