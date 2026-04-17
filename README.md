@@ -25,5 +25,13 @@ nix build .#nixosConfigurations.guiom-nixos-installation.config.system.build.iso
 ### nix
 The root flake contains my personal configurations and exposes them as NixOS configurations for my hosts, as well as standalone Home-Manager configurations for non-NixOS systems and quick iterations.
 
+Layout:
+
+- `hosts/<host>/` — per-host NixOS config (`default.nix` wires it, `configuration.nix` holds host-specific options)
+- `hosts/common.nix` and `hosts/nixos-common.nix` — shared NixOS bits
+- `modules/home-manager/` — Home-Manager scope only
+- `modules/nixos/` — NixOS scope only
+- `modules/stylix/` — theming, used by both scopes
+
 ### nvim
 The [neovim configuration](./nvim) is standalone, and can be used as is. The nix config just creates a symlink to ``~/.config/nvim``.
