@@ -15,13 +15,12 @@
       home-manager.backupFileExtension = "backup";
       home-manager.extraSpecialArgs = {
         inherit pkgs-unstable;
-        hmModules = config.flake.modules.homeManager or { };
       };
       home-manager.users.guillaume = {
         imports = [
           inputs.stylix.homeModules.stylix
-          ../modules/home-manager.nix
-        ];
+        ]
+        ++ config.homeProfileModules;
         stylix.overlays.enable = false;
       };
     };

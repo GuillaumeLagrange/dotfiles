@@ -1,0 +1,58 @@
+{
+  flake.modules.homeManager.profile =
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    {
+      home.username = lib.mkDefault "guillaume";
+      home.homeDirectory = lib.mkDefault "/home/guillaume";
+
+      codspeed.enable = lib.mkDefault true;
+      gui.enable = lib.mkDefault true;
+      stockly.enable = lib.mkDefault false;
+
+      home.sessionVariables = {
+        EDITOR = "nvim";
+        TERMINAL = "kitty";
+        NH_FLAKE = "$HOME/dotfiles";
+      };
+
+      xdg = lib.mkIf pkgs.stdenv.isLinux {
+        userDirs = {
+          enable = true;
+          download = "${config.home.homeDirectory}/downloads";
+          desktop = "${config.home.homeDirectory}";
+          documents = "${config.home.homeDirectory}/documents";
+          music = "${config.home.homeDirectory}/media/music";
+          videos = "${config.home.homeDirectory}/media/videos";
+          pictures = "${config.home.homeDirectory}/media/pictures";
+          publicShare = "${config.home.homeDirectory}/media/public";
+          templates = "${config.home.homeDirectory}/media/templates";
+          createDirectories = false;
+        };
+        configFile."mimeapps.list" = {
+          source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/mimeapps.list";
+        };
+      };
+
+      fonts.fontconfig = {
+        enable = true;
+        defaultFonts = {
+          monospace = [
+            "Hack Nerd Font"
+            "Noto Color Emoji"
+          ];
+          emoji = [
+            "Noto Color Emoji"
+          ];
+        };
+      };
+
+      programs.home-manager.enable = true;
+
+      home.stateVersion = "23.11"; # Do not touch this
+    };
+}

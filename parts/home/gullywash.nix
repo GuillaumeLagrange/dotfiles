@@ -1,4 +1,9 @@
-{ inputs, withSystem, ... }:
+{
+  inputs,
+  withSystem,
+  config,
+  ...
+}:
 {
   configurations.home."guillaume@gullywash" = withSystem "x86_64-linux" (
     { pkgs, pkgs-unstable, ... }:
@@ -11,8 +16,8 @@
           programs.zsh.oh-my-zsh.theme = "gnzh";
         }
         inputs.stylix.homeModules.stylix
-        ../../modules/home-manager.nix
-      ];
+      ]
+      ++ config.homeProfileModules;
       extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );

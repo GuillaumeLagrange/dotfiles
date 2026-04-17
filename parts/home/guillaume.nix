@@ -1,4 +1,9 @@
-{ inputs, withSystem, config, ... }:
+{
+  inputs,
+  withSystem,
+  config,
+  ...
+}:
 {
   configurations.home.guillaume = withSystem "x86_64-linux" (
     { pkgs, pkgs-unstable, ... }:
@@ -7,8 +12,8 @@
       modules = [
         inputs.stylix.homeModules.stylix
         config.flake.modules.homeManager.stylix-common
-        ../../modules/home-manager.nix
-      ];
+      ]
+      ++ config.homeProfileModules;
       extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );

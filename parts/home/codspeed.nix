@@ -1,4 +1,9 @@
-{ inputs, withSystem, ... }:
+{
+  inputs,
+  withSystem,
+  config,
+  ...
+}:
 {
   # IN PROGRESS: mac-mini configuration of my home-manager flake
   configurations.home.codspeed = withSystem "aarch64-darwin" (
@@ -16,8 +21,8 @@
           programs.gpg.settings.no-autostart = true;
         }
         inputs.stylix.homeModules.stylix
-        ../../modules/home-manager.nix
-      ];
+      ]
+      ++ config.homeProfileModules;
       extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );
