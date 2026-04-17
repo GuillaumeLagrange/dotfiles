@@ -1,11 +1,6 @@
 {
   flake.modules.homeManager.headless-tmux =
-    {
-      pkgs,
-      lib,
-      config,
-      ...
-    }:
+    { pkgs, ... }:
     let
       tmuxFzfGetSession = pkgs.writeShellScriptBin "tmux-fzf-get-session" ''
         sessions=$(${pkgs.tmux}/bin/tmux list-sessions -F "#{session_name}" 2>/dev/null)
@@ -119,19 +114,6 @@
           }
         ];
       };
-
-      wayland.windowManager.sway.config.keybindings = lib.mkIf pkgs.stdenv.isLinux (
-        let
-          modifier = "Mod4";
-        in
-        {
-          "${modifier}+Backslash" = "kill; exec ${config.term} -e zsh -i -c tsm";
-        }
-      );
-
-      wayland.windowManager.hyprland.settings.bind = lib.mkIf pkgs.stdenv.isLinux [
-        "$mainMod, Backslash, exec, ${config.term} -e zsh -i -c tsm"
-      ];
 
       programs.zsh.initContent = ''
         # Make attaching and detaching tmux sessions over ssh play nice with ssh-agent
