@@ -3,60 +3,49 @@
     {
       pkgs,
       pkgs-unstable,
-      lib,
       config,
       ...
     }:
     {
-      home.packages =
-        with pkgs;
-        [
-          btop
-          fastfetch
-          fd
-          fnm
-          fswatch
-          gcc
-          git-absorb
-          gnumake
-          jq
-          just
-          ripgrep
-          rustup
-          tig
-          tree
-          unzip
-          zip
+      home.packages = with pkgs; [
+        btop
+        fastfetch
+        fd
+        fnm
+        fswatch
+        gcc
+        git-absorb
+        gnumake
+        jq
+        just
+        ripgrep
+        rustup
+        tig
+        tree
+        unzip
+        zip
 
-          # Codspeed to sort
-          yubikey-manager
-        ]
-        ++ lib.optionals stdenv.isLinux [
-          killall
-          nh
-          pciutils
-          usbutils
-          yubioath-flutter
-        ]
-        ++ [
-          # Nvim cross-project basics
-          tree-sitter
-          imagemagick
-          lua-language-server
-          yaml-language-server
-          luajitPackages.luarocks
-          nixd
-          nixfmt-rfc-style
-          pkgs-unstable.oxfmt
-          stylua
-          taplo
-          vscode-langservers-extracted
-          pkgs-unstable.copilot-language-server
-          zellij
+        # Codspeed to sort
+        yubikey-manager
 
-          (pkgs.callPackage ./_gitPushStack.nix { inherit pkgs; })
-          (pkgs.callPackage ./_untar.nix { inherit pkgs; })
-        ];
+        # Nvim cross-project basics
+        tree-sitter
+        imagemagick
+        lua-language-server
+        yaml-language-server
+        luajitPackages.luarocks
+        nixd
+        nixfmt-rfc-style
+        pkgs-unstable.oxfmt
+        stylua
+        taplo
+        vscode-langservers-extracted
+        pkgs-unstable.copilot-language-server
+        zellij
+
+        (pkgs.callPackage ./_gitPushStack.nix { inherit pkgs; })
+        (pkgs.callPackage ./_untar.nix { inherit pkgs; })
+      ];
 
       xdg.configFile = {
         "nvim" = {
@@ -91,11 +80,6 @@
         '';
         dc = "docker-compose";
         tarc = "tar -czf";
-      }
-      // lib.optionalAttrs pkgs.stdenv.isLinux {
-        nfu = "nix flake update && nh os switch -a && gcam 'chore: update flake' ";
-        scu = "systemctl --user";
-        sc = "sudo systemctl";
       };
 
       programs.lazygit = {

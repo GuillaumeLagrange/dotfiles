@@ -13,7 +13,8 @@
         inputs.stylix.homeModules.stylix
         config.flake.modules.homeManager.stylix-common
       ]
-      ++ config.homeProfileModules;
+      ++ config.homeProfileModules
+      ++ config.homeProfileLinuxModules;
       extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );

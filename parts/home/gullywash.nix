@@ -17,7 +17,8 @@
         }
         inputs.stylix.homeModules.stylix
       ]
-      ++ config.homeProfileModules;
+      ++ config.homeProfileModules
+      ++ config.homeProfileLinuxModules;
       extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );

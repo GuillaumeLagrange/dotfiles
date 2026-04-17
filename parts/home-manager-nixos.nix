@@ -20,7 +20,8 @@
         imports = [
           inputs.stylix.homeModules.stylix
         ]
-        ++ config.homeProfileModules;
+        ++ config.homeProfileModules
+        ++ config.homeProfileLinuxModules;
         stylix.overlays.enable = false;
       };
     };

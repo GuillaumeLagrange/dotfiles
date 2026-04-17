@@ -24,8 +24,7 @@
             "docker"
             "rust"
             "globalias"
-          ]
-          ++ lib.optionals pkgs.stdenv.isLinux [ "systemd" ];
+          ];
         };
 
         # FIXME: This is a macos specific issue
