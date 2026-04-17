@@ -13,6 +13,12 @@
   boot.lanzaboote = {
     enable = true;
     pkiBundle = "/var/lib/sbctl";
+    autoGenerateKeys.enable = true;
+    autoEnrollKeys = {
+      enable = true;
+      # Automatically reboot to enroll the keys in the firmware
+      autoReboot = true;
+    };
   };
 
   # Include sbctl for managing secure boot

@@ -9,9 +9,8 @@
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v0.4.3";
-      # Fails to build otherwise for now after 25.11 switch, retry later
-      # inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:nix-community/lanzaboote/v1.0.0";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
@@ -40,7 +39,12 @@
         perSystem =
           { system, ... }:
           let
-            mkPkgs = src: import src { inherit system; config.allowUnfree = true; };
+            mkPkgs =
+              src:
+              import src {
+                inherit system;
+                config.allowUnfree = true;
+              };
           in
           {
             _module.args = {
@@ -51,7 +55,9 @@
 
         flake =
           let
-            sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/home-manager/headless/guiom_ssh.pub);
+            sshPublicKey = inputs.nixpkgs.lib.trim (
+              builtins.readFile ./modules/home-manager/headless/guiom_ssh.pub
+            );
 
             mkHome =
               { pkgs, pkgs-unstable }:
@@ -62,7 +68,8 @@
                 modules = [
                   (import ./modules/stylix { inherit inputs; })
                   ./modules/home-manager
-                ] ++ extraModules;
+                ]
+                ++ extraModules;
               };
 
             linux = withSystem "x86_64-linux" (
@@ -85,7 +92,9 @@
             darwin = withSystem "aarch64-darwin" (
               { pkgs, pkgs-unstable, ... }:
               {
-                homeConfigurations."codspeed" = mkHome { inherit pkgs pkgs-unstable; } [ ./hosts/mac-mini/home.nix ];
+                homeConfigurations."codspeed" = mkHome { inherit pkgs pkgs-unstable; } [
+                  ./hosts/mac-mini/home.nix
+                ];
               }
             );
           in
