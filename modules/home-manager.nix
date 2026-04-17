@@ -13,9 +13,9 @@
     hmModules.headless-tmux
     hmModules.headless-zellij
     hmModules.headless-zsh
-    ./stockly
-    ./codspeed
-    ./stylix/home-manager.nix
+    hmModules.codspeed
+    hmModules.stockly
+    hmModules.stylix-home
   ];
 
   config = {

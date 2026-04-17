@@ -12,7 +12,7 @@
         (import ../../modules/secure_boot.nix { lanzaboote = inputs.lanzaboote; })
         config.flake.modules.nixos.home-manager-base
         inputs.stylix.nixosModules.stylix
-        ../../modules/stylix/common.nix
+        config.flake.modules.nixos.stylix-common
         ../../hosts/badlands/configuration.nix
         inputs.nix-index-database.nixosModules.nix-index
         { programs.nix-index-database.comma.enable = true; }
@@ -20,7 +20,7 @@
 
       _module.args.pkgs-unstable = pkgs-unstable;
 
-      home-manager.users.guillaume.imports = [ ../../modules/stylix/common.nix ];
+      home-manager.users.guillaume.imports = [ config.flake.modules.homeManager.stylix-common ];
     }
   );
 }
