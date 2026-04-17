@@ -40,7 +40,6 @@
       gnome-tweaks
       libnotify
       libreoffice
-      lutris
       pavucontrol
       playerctl
       pomodoro-gtk
