@@ -15,6 +15,15 @@
     codspeed
     stockly
     stylix-home
-    ../modules/gui
+    gui
+    gui-audio
+    gui-firefox
+    gui-hyprland
+    gui-lock
+    gui-niri
+    gui-options
+    gui-sway
+    gui-vicinae
+    gui-waybar
   ];
 }
