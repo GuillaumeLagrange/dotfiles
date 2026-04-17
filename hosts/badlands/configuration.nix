@@ -187,15 +187,6 @@ in
     serviceConfig.Type = "simple";
   };
 
-  # Installed at OS level to benefit from browser plugin integration
-  programs._1password.enable = true;
-  programs._1password-gui = {
-    enable = true;
-    # Certain features, including CLI integration and system authentication support,
-    # require enabling PolKit integration on some desktop environments (e.g. Plasma).
-    polkitPolicyOwners = [ userName ];
-  };
-
   # iOS tethering
   services.usbmuxd.enable = true;
   # mDNS support
@@ -212,5 +203,18 @@ in
   # Enable oneleet
   programs.oneleet.enable = true;
 
+  # Codspeed section
+  services.tailscale.enable = true;
+  # Installed at OS level to benefit from browser plugin integration
+  programs._1password.enable = true;
+  programs._1password-gui = {
+    enable = true;
+    # Certain features, including CLI integration and system authentication support,
+    # require enabling PolKit integration on some desktop environments (e.g. Plasma).
+    polkitPolicyOwners = [ userName ];
+  };
+  # End of codspeed section
+
+  # DO NOT TOUCH
   system.stateVersion = "24.05";
 }
