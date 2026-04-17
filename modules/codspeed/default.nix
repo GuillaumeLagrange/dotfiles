@@ -52,7 +52,7 @@ in
       local_run_helper = "tar -czf sample.tar.gz -C $(ls -td /tmp/profile.*.out | head -n 1) .";
     };
 
-    xdg.desktopEntries = {
+    xdg.desktopEntries = lib.mkIf pkgs.stdenv.isLinux {
       mongodb-compass = {
         name = "MongoDB Compass";
         comment = "The MongoDB GUI";
@@ -72,49 +72,75 @@ in
       };
     };
 
-    home.packages = with pkgs; [
-      awscli2
-      mongodb-compass
-      mongodb-tools
-      pkgs-unstable.uv
-      kdePackages.kcachegrind
+    programs.ssh = {
+      matchBlocks = {
+        "codspeeds-mac-mini*" = {
+          forwardAgent = true;
+          user = "codspeed";
+          remoteForwards = [
+            {
+              # gpgconf --list-dir agent-extra-socket on local machine
+              host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
+              # gpgconf --list-dir agent-socket on remote machine
+              bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
+            }
+          ];
+        };
+      };
+    };
 
-      (writeShellScriptBin "valgrind" ''
-        VALGRIND_LIB="${vgbasedir}/.in_place" \
-        VALGRIND_LIB_INNER="${vgbasedir}/.in_place" \
-        RUSTUP_FORCE_ARG0=cargo \
-        exec "${vgbasedir}/coregrind/valgrind" "$@"
-      '')
+    home.sessionVariables = {
+      CODSPEED_ROOT = codspeed_root;
+    };
 
-      # Cargo install cargo-codspeed
-      (writeShellScriptBin "cicc" ''
-        direnv exec ${codspeed_root}/rust bash -c 'cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked'
-      '')
+    home.packages =
+      with pkgs;
+      [
+        awscli2
+        pkgs-unstable.uv
+      ]
+      ++ lib.optionals stdenv.isLinux [
+        mongodb-compass
+        mongodb-tools
+        kdePackages.kcachegrind
 
-      # Cargo install codspeed runner
-      (writeShellScriptBin "cicr" ''
-        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path . --locked'
-      '')
+        (writeShellScriptBin "valgrind" ''
+          VALGRIND_LIB="${vgbasedir}/.in_place" \
+          VALGRIND_LIB_INNER="${vgbasedir}/.in_place" \
+          RUSTUP_FORCE_ARG0=cargo \
+          exec "${vgbasedir}/coregrind/valgrind" "$@"
+        '')
+      ]
+      ++ [
+        # Cargo install cargo-codspeed
+        (writeShellScriptBin "cicc" ''
+          direnv exec ${codspeed_root}/rust bash -c 'cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked'
+        '')
 
-      (writeShellScriptBin "cieh" ''
-        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/exec-harness --locked'
-      '')
+        # Cargo install codspeed runner
+        (writeShellScriptBin "cicr" ''
+          direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path . --locked'
+        '')
 
-      (writeShellScriptBin "cicm" ''
-        direnv exec ${codspeed_root}/runner bash -c 'cd ${codspeed_root}/runner && cargo install --path ./crates/memtrack --locked'
-      '')
+        (writeShellScriptBin "cieh" ''
+          direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path ./crates/exec-harness --locked'
+        '')
 
-      (writeShellScriptBin "local_run_helper" ''
-        # Find the latest runner output
-        runner_profile_dir = $(ls -td /tmp/profile.*.out | head -n 1)
-        target_dir = ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/
+        (writeShellScriptBin "cicm" ''
+          direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path ./crates/memtrack --locked'
+        '')
 
-        tar -czf \
-          $target_dir/local-run.tar.gz \
-          $runner_profile_dir
-      '')
+        (writeShellScriptBin "local_run_helper" ''
+          # Find the latest runner output
+          runner_profile_dir = $(ls -td /tmp/profile.*.out | head -n 1)
+          target_dir = ${codspeed_root}/monorepo/packages/api/src/services/parse_callgraph/src/tests/samples/
 
-      (writeShellScriptBin "cod" (builtins.readFile ./cod.sh))
-    ];
+          tar -czf \
+            $target_dir/local-run.tar.gz \
+            $runner_profile_dir
+        '')
+
+        (writeShellScriptBin "cod" (builtins.readFile ./cod.sh))
+      ];
   };
 }
