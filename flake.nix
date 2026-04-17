@@ -29,160 +29,18 @@
 
   outputs =
     inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } (
-      { withSystem, ... }:
-      {
-        systems = [
-          "x86_64-linux"
-          "aarch64-darwin"
-        ];
-
-        perSystem =
-          { system, ... }:
-          let
-            pkgs = import inputs.nixpkgs {
-              inherit system;
-              config.allowUnfree = true;
-            };
-            pkgs-unstable = import inputs.nixpkgs-unstable {
-              inherit system;
-              config.allowUnfree = true;
-            };
-          in
-          {
-            _module.args = {
-              inherit pkgs pkgs-unstable;
-            };
-          };
-
-        flake = withSystem "x86_64-linux" (
-          linuxCtx:
-          withSystem "aarch64-darwin" (
-            darwinCtx:
-            let
-              inherit (linuxCtx) pkgs pkgs-unstable;
-              darwinPkgs = darwinCtx.pkgs;
-              darwinPkgsUnstable = darwinCtx.pkgs-unstable;
-              sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
-
-              mkHomeManagerModule =
-                {
-                  extraModules ? [ ],
-                  extraConfig ? { },
-                }:
-                {
-                  home-manager.useGlobalPkgs = true;
-                  home-manager.useUserPackages = true;
-                  home-manager.backupFileExtension = "backup";
-                  home-manager.extraSpecialArgs = { inherit pkgs-unstable; };
-                  home-manager.users.guillaume = {
-                    imports = [
-                      inputs.stylix.homeModules.stylix
-                      ./modules/home-manager.nix
-                    ]
-                    ++ extraModules;
-                    stylix.overlays.enable = false;
-                  }
-                  // extraConfig;
-                };
-            in
-            {
-              homeConfigurations = {
-                "guillaume" = inputs.home-manager.lib.homeManagerConfiguration {
-                  inherit pkgs;
-                  modules = [
-                    inputs.stylix.homeModules.stylix
-                    ./modules/stylix/common.nix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = {
-                    inherit pkgs-unstable;
-                  };
-                };
-
-                # IN PROGRESS: mac-mini configuration of my home-manager flake
-                "codspeed" = inputs.home-manager.lib.homeManagerConfiguration {
-                  pkgs = darwinPkgs;
-                  modules = [
-                    {
-                      home.username = "codspeed";
-                      home.homeDirectory = "/Users/codspeed";
-                      gui.enable = false;
-                      stockly.enable = false;
-                      programs.zsh.oh-my-zsh.theme = "gnzh";
-                      # GPG agent is forwarded via SSH, prevent local auto-start
-                      programs.gpg.settings.no-autostart = true;
-                    }
-                    inputs.stylix.homeModules.stylix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = {
-                    pkgs-unstable = darwinPkgsUnstable;
-                  };
-                };
-
-                "guillaume@gullywash" = inputs.home-manager.lib.homeManagerConfiguration {
-                  inherit pkgs;
-                  modules = [
-                    {
-                      gui.enable = false;
-                      codspeed.enable = false;
-                      programs.zsh.oh-my-zsh.theme = "gnzh";
-                    }
-                    inputs.stylix.homeModules.stylix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = {
-                    inherit pkgs-unstable;
-                  };
-                };
-              };
-
-              nixosConfigurations = {
-                badlands = import ./hosts/badlands/default.nix {
-                  inherit inputs mkHomeManagerModule;
-                };
-                gullywash = import ./hosts/gullywash/default.nix {
-                  inherit inputs sshPublicKey mkHomeManagerModule;
-                };
-
-                guiom-nixos-installation = inputs.nixpkgs.lib.nixosSystem {
-                  system = "x86_64-linux";
-                  modules = [
-                    "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-                    {
-                      isoImage.isoName = "guiom-nixos-installation.iso";
-
-                      nix.settings.experimental-features = [
-                        "nix-command"
-                        "flakes"
-                      ];
-
-                      services.openssh = {
-                        enable = true;
-                        settings = {
-                          PasswordAuthentication = false;
-                          PermitRootLogin = "yes";
-                        };
-                      };
-                      systemd.services.sshd.wantedBy = pkgs.lib.mkForce [ "multi-user.target" ];
-
-                      environment.systemPackages = with pkgs; [
-                        neovim
-                        wpa_supplicant
-                      ];
-
-                      users.users.root.openssh.authorizedKeys.keys = [ sshPublicKey ];
-
-                      networking.networkmanager.enable = true;
-                      networking.wireless.enable = false;
-                    }
-                  ];
-                };
-              };
-            }
-          )
-        );
-      }
-    );
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [
+        inputs.home-manager.flakeModules.home-manager
+        ./parts/systems.nix
+        ./parts/pkgs.nix
+        ./parts/lib.nix
+        ./parts/home/guillaume.nix
+        ./parts/home/codspeed.nix
+        ./parts/home/gullywash.nix
+        ./parts/hosts/badlands.nix
+        ./parts/hosts/gullywash.nix
+        ./parts/hosts/iso.nix
+      ];
+    };
 }
