@@ -1,4 +1,10 @@
-{ inputs, sshPublicKey, mkHomeManagerModule, ... }:
+{
+  inputs,
+  pkgs-unstable,
+  sshPublicKey,
+  hm,
+  ...
+}:
 
 inputs.nixpkgs.lib.nixosSystem {
   system = "x86_64-linux";
@@ -6,16 +12,17 @@ inputs.nixpkgs.lib.nixosSystem {
     inherit sshPublicKey;
   };
   modules = [
-    inputs.home-manager.nixosModules.home-manager
     ./configuration.nix
     inputs.nix-index-database.nixosModules.nix-index
     { programs.nix-index-database.comma.enable = true; }
-    (mkHomeManagerModule {
-      extraConfig = {
+    hm
+    {
+      _module.args.pkgs-unstable = pkgs-unstable;
+      home-manager.users.guillaume = {
         gui.enable = false;
         codspeed.enable = false;
         programs.zsh.oh-my-zsh.theme = "gnzh";
       };
-    })
+    }
   ];
 }

@@ -30,7 +30,7 @@
   outputs =
     inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } (
-      { withSystem, ... }:
+      { config, withSystem, ... }:
       {
         systems = [
           "x86_64-linux"
@@ -55,54 +55,49 @@
             };
           };
 
-        flake = withSystem "x86_64-linux" (
-          linuxCtx:
-          withSystem "aarch64-darwin" (
-            darwinCtx:
-            let
-              inherit (linuxCtx) pkgs pkgs-unstable;
-              darwinPkgs = darwinCtx.pkgs;
-              darwinPkgsUnstable = darwinCtx.pkgs-unstable;
-              sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
+        flake =
+          let
+            sshPublicKey = inputs.nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
 
-              mkHomeManagerModule =
-                {
-                  extraModules ? [ ],
-                  extraConfig ? { },
-                }:
-                {
-                  home-manager.useGlobalPkgs = true;
-                  home-manager.useUserPackages = true;
-                  home-manager.backupFileExtension = "backup";
-                  home-manager.extraSpecialArgs = { inherit pkgs-unstable; };
-                  home-manager.users.guillaume = {
-                    imports = [
-                      inputs.stylix.homeModules.stylix
-                      ./modules/home-manager.nix
-                    ]
-                    ++ extraModules;
-                    stylix.overlays.enable = false;
-                  }
-                  // extraConfig;
-                };
-            in
-            {
-              homeConfigurations = {
-                "guillaume" = inputs.home-manager.lib.homeManagerConfiguration {
+            linux = withSystem "x86_64-linux" (
+              { pkgs, pkgs-unstable, ... }:
+              {
+                homeConfigurations."guillaume" = inputs.home-manager.lib.homeManagerConfiguration {
                   inherit pkgs;
                   modules = [
                     inputs.stylix.homeModules.stylix
                     ./modules/stylix/common.nix
                     ./modules/home-manager.nix
                   ];
-                  extraSpecialArgs = {
-                    inherit pkgs-unstable;
-                  };
+                  extraSpecialArgs = { inherit pkgs-unstable; };
                 };
 
+                nixosConfigurations = {
+                  badlands = import ./hosts/badlands/default.nix {
+                    inherit inputs pkgs-unstable;
+                    inherit (config.flake.nixosModules) hm;
+                  };
+                  gullywash = import ./hosts/gullywash/default.nix {
+                    inherit inputs pkgs-unstable sshPublicKey;
+                    inherit (config.flake.nixosModules) hm;
+                  };
+
+                  guiom-nixos-installation = inputs.nixpkgs.lib.nixosSystem {
+                    system = "x86_64-linux";
+                    modules = [
+                      (import ./modules/nixos-installation-media.nix { inherit inputs sshPublicKey; })
+                    ];
+                  };
+                };
+              }
+            );
+
+            darwin = withSystem "aarch64-darwin" (
+              { pkgs, pkgs-unstable, ... }:
+              {
                 # IN PROGRESS: mac-mini configuration of my home-manager flake
-                "codspeed" = inputs.home-manager.lib.homeManagerConfiguration {
-                  pkgs = darwinPkgs;
+                homeConfigurations."codspeed" = inputs.home-manager.lib.homeManagerConfiguration {
+                  inherit pkgs;
                   modules = [
                     {
                       home.username = "codspeed";
@@ -116,73 +111,16 @@
                     inputs.stylix.homeModules.stylix
                     ./modules/home-manager.nix
                   ];
-                  extraSpecialArgs = {
-                    pkgs-unstable = darwinPkgsUnstable;
-                  };
+                  extraSpecialArgs = { inherit pkgs-unstable; };
                 };
-
-                "guillaume@gullywash" = inputs.home-manager.lib.homeManagerConfiguration {
-                  inherit pkgs;
-                  modules = [
-                    {
-                      gui.enable = false;
-                      codspeed.enable = false;
-                      programs.zsh.oh-my-zsh.theme = "gnzh";
-                    }
-                    inputs.stylix.homeModules.stylix
-                    ./modules/home-manager.nix
-                  ];
-                  extraSpecialArgs = {
-                    inherit pkgs-unstable;
-                  };
-                };
-              };
-
-              nixosConfigurations = {
-                badlands = import ./hosts/badlands/default.nix {
-                  inherit inputs mkHomeManagerModule;
-                };
-                gullywash = import ./hosts/gullywash/default.nix {
-                  inherit inputs sshPublicKey mkHomeManagerModule;
-                };
-
-                guiom-nixos-installation = inputs.nixpkgs.lib.nixosSystem {
-                  system = "x86_64-linux";
-                  modules = [
-                    "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-                    {
-                      isoImage.isoName = "guiom-nixos-installation.iso";
-
-                      nix.settings.experimental-features = [
-                        "nix-command"
-                        "flakes"
-                      ];
-
-                      services.openssh = {
-                        enable = true;
-                        settings = {
-                          PasswordAuthentication = false;
-                          PermitRootLogin = "yes";
-                        };
-                      };
-                      systemd.services.sshd.wantedBy = pkgs.lib.mkForce [ "multi-user.target" ];
-
-                      environment.systemPackages = with pkgs; [
-                        neovim
-                        wpa_supplicant
-                      ];
-
-                      users.users.root.openssh.authorizedKeys.keys = [ sshPublicKey ];
-
-                      networking.networkmanager.enable = true;
-                      networking.wireless.enable = false;
-                    }
-                  ];
-                };
-              };
-            }
-          )
-        );
+              }
+            );
+          in
+          {
+            nixosModules.hm = import ./modules/home-manager-nixos.nix { inherit inputs; };
+            homeConfigurations = linux.homeConfigurations // darwin.homeConfigurations;
+            inherit (linux) nixosConfigurations;
+          };
       }
     );
 }
