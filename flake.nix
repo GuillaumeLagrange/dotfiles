@@ -47,7 +47,7 @@
       };
 
       # Shared SSH key configuration
-      sshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICB1BgyotMSfKqSwUoeMKJcC6d+y468PRjPrcnvMxZBW cardno:29_644_001";
+      sshPublicKey = nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
 
       # Helper to wire Home Manager as a NixOS module with shared config
       mkHomeManagerModule =
