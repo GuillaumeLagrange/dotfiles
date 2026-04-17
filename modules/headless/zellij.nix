@@ -86,6 +86,16 @@ in
       "$mainMod, bracketright, exec, ${config.term} -e zsh -i -c zsm"
     ];
 
+    # Keep SSH agent working across Zellij reattaches via a stable symlink
+    programs.zsh.initContent = ''
+      if [ -n "$SSH_CONNECTION" ] && [ -n "$SSH_AUTH_SOCK" ]; then
+        if [ -S "$SSH_AUTH_SOCK" ] && [ "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock" ]; then
+          ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
+        fi
+        export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
+      fi
+    '';
+
     home.packages = [
       zellijFzfGetSession
       zsmScript

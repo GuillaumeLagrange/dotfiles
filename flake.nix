@@ -32,19 +32,28 @@
       ...
     }@inputs:
     let
+      mkPkgsFor =
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
+          pkgs-unstable = import nixpkgs-unstable {
+            inherit system;
+            config.allowUnfree = true;
+          };
+        in
+        {
+          inherit pkgs pkgs-unstable;
+        };
+
+      linuxPkgs = mkPkgsFor "x86_64-linux";
+      darwinPkgs = mkPkgsFor "aarch64-darwin";
+
+      # Keep top-level bindings for existing NixOS configs
       system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-        config = {
-          allowUnfree = true;
-        };
-      };
-      pkgs-unstable = import nixpkgs-unstable {
-        inherit system;
-        config = {
-          allowUnfree = true;
-        };
-      };
+      inherit (linuxPkgs) pkgs pkgs-unstable;
 
       # Shared SSH key configuration
       sshPublicKey = nixpkgs.lib.trim (builtins.readFile ./modules/headless/guiom_ssh.pub);
@@ -82,6 +91,27 @@
           ];
           extraSpecialArgs = {
             inherit pkgs-unstable;
+          };
+        };
+
+        # IN PROGRESS: mac-mini configuration of my home-manager flake
+        "codspeed" = home-manager.lib.homeManagerConfiguration {
+          pkgs = darwinPkgs.pkgs;
+          modules = [
+            {
+              home.username = "codspeed";
+              home.homeDirectory = "/Users/codspeed";
+              gui.enable = false;
+              stockly.enable = false;
+              programs.zsh.oh-my-zsh.theme = "gnzh";
+              # GPG agent is forwarded via SSH, prevent local auto-start
+              programs.gpg.settings.no-autostart = true;
+            }
+            stylix.homeModules.stylix
+            ./modules/home-manager.nix
+          ];
+          extraSpecialArgs = {
+            pkgs-unstable = darwinPkgs.pkgs-unstable;
           };
         };
 

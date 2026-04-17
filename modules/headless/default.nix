@@ -20,56 +20,62 @@
     tmux.enable = true;
     zellij.enable = true;
 
-    home.packages = with pkgs; [
-      btop
-      fastfetch
-      fd
-      fnm
-      fswatch
-      gcc
-      git-absorb
-      gnumake
-      jq
-      just
-      killall
-      nh
-      pciutils
-      ripgrep
-      rustup
-      tig
-      tree
-      unzip
-      usbutils
-      zip
+    home.packages =
+      with pkgs;
+      [
+        btop
+        fastfetch
+        fd
+        fnm
+        fswatch
+        gcc
+        git-absorb
+        gnumake
+        jq
+        just
+        ripgrep
+        rustup
+        tig
+        tree
+        unzip
+        zip
 
-      # Codspeed to sort
-      yubikey-manager
-      yubioath-flutter
+        # Codspeed to sort
+        yubikey-manager
+      ]
+      ++ lib.optionals stdenv.isLinux [
+        killall
+        nh
+        pciutils
+        usbutils
+        yubioath-flutter
+      ]
+      ++ [
+        # Nvim cross-project basics
+        tree-sitter
+        imagemagick
+        lua-language-server
+        yaml-language-server
+        luajitPackages.luarocks
+        nixd
+        nixfmt-rfc-style
+        pkgs-unstable.oxfmt
+        # nodePackages_latest.prettier # Markdown formatting
+        stylua
+        taplo
+        vscode-langservers-extracted
+        pkgs-unstable.copilot-language-server
+        zellij
 
-      # Nvim cross-project basics
-      tree-sitter
-      imagemagick
-      lua-language-server
-      yaml-language-server
-      luajitPackages.luarocks
-      nixd
-      nixfmt-rfc-style
-      pkgs-unstable.oxfmt
-      # nodePackages_latest.prettier # Markdown formatting
-      stylua
-      taplo
-      vscode-langservers-extracted
-      pkgs-unstable.copilot-language-server
+        (pkgs.callPackage ./gitPushStack.nix {
+          inherit pkgs lib config;
+        })
 
-      (pkgs.callPackage ./gitPushStack.nix {
-        inherit pkgs lib config;
-      })
+        (pkgs.callPackage ./untar.nix {
+          inherit pkgs;
+        })
 
-      (pkgs.callPackage ./untar.nix {
-        inherit pkgs;
-      })
-
-    ];
+      ];
 
     xdg.configFile = {
       "nvim" = {
@@ -87,7 +93,6 @@
     };
 
     home.shellAliases = {
-      nfu = "nix flake update && nh os switch -a && gcam 'chore: update flake' ";
       lg = "lazygit";
       lgl = "lazygit log";
       lgb = "lazygit branch";
@@ -106,7 +111,9 @@
       '';
       dc = "docker-compose";
       tarc = "tar -czf";
-
+    }
+    // lib.optionalAttrs pkgs.stdenv.isLinux {
+      nfu = "nix flake update && nh os switch -a && gcam 'chore: update flake' ";
       # Systemctl aliases
       scu = "systemctl --user";
       sc = "sudo systemctl";

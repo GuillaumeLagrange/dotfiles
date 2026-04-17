@@ -21,7 +21,7 @@ let
   '';
 in
 {
-  config = {
+  config = lib.mkIf config.gui.enable {
     programs.hyprlock = {
       enable = true;
       settings = {

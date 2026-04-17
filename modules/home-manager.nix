@@ -30,7 +30,7 @@
       NH_FLAKE = "$HOME/dotfiles";
     };
 
-    xdg = {
+    xdg = lib.mkIf pkgs.stdenv.isLinux {
       userDirs = {
         enable = true;
         download = "${config.home.homeDirectory}/downloads";

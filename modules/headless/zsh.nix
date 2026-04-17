@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 {
   config = {
     programs.zsh = {
@@ -17,19 +22,25 @@
           "npm"
           "docker"
           "rust"
-          "systemd"
           "globalias" # Auto expand shell aliases
-        ];
+        ]
+        ++ lib.optionals pkgs.stdenv.isLinux [ "systemd" ];
       };
 
+      # FIXME: This is a macos specific issue
       initContent = ''
+        # Prepend nix-profile to PATH so nix-managed tools take priority over
+        # system ones (macOS path_helper in /etc/zprofile reorders PATH after
+        # ~/.zshenv, so we must fix it here in .zshrc).
+        export PATH="$HOME/.nix-profile/bin:$PATH"
+
         bindkey '^y' autosuggest-accept
 
         if [[ "$TERM" == "xterm-kitty" ]]; then
           alias ssh="kitten ssh"
         fi
 
-        export PNPM_HOME="/home/guillaume/.local/share/pnpm"
+        export PNPM_HOME="${config.home.homeDirectory}/.local/share/pnpm"
         case ":$PATH:" in
           *":$PNPM_HOME:"*) ;;
           *) export PATH="$PNPM_HOME:$PATH" ;;
