@@ -1,9 +1,9 @@
 { inputs, withSystem, ... }:
 {
   # IN PROGRESS: mac-mini configuration of my home-manager flake
-  flake.homeConfigurations.codspeed = withSystem "aarch64-darwin" (
+  configurations.home.codspeed = withSystem "aarch64-darwin" (
     { pkgs, pkgs-unstable, ... }:
-    inputs.home-manager.lib.homeManagerConfiguration {
+    {
       inherit pkgs;
       modules = [
         {
@@ -18,9 +18,7 @@
         inputs.stylix.homeModules.stylix
         ../../modules/home-manager.nix
       ];
-      extraSpecialArgs = {
-        inherit pkgs-unstable;
-      };
+      extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );
 }

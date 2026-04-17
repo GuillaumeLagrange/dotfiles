@@ -1,8 +1,8 @@
 { inputs, withSystem, ... }:
 {
-  flake.homeConfigurations."guillaume@gullywash" = withSystem "x86_64-linux" (
+  configurations.home."guillaume@gullywash" = withSystem "x86_64-linux" (
     { pkgs, pkgs-unstable, ... }:
-    inputs.home-manager.lib.homeManagerConfiguration {
+    {
       inherit pkgs;
       modules = [
         {
@@ -13,9 +13,7 @@
         inputs.stylix.homeModules.stylix
         ../../modules/home-manager.nix
       ];
-      extraSpecialArgs = {
-        inherit pkgs-unstable;
-      };
+      extraSpecialArgs = { inherit pkgs-unstable; };
     }
   );
 }

@@ -8,6 +8,7 @@
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
+    import-tree.url = "github:vic/import-tree";
     lanzaboote = {
       url = "github:nix-community/lanzaboote/v0.4.3";
       # Fails to build otherwise for now after 25.11 switch, retry later
@@ -27,20 +28,5 @@
     };
   };
 
-  outputs =
-    inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [
-        inputs.home-manager.flakeModules.home-manager
-        ./parts/systems.nix
-        ./parts/pkgs.nix
-        ./parts/lib.nix
-        ./parts/home/guillaume.nix
-        ./parts/home/codspeed.nix
-        ./parts/home/gullywash.nix
-        ./parts/hosts/badlands.nix
-        ./parts/hosts/gullywash.nix
-        ./parts/hosts/iso.nix
-      ];
-    };
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./parts);
 }
