@@ -9,11 +9,11 @@
     { pkgs-unstable, ... }:
     {
       imports = [
-        (import ../../modules/secure_boot.nix { lanzaboote = inputs.lanzaboote; })
+        config.flake.modules.nixos.secure-boot
         config.flake.modules.nixos.home-manager-base
         inputs.stylix.nixosModules.stylix
         config.flake.modules.nixos.stylix-common
-        ../../hosts/badlands/configuration.nix
+        ./badlands/_configuration.nix
         inputs.nix-index-database.nixosModules.nix-index
         { programs.nix-index-database.comma.enable = true; }
       ];

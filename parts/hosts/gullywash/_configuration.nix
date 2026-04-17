@@ -13,9 +13,9 @@
 {
   imports = [
     # Include the results of the hardware scan.
-    ./hardware-configuration.nix
-    ./zfs.nix
-    ../common.nix
+    ./_hardware-configuration.nix
+    ./_zfs.nix
+    ../_common.nix
   ];
 
   nix.settings.experimental-features = [

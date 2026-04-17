@@ -11,7 +11,7 @@
     {
       imports = [
         config.flake.modules.nixos.home-manager-base
-        ../../hosts/gullywash/configuration.nix
+        ./gullywash/_configuration.nix
         inputs.nix-index-database.nixosModules.nix-index
         { programs.nix-index-database.comma.enable = true; }
       ];
