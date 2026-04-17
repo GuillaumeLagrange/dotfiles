@@ -3,6 +3,7 @@
   pkgs-unstable,
   lib,
   config,
+  hmModules,
   ...
 }:
 {
@@ -11,7 +12,7 @@
   };
 
   imports = [
-    ./tmux.nix
+    hmModules.headless-tmux
     ./zellij.nix
     ./zsh.nix
   ];

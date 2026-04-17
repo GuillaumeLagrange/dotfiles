@@ -27,7 +27,10 @@
   config.flake.homeConfigurations = lib.flip lib.mapAttrs config.configurations.home (
     _name: entry:
     inputs.home-manager.lib.homeManagerConfiguration {
-      inherit (entry) pkgs modules extraSpecialArgs;
+      inherit (entry) pkgs modules;
+      extraSpecialArgs = entry.extraSpecialArgs // {
+        hmModules = config.flake.modules.homeManager or { };
+      };
     }
   );
 }

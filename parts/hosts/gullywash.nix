@@ -1,8 +1,8 @@
 {
   inputs,
   withSystem,
-  mkHomeManagerModule,
   sshPublicKey,
+  config,
   ...
 }:
 {
@@ -10,20 +10,20 @@
     { pkgs-unstable, ... }:
     {
       imports = [
-        inputs.home-manager.nixosModules.home-manager
+        config.flake.modules.nixos.home-manager-base
         ../../hosts/gullywash/configuration.nix
         inputs.nix-index-database.nixosModules.nix-index
         { programs.nix-index-database.comma.enable = true; }
-        (mkHomeManagerModule { inherit pkgs-unstable; } {
-          extraConfig = {
-            gui.enable = false;
-            codspeed.enable = false;
-            programs.zsh.oh-my-zsh.theme = "gnzh";
-          };
-        })
       ];
 
+      _module.args.pkgs-unstable = pkgs-unstable;
       _module.args.sshPublicKey = sshPublicKey;
+
+      home-manager.users.guillaume = {
+        gui.enable = false;
+        codspeed.enable = false;
+        programs.zsh.oh-my-zsh.theme = "gnzh";
+      };
     }
   );
 }
