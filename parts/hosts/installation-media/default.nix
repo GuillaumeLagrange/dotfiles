@@ -7,7 +7,7 @@
         "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
       ];
 
-      isoImage.isoName = "guiom-nixos-installation.iso";
+      image.fileName = "guiom-nixos-installation.iso";
 
       nix.settings.experimental-features = [
         "nix-command"

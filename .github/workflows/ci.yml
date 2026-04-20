@@ -24,8 +24,8 @@ jobs:
             --argjson nixos "$nixos" \
             --argjson home "$home" \
             '
-              ($nixos[] | "nixosConfigurations.\(.).config.system.build.toplevel"),
-              ($home[]  | "homeConfigurations.\(.).activationPackage")
+              ($nixos[] | "nixosConfigurations.\"\(.)\".config.system.build.toplevel"),
+              ($home[]  | "homeConfigurations.\"\(.)\".activationPackage")
             ')
           {
             echo "targets<<EOF"
