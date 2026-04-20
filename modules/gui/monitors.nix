@@ -74,7 +74,7 @@
 
         mainOffice = lib.mkOption {
           type = monitorOptions {
-            defaultName = "Dell Inc. DELL P2423D FL44W14";
+            defaultName = "Dell Inc. DELL P2423D FN44W14";
             defaultResolution = "2560x1440";
             defaultRefreshRate = 75;
             defaultX = 1920;
