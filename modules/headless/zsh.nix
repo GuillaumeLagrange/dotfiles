@@ -1,6 +1,11 @@
 {
   flake.modules.homeManager.zsh =
-    { pkgs, config, lib, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     {
       programs.zsh = {
         enable = true;
@@ -18,7 +23,6 @@
             "npm"
             "docker"
             "rust"
-            "globalias"
           ]
           ++ lib.optionals pkgs.stdenv.isLinux [ "systemd" ];
         };
