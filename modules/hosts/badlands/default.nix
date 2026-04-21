@@ -3,17 +3,17 @@
   flake.modules.nixos.badlands =
     { pkgs, lib, ... }:
     {
-      imports = [
-        self.modules.nixos.base
-        self.modules.nixos.home-manager
-        self.modules.nixos.stylix
-        self.modules.nixos.secure-boot
-        self.modules.nixos.gui
-        self.modules.nixos.codspeed
+      imports = with self.modules.nixos; [
+        base
+        home-manager
+        stylix
+        secure-boot
+        gui
+        codspeed
         ./_hardware.nix
       ];
 
-      home-manager.users.guillaume.imports = [ self.modules.homeManager.guillaume ];
+      home-manager.users.guillaume.imports = with self.modules.homeManager; [ guillaume ];
 
       boot.loader.efi.canTouchEfiVariables = true;
       boot.supportedFilesystems = [ "btrfs" ];

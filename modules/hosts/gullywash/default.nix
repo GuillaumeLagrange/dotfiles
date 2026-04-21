@@ -3,15 +3,15 @@
   flake.modules.nixos.gullywash =
     { pkgs, ... }:
     {
-      imports = [
-        self.modules.nixos.base
-        self.modules.nixos.home-manager
+      imports = with self.modules.nixos; [
+        base
+        home-manager
         ./_hardware.nix
         ./_zfs.nix
       ];
 
       home-manager.users.guillaume = {
-        imports = [ self.modules.homeManager.guillaume-headless ];
+        imports = with self.modules.homeManager; [ guillaume-headless ];
       };
 
       boot.loader.systemd-boot.enable = true;
