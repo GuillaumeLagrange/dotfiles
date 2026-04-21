@@ -47,6 +47,8 @@
       ];
 
       programs.nix-index-database.comma.enable = true;
+      programs.nix-index.enable = false;
+      programs.command-not-found.enable = false;
 
       nix.optimise.automatic = true;
       programs.nh = {
