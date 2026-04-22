@@ -51,38 +51,38 @@ vim.opt.smartcase = true
 vim.opt.signcolumn = 'yes'
 -- Decrease mapped sequence wait time
 -- Displays which-key popup sooner
-vim.opt.timeoutlen = 300
--- Configure how new splits should be opened
-vim.opt.splitright = true
-vim.opt.splitbelow = true
--- Sets how neovim will display certain whitespace characters in the editor.
-vim.opt.list = true
-vim.opt.listchars = { tab = '╎ ', trail = '·', nbsp = '␣' }
-vim.opt.iskeyword:append('-')
--- Preview substitutions live, as you type!
-vim.opt.inccommand = 'split'
--- Show which line your cursor is on
-vim.opt.cursorline = true
--- Minimal number of screen lines to keep above and below the cursor.
-vim.opt.scrolloff = 3
-vim.opt.termguicolors = true
-
-vim.opt.tabstop = 4
-
-vim.opt.updatetime = 1000
-
-vim.o.diffopt = 'internal,filler,closeoff,linematch:60,iwhite'
-vim.o.wildignorecase = true
-
-vim.o.foldmethod = 'expr'
-vim.o.foldlevelstart = 99
-vim.wo.foldexpr = "v:lua.require('utils').foldexpr()"
-
-vim.o.formatexpr = "v:lua.require('conform').formatexpr()"
-
-vim.o.swapfile = false
-vim.o.autoread = true
-
-vim.o.winborder = 'rounded'
-
-vim.o.exrc = true
+-- vim.opt.timeoutlen = 300
+-- -- Configure how new splits should be opened
+-- vim.opt.splitright = true
+-- vim.opt.splitbelow = true
+-- -- Sets how neovim will display certain whitespace characters in the editor.
+-- vim.opt.list = true
+-- vim.opt.listchars = { tab = '╎ ', trail = '·', nbsp = '␣' }
+-- vim.opt.iskeyword:append('-')
+-- -- Preview substitutions live, as you type!
+-- vim.opt.inccommand = 'split'
+-- -- Show which line your cursor is on
+-- vim.opt.cursorline = true
+-- -- Minimal number of screen lines to keep above and below the cursor.
+-- vim.opt.scrolloff = 3
+-- vim.opt.termguicolors = true
+--
+-- vim.opt.tabstop = 4
+--
+-- vim.opt.updatetime = 1000
+--
+-- vim.o.diffopt = 'internal,filler,closeoff,linematch:60,iwhite'
+-- vim.o.wildignorecase = true
+--
+-- vim.o.foldmethod = 'expr'
+-- vim.o.foldlevelstart = 99
+-- vim.wo.foldexpr = "v:lua.require('utils').foldexpr()"
+--
+-- vim.o.formatexpr = "v:lua.require('conform').formatexpr()"
+--
+-- vim.o.swapfile = false
+-- vim.o.autoread = true
+--
+-- vim.o.winborder = 'rounded'
+--
+-- vim.o.exrc = true

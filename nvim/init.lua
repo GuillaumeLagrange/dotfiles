@@ -5,12 +5,13 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 require('options')
-require('commands')
+-- require('commands')
 require('autocmds')
-require('keymaps')
-require('term')
-require('session')
-require('diagnostics')
+-- require('keymaps')
+-- require('term')
+-- require('session')
+-- require('diagnostics')
+require('large_files').setup()
 
 -- [[ Plugin globals — must be set before vim.pack.add() loads the plugins ]]
 vim.g.tmux_navigator_no_mappings = 1
@@ -55,39 +56,39 @@ vim.api.nvim_create_autocmd('PackChanged', {
 })
 
 -- [[ Install and load all plugins ]]
-vim.pack.add({
-  -- Keep fist
-  'https://github.com/sainnhe/gruvbox-material',
-
-  -- Simple plugins
-  'https://github.com/tpope/vim-sleuth',
-  'https://github.com/tpope/vim-abolish',
-  'https://github.com/tpope/vim-surround',
-
-  -- UI
-  'https://github.com/nvim-tree/nvim-web-devicons',
-  'https://github.com/ofseed/copilot-status.nvim',
-  'https://github.com/folke/todo-comments.nvim',
-  'https://github.com/nvim-lua/plenary.nvim',
-
-  -- Search & replace
-  'https://github.com/nvim-pack/nvim-spectre',
-
-  -- Tmux
-  'https://github.com/christoomey/vim-tmux-navigator',
-
-  -- Rust
-  { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('8.x') },
-
-  -- [[ PURGATORY BELOW ]]
-
-  -- Code diff
-  'https://github.com/rickhowe/diffchar.vim',
-  'https://github.com/MunifTanjim/nui.nvim',
-  'https://github.com/esmuellert/codediff.nvim',
-
-  'https://github.com/barrettruth/preview.nvim',
-  'https://github.com/j-hui/fidget.nvim',
-
-  'https://github.com/pteroctopus/faster.nvim', -- handled by snacks?
-})
+-- vim.pack.add({
+--   -- Keep fist
+--   'https://github.com/sainnhe/gruvbox-material',
+--
+--   -- Simple plugins
+--   'https://github.com/tpope/vim-sleuth',
+--   'https://github.com/tpope/vim-abolish',
+--   'https://github.com/tpope/vim-surround',
+--
+--   -- UI
+--   'https://github.com/nvim-tree/nvim-web-devicons',
+--   'https://github.com/ofseed/copilot-status.nvim',
+--   'https://github.com/folke/todo-comments.nvim',
+--   'https://github.com/nvim-lua/plenary.nvim',
+--
+--   -- Search & replace
+--   'https://github.com/nvim-pack/nvim-spectre',
+--
+--   -- Tmux
+--   'https://github.com/christoomey/vim-tmux-navigator',
+--
+--   -- Rust
+--   { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('8.x') },
+--
+--   -- [[ PURGATORY BELOW ]]
+--
+--   -- Code diff
+--   'https://github.com/rickhowe/diffchar.vim',
+--   'https://github.com/MunifTanjim/nui.nvim',
+--   'https://github.com/esmuellert/codediff.nvim',
+--
+--   'https://github.com/barrettruth/preview.nvim',
+--   'https://github.com/j-hui/fidget.nvim',
+--
+--   'https://github.com/pteroctopus/faster.nvim', -- handled by snacks?
+-- })
