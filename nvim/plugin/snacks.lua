@@ -4,7 +4,41 @@ vim.pack.add({
 
 ---@type snacks.Config
 require('snacks').setup({
-  bigfile = { enabled = true },
+  bigfile = {
+    notify = true, -- show notification when big file detected
+    size = 1.5 * 1024 * 1024, -- 1.5MB
+    line_length = 1000, -- average line length (useful for minified files)
+    -- Enable or disable features when big file detected
+    ---@param ctx {buf: number, ft:string}
+    setup = function(ctx)
+      local buf = ctx.buf
+      if vim.fn.exists(':NoMatchParen') ~= 0 then
+        vim.cmd([[NoMatchParen]])
+      end
+
+      -- Shadow matchit's global `%` with the builtin `%`
+      local opts = { buffer = buf, silent = true, remap = false }
+      vim.notify('Large file detected')
+      for _, mode in ipairs({ 'n', 'x', 'o' }) do
+        vim.keymap.set(mode, '%', '%', opts)
+        vim.keymap.set(mode, 'g%', '%', opts)
+      end
+      vim.b[buf].large_file = true
+      for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+        vim.wo[win].breakindent = false
+      end
+
+      Snacks.util.wo(0, { foldmethod = 'manual', statuscolumn = '', conceallevel = 0 })
+      vim.b.completion = false
+      vim.b.minianimate_disable = true
+      vim.b.minihipatterns_disable = true
+      vim.schedule(function()
+        if vim.api.nvim_buf_is_valid(ctx.buf) then
+          vim.bo[ctx.buf].syntax = ctx.ft
+        end
+      end)
+    end,
+  },
   dashboard = { enabled = false },
   explorer = {
     enabled = true,
@@ -33,6 +67,16 @@ require('snacks').setup({
         filename_only = false,
         icon_width = 2,
         git_status_hl = true,
+      },
+    },
+    win = {
+      input = {
+        keys = {
+          ['<a-h>'] = false,
+          ['<a-i>'] = false,
+          ['<c-h>'] = { 'toggle_hidden', mode = { 'n', 'i' } },
+          ['<c-g>'] = { 'toggle_ignored', mode = { 'n', 'i' } },
+        },
       },
     },
   },

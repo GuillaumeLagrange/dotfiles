@@ -32,6 +32,9 @@
         configFile."mimeapps.list" = {
           source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/mimeapps.list";
         };
+        configFile."harper-ls/dictionary.txt" = {
+          source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/harper-dict.txt";
+        };
       };
 
       fonts.fontconfig = {

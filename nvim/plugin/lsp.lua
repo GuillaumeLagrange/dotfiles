@@ -107,3 +107,24 @@ vim.lsp.config.nixd = {
   },
 }
 vim.lsp.enable('nixd')
+
+vim.lsp.config.harper_ls = {
+  settings = {
+    ['harper-ls'] = {
+      userDictPath = vim.fn.expand('~/.config/harper-ls/dictionary.txt'),
+      linters = {
+        ExpandMemoryShorthands = false,
+        OrthographicConsistency = false, -- All caps warnings
+        ToDoHyphen = false, -- All caps warnings
+        -- TODO: Dynamically add linters from code action, and add a strict mode to that has a separate source of linters
+      },
+    },
+  },
+}
+vim.lsp.enable('harper_ls')
+
+vim.keymap.set('n', '<leader>lh', function()
+  local enabled = vim.lsp.is_enabled('harper_ls')
+  vim.lsp.enable('harper_ls', not enabled)
+  vim.notify('harper_ls ' .. (enabled and 'disabled' or 'enabled'))
+end, { desc = 'Toggle Harper' })

@@ -45,6 +45,7 @@
         ]
         ++ [
           tree-sitter
+          harper
           imagemagick
           lua-language-server
           yaml-language-server
