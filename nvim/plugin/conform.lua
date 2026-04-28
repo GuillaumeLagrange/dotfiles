@@ -19,7 +19,7 @@ require('conform').setup({
     jsonc = { 'oxfmt', timeout_ms = 2000 },
     cmake = { 'gersemi' },
     markdown = { 'oxfmt' },
-    mdx = { 'prettier', timeout_ms = 2000 },
+    mdx = { 'oxfmt', timeout_ms = 2000 },
     toml = { 'taplo' },
   },
 })

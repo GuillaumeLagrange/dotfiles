@@ -18,7 +18,6 @@ require('snacks').setup({
 
       -- Shadow matchit's global `%` with the builtin `%`
       local opts = { buffer = buf, silent = true, remap = false }
-      vim.notify('Large file detected')
       for _, mode in ipairs({ 'n', 'x', 'o' }) do
         vim.keymap.set(mode, '%', '%', opts)
         vim.keymap.set(mode, 'g%', '%', opts)
@@ -44,20 +43,7 @@ require('snacks').setup({
     enabled = true,
     replace_netrw = true,
   },
-  indent = {
-    enabled = true,
-    indent = {
-      char = '╎',
-    },
-    scope = {
-      char = '╎',
-    },
-  },
   input = { enabled = true },
-  notifier = {
-    enabled = true,
-    timeout = 3000,
-  },
   picker = {
     enabled = true,
     formatters = {
@@ -81,8 +67,6 @@ require('snacks').setup({
     },
   },
   quickfile = { enabled = true },
-  scope = { enabled = true },
-  words = { enabled = true },
   styles = {
     notification = {
       wo = { wrap = true },
@@ -132,26 +116,6 @@ end, { desc = 'Find Workflow Files' })
 vim.keymap.set('n', '<leader>fp', function()
   Snacks.picker.files({ cwd = '~/.claude/plans' })
 end, { desc = 'Find Plans' })
-
--- git
-vim.keymap.set('n', '<leader>gb', function()
-  Snacks.picker.git_branches()
-end, { desc = 'Git Branches' })
-vim.keymap.set('n', '<leader>gl', function()
-  Snacks.picker.git_log()
-end, { desc = 'Git Log' })
-vim.keymap.set('n', '<leader>gL', function()
-  Snacks.picker.git_log_line()
-end, { desc = 'Git Log Line' })
-vim.keymap.set('n', '<leader>gs', function()
-  Snacks.picker.git_status()
-end, { desc = 'Git Status' })
-vim.keymap.set('n', '<leader>gS', function()
-  Snacks.picker.git_stash()
-end, { desc = 'Git Stash' })
-vim.keymap.set('n', '<leader>gf', function()
-  Snacks.picker.git_log_file()
-end, { desc = 'Git Log File' })
 
 -- Grep
 vim.keymap.set('n', '<leader>sb', function()
@@ -216,15 +180,6 @@ end, { desc = 'Man Pages' })
 vim.keymap.set('n', '<leader>sq', function()
   Snacks.picker.qflist()
 end, { desc = 'Quickfix List' })
-vim.keymap.set('n', '<leader>sR', function()
-  Snacks.picker.resume()
-end, { desc = 'Resume' })
-vim.keymap.set('n', '<leader>su', function()
-  Snacks.picker.undo()
-end, { desc = 'Undo History' })
-vim.keymap.set('n', '<leader>uC', function()
-  Snacks.picker.colorschemes()
-end, { desc = 'Colorschemes' })
 
 -- LSP
 vim.keymap.set('n', 'gd', function()
@@ -248,75 +203,3 @@ end, { desc = 'LSP Symbols' })
 vim.keymap.set('n', '<leader>sS', function()
   Snacks.picker.lsp_workspace_symbols()
 end, { desc = 'LSP Workspace Symbols' })
-
--- Other
-vim.keymap.set('n', '<leader>z', function()
-  Snacks.zen()
-end, { desc = 'Toggle Zen Mode' })
-vim.keymap.set('n', '<leader>Z', function()
-  Snacks.zen.zoom()
-end, { desc = 'Toggle Zoom' })
-vim.keymap.set('n', '<leader>.', function()
-  Snacks.scratch()
-end, { desc = 'Toggle Scratch Buffer' })
-vim.keymap.set('n', '<leader>S', function()
-  Snacks.scratch.select()
-end, { desc = 'Select Scratch Buffer' })
-vim.keymap.set('n', '<leader>cR', function()
-  Snacks.rename.rename_file()
-end, { desc = 'Rename File' })
-vim.keymap.set({ 'n', 'v' }, '<leader>gB', function()
-  Snacks.gitbrowse()
-end, { desc = 'Git Browse' })
-vim.keymap.set('n', '<leader>un', function()
-  Snacks.notifier.hide()
-end, { desc = 'Dismiss All Notifications' })
-vim.keymap.set({ 'n', 't' }, [[<c-\>]], function()
-  Snacks.terminal()
-end, { desc = 'Toggle Terminal' })
-vim.keymap.set('n', '<c-_>', function()
-  Snacks.terminal()
-end, { desc = 'which_key_ignore' })
-vim.keymap.set({ 'n', 't' }, ']]', function()
-  Snacks.words.jump(vim.v.count1)
-end, { desc = 'Next Reference' })
-vim.keymap.set({ 'n', 't' }, '[[', function()
-  Snacks.words.jump(-vim.v.count1)
-end, { desc = 'Prev Reference' })
-vim.keymap.set('n', '<leader>N', function()
-  Snacks.win({
-    file = vim.api.nvim_get_runtime_file('doc/news.txt', false)[1],
-    width = 0.6,
-    height = 0.6,
-    wo = {
-      spell = false,
-      wrap = false,
-      signcolumn = 'yes',
-      statuscolumn = ' ',
-      conceallevel = 3,
-    },
-  })
-end, { desc = 'Neovim News' })
-
--- Setup globals and toggles (deferred)
-vim.schedule(function()
-  _G.dd = function(...)
-    Snacks.debug.inspect(...)
-  end
-  _G.bt = function()
-    Snacks.debug.backtrace()
-  end
-  vim.print = _G.dd
-
-  Snacks.toggle.option('spell', { name = 'Spelling' }):map('<leader>us')
-  Snacks.toggle.option('wrap', { name = 'Wrap' }):map('<leader>uw')
-  Snacks.toggle.option('relativenumber', { name = 'Relative Number' }):map('<leader>uL')
-  Snacks.toggle.diagnostics():map('<leader>ud')
-  Snacks.toggle.line_number():map('<leader>ul')
-  Snacks.toggle.option('conceallevel', { off = 0, on = vim.o.conceallevel > 0 and vim.o.conceallevel or 2 }):map('<leader>uc')
-  Snacks.toggle.treesitter():map('<leader>uT')
-  Snacks.toggle.option('background', { off = 'light', on = 'dark', name = 'Dark Background' }):map('<leader>ub')
-  Snacks.toggle.inlay_hints():map('<leader>uh')
-  Snacks.toggle.indent():map('<leader>ug')
-  Snacks.toggle.dim():map('<leader>uD')
-end)

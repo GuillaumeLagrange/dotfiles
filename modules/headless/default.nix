@@ -27,9 +27,10 @@
           gnumake
           jq
           just
+          nh
+          pkgs.unstable.prek
           ripgrep
           rustup
-          pkgs.unstable.prek
           tig
           tree
           unzip
@@ -39,7 +40,6 @@
         ]
         ++ lib.optionals stdenv.isLinux [
           killall
-          nh
           pciutils
           usbutils
           yubioath-flutter

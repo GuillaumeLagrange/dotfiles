@@ -54,3 +54,67 @@ require('mini.sessions').setup({
   verbose = { read = false, write = false, delete = true },
   hooks = { pre = { write = session.close_ephemeral_buffers } },
 })
+
+require('mini.indentscope').setup({
+  symbol = '╎',
+  options = { try_as_border = true },
+})
+
+vim.api.nvim_create_autocmd('TermOpen', {
+  callback = function(args)
+    vim.b[args.buf].miniindentscope_disable = true
+  end,
+})
+
+local miniclue = require('mini.clue')
+require('mini.clue').setup({
+  triggers = {
+    -- Leader triggers
+    { mode = { 'n', 'x' }, keys = '<Leader>' },
+
+    -- `[` and `]` keys
+    { mode = 'n', keys = '[' },
+    { mode = 'n', keys = ']' },
+
+    -- Built-in completion
+    { mode = 'i', keys = '<C-x>' },
+
+    -- `g` key
+    { mode = { 'n', 'x' }, keys = 'g' },
+
+    -- Marks
+    { mode = { 'n', 'x' }, keys = "'" },
+    { mode = { 'n', 'x' }, keys = '`' },
+
+    -- Registers
+    { mode = { 'n', 'x' }, keys = '"' },
+    { mode = { 'i', 'c' }, keys = '<C-r>' },
+
+    -- Window commands
+    { mode = 'n', keys = '<C-w>' },
+
+    -- `z` key
+    { mode = { 'n', 'x' }, keys = 'z' },
+  },
+
+  window = {
+    delay = 500,
+  },
+
+  clues = {
+    -- Enhance this by adding descriptions for <Leader> mapping groups
+    miniclue.gen_clues.square_brackets(),
+    miniclue.gen_clues.builtin_completion(),
+    miniclue.gen_clues.g(),
+    miniclue.gen_clues.marks(),
+    miniclue.gen_clues.registers(),
+    miniclue.gen_clues.windows(),
+    miniclue.gen_clues.z(),
+  },
+})
+
+require('mini.notify').setup({
+  lsp_progress = {
+    enable = false,
+  },
+})
