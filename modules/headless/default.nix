@@ -29,6 +29,7 @@
           just
           ripgrep
           rustup
+          pkgs.unstable.prek
           tig
           tree
           unzip
