@@ -203,3 +203,8 @@ end, { desc = 'LSP Symbols' })
 vim.keymap.set('n', '<leader>sS', function()
   Snacks.picker.lsp_workspace_symbols()
 end, { desc = 'LSP Workspace Symbols' })
+
+-- Other
+vim.keymap.set({ 'n', 't' }, [[<c-\>]], function()
+  Snacks.terminal()
+end, { desc = 'Toggle Terminal' })
