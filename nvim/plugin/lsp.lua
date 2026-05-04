@@ -116,6 +116,9 @@ vim.lsp.config.harper_ls = {
         ExpandMemoryShorthands = false,
         OrthographicConsistency = false, -- All caps warnings
         ToDoHyphen = false, -- All caps warnings
+        SentenceCapitalization = false,
+        LongSentences = false,
+
         -- TODO: Dynamically add linters from code action, and add a strict mode to that has a separate source of linters
       },
     },
