@@ -25,7 +25,7 @@
 
       programs.nix-ld.enable = true;
 
-      time.timeZone = "Europe/Paris";
+      time.timeZone = lib.mkDefault "Europe/Paris";
 
       programs.zsh.enable = true;
 

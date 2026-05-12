@@ -16,11 +16,11 @@ in
       type = types.package;
       default = pkgs.stdenv.mkDerivation {
         name = "oneleet";
-        version = "2.0.0-beta";
+        version = "2.2.8";
 
         src = pkgs.fetchurl {
-          url = "https://downloads.oneleet.com/agent/linux/Oneleet_2.0.0-beta.18_amd64.deb";
-          sha256 = "sha256-PuYg+NUAM7+PGh0m+m5HuSSweIpy5HdzCdCpoCwkcX8=";
+          url = "https://downloads.oneleet.com/agent/linux/Oneleet_2.2.8_amd64.deb";
+          sha256 = "sha256-daB5mwlBNGx0vTxD4N12WmS/R80seQWt6UKKYy4xyHs=";
         };
 
         nativeBuildInputs = with pkgs; [
@@ -114,6 +114,32 @@ in
           ln -sf ${cfg.package}/bin/oneleet-agent /usr/bin/oneleet-agent || true
         '';
         deps = [ ];
+      };
+    };
+
+    # Directories the daemon expects (config, logs).
+    systemd.tmpfiles.rules = [
+      "d /etc/oneleet 0755 root root -"
+      "d /var/log/oneleet 0755 root root -"
+    ];
+
+    # Run oneleet-daemon as a system service so the agent can always reach
+    # /tmp/oneleet-daemon.sock without re-authenticating each launch.
+    systemd.services.oneleet-daemon = {
+      description = "OneLeet daemon";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+
+      path = with pkgs; [ util-linux ];
+
+      serviceConfig = {
+        ExecStart = "${cfg.package}/opt/Oneleet/oneleet-daemon";
+        Restart = "always";
+        RestartSec = 5;
+        User = "root";
+        # World-readable socket so the user-launched agent can connect.
+        UMask = "0000";
       };
     };
   };
