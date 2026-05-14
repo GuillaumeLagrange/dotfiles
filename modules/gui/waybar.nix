@@ -7,6 +7,19 @@
           builtins.readFile ./niri/windows.py
         )
       );
+
+      aiUsageRuntimePath = pkgs.lib.makeBinPath [
+        pkgs.jq
+        pkgs.curl
+        pkgs.coreutils
+        pkgs.gnused
+      ];
+      claudeUsageScript = pkgs.writeShellScriptBin "waybar-claude-usage" ''
+        export PATH="${aiUsageRuntimePath}:$PATH"
+        export AI_USAGE_COMMON="${./waybar-scripts/ai-usage-common.sh}"
+        export AI_USAGE_RETRY_LIMIT="5"
+        exec ${pkgs.bash}/bin/bash ${./waybar-scripts/claude-usage.sh} "$@"
+      '';
     in
     {
       programs.waybar = {
@@ -35,6 +48,7 @@
               "custom/screenrecord"
               "mpris"
               "tray"
+              "custom/claude-usage"
               "disk"
               "cpu"
               "memory"
@@ -43,6 +57,16 @@
               "pulseaudio"
               "clock"
             ];
+
+            "custom/claude-usage" = {
+              return-type = "json";
+              format = "{}";
+              exec = "${claudeUsageScript}/bin/waybar-claude-usage";
+              on-click = "${claudeUsageScript}/bin/waybar-claude-usage --force-refresh";
+              on-click-right = "${claudeUsageScript}/bin/waybar-claude-usage --restart";
+              # /api/oauth/usage aggressively 429s — see github.com/anthropics/claude-code/issues/30930
+              interval = 300;
+            };
 
             "hyprland/workspaces" = {
               all-outputs = false;
