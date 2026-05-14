@@ -47,6 +47,8 @@
         SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ATTR{online}=="0", RUN+="${pkgs.power-profiles-daemon}/bin/powerprofilesctl set power-saver"
       '';
 
+      time.timeZone = "America/Los_Angeles";
+
       services.logind.settings.Login = {
         HandleLidSwitch = "suspend-then-hibernate";
         HandlePowerKey = "suspend-then-hibernate";

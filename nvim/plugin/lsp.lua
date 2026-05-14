@@ -124,7 +124,7 @@ vim.lsp.config.harper_ls = {
     },
   },
 }
-vim.lsp.enable('harper_ls')
+-- vim.lsp.enable('harper_ls')
 
 vim.keymap.set('n', '<leader>lh', function()
   local enabled = vim.lsp.is_enabled('harper_ls')
