@@ -141,6 +141,7 @@ button:hover {
 #pulseaudio,
 #wireplumber,
 #custom-media,
+#custom-claude-usage,
 #tray,
 #mode,
 #idle_inhibitor,
@@ -151,6 +152,22 @@ button:hover {
     color: black;
     margin: 4px;
     border-radius: 4px;
+}
+
+#custom-claude-usage {
+    background-color: @green;
+}
+
+#custom-claude-usage.mid {
+    background-color: @yellow;
+}
+
+#custom-claude-usage.high {
+    background-color: @orange;
+}
+
+#custom-claude-usage.critical {
+    background-color: @red;
 }
 
 #workspaces {
