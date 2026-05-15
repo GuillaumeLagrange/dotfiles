@@ -92,11 +92,5 @@ vim.keymap.set({ 'n', 't' }, '<leader>aF', function()
 end, { desc = 'Sidekick: toggle float/split' })
 
 vim.keymap.set({ 'n', 't' }, '<leader>az', function()
-  vim.wo.winfixwidth, vim.wo.winfixheight = false, false
-  if vim.t.zoomed then
-    vim.cmd('wincmd =')
-  else
-    vim.cmd('wincmd _ | wincmd |')
-  end
-  vim.t.zoomed = not vim.t.zoomed
+  Snacks.zoom()
 end, { desc = 'Toggle window zoom' })
