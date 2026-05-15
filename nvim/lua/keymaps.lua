@@ -84,5 +84,13 @@ vim.keymap.set('n', '<leader>yP', function()
   print('Copied path: ' .. path)
 end, { desc = 'Copy absolute file path to clipboard' })
 
+vim.keymap.set('x', '<leader>yj', function()
+  vim.cmd('normal! "zy')
+  local t = vim.fn.getreg('z')
+  t = t:gsub('%s*\n%s*', ' '):gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
+  vim.fn.setreg('+', t)
+  vim.notify('Yanked joined (' .. #t .. ' chars)')
+end, { desc = 'Yank joined to clipboard' })
+
 -- Disable 'qq' for macro recording
 vim.api.nvim_set_keymap('n', 'qq', '<Nop>', { noremap = true, silent = true })
