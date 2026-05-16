@@ -247,6 +247,10 @@
           "app-name=Slack" = {
             invisible = 1;
           };
+
+          "mode=do-not-disturb" = {
+            invisible = 1;
+          };
         };
       };
 

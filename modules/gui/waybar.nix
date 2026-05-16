@@ -20,6 +20,22 @@
         export AI_USAGE_RETRY_LIMIT="5"
         exec ${pkgs.bash}/bin/bash ${./waybar-scripts/claude-usage.sh} "$@"
       '';
+
+      settingsMenuRuntimePath = pkgs.lib.makeBinPath [
+        pkgs.wlinhibit
+        pkgs.mako
+        pkgs.power-profiles-daemon
+        pkgs.procps
+      ];
+      settingsMenuScript =
+        let
+          python = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
+        in
+        pkgs.writeShellScriptBin "waybar-settings-menu" ''
+          export PATH="${settingsMenuRuntimePath}:$PATH"
+          export GI_TYPELIB_PATH="${pkgs.gtk3}/lib/girepository-1.0:${pkgs.glib.out}/lib/girepository-1.0:${pkgs.gobject-introspection}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.pango.out}/lib/girepository-1.0:${pkgs.harfbuzz}/lib/girepository-1.0:${pkgs.atk}/lib/girepository-1.0:${pkgs.gtk-layer-shell}/lib/girepository-1.0"
+          exec ${python}/bin/python3 ${./waybar-scripts/settings_menu.py} "$@"
+        '';
     in
     {
       programs.waybar = {
@@ -53,18 +69,28 @@
               "cpu"
               "memory"
               "battery"
-              "power-profiles-daemon"
               "pulseaudio"
+              "custom/settings"
               "clock"
             ];
+
+            "custom/settings" = {
+              return-type = "json";
+              format = "{}";
+              exec = "${settingsMenuScript}/bin/waybar-settings-menu status";
+              on-click = "${settingsMenuScript}/bin/waybar-settings-menu menu";
+              signal = 9;
+              interval = 5;
+            };
 
             "custom/claude-usage" = {
               return-type = "json";
               format = "{}";
               exec = "${claudeUsageScript}/bin/waybar-claude-usage";
-              on-click = "${claudeUsageScript}/bin/waybar-claude-usage --force-refresh";
-              on-click-right = "${claudeUsageScript}/bin/waybar-claude-usage --restart";
+              on-click = "${claudeUsageScript}/bin/waybar-claude-usage --force-refresh && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
+              on-click-right = "${claudeUsageScript}/bin/waybar-claude-usage --restart && ${pkgs.procps}/bin/pkill -RTMIN+8 waybar";
               # /api/oauth/usage aggressively 429s — see github.com/anthropics/claude-code/issues/30930
+              signal = 8;
               interval = 300;
             };
 
@@ -105,15 +131,6 @@
               on-click = "${config.screenrecordScreenTool}";
             };
 
-            "power-profiles-daemon" = {
-              "format" = "{icon}";
-              "format-icons" = {
-                "power-saver" = "󰾆";
-                "balanced" = "󰾅";
-                "performance" = "󰓅";
-              };
-            };
-
             "mpris" = {
               "format" = " {player_icon} {status_icon} {dynamic} ";
               "player-icons" = {
@@ -142,7 +159,15 @@
             };
 
             "disk" = {
-              "format" = "{free}";
+              "format" = "󰋊 {free}";
+            };
+
+            "cpu" = {
+              "format" = "󰍛 {usage}%";
+            };
+
+            "memory" = {
+              "format" = "󰑭 {}%";
             };
 
             "pulseaudio" = {
@@ -172,8 +197,8 @@
             };
 
             "clock" = {
-              "format" = "  {:L%B %d, %R}";
-              "format-alt" = "  {:L%H:%M} ";
+              "format" = "󰃰 {:L%B %d, %R}";
+              "format-alt" = "󰥔 {:L%H:%M}";
               "tooltip-format" = "<tt><small>{calendar}</small></tt>";
               "calendar" = {
                 "mode" = "year";
