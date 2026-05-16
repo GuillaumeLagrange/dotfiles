@@ -22,6 +22,14 @@
           name = "Hack Nerd Font";
           package = pkgs.nerd-fonts.hack;
         };
+        sansSerif = {
+          name = "Inter";
+          package = pkgs.inter;
+        };
+        serif = {
+          name = "Inter";
+          package = pkgs.inter;
+        };
         emoji = {
           name = "Noto Color Emoji";
           package = pkgs.noto-fonts-color-emoji;

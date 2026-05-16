@@ -106,6 +106,7 @@
           mongodb-compass
           mongodb-tools
           kdePackages.kcachegrind
+          dbeaver-bin
 
           (writeShellScriptBin "valgrind" ''
             VALGRIND_LIB="${vgbasedir}/.in_place" \

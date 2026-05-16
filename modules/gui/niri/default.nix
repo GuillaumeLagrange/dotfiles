@@ -19,11 +19,11 @@
 
       xdg.configFile."niri/config.kdl".text =
         let
-          ws_web = "1. Web";
-          ws_term = "2. Term";
-          ws_code = "3. Code";
-          ws_scratchpad = "4. Scratch";
-          ws_perso = "5. Perso";
+          ws_web = "1.Web";
+          ws_term = "2.Term";
+          ws_code = "3.Code";
+          ws_scratchpad = "4.Scratch";
+          ws_perso = "5.Perso";
 
           quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
 
@@ -67,6 +67,7 @@
           spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
           spawn-at-startup "${pkgs.mako}/bin/mako"
           spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
+          spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
 
           prefer-no-csd
 
