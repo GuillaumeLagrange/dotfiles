@@ -42,7 +42,7 @@
         powertop.enable = true;
       };
 
-      time.timeZone = "America/Los_Angeles";
+      environment.enableDebugInfo = true;
 
       services.logind.settings.Login = {
         HandleLidSwitch = "suspend-then-hibernate";

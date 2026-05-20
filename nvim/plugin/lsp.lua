@@ -131,3 +131,76 @@ vim.keymap.set('n', '<leader>lh', function()
   vim.lsp.enable('harper_ls', not enabled)
   vim.notify('harper_ls ' .. (enabled and 'disabled' or 'enabled'))
 end, { desc = 'Toggle Harper' })
+
+-- Auto-stop idle LSP clients to free memory, restart them on activity.
+-- Adapted from https://old.reddit.com/r/neovim/comments/1teju9v/
+do
+  local uv = vim.uv or vim.loop
+
+  local STOP_TIMEOUT_MS = 1000 * 60 * 10
+
+  local lsps_to_ignore = {}
+
+  local shutting_down = false
+  local stop_timer = nil
+  local stopped = {}
+
+  local function clear_timer(timer)
+    if timer then
+      timer:stop()
+      timer:close()
+    end
+  end
+
+  vim.api.nvim_create_autocmd('CursorHold', {
+    callback = function()
+      clear_timer(stop_timer)
+
+      stop_timer = uv.new_timer()
+      if not stop_timer then
+        vim.notify('failed to create stop timer', vim.log.levels.ERROR)
+        return
+      end
+
+      stop_timer:start(
+        STOP_TIMEOUT_MS,
+        0,
+        vim.schedule_wrap(function()
+          shutting_down = true
+
+          for _, lsp in ipairs(vim.lsp.get_clients()) do
+            if not vim.tbl_contains(lsps_to_ignore, lsp.name) then
+              stopped[lsp.name] = true
+              lsp:stop(true)
+            end
+          end
+
+          shutting_down = false
+
+          clear_timer(stop_timer)
+          stop_timer = nil
+        end)
+      )
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ 'CursorMoved', 'InsertEnter', 'BufEnter' }, {
+    callback = function()
+      if shutting_down then
+        return
+      end
+
+      if stop_timer then
+        clear_timer(stop_timer)
+        stop_timer = nil
+      end
+
+      if vim.tbl_isempty(stopped) then
+        return
+      end
+
+      vim.lsp.enable(vim.tbl_keys(stopped), true)
+      stopped = {}
+    end,
+  })
+end
