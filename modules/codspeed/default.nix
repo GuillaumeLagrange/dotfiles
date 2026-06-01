@@ -29,14 +29,6 @@
           cd "${codspeed_root}/$@"
         }
         compdef '_files -W "${codspeed_root}" -/' cdc
-
-        # cod: wrapper that evals the script output for env commands
-        cod() {
-          case "$1" in
-            setup) command cod "$@" ;;
-            *)     eval "$(command cod "$@")" ;;
-          esac
-        }
       '';
 
       programs.granted.enable = true;
@@ -55,6 +47,9 @@
         bazel = "bazelisk";
         cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
         turbo = "pnpm turbo";
+        codstaging = "export CODSPEED_PROFILE=staging";
+        coddev = "export CODSPEED_PROFILE=dev";
+        codprod = "unset CODSPEED_PROFILE";
       };
 
       xdg.desktopEntries = lib.mkIf pkgs.stdenv.isLinux {
@@ -137,8 +132,6 @@
             runner_profile_dir=$(ls -td /tmp/profile.*.out | head -n 1)
             tar -czf "$archive_name" -C "$runner_profile_dir" .
           '')
-
-          (writeShellScriptBin "cod" (builtins.readFile ./cod.sh))
         ];
     };
 }

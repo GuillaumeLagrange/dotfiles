@@ -55,8 +55,8 @@
               echo -n "🐇 $CODSPEED_RUNNER_MODE "
             fi
 
-            if [ -n "$CODSPEED_CONFIG_NAME" ]; then
-              echo -n "🐰 $CODSPEED_CONFIG_NAME "
+            if [ -n "$CODSPEED_PROFILE" ]; then
+              echo -n "🐰 $CODSPEED_PROFILE "
             fi
           }
 
