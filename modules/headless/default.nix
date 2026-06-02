@@ -68,7 +68,13 @@
 
           (pkgs.writeShellApplication {
             name = "untar";
-            runtimeInputs = [ pkgs.gnutar ];
+            runtimeInputs = [
+              pkgs.gnutar
+              pkgs.gzip
+              pkgs.bzip2
+              pkgs.xz
+              pkgs.zstd
+            ];
             text = builtins.readFile ./untar.sh;
           })
         ];
