@@ -32,5 +32,18 @@ in
         programs.gpg.settings.no-autostart = true;
       }
     ];
+
+    # Generic headless configuration that adapts to whoever runs it.
+    # The username, home directory and system are resolved from the
+    # environment so the same entry bootstraps any headless box (e.g. an
+    # Ubuntu EC2 instance running as `ubuntu`). This relies on impure
+    # evaluation: build it with `--impure` (see scripts/bootstrap-headless.sh).
+    headless = mkHome (builtins.currentSystem) [
+      {
+        home.username = builtins.getEnv "USER";
+        home.homeDirectory = builtins.getEnv "HOME";
+        home.stateVersion = "23.11";
+      }
+    ];
   };
 }
