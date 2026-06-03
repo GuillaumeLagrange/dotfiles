@@ -21,10 +21,6 @@
       "rev": "dca1a190aa85f9065979ef35802fb77131911106",
       "src": "https://github.com/stevearc/conform.nvim"
     },
-    "copilot-status.nvim": {
-      "rev": "ea9e7000e82a89aac9d8434675dfed3da4ec1158",
-      "src": "https://github.com/ofseed/copilot-status.nvim"
-    },
     "copilot.vim": {
       "rev": "a12fd5672110c8aa7e3c8419e28c96943ca179be",
       "src": "https://github.com/github/copilot.vim"

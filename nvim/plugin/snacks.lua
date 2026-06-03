@@ -55,16 +55,6 @@ require('snacks').setup({
         git_status_hl = true,
       },
     },
-    win = {
-      input = {
-        keys = {
-          ['<a-h>'] = false,
-          ['<a-i>'] = false,
-          ['<c-h>'] = { 'toggle_hidden', mode = { 'n', 'i' } },
-          ['<c-g>'] = { 'toggle_ignored', mode = { 'n', 'i' } },
-        },
-      },
-    },
   },
   quickfile = { enabled = true },
   styles = {

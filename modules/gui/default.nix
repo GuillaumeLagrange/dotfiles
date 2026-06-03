@@ -141,6 +141,11 @@
           window_alert_on_bell = "no";
           mouse_hide_wait = 0.5;
         };
+        keybindings = {
+          # Always emit the CSI-u sequence for Shift+Enter so Claude Code sees a
+          # newline even inside tmux (which otherwise collapses it to plain Enter).
+          "shift+enter" = "send_text all \\x1b[13;2u";
+        };
       };
 
       programs.ghostty = {

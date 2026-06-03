@@ -30,6 +30,26 @@ require('sidekick').setup({
   },
 })
 
+-- Equalize splits when the sidekick CLI panel opens. The panel reuses a single
+-- session across toggles, so SidekickCliAttach only fires on first open; instead
+-- we watch for the panel window itself, which sidekick tags with a window var.
+vim.api.nvim_create_autocmd('WinNew', {
+  desc = 'Resize splits when the sidekick panel opens',
+  group = vim.api.nvim_create_augroup('sidekick-resize-splits', { clear = true }),
+  callback = function()
+    -- The panel is opened with enter=false, so it isn't the current window on
+    -- WinNew. Defer (so window-local vars are set) then scan for the panel.
+    vim.schedule(function()
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if vim.w[win].sidekick_cli ~= nil then
+          vim.cmd('wincmd =')
+          return
+        end
+      end
+    end)
+  end,
+})
+
 -- Make Shift+Enter send the correct sequence in neovim terminal buffers (for Claude Code)
 vim.keymap.set('t', '<S-Enter>', function()
   local chan = vim.b.terminal_job_id

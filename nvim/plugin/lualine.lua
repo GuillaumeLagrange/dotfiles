@@ -41,28 +41,6 @@ require('lualine').setup({
     },
     lualine_c = { { 'filename', path = 1, shorting_target = 70 } },
     lualine_x = {
-      {
-        'copilot',
-        show_running = true,
-        symbols = {
-          status = {
-            enabled = ' ',
-            disabled = ' ',
-          },
-          spinners = {
-            '⠋',
-            '⠙',
-            '⠹',
-            '⠸',
-            '⠼',
-            '⠴',
-            '⠦',
-            '⠧',
-            '⠇',
-            '⠏',
-          },
-        },
-      },
       'encoding',
       'filetype',
     },

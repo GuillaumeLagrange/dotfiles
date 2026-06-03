@@ -2,6 +2,10 @@
 
 This is a comprehensive NixOS/Home Manager configuration repository for Guillaume's personal systems.
 
+## IMPORTANT: Applying config
+
+- Do not proactively run the Home Manager / NixOS config switch (e.g. `home-manager switch`, `sudo nixos-rebuild switch`). After making edits, just tell the user to rebuild. Only run the switch yourself if the user explicitly asks you to.
+
 ## Repository Structure
 
 ### Core Files

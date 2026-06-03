@@ -74,7 +74,6 @@ vim.pack.add({
 
   -- UI
   'https://github.com/nvim-tree/nvim-web-devicons',
-  'https://github.com/ofseed/copilot-status.nvim',
   'https://github.com/folke/todo-comments.nvim',
   'https://github.com/nvim-lua/plenary.nvim',
 
