@@ -33,7 +33,6 @@
       ];
 
       networking.networkmanager.enable = true;
-      networking.wireless.enable = false;
     };
 
   flake.nixosConfigurations.guiom-nixos-installation = inputs.nixpkgs.lib.nixosSystem {

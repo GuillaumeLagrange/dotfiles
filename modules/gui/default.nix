@@ -50,7 +50,7 @@
         playerctl
         pomodoro-gtk
         proton-pass
-        protonvpn-gui
+        proton-vpn
         qwerty-fr
         signal-desktop
         slack
@@ -102,14 +102,14 @@
       programs.ssh = {
         enable = true;
         enableDefaultConfig = false;
-        matchBlocks = {
+        settings = {
           gullywash = {
-            hostname = "gullywash.glagrange.eu";
-            port = 22;
-            forwardAgent = true;
-            addressFamily = "inet";
-            user = "guillaume";
-            remoteForwards = [
+            HostName = "gullywash.glagrange.eu";
+            Port = 22;
+            ForwardAgent = true;
+            AddressFamily = "inet";
+            User = "guillaume";
+            RemoteForward = [
               {
                 host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
                 bind.address = "/run/user/1000/gnupg/S.gpg-agent";
@@ -117,8 +117,8 @@
             ];
           };
           "*" = {
-            addKeysToAgent = "yes";
-            setEnv = {
+            AddKeysToAgent = "yes";
+            SetEnv = {
               TERM = "xterm-256color";
             };
           };
@@ -173,12 +173,9 @@
 
       services.swayidle = {
         enable = true;
-        events = [
-          {
-            event = "before-sleep";
-            command = "${config.lock}";
-          }
-        ];
+        events = {
+          before-sleep = "${config.lock}";
+        };
         timeouts =
           let
             lockTimeout = 60 * 10;

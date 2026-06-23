@@ -28,6 +28,7 @@
           publicShare = "${config.home.homeDirectory}/media/public";
           templates = "${config.home.homeDirectory}/media/templates";
           createDirectories = false;
+          setSessionVariables = false;
         };
         configFile."mimeapps.list" = {
           source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/mimeapps.list";

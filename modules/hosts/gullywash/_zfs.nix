@@ -3,6 +3,11 @@ let
   gMailConfigPath = "/configs/gmail";
 in
 {
+  # Keep force-importing the root pool (pre-26.11 behaviour). A headless server
+  # can't recover interactively if a hostid mismatch makes a non-forced import
+  # refuse at boot, so the data-loss-vs-availability trade-off favours forcing.
+  boot.zfs.forceImportRoot = true;
+
   # ZFS tuning
   # Limit ZFS ARC to 4GB (25% of 16GB RAM)
   boot.kernelParams = [ "zfs.zfs_arc_max=4294967296" ];
@@ -72,7 +77,10 @@ in
       frequent = 0; # Disable frequent snapshots
     };
     zed = {
-      enableMail = true;
+      # Mail is sent through the msmtp binary set in ZED_EMAIL_PROG below, not
+      # through a system sendmail wrapper. enableMail would force ZED_EMAIL_PROG
+      # to the sendmail wrapper and assert that one is configured, so keep it off.
+      enableMail = false;
       settings = {
         # Use array format for email addresses (recommended)
         ZED_EMAIL_ADDR = [ "root" ];

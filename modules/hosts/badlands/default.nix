@@ -48,7 +48,7 @@
         HandleLidSwitch = "suspend-then-hibernate";
         HandlePowerKey = "suspend-then-hibernate";
       };
-      systemd.sleep.extraConfig = "HibernateDelaySec=24h";
+      systemd.sleep.settings.Sleep.HibernateDelaySec = "24h";
 
       services.xserver = {
         enable = true;

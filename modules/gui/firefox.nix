@@ -23,6 +23,9 @@
         programs.firefox = {
           enable = true;
           package = config.firefox.package;
+          # Pin the pre-26.05 default to avoid migrating the existing profile
+          # directory out of ~/.mozilla/firefox.
+          configPath = ".mozilla/firefox";
         };
       };
     };

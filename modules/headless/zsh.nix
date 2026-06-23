@@ -34,7 +34,7 @@
           # ~/.zshenv, so we must fix it here in .zshrc).
           export PATH="$HOME/.nix-profile/bin:$PATH"
 
-          bindkey '^y' autosuggest-accept
+          bindkey '^e' autosuggest-accept
 
           if [[ "$TERM" == "xterm-kitty" ]]; then
             alias ssh="kitten ssh"

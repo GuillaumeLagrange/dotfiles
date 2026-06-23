@@ -113,7 +113,7 @@
               { command = "${pkgs._1password-gui}/bin/1password --silent"; }
               { command = "${pkgs.protonmail-bridge}/bin/protonmail-bridge --no-window"; }
               { command = "${pkgs.mako}/bin/mako"; }
-              { command = "${pkgs.protonvpn-gui}/bin/protonvpn-app --start-minimized"; }
+              { command = "${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized"; }
               { command = "dbus-update-activation-environment PATH"; }
               {
                 command = "swaymsg input type:keyboard xkb_layout qwerty-fr";

@@ -45,6 +45,10 @@
           yubioath-flutter
         ]
         ++ [
+          # Config is managed out-of-store via xdg.configFile."nvim" → ~/dotfiles/nvim,
+          # so neovim is installed as a plain package rather than through
+          # programs.neovim (whose generated init.lua would collide with the symlink).
+          pkgs.unstable.neovim-unwrapped
           tree-sitter
           harper
           imagemagick
@@ -52,7 +56,7 @@
           yaml-language-server
           luajitPackages.luarocks
           nixd
-          nixfmt-rfc-style
+          nixfmt
           pkgs.unstable.oxfmt
           stylua
           taplo
@@ -82,7 +86,6 @@
       xdg.configFile = {
         "nvim" = {
           source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nvim";
-          recursive = true;
         };
 
         "tig/config" = {
@@ -95,6 +98,8 @@
       };
 
       home.shellAliases = {
+        vi = "nvim";
+        vim = "nvim";
         lg = "lazygit";
         lgl = "lazygit log";
         lgb = "lazygit branch";
@@ -193,15 +198,8 @@
           "Session.vim"
           ".nvim.lua"
           ".claude/settings.local.json"
+          ".claude/worktrees"
         ];
-      };
-
-      programs.neovim = {
-        enable = true;
-        package = pkgs.unstable.neovim-unwrapped;
-        viAlias = true;
-        vimAlias = true;
-        defaultEditor = true;
       };
 
       programs.gpg = {

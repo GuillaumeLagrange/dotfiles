@@ -73,11 +73,11 @@
       };
 
       programs.ssh = {
-        matchBlocks = {
+        settings = {
           "codspeeds-mac-mini*" = {
-            forwardAgent = true;
-            user = "codspeed";
-            remoteForwards = [
+            ForwardAgent = true;
+            User = "codspeed";
+            RemoteForward = [
               {
                 host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
                 bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
