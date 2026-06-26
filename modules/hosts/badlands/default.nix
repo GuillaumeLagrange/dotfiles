@@ -127,6 +127,12 @@
         serviceConfig.Type = "simple";
       };
 
+      # Show asterisks while typing the sudo password (the keyboard fallback
+      # when fingerprint auth is unavailable).
+      security.sudo.extraConfig = ''
+        Defaults pwfeedback
+      '';
+
       services.usbmuxd.enable = true;
       services.avahi = {
         nssmdns4 = true;

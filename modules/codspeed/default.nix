@@ -112,7 +112,7 @@
         ]
         ++ [
           (writeShellScriptBin "cicc" ''
-            direnv exec ${codspeed_root}/rust bash -c 'cd ${codspeed_root}/rust && cargo install --path ./crates/cargo-codspeed --locked'
+            direnv exec ${codspeed_root}/codspeed-rust bash -c 'cd ${codspeed_root}/codspeed-rust && cargo install --path ./crates/cargo-codspeed --locked'
           '')
 
           (writeShellScriptBin "cicr" ''

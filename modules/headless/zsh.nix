@@ -33,6 +33,7 @@
           # system ones (macOS path_helper in /etc/zprofile reorders PATH after
           # ~/.zshenv, so we must fix it here in .zshrc).
           export PATH="$HOME/.nix-profile/bin:$PATH"
+          export PATH="$HOME/go/bin:$PATH"
 
           bindkey '^e' autosuggest-accept
 
