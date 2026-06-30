@@ -14,5 +14,6 @@ x-scheme-handler/https=firefox.desktop
 application/pdf=firefox.desktop
 x-scheme-handler/tg=org.telegram.desktop.desktop
 x-scheme-handler/tonsite=org.telegram.desktop.desktop
+x-scheme-handler/slack=slack.desktop
 
 [Removed Associations]

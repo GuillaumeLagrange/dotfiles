@@ -89,7 +89,13 @@
 
       environment.etc."distrobox/distrobox.conf".text = ''
         container_additional_volumes="/nix/store:/nix/store:ro /etc/profiles/per-user:/etc/profiles/per-user:ro /etc/static/profiles/per-user:/etc/static/profiles/per-user:ro"
-        container_init_hook="echo 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:\$PATH\"' >> /etc/profile.d/fix-path.sh"
+        # The host /nix/store is mounted read-only above so nix-built tools
+        # resolve inside the container. distrobox-enter otherwise prepends the
+        # whole host PATH (including any active nix shell / direnv), which then
+        # shadows container-installed tooling. Reset the container PATH to FHS
+        # standard so the mounted store is reachable by absolute path but does
+        # not win over what the container itself installs.
+        clean_path=1
       '';
 
       environment.systemPackages = with pkgs; [

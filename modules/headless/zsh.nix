@@ -32,8 +32,17 @@
           # Prepend nix-profile to PATH so nix-managed tools take priority over
           # system ones (macOS path_helper in /etc/zprofile reorders PATH after
           # ~/.zshenv, so we must fix it here in .zshrc).
-          export PATH="$HOME/.nix-profile/bin:$PATH"
-          export PATH="$HOME/go/bin:$PATH"
+          #
+          # Inside a distrobox container ($CONTAINER_ID set by distrobox-enter)
+          # append instead, so container-installed tooling shadows the nix
+          # profile rather than the other way around.
+          if [ -n "$CONTAINER_ID" ]; then
+            export PATH="$PATH:$HOME/.nix-profile/bin"
+            export PATH="$PATH:$HOME/go/bin"
+          else
+            export PATH="$HOME/.nix-profile/bin:$PATH"
+            export PATH="$HOME/go/bin:$PATH"
+          fi
 
           bindkey '^e' autosuggest-accept
 

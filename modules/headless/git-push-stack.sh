@@ -7,7 +7,7 @@ usage() {
   echo "Push all branches in the current stack to origin"
   echo ""
   echo "Arguments:"
-  echo "  base-ref          Base reference (default: origin/main)"
+  echo "  base-ref          Base reference (default: origin/<main-branch>)"
   echo ""
   echo "Options:"
   echo "  -n, --dry-run     Show what would be pushed without actually pushing"
@@ -16,13 +16,28 @@ usage() {
   echo "  -h, --help        Show this help message"
   echo ""
   echo "Examples:"
-  echo "  git-push-stack                    # Push stack based on origin/main"
+  echo "  git-push-stack                    # Push stack based on origin/<main-branch>"
   echo "  git-push-stack origin/develop     # Push stack based on origin/develop"
   echo "  git-push-stack -n                 # Dry run to see what would be pushed"
 }
 
+# Resolve the repository's main branch by probing common names (honoring
+# GIT_MAIN_BRANCH), mirroring the zsh git_main_branch helper.
+git_main_branch() {
+  local location branch
+  for location in heads remotes/origin remotes/upstream; do
+    for branch in "${GIT_MAIN_BRANCH:-main}" trunk mainline default stable master; do
+      if git show-ref -q --verify "refs/$location/$branch"; then
+        echo "$branch"
+        return 0
+      fi
+    done
+  done
+  echo main
+}
+
 # Parse arguments
-base_ref="origin/main"
+base_ref=""
 dry_run=false
 verbose=false
 skip_confirm=false
@@ -76,6 +91,11 @@ log_error() {
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
   log_error "Not in a git repository"
   exit 1
+fi
+
+# Default to origin/<main-branch> when no base ref was given
+if [ -z "$base_ref" ]; then
+  base_ref="origin/$(git_main_branch)"
 fi
 
 # Check if we're in detached HEAD state
