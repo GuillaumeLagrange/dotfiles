@@ -18,6 +18,13 @@
       boot.loader.efi.canTouchEfiVariables = true;
       boot.supportedFilesystems = [ "btrfs" ];
 
+      zramSwap = {
+        enable = true;
+        algorithm = "zstd";
+        memoryPercent = 50;
+        priority = 100;
+      };
+
       networking.hostName = "badlands";
       networking.networkmanager.enable = true;
       services.resolved.enable = true;
