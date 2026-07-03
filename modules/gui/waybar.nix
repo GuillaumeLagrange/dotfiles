@@ -14,6 +14,11 @@
         pkgs.coreutils
         pkgs.gnused
       ];
+      memorySwapScript = pkgs.writeShellScriptBin "waybar-memory-swap" ''
+        export PATH="${pkgs.lib.makeBinPath [ pkgs.gawk pkgs.coreutils ]}:$PATH"
+        exec ${pkgs.bash}/bin/bash ${./waybar-scripts/memory-swap.sh} "$@"
+      '';
+
       claudeUsageScript = pkgs.writeShellScriptBin "waybar-claude-usage" ''
         export PATH="${aiUsageRuntimePath}:$PATH"
         export AI_USAGE_COMMON="${./waybar-scripts/ai-usage-common.sh}"
@@ -67,7 +72,7 @@
               "custom/claude-usage"
               "disk"
               "cpu"
-              "memory"
+              "custom/memory-swap"
               "battery"
               "pulseaudio"
               "custom/settings"
@@ -166,8 +171,11 @@
               "format" = "󰍛 {usage}%";
             };
 
-            "memory" = {
-              "format" = "󰑭 {}%";
+            "custom/memory-swap" = {
+              return-type = "json";
+              format = "{}";
+              exec = "${memorySwapScript}/bin/waybar-memory-swap";
+              interval = 5;
             };
 
             "pulseaudio" = {
