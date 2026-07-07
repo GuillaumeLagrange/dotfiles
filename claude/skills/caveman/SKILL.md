@@ -2,8 +2,8 @@
 name: caveman
 description: >
   Ultra-compressed communication mode. Cuts output tokens ~65% by speaking like a
-  smart caveman while keeping full technical accuracy. Intensity levels: lite, full
-  (default), ultra. Use when the user says "caveman mode", "talk like caveman", "be
+  smart caveman while keeping full technical accuracy. Intensity levels: lite
+  (default), full, ultra. Use when the user says "caveman mode", "talk like caveman", "be
   brief", "less tokens", or invokes /caveman. A SessionStart hook injects this body
   every session so the mode is always active; the skill is the single source of truth.
 ---
@@ -14,7 +14,7 @@ Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift. Still active if unsure. Off only: "stop caveman" / "normal mode".
 
-Default: **full**. Switch: `/caveman lite|full|ultra`.
+Default: **lite**. Switch: `/caveman lite|full|ultra`.
 
 ## Rules
 

@@ -67,8 +67,6 @@
         adwaita-icon-theme
 
         obsidian
-
-        vscode-extensions.vadimcn.vscode-lldb.adapter
       ];
 
       home.file = {
@@ -239,7 +237,7 @@
 
       programs.feh.enable = true;
 
-      programs.vscode.enable = true;
+      programs.vscode.enable = false;
 
       services.mako = {
         enable = true;
