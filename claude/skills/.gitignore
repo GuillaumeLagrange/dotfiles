@@ -1,0 +1,5 @@
+# Private skills — symlinked into ~/.claude/skills via the whole-dir symlink,
+# present locally but never committed. Add a line per skill to keep private.
+/deploy-macro-agent/
+/generate-profile-archive/
+/grill-me/

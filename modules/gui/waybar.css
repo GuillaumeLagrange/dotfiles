@@ -288,10 +288,6 @@ label:focus {
     background-color: @blue;
 }
 
-#custom-memory-swap.disk-spill {
-    background-color: @red;
-}
-
 #disk {
     background-color: @purple;
 }

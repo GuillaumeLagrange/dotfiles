@@ -21,7 +21,7 @@
       zramSwap = {
         enable = true;
         algorithm = "zstd";
-        memoryPercent = 75;
+        memoryPercent = 100; # Uncompressed value of the swap device will be 100% of RAM size.
         priority = 100;
       };
 

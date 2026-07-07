@@ -1,0 +1,71 @@
+{
+  "attribution": {
+    "commit": "Generated with AI Agent (Claude Code)",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_CodSpeed__compare_runs"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.rs) (cd \"$(dirname \"$f\")\" && cargo fmt -- \"$(basename \"$f\")\") 2>/dev/null || true ;; esac; }"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \"$CLAUDE_PROJECT_DIR/AGENTS.md\" ]; then cat \"$CLAUDE_PROJECT_DIR/AGENTS.md\"; fi"
+          },
+          {
+            "type": "command",
+            "command": "awk 'NR==1&&/^---$/{f=1;next} f&&/^---$/{f=0;next} !f' \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/caveman/SKILL.md\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send 'Claude Code' \"Session in $(basename \"$CLAUDE_PROJECT_DIR\") needs attention\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "codspeed-internal@codspeed-internal-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "codspeed-internal-marketplace": {
+      "source": {
+        "source": "file",
+        "path": "/home/guillaume/codspeed/platform/.claude-plugin/marketplace.json"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": false,
+  "effortLevel": "xhigh",
+  "tui": "default",
+  "autoMemoryEnabled": false,
+  "skipWorkflowUsageWarning": true,
+  "verbose": false,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
+}
