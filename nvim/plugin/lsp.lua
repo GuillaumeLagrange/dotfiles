@@ -137,7 +137,7 @@ end, { desc = 'Toggle Harper' })
 do
   local uv = vim.uv or vim.loop
 
-  local STOP_TIMEOUT_MS = 1000 * 60 * 10
+  local STOP_TIMEOUT_MS = 1000 * 60 * 30
 
   local lsps_to_ignore = {}
 

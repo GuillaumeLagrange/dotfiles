@@ -9,9 +9,32 @@
 @define-color green  #A9b665;
 
 * {
-    /* `otf-font-awesome` is required to be installed for icons */
-    font-family: "Hack Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+    /* Non-mono default for prose-like modules (workspaces, title, ...).
+       Right-side status badges override to mono below so numbers align. */
+    font-family: Inter, "Hack Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
+}
+
+/* Nerd Font first so glyphs render, then digits stay monospace-aligned. */
+#battery,
+#cpu,
+#memory,
+#custom-memory-swap,
+#disk,
+#temperature,
+#backlight,
+#network,
+#pulseaudio,
+#wireplumber,
+#custom-media,
+#custom-claude-usage,
+#custom-settings,
+#clock,
+#workspaces,
+#workspaces button,
+#workspaces button label,
+#custom-niri-windows {
+    font-family: "Hack Nerd Font", FontAwesome, monospace;
 }
 
 window#waybar {
