@@ -199,7 +199,21 @@ do
         return
       end
 
-      vim.lsp.enable(vim.tbl_keys(stopped), true)
+      -- rustaceanvim starts rust-analyzer via FileType (not vim.lsp.enable), so
+      -- re-enabling the config is a no-op. Restart it through its own API for any
+      -- loaded rust buffer instead.
+      if stopped['rust-analyzer'] then
+        stopped['rust-analyzer'] = nil
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == 'rust' then
+            require('rustaceanvim.lsp').start(buf)
+          end
+        end
+      end
+
+      if not vim.tbl_isempty(stopped) then
+        vim.lsp.enable(vim.tbl_keys(stopped), true)
+      end
       stopped = {}
     end,
   })
