@@ -10,6 +10,7 @@
     {
       imports = with self.modules.homeManager; [
         claude
+        pi
         tmux
         zellij
         zsh

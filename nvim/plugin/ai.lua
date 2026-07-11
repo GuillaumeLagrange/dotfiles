@@ -65,11 +65,11 @@ vim.keymap.set({ 'n', 'i' }, '<tab>', function()
 end, { expr = true, desc = 'Goto/Apply Next Edit Suggestion' })
 
 vim.keymap.set({ 'n', 't', 'i', 'x' }, '<c-.>', function()
-  require('sidekick.cli').toggle({ name = 'claude', focus = true })
+  require('sidekick.cli').toggle({ name = 'pi', focus = true })
 end, { desc = 'Sidekick Toggle' })
 
 vim.keymap.set('n', '<leader>aa', function()
-  require('sidekick.cli').toggle({ name = 'claude', focus = true })
+  require('sidekick.cli').toggle({ name = 'pi', focus = true })
 end, { desc = 'Sidekick Toggle CLI' })
 
 vim.keymap.set('n', '<leader>as', function()

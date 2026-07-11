@@ -1,0 +1,18 @@
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-8",
+  "theme": "dark",
+  "packages": [
+    "npm:@gotgenes/pi-anthropic-auth"
+  ],
+  "enabledModels": [
+    "anthropic/claude-opus-4-8",
+    "anthropic/claude-sonnet-5"
+  ],
+  "defaultThinkingLevel": "high",
+  "hideThinkingBlock": true,
+  "skills": [
+    "~/.claude/skills"
+  ],
+  "lastChangelogVersion": "0.80.6"
+}

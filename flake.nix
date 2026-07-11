@@ -1,5 +1,5 @@
 {
-  description = "Home Manager configuration of guillaume";
+  description = "Guillaume's Nix wizardry: dotfiles, NixOS & Home Manager spellbook ❄️";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
