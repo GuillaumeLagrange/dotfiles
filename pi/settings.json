@@ -3,7 +3,8 @@
   "defaultModel": "claude-opus-4-8",
   "theme": "dark",
   "packages": [
-    "npm:@gotgenes/pi-anthropic-auth"
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:pi-mcp-adapter"
   ],
   "enabledModels": [
     "anthropic/claude-opus-4-8",
