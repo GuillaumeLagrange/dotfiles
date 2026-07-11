@@ -70,6 +70,33 @@
             fi
           }
 
+          # Fuzzy-pick a worktree of the current repo and cd into it. The
+          # displayed line carries the path in a trailing tab-delimited field so
+          # fzf matches on branch/path text while the exact path (which may
+          # contain spaces) survives extraction. ctrl-x removes the highlighted
+          # worktree and closes the picker.
+          wt () {
+            command git rev-parse --git-dir >/dev/null 2>&1 || {
+              echo "wt: not inside a git repository" >&2
+              return 1
+            }
+            local selection dir
+            selection=$(command git worktree list --porcelain | ${pkgs.gawk}/bin/awk '
+              /^worktree / { path = substr($0, 10) }
+              /^branch /   { ref = substr($0, 8); sub("refs/heads/", "", ref) }
+              /^detached/  { ref = "(detached)" }
+              /^bare/      { ref = "(bare)" }
+              /^$/         { if (path != "") printf "%s [%s]\t%s\n", path, ref, path; path=""; ref="" }
+              END          { if (path != "") printf "%s [%s]\t%s\n", path, ref, path }
+            ' | ${pkgs.fzf}/bin/fzf --exit-0 --select-1 --query="$*" \
+                  --delimiter='\t' --with-nth=1 --accept-nth=2 \
+                  --prompt='worktree> ' --height='40%' --reverse \
+                  --header='enter: cd  •  ctrl-x: remove' \
+                  --bind='ctrl-x:execute-silent(git worktree remove {2})+abort') || return
+            dir=$selection
+            [ -n "$dir" ] && cd "$dir"
+          }
+
           # Override oh-my-zsh to look for `GIT_MAIN_BRANCH` env var first
           git_main_branch () {
             command git rev-parse --git-dir &> /dev/null || return
