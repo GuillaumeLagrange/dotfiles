@@ -1,0 +1,19 @@
+# agent-diff test tasks. Run from this directory: `just test`.
+
+# Run from the plugin root so the child nvim's `rtp+=.` and the relative
+# minimal_init path resolve regardless of where `just` was invoked.
+root := justfile_directory()
+
+# Run the full test suite headless.
+test:
+    cd {{root}} && nvim --headless --noplugin \
+        -u tests/minimal_init.lua \
+        -c "runtime plugin/plenary.vim" \
+        -c "PlenaryBustedDirectory tests/ {minimal_init='tests/minimal_init.lua', sequential=true}"
+
+# Run a single spec file, e.g. `just test-file tests/diff_spec.lua`.
+test-file file:
+    cd {{root}} && nvim --headless --noplugin \
+        -u tests/minimal_init.lua \
+        -c "runtime plugin/plenary.vim" \
+        -c "PlenaryBustedDirectory {{file}} {minimal_init='tests/minimal_init.lua', sequential=true}"

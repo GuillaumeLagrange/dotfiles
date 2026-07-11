@@ -195,6 +195,12 @@ vim.keymap.set('n', '<leader>sS', function()
 end, { desc = 'LSP Workspace Symbols' })
 
 -- Other
+vim.keymap.set('n', '<leader>z', function()
+  Snacks.zen()
+end, { desc = 'Toggle Zen Mode' })
+vim.keymap.set('n', '<leader>Z', function()
+  Snacks.zen.zoom()
+end, { desc = 'Toggle Zoom' })
 vim.keymap.set({ 'n', 't' }, [[<c-\>]], function()
   Snacks.terminal()
 end, { desc = 'Toggle Terminal' })

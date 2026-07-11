@@ -30,6 +30,26 @@ require('sidekick').setup({
   },
 })
 
+-- Inline visualization of what the CLI agent (Claude Code) changes, driven by
+-- Claude hooks that reach this nvim over its RPC socket. Visualize-only; the
+-- accept/reject decision stays in the sidekick chat.
+require('agent-diff').setup({})
+
+vim.keymap.set('n', '<leader>aD', '<cmd>AgentDiffClear<cr>', { desc = 'Clear agent inline diffs' })
+
+vim.keymap.set('n', ']a', function()
+  require('agent-diff').navigate(1)
+end, { desc = 'Next agent edit' })
+vim.keymap.set('n', '[a', function()
+  require('agent-diff').navigate(-1)
+end, { desc = 'Prev agent edit' })
+vim.keymap.set('n', '<leader>aR', function()
+  require('agent-diff').reload()
+end, { desc = 'Reload agent-diff plugin' })
+vim.keymap.set('n', '<leader>aN', function()
+  require('agent-diff').toggle_autodisplay()
+end, { desc = 'Toggle agent-diff auto-display' })
+
 -- Equalize splits when the sidekick CLI panel opens. The panel reuses a single
 -- session across toggles, so SidekickCliAttach only fires on first open; instead
 -- we watch for the panel window itself, which sidekick tags with a window var.
