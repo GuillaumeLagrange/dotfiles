@@ -70,19 +70,6 @@ vim.api.nvim_create_autocmd('WinNew', {
   end,
 })
 
--- Make Shift+Enter send the correct sequence in neovim terminal buffers (for Claude Code)
-vim.keymap.set('t', '<S-Enter>', function()
-  local chan = vim.b.terminal_job_id
-  if chan then
-    vim.api.nvim_chan_send(chan, '\x1b[13;2u')
-  end
-end, { desc = 'Send Shift+Enter to terminal' })
-
--- Exit terminal mode with `jk` so Esc stays free for the CLI agent (Claude uses
--- it to interrupt/clear). Only fires when both keys land within 'timeoutlen';
--- type them slower and they pass through to the terminal.
-vim.keymap.set('t', 'jk', '<C-\\><C-n>', { desc = 'Exit terminal to normal mode' })
-
 vim.keymap.set({ 'n', 'i' }, '<tab>', function()
   if not require('sidekick').nes_jump_or_apply() then
     return '<Tab>'
