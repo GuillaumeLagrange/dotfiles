@@ -32,15 +32,26 @@
         pkgs.power-profiles-daemon
         pkgs.procps
       ];
-      settingsMenuScript =
-        let
-          python = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
-        in
-        pkgs.writeShellScriptBin "waybar-settings-menu" ''
-          export PATH="${settingsMenuRuntimePath}:$PATH"
-          export GI_TYPELIB_PATH="${pkgs.gtk3}/lib/girepository-1.0:${pkgs.glib.out}/lib/girepository-1.0:${pkgs.gobject-introspection}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.pango.out}/lib/girepository-1.0:${pkgs.harfbuzz}/lib/girepository-1.0:${pkgs.atk}/lib/girepository-1.0:${pkgs.gtk-layer-shell}/lib/girepository-1.0"
-          exec ${python}/bin/python3 ${./waybar-scripts/settings_menu.py} "$@"
-        '';
+      settingsMenuScript = pkgs.writeShellScriptBin "waybar-settings-menu" ''
+        export PATH="${settingsMenuRuntimePath}:$PATH"
+        exec ${pkgs.python3}/bin/python3 ${./waybar-scripts/settings_menu.py} "$@"
+      '';
+
+      # The native power-profiles-daemon module repaints itself on profile
+      # change, but the settings gear tints its background to the profile too
+      # and only refreshes on SIGRTMIN+9. Bridge D-Bus profile changes to that
+      # signal so the gear tint stays in sync.
+      profileWatchScript = pkgs.writeShellScriptBin "waybar-profile-watch" ''
+        # The daemon emits PropertiesChanged on two object paths per change
+        # (net.hadess and its UPower alias); match one so the gear repaints once.
+        # Anchor the pkill on the real waybar binary path so it doesn't also
+        # match (and kill) this watcher, whose name contains "waybar".
+        ${pkgs.glib.bin}/bin/gdbus monitor --system --dest net.hadess.PowerProfiles \
+          | ${pkgs.gnugrep}/bin/grep --line-buffered "^/net/hadess/PowerProfiles.*ActiveProfile" \
+          | while read -r _; do
+              ${pkgs.procps}/bin/pkill -RTMIN+9 -f 'bin/waybar$'
+            done
+      '';
     in
     {
       programs.waybar = {
@@ -75,17 +86,58 @@
               "custom/memory-swap"
               "battery"
               "pulseaudio"
-              "custom/settings"
+              "group/settings"
               "clock"
             ];
+
+            "group/settings" = {
+              orientation = "horizontal";
+              drawer = {
+                transition-duration = 300;
+                transition-left-to-right = false;
+              };
+              modules = [
+                "custom/settings"
+                "custom/settings-idle"
+                "custom/settings-dnd"
+                "power-profiles-daemon"
+              ];
+            };
 
             "custom/settings" = {
               return-type = "json";
               format = "{}";
-              exec = "${settingsMenuScript}/bin/waybar-settings-menu status";
-              on-click = "${settingsMenuScript}/bin/waybar-settings-menu menu";
+              exec = "${settingsMenuScript}/bin/waybar-settings-menu gear-status";
               signal = 9;
-              interval = 5;
+            };
+
+            "custom/settings-idle" = {
+              return-type = "json";
+              format = "{}";
+              exec = "${settingsMenuScript}/bin/waybar-settings-menu idle-status";
+              on-click = "${settingsMenuScript}/bin/waybar-settings-menu toggle-idle";
+              signal = 9;
+            };
+
+            "custom/settings-dnd" = {
+              return-type = "json";
+              format = "{}";
+              exec = "${settingsMenuScript}/bin/waybar-settings-menu dnd-status";
+              on-click = "${settingsMenuScript}/bin/waybar-settings-menu toggle-dnd";
+              signal = 9;
+            };
+
+            # Native D-Bus module: cycles on left/right click with instant
+            # repaint, no subprocess. Left-click goes toward power-saver,
+            # right-click toward performance (order is hardcoded upstream).
+            "power-profiles-daemon" = {
+              format = "{icon}";
+              tooltip-format = "Profile: {profile}";
+              format-icons = {
+                performance = "󰓅"; # md-speedometer (U+F04C5)
+                balanced = "󰾅"; # md-gauge (U+F0F85)
+                power-saver = "󰾆"; # md-gauge_low (U+F0F86)
+              };
             };
 
             "custom/claude-usage" = {
@@ -231,14 +283,14 @@
         };
       };
 
-      systemd.user.services.waybar-settings-menu = {
+      systemd.user.services.waybar-profile-watch = {
         Unit = {
-          Description = "Persistent GTK popup for the waybar settings module";
+          Description = "Refresh waybar settings gear on power-profile change";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
         };
         Service = {
-          ExecStart = "${settingsMenuScript}/bin/waybar-settings-menu daemon";
+          ExecStart = "${profileWatchScript}/bin/waybar-profile-watch";
           Restart = "on-failure";
         };
         Install.WantedBy = [ "graphical-session.target" ];

@@ -29,6 +29,9 @@
 #custom-media,
 #custom-claude-usage,
 #custom-settings,
+#custom-settings-idle,
+#custom-settings-dnd,
+#power-profiles-daemon,
 #clock,
 #workspaces,
 #workspaces button,
@@ -195,6 +198,7 @@ button:hover {
 }
 
 #custom-settings {
+    background-color: @grey;
     color: #000000;
     font-size: 15px;
     padding: 2px 10px 2px 6px;
@@ -210,6 +214,52 @@ button:hover {
 
 #custom-settings.power-saver {
     background-color: @green;
+}
+
+/* Drawer children: flat icons that sit inside the expanded group, not
+   free-standing bar badges. The group border rounds the outer edges. */
+#custom-settings-idle,
+#custom-settings-dnd,
+#power-profiles-daemon {
+    font-size: 15px;
+    padding: 2px 8px;
+    margin: 4px 0;
+}
+
+#custom-settings-idle,
+#custom-settings-dnd {
+    color: #6c6f64;
+}
+
+#custom-settings-idle.on,
+#custom-settings-dnd.on {
+    color: @yellow;
+}
+
+/* The native module swaps the profile class on its inner label. Keep every
+   color state at the same label-selector tier — no competing color on the
+   parent widget — so GTK re-resolves the label cleanly on each class swap. */
+#power-profiles-daemon label {
+    color: #ffffff;
+}
+
+#power-profiles-daemon label.performance {
+    color: @red;
+}
+
+#power-profiles-daemon label.balanced {
+    color: @blue;
+}
+
+#power-profiles-daemon label.power-saver {
+    color: @green;
+}
+
+/* Round the whole expanded row as one pill. */
+.settings > box {
+    background-color: rgba(43, 48, 59, 0.9);
+    border-radius: 4px;
+    margin: 4px 0;
 }
 
 #workspaces {
