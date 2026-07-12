@@ -78,6 +78,11 @@ vim.keymap.set('t', '<S-Enter>', function()
   end
 end, { desc = 'Send Shift+Enter to terminal' })
 
+-- Exit terminal mode with `jk` so Esc stays free for the CLI agent (Claude uses
+-- it to interrupt/clear). Only fires when both keys land within 'timeoutlen';
+-- type them slower and they pass through to the terminal.
+vim.keymap.set('t', 'jk', '<C-\\><C-n>', { desc = 'Exit terminal to normal mode' })
+
 vim.keymap.set({ 'n', 'i' }, '<tab>', function()
   if not require('sidekick').nes_jump_or_apply() then
     return '<Tab>'
