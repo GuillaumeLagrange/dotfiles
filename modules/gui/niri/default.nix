@@ -99,6 +99,8 @@
 
               Mod+Return { spawn ${quoteArgs config.term}; }
               Mod+D { spawn "vicinae" "toggle"; }
+              Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
+              Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
               Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
