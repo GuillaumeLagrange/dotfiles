@@ -97,6 +97,31 @@
             [ -n "$dir" ] && cd "$dir"
           }
 
+          # Create (or check out into) a worktree and cd into it. Path defaults
+          # to <repo-root>/.worktrees/<branch> so worktrees stay grouped at the
+          # top level regardless of the current directory; either argument may be
+          # overridden. A branch that already exists (locally or on a remote) is
+          # checked out; otherwise a new branch is created from HEAD.
+          wtn () {
+            local branch=$1 dir=$2 root
+            [ -n "$branch" ] || {
+              echo "wtn: usage: wtn <branch> [path]" >&2
+              return 1
+            }
+            root=$(command git rev-parse --show-toplevel 2>/dev/null) || {
+              echo "wtn: not inside a git repository" >&2
+              return 1
+            }
+            : ''${dir:=$root/.worktrees/$branch}
+            if command git show-ref -q --verify "refs/heads/$branch" ||
+               command git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+              command git worktree add "$dir" "$branch" || return
+            else
+              command git worktree add -b "$branch" "$dir" || return
+            fi
+            cd "$dir"
+          }
+
           # Override oh-my-zsh to look for `GIT_MAIN_BRANCH` env var first
           git_main_branch () {
             command git rev-parse --git-dir &> /dev/null || return
