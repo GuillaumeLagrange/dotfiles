@@ -29,7 +29,7 @@
 #custom-media,
 #custom-claude-usage,
 #custom-settings,
-#custom-settings-idle,
+#idle_inhibitor,
 #custom-settings-dnd,
 #power-profiles-daemon,
 #clock,
@@ -172,7 +172,6 @@ button:hover {
 #custom-settings,
 #tray,
 #mode,
-#idle_inhibitor,
 #scratchpad,
 #mpd {
     padding: 0 8px;
@@ -218,7 +217,7 @@ button:hover {
 
 /* Drawer children: flat icons that sit inside the expanded group, not
    free-standing bar badges. The group border rounds the outer edges. */
-#custom-settings-idle,
+#idle_inhibitor,
 #custom-settings-dnd,
 #power-profiles-daemon {
     font-size: 15px;
@@ -226,12 +225,12 @@ button:hover {
     margin: 4px 0;
 }
 
-#custom-settings-idle,
+#idle_inhibitor,
 #custom-settings-dnd {
     color: #6c6f64;
 }
 
-#custom-settings-idle.on,
+#idle_inhibitor.activated,
 #custom-settings-dnd.on {
     color: @yellow;
 }
@@ -427,15 +426,6 @@ label:focus {
 #tray > .needs-attention {
     -gtk-icon-effect: highlight;
     background-color: #eb4d4b;
-}
-
-#idle_inhibitor {
-    background-color: #2d3436;
-}
-
-#idle_inhibitor.activated {
-    background-color: #ecf0f1;
-    color: #2d3436;
 }
 
 #mpd {

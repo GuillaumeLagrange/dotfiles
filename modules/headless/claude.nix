@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.homeManager.claude =
-    { config, ... }:
+    { config, lib, ... }:
     let
       claudeDir = "${config.home.homeDirectory}/dotfiles/claude";
     in
@@ -18,6 +18,12 @@
       home.file = {
         ".claude/settings.json".source =
           config.lib.file.mkOutOfStoreSymlink "${claudeDir}/settings.json";
+
+        # Machine-local overrides (work marketplace paths, etc.) — gitignored,
+        # so it exists only where it was set up.
+        ".claude/settings.local.json" = lib.mkIf (builtins.pathExists "${claudeDir}/settings.local.json") {
+          source = config.lib.file.mkOutOfStoreSymlink "${claudeDir}/settings.local.json";
+        };
 
         ".claude/skills".source =
           config.lib.file.mkOutOfStoreSymlink "${claudeDir}/skills";

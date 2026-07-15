@@ -2,6 +2,8 @@
   flake.modules.homeManager.waybar =
     { pkgs, config, ... }:
     let
+      ICON_IDLE = ""; # fa-eye; matches settings_menu.py's gear badge
+
       niri-windows-script = pkgs.writers.writePython3Bin "niri-windows" { doCheck = false; } (
         builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
           builtins.readFile ./niri/windows.py
@@ -27,7 +29,6 @@
       '';
 
       settingsMenuRuntimePath = pkgs.lib.makeBinPath [
-        pkgs.wlinhibit
         pkgs.mako
         pkgs.power-profiles-daemon
         pkgs.procps
@@ -98,7 +99,7 @@
               };
               modules = [
                 "custom/settings"
-                "custom/settings-idle"
+                "idle_inhibitor"
                 "custom/settings-dnd"
                 "power-profiles-daemon"
               ];
@@ -111,12 +112,19 @@
               signal = 9;
             };
 
-            "custom/settings-idle" = {
-              return-type = "json";
-              format = "{}";
-              exec = "${settingsMenuScript}/bin/waybar-settings-menu idle-status";
-              on-click = "${settingsMenuScript}/bin/waybar-settings-menu toggle-idle";
-              signal = 9;
+            # Native module holds the Wayland idle inhibitor (zwp_idle_inhibit,
+            # honored by niri + swayidle). The click also flips a state file so
+            # the gear can show an eye badge; a reset-on-start service clears it
+            # so the badge matches the module's deactivated state after restart.
+            "idle_inhibitor" = {
+              format = "{icon}";
+              format-icons = {
+                activated = ICON_IDLE;
+                deactivated = ICON_IDLE;
+              };
+              tooltip-format-activated = "Idle inhibited";
+              tooltip-format-deactivated = "Idle inhibit off";
+              on-click = "${settingsMenuScript}/bin/waybar-settings-menu idle-flip";
             };
 
             "custom/settings-dnd" = {
@@ -281,6 +289,23 @@
             };
           };
         };
+      };
+
+      # The native idle_inhibitor resets to deactivated on every waybar start,
+      # but its companion state file (read by the gear badge) persists in the
+      # runtime dir. Clear it before waybar comes up so the two stay in sync.
+      systemd.user.services.waybar-idle-reset = {
+        Unit = {
+          Description = "Reset waybar idle-inhibit state file on (re)start";
+          Before = [ "waybar.service" ];
+          PartOf = [ "waybar.service" ];
+        };
+        Service = {
+          Type = "oneshot";
+          # %t is the user runtime dir (XDG_RUNTIME_DIR), expanded by systemd.
+          ExecStart = "${pkgs.coreutils}/bin/rm -f %t/waybar-idle-inhibit.state";
+        };
+        Install.WantedBy = [ "waybar.service" ];
       };
 
       systemd.user.services.waybar-profile-watch = {
