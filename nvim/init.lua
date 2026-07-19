@@ -84,7 +84,7 @@ vim.pack.add({
   'https://github.com/christoomey/vim-tmux-navigator',
 
   -- Rust
-  { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('8.x') },
+  { src = 'https://github.com/mrcjkb/rustaceanvim', version = vim.version.range('^9') },
 
   -- [[ PURGATORY BELOW ]]
 
