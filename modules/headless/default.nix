@@ -32,6 +32,7 @@
           pkgs.unstable.prek
           ripgrep
           rustup
+          sccache
           tig
           tree
           unzip
@@ -222,5 +223,14 @@
         "$HOME/.cargo/bin"
         "$HOME/.local/bin"
       ];
+
+      # sccache caches compiled crates in a shared dir keyed by content, so
+      # deps rebuilt from scratch in each worktree hit the cache instead of
+      # recompiling. It disables incremental compilation (CARGO_INCREMENTAL=0
+      # is set automatically), which sccache cannot cache anyway.
+      home.sessionVariables = {
+        RUSTC_WRAPPER = "sccache";
+        SCCACHE_CACHE_SIZE = "100G";
+      };
     };
 }
