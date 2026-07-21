@@ -61,17 +61,17 @@
         fi
       '';
 
-      tmuxWindowName = pkgs.writeShellApplication {
-        name = "tmux-window-name";
+      muxName = pkgs.writeShellApplication {
+        name = "mux-name";
         runtimeInputs = [ pkgs.git ];
-        text = builtins.readFile ./tmux-window-name.sh;
+        text = builtins.readFile ./mux-name.sh;
       };
 
       tmuxRename = pkgs.writeShellApplication {
         name = "tmux-rename";
         runtimeInputs = [
           pkgs.tmux
-          tmuxWindowName
+          muxName
         ];
         text = builtins.readFile ./tmux-rename.sh;
       };
@@ -80,7 +80,7 @@
         name = "tmux-rename-current";
         runtimeInputs = [
           pkgs.tmux
-          tmuxWindowName
+          muxName
         ];
         text = builtins.readFile ./tmux-rename-current.sh;
       };
@@ -129,7 +129,7 @@
         tsmScript
         tmuxAttachTmp
         tskScript
-        tmuxWindowName
+        muxName
         tmuxRename
         tmuxRenameCurrent
       ];

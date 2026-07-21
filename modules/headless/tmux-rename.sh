@@ -8,7 +8,7 @@ echo "Renaming windows in session '$SESSION' based on git repos or current direc
 
 tmux list-windows -t "$SESSION" -F "#{window_index}" | while read -r window_index; do
   pane_path=$(tmux display-message -t "$SESSION:$window_index.0" -p "#{pane_current_path}")
-  display_path=$(tmux-window-name "$pane_path")
+  display_path=$(mux-name "$pane_path")
   current_name=$(tmux display-message -t "$SESSION:$window_index" -p "#{window_name}")
 
   if [[ "$current_name" != "$display_path" ]]; then

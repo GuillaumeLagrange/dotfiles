@@ -102,8 +102,8 @@
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
               Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
               Super+Alt+L { spawn "${config.lock}"; }
-              Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
-              Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
+              Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
+              Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
 
               Mod+W { spawn "${config.firefox.main}"; }
               Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }
@@ -143,10 +143,10 @@
               Mod+Down  { focus-window-down; }
               Mod+Up    { focus-window-up; }
               Mod+Right { focus-column-or-monitor-right; }
-              Mod+H     { focus-column-or-monitor-left; }
+              Mod+H     { focus-column-left; }
               Mod+U     { focus-window-down; }
               Mod+I     { focus-window-up; }
-              Mod+L     { focus-column-or-monitor-right; }
+              Mod+L     { focus-column-right; }
 
               Mod+Shift+Left  { move-column-left; }
               Mod+Shift+Right { move-column-right; }

@@ -1,11 +1,11 @@
 set -euo pipefail
 
-# Resolve the display name for a tmux window based on a pane's current path.
+# Resolve the display name for a tab/window based on a directory path.
 # Outputs the git root basename (with branch icon) or the path with ~ substitution.
 #
-# Usage: tmux-window-name <pane_path>
+# Usage: mux-name <path>
 
-pane_path="${1:?Usage: tmux-window-name <pane_path>}"
+pane_path="${1:?Usage: mux-name <path>}"
 
 git_root=$(cd "$pane_path" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || echo "")
 

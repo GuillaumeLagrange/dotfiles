@@ -1,4 +1,17 @@
+{ lib, ... }:
 {
+  # Reflavour zellij's accent (the selected ribbon/tab and frame) to `accent`,
+  # a colour from stylix's palette. Everything else in the theme is left
+  # untouched so it stays coherent. Import the result into a home config, e.g.
+  #   (self.lib.zellij.accentTheme config.lib.stylix.colors.withHashtag.base0D)
+  flake.lib.zellij.accentTheme = accent: {
+    programs.zellij.themes.stylix.themes.default = {
+      ribbon_selected.background = lib.mkForce accent;
+      frame_selected.base = lib.mkForce accent;
+      table_title.base = lib.mkForce accent;
+    };
+  };
+
   flake.modules.homeManager.zellij =
     { pkgs, ... }:
     let
@@ -54,26 +67,51 @@
           ${pkgs.zellij}/bin/zellij delete-session --force "$session"
         fi
       '';
+
+      zellijRenameCurrent = pkgs.writeShellApplication {
+        name = "zellij-rename-current";
+        runtimeInputs = [ pkgs.zellij ];
+        text = builtins.readFile ./zellij-rename-current.sh;
+      };
+
     in
     {
       programs.zellij.enable = true;
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
+      xdg.configFile."zellij/resurrect-wrap.sh" = {
+        source = ./zellij-resurrect-wrap.sh;
+        executable = true;
+      };
+      xdg.configFile."zellij/resurrect-launch.sh" = {
+        source = ./zellij-resurrect-launch.sh;
+        executable = true;
+      };
 
-      # Keep SSH agent working across Zellij reattaches via a stable symlink
       programs.zsh.initContent = ''
+        # Keep SSH agent working across Zellij reattaches via a stable symlink
         if [ -n "$SSH_CONNECTION" ] && [ -n "$SSH_AUTH_SOCK" ]; then
           if [ -S "$SSH_AUTH_SOCK" ] && [ "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock" ]; then
             ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
           fi
           export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
         fi
+
+        # Auto-rename zellij tab on directory change and on shell start
+        function zellij_rename_current_tab() {
+          if [ -n "''${ZELLIJ}" ]; then
+            ${zellijRenameCurrent}/bin/zellij-rename-current > /dev/null 2>&1
+          fi
+        }
+        add-zsh-hook chpwd zellij_rename_current_tab
+        zellij_rename_current_tab
       '';
 
       home.packages = [
         zellijFzfGetSession
         zsmScript
         zskScript
+        zellijRenameCurrent
       ];
     };
 }

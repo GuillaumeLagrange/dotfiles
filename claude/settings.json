@@ -1,101 +1,105 @@
 {
-  "agentPushNotifEnabled": true,
-  "alwaysThinkingEnabled": false,
   "attribution": {
-    "commit": "Generated with AI Agent (Claude Code)!!!",
+    "commit": "Generated with AI Agent (Claude Code)",
     "pr": ""
   },
-  "autoMemoryEnabled": false,
-  "autoUpdates": true,
-  "effortLevel": "xhigh",
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_CodSpeed__compare_runs"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
   "hooks": {
     "Notification": [
       {
+        "matcher": "",
         "hooks": [
           {
-            "command": "notify-send 'Claude Code' \"Session in $(basename \"$CLAUDE_PROJECT_DIR\") needs attention\"",
-            "type": "command"
+            "type": "command",
+            "command": "notify-send 'Claude Code' \"Session in $(basename \"$CLAUDE_PROJECT_DIR\") needs attention\""
           }
-        ],
-        "matcher": ""
+        ]
       }
     ],
     "PostToolUse": [
       {
+        "matcher": "Write|Edit",
         "hooks": [
           {
-            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.rs) (cd \"$(dirname \"$f\")\" && cargo fmt -- \"$(basename \"$f\")\") 2>/dev/null || true ;; esac; }",
-            "type": "command"
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.rs) (cd \"$(dirname \"$f\")\" && cargo fmt -- \"$(basename \"$f\")\") 2>/dev/null || true ;; esac; }"
           }
-        ],
-        "matcher": "Write|Edit"
+        ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PostToolUse",
-            "type": "command"
+            "type": "command",
+            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PostToolUse"
           }
-        ],
-        "matcher": "Edit|Write|MultiEdit"
+        ]
       }
     ],
     "PreToolUse": [
       {
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PreToolUse",
-            "type": "command"
+            "type": "command",
+            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PreToolUse"
           }
-        ],
-        "matcher": "Edit|Write|MultiEdit"
+        ]
       }
     ],
     "SessionStart": [
       {
+        "matcher": "startup",
         "hooks": [
           {
-            "command": "if [ -f \"$CLAUDE_PROJECT_DIR/AGENTS.md\" ]; then cat \"$CLAUDE_PROJECT_DIR/AGENTS.md\"; fi",
-            "type": "command"
+            "type": "command",
+            "command": "if [ -f \"$CLAUDE_PROJECT_DIR/AGENTS.md\" ]; then cat \"$CLAUDE_PROJECT_DIR/AGENTS.md\"; fi"
           },
           {
-            "command": "awk 'NR==1&&/^---$/{f=1;next} f&&/^---$/{f=0;next} !f' \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/caveman/SKILL.md\" 2>/dev/null || true",
-            "type": "command"
+            "type": "command",
+            "command": "awk 'NR==1&&/^---$/{f=1;next} f&&/^---$/{f=0;next} !f' \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/caveman/SKILL.md\" 2>/dev/null || true"
           }
-        ],
-        "matcher": "startup"
+        ]
       },
       {
+        "matcher": "*",
         "hooks": [
           {
+            "type": "command",
             "command": "bash '/home/guillaume/.claude/hooks/herdr-agent-state.sh' session",
-            "timeout": 10,
-            "type": "command"
+            "timeout": 10
           }
-        ],
-        "matcher": "*"
+        ]
       }
     ],
     "Stop": [
       {
+        "matcher": "",
         "hooks": [
           {
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh Stop",
-            "type": "command"
+            "type": "command",
+            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh Stop"
           }
-        ],
-        "matcher": ""
+        ]
       }
     ]
   },
-  "model": "opus[1m]",
-  "permissions": {
-    "allow": ["mcp__claude_ai_CodSpeed__compare_runs"],
-    "defaultMode": "auto"
+  "enabledPlugins": {
+    "codspeed-internal@codspeed-internal-marketplace": true
   },
-  "skipAutoPermissionPrompt": true,
-  "skipWorkflowUsageWarning": true,
+  "alwaysThinkingEnabled": false,
+  "effortLevel": "xhigh",
   "tui": "fullscreen",
-  "verbose": true
+  "autoMemoryEnabled": false,
+  "skipWorkflowUsageWarning": true,
+  "verbose": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "autoUpdates": true
 }
-

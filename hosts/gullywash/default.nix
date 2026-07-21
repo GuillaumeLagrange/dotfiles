@@ -10,9 +10,11 @@
         ./_zfs.nix
       ];
 
-      home-manager.users.guillaume = {
-        imports = with self.modules.homeManager; [ guillaume-headless ];
-      };
+      home-manager.users.guillaume.imports = with self.modules.homeManager; [
+        guillaume-headless
+        # blue zellij accent, so a session here is distinguishable from other hosts
+        ({ config, ... }: self.lib.zellij.accentTheme config.lib.stylix.colors.withHashtag.base0D)
+      ];
 
       boot.loader.systemd-boot.enable = true;
       boot.loader.efi.canTouchEfiVariables = true;
@@ -21,7 +23,6 @@
       networking.hostName = "gullywash";
       networking.networkmanager.enable = true;
       networking.hostId = "deadbeef";
-      networking.enableIPv6 = false;
 
       networking.firewall = {
         enable = true;

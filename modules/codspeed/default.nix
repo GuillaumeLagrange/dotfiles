@@ -1,3 +1,4 @@
+{ self, ... }:
 {
   flake.modules.nixos.codspeed = {
     imports = [ ./_oneleet.nix ];
@@ -11,7 +12,8 @@
     programs.oneleet.enable = true;
   };
 
-  flake.modules.homeManager.codspeed =
+  # Terminal-only tooling, usable on any host (mac mini, remote boxes, ...).
+  flake.modules.homeManager.codspeed-headless =
     {
       pkgs,
       lib,
@@ -52,41 +54,6 @@
         codprod = "unset CODSPEED_PROFILE";
       };
 
-      xdg.desktopEntries = lib.mkIf pkgs.stdenv.isLinux {
-        mongodb-compass = {
-          name = "MongoDB Compass";
-          comment = "The MongoDB GUI";
-          genericName = "MongoDB Compass";
-          exec = "mongodb-compass --password-store=\"gnome-libsecret\" --ignore-additional-command-line-flags";
-          icon = "mongodb-compass";
-          categories = [
-            "GNOME"
-            "GTK"
-            "Utility"
-          ];
-          mimeType = [
-            "x-scheme-handler/mongodb"
-            "x-scheme-handler/mongodb+srv"
-          ];
-          startupNotify = true;
-        };
-      };
-
-      programs.ssh = {
-        settings = {
-          "codspeeds-mac-mini*" = {
-            ForwardAgent = true;
-            User = "codspeed";
-            RemoteForward = [
-              {
-                host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
-                bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
-              }
-            ];
-          };
-        };
-      };
-
       home.sessionVariables = {
         CODSPEED_ROOT = codspeed_root;
       };
@@ -98,16 +65,8 @@
           pkgs.unstable.uv
         ]
         ++ lib.optionals stdenv.isLinux [
-          mongodb-compass
-          mongodb-tools
-          kdePackages.kcachegrind
-          dbeaver-bin
-
           (writeShellScriptBin "valgrind" ''
-            VALGRIND_LIB="${vgbasedir}/.in_place" \
-            VALGRIND_LIB_INNER="${vgbasedir}/.in_place" \
-            RUSTUP_FORCE_ARG0=cargo \
-            exec "${vgbasedir}/coregrind/valgrind" "$@"
+            RUSTUP_FORCE_ARG0=cargo exec "${vgbasedir}/vg-in-place" "$@"
           '')
         ]
         ++ [
@@ -133,5 +92,32 @@
             tar -czf "$archive_name" -C "$runner_profile_dir" .
           '')
         ];
+    };
+
+  # Desktop additions on top of the headless tooling.
+  flake.modules.homeManager.codspeed =
+    { pkgs, ... }:
+    {
+      imports = [ self.modules.homeManager.codspeed-headless ];
+
+      programs.ssh = {
+        settings = {
+          "codspeeds-mac-mini*" = {
+            ForwardAgent = true;
+            User = "codspeed";
+            RemoteForward = [
+              {
+                host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
+                bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
+              }
+            ];
+          };
+        };
+      };
+
+      home.packages = with pkgs; [
+        kdePackages.kcachegrind
+        dbeaver-bin
+      ];
     };
 }

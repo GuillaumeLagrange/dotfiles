@@ -31,6 +31,12 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ (inputs.import-tree ./modules) ];
+      imports = [
+        # Consumable outputs: nixosConfigurations and homeConfigurations
+        (inputs.import-tree ./hosts)
+        ./home-configurations.nix
+        # Reusable nixos/homeManager modules they are built from
+        (inputs.import-tree ./modules)
+      ];
     };
 }
