@@ -2,7 +2,13 @@
   flake.modules.homeManager.screen-tools =
     { pkgs, lib, ... }:
     let
-      signalWaybar = "${pkgs.procps}/bin/pkill -RTMIN+8 waybar 2>/dev/null || true";
+      # Push recording state into the eww bar (replaces the old SIGRTMIN+8
+      # waybar signal). Explicit state at each call site because the start push
+      # happens before wl-screenrec is up, so pgrep would still read "off".
+      barRecording = state: text:
+        "${pkgs.eww}/bin/eww update 'screenrecord={\"recording\":${state},\"text\":\"${text}\"}' 2>/dev/null || true";
+      barRecOn = barRecording "true" "⏺ REC";
+      barRecOff = barRecording "false" "";
 
       screenshotTool = pkgs.writeShellScriptBin "screenshot_tool" ''
         ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
@@ -11,7 +17,7 @@
       screenrecordStop = ''
         ${pkgs.killall}/bin/killall -s SIGINT wl-screenrec 2>/dev/null && \
           ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord stopped"
-        ${signalWaybar}
+        ${barRecOff}
       '';
 
       screenrecordStart = extraArgs: ''
@@ -19,10 +25,10 @@
         echo "$file" > /tmp/screenrec-path
 
         ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord starting..."
-        ${signalWaybar}
+        ${barRecOn}
         ${pkgs.wl-screenrec}/bin/wl-screenrec ${extraArgs} -f "$file"
         ${pkgs.wl-clipboard}/bin/wl-copy "file:/$file" -t text/uri-list
-        ${signalWaybar}
+        ${barRecOff}
       '';
 
       screenrecordScreenTool = pkgs.writeShellScriptBin "screenrecord_screen" ''

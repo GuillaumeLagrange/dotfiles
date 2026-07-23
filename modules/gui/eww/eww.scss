@@ -1,0 +1,406 @@
+// Ported from waybar.css — gruvbox material palette, same badge-pill look.
+$aqua:   #89B482;
+$orange: #E78A4E;
+$blue:   #7DAEA3;
+$yellow: #D8A657;
+$red:    #EA6962;
+$purple: #D3869B;
+$grey:   #6C6F64;
+$green:  #A9B665;
+
+$bar-bg:   rgba(43, 48, 59, 0.7);
+$drawer-bg: rgba(43, 48, 59, 0.9);
+
+* {
+  font-family: "Hack Nerd Font", FontAwesome, monospace;
+  font-size: 13px;
+  // GTK gives widgets a default min-height that makes the 22px bar grow; pin
+  // it to 0 so the bar height is driven by the window geometry, like waybar.
+  min-height: 0;
+}
+
+// eww's top-level window widget has an opaque GTK background by default. Every
+// window here paints its own background on an inner box (bar, popups) or wants
+// none at all (backdrops), so blank the window node globally — otherwise a
+// full-screen backdrop shows GTK's grey instead of being see-through.
+window {
+  background-color: transparent;
+}
+
+.bar {
+  background-color: $bar-bg;
+  color: #ffffff;
+}
+
+// ── Badge pills (right side + niri-windows) ─────────────────────────────────
+// waybar gave each status module black text, rounded corners. Small vertical
+// margin keeps the pills inside the 22px bar instead of forcing it taller.
+@mixin pill {
+  color: black;
+  margin: 2px 4px;
+  padding: 0 8px;
+  border-radius: 4px;
+}
+
+.claude, .disk, .cpu, .memswap, .battery, .audio, .clock,
+.niri-windows, .window { @include pill; }
+
+// ── Workspaces ──────────────────────────────────────────────────────────────
+.workspaces {
+  margin: 0 4px;
+
+  .ws {
+    padding: 0 5px;
+    background-color: transparent;
+    color: #ffffff;
+    // Match waybar: bottom "underline" via inset shadow, no border offset.
+    box-shadow: inset 0 -3px transparent;
+    border: none;
+    border-radius: 0;
+
+    &:hover { background: rgba(0, 0, 0, 0.2); }
+
+    &.active {
+      background-color: $blue;
+      color: #000000;
+      box-shadow: inset 0 -3px #ffffff;
+    }
+    &.focused {
+      background-color: $orange;
+      color: #000000;
+      box-shadow: inset 0 -3px #ffffff;
+    }
+    &.urgent { background-color: #eb4d4b; }
+    // Empty non-focused workspaces are hidden entirely (niri-state marks them),
+    // matching waybar's collapse-empty behavior.
+    &.empty { padding: 0; margin: 0; min-width: 0; }
+  }
+}
+
+// ── Left: window title + niri-windows dots ──────────────────────────────────
+.window {
+  background-color: $aqua;
+  &, label { font-family: Inter, sans-serif; }
+}
+
+.niri-windows {
+  background-color: $blue;
+  &.empty { background-color: transparent; padding: 0; margin: 0; }
+}
+
+// ── Right badges ────────────────────────────────────────────────────────────
+.claude            { background-color: $green; }
+.claude.mid        { background-color: $yellow; }
+.claude.high       { background-color: $orange; }
+.claude.critical   { background-color: $red; }
+
+.disk    { background-color: $purple; }
+.cpu     { background-color: $yellow; }
+.memswap { background-color: $blue; }
+
+.battery                  { background-color: #ffffff; }
+.battery.charging         { background-color: $green; }
+.battery.critical         { background-color: $red; }
+
+.audio       { background-color: $orange; }
+.audio.muted { background-color: $grey; }
+
+.clock { background-color: $aqua; }
+
+// ── Tray (native systray widget) ────────────────────────────────────────────
+.tray {
+  background-color: transparent;
+  padding: 0 4px;
+}
+
+// ── Screenrecord ────────────────────────────────────────────────────────────
+.screenrecord {
+  &.recording {
+    background-color: $red;
+    color: #000000;
+    padding: 0 8px;
+    margin: 2px 4px;
+    border-radius: 4px;
+  }
+  &.idle { padding: 0; margin: 0; min-width: 0; }
+}
+
+// ── mpris — Terminal Deck ────────────────────────────────────────────────────
+// Bar pill: mono, a player-tinted left rail via border, a short block meter,
+// and an expand button. Colors mirror mpris.sh's player_color().
+$np-colors: (
+  "green":  $green,
+  "orange": $orange,
+  "blue":   $blue,
+  "aqua":   $aqua,
+);
+
+.mpris {
+  color: #ffffff;
+  font-family: "Hack Nerd Font", monospace;
+  font-size: 12px;
+  padding: 0 6px 0 8px;
+  margin: 2px 4px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.22);
+  border-left: 2px solid $grey;
+
+  @each $name, $col in $np-colors {
+    &.#{$name} {
+      border-left-color: $col;
+      .mpris-icon { color: $col; }
+      .mpris-bar progress { background-color: $col; }
+    }
+  }
+
+  &.paused { color: rgba(255, 255, 255, 0.55); }
+
+  .mpris-icon  { font-size: 12px; }
+  .mpris-title { font-weight: 500; }
+
+  // Slim inline progress line (GtkProgressBar: trough / progress).
+  .mpris-bar {
+    min-width: 46px;
+    trough {
+      min-height: 3px;
+      border-radius: 99px;
+      background-color: rgba(255, 255, 255, 0.18);
+    }
+    progress {
+      min-height: 3px;
+      border-radius: 99px;
+      background-color: #ffffff;
+    }
+  }
+
+  .mpris-expand {
+    color: rgba(255, 255, 255, 0.5);
+    background-color: transparent;
+    padding: 0 2px;
+    font-size: 11px;
+    &:hover { color: #ffffff; }
+  }
+}
+
+// Expanded deck popup: one color-railed row per player.
+.mpris-popup {
+  min-width: 340px;
+
+  .panel-title {
+    color: $grey;
+    font-size: 12px;
+    margin: 0 4px 8px 4px;
+  }
+
+  .np-empty { color: $grey; padding: 10px 0; }
+
+  .np-row {
+    background-color: rgba(0, 0, 0, 0.18);
+    border-radius: 8px;
+    padding: 10px 12px 10px 0;
+
+    .np-rail {
+      min-width: 3px;
+      border-radius: 3px;
+      background-color: $grey;
+      margin-right: 2px;
+    }
+    @each $name, $col in $np-colors {
+      &.#{$name} {
+        .np-rail { background-color: $col; }
+        .np-src, .np-seek trough highlight { background-color: $col; }
+        .np-src { background-color: transparent; color: $col; }
+        .np-btn:hover { color: $col; }
+      }
+    }
+    &.paused { background-color: rgba(0, 0, 0, 0.10); }
+
+    .np-art {
+      border-radius: 6px;
+      margin-left: 8px;
+    }
+    .np-art-fallback {
+      font-size: 26px;
+      min-width: 52px;
+      min-height: 52px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .np-src { font-size: 11px; }
+    .np-title {
+      background-color: transparent;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 0;
+      &:hover { color: $yellow; }
+    }
+    .np-artist {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+    }
+
+    .np-seek-row { margin-top: 2px; }
+    .np-time {
+      color: rgba(255, 255, 255, 0.55);
+      font-family: "Hack Nerd Font", monospace;
+      font-size: 10px;
+    }
+    // eww scale = GtkScale (trough / highlight / slider). Slim, click-to-seek.
+    .np-seek {
+      trough {
+        border-radius: 99px;
+        min-height: 4px;
+        background-color: rgba(255, 255, 255, 0.16);
+        highlight { border-radius: 99px; background-color: #ffffff; }
+      }
+      slider {
+        background-color: #ffffff;
+        border-radius: 99px;
+        min-width: 10px;
+        min-height: 10px;
+        margin: -4px;
+      }
+    }
+
+    .np-ctrl { margin-left: 6px; }
+    .np-btn {
+      background-color: transparent;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      padding: 4px 5px;
+      border-radius: 6px;
+      &:hover { background-color: rgba(255, 255, 255, 0.08); }
+    }
+    .np-play {
+      background-color: rgba(255, 255, 255, 0.12);
+      font-size: 14px;
+    }
+  }
+}
+
+// ── Settings gear (in-bar) ──────────────────────────────────────────────────
+// Same metrics as the other badges so the glyph sits centered in the 22px bar
+// (a larger font-size pushed it visually high). The md-cog glyph renders 1px
+// right of its advance-box center, so equal padding leaves it off-center; the
+// asymmetric padding (1px more on the right) pulls the ink back to center.
+.settings {
+  background-color: $grey;
+  color: #000000;
+  padding: 0 9px 0 7px;
+  margin: 2px 4px;
+  border-radius: 4px;
+
+  label { color: #000000; }
+
+  &.performance { background-color: $red; }
+  &.balanced    { background-color: $blue; }
+  &.power-saver { background-color: $green; }
+}
+
+// ── Popups (calendar + settings panel) ──────────────────────────────────────
+// Transparent full-screen catcher behind a popup; clicking it dismisses.
+.backdrop { background-color: transparent; }
+
+.popup {
+  background-color: $drawer-bg;
+  color: #ffffff;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+// Custom-drawn calendar. Every visual is a class the yuck attaches; the shell
+// script emits only data. GtkCalendar was abandoned because it won't render a
+// legible today marker under eww's CSS (no !important support).
+.calendar-popup {
+  .cal-header { margin-bottom: 4px; }
+
+  .cal-arrow {
+    color: $aqua;
+    font-size: 16px;
+    padding: 0 8px;
+    background-color: transparent;
+    &:hover { color: $orange; }
+  }
+
+  .cal-title {
+    color: $yellow;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 0 12px;
+  }
+
+  .weekdays {
+    margin-bottom: 2px;
+    .wday { color: $grey; font-weight: bold; }
+    .wk-corner { min-width: 24px; }
+  }
+
+  .week .wknum {
+    color: $grey;
+    min-width: 24px;
+  }
+
+  // Day cells: uniform box so the today pill fills the cell.
+  .day {
+    color: #ffffff;
+    min-width: 26px;
+    min-height: 24px;
+    border-radius: 6px;
+    &.other { color: $grey; }
+    &.today {
+      color: #1d2021;            // dark gruvbox bg for contrast on aqua
+      background-color: $aqua;
+      font-weight: bold;
+    }
+    &:hover { background-color: rgba(255, 255, 255, 0.08); }
+  }
+}
+
+.settings-panel {
+  min-width: 250px;
+
+  .panel-title {
+    color: $grey;
+    font-size: 12px;
+    margin: 0 4px 6px 4px;
+  }
+
+  .settings-row {
+    padding: 8px 10px;
+    border-radius: 6px;
+    &:hover { background-color: rgba(255, 255, 255, 0.08); }
+
+    .row-icon {
+      font-size: 16px;
+      color: #ffffff;
+      &.on { color: $yellow; }
+      &.performance { color: $red; }
+      &.balanced    { color: $blue; }
+      &.power-saver { color: $green; }
+    }
+    .row-label { color: #ffffff; }
+
+    // Right-aligned state pill.
+    .row-pill {
+      color: #000000;
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background-color: $grey;
+      &.on { background-color: $yellow; }
+      &.performance { background-color: $red; }
+      &.balanced    { background-color: $blue; }
+      &.power-saver { background-color: $green; }
+    }
+  }
+
+  .settings-battery {
+    padding: 8px 10px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    .row-icon.batt { font-size: 16px; color: $aqua; }
+    .row-label { color: #ffffff; }
+  }
+}

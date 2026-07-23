@@ -36,6 +36,7 @@
             }
           '';
         in
+        # kdl
         ''
           ${mkOutput config.monitors.laptop}
 

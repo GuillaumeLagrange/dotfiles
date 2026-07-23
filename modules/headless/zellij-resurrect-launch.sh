@@ -12,4 +12,4 @@ if [ -n "$ZELLIJ_PANE_ID" ]; then
   zellij action rename-pane "$cmd" >/dev/null 2>&1
 fi
 
-exec zsh -ic 'd=$PWD; cd / && cd "$d"; '"$cmd"'; exec zsh -i'
+exec zsh -ic 'd=$PWD; cd / && cd "$d"; '"$cmd"''

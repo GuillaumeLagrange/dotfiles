@@ -71,6 +71,10 @@ vim.opt.tabstop = 4
 
 vim.opt.updatetime = 1000
 
+-- Collapse the command line when idle so it doesn't reserve a blank row below
+-- the global statusline; it reappears while typing a command or showing messages.
+vim.o.cmdheight = 0
+
 vim.o.diffopt = 'internal,filler,closeoff,linematch:60,iwhite'
 vim.o.wildignorecase = true
 

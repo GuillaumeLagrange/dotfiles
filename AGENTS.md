@@ -6,6 +6,58 @@ This is a comprehensive NixOS/Home Manager configuration repository for Guillaum
 
 - Do not proactively run the Home Manager / NixOS config switch (e.g. `home-manager switch`, `sudo nixos-rebuild switch`). After making edits, just tell the user to rebuild. Only run the switch yourself if the user explicitly asks you to.
 
+## IMPORTANT: Testing scripts that run under systemd / a daemon
+
+Many things here (eww bar, services) launch scripts from a **systemd unit** or a
+long-running **daemon**, which run with a **minimal, locked-down `PATH`** — only the
+binaries the module explicitly put there. Your interactive shell has a huge `PATH`, so a
+script that works when you run it by hand can still fail in production with
+`<tool>: command not found` (this has bitten `sh`, `sed`, and others repeatedly, and with
+`set -euo pipefail` the script dies mid-output → the widget silently shows nothing).
+
+**Never validate such a script using your own shell's PATH.** Test it the way the daemon
+actually launches it:
+
+1. **Reproduce under the real environment, not your shell.** Prefer running the *installed
+   wrapper* (which exports its own `PATH` internally) rather than the raw `.sh`:
+   ```bash
+   # Build the config's package set and run the wrapper as installed:
+   HP=$(nix build --no-link --print-out-paths \
+     '.#nixosConfigurations.badlands.config.home-manager.users.guillaume.home.path')
+   "$HP/bin/<wrapper>"        # runs with the module's PATH, like the daemon
+   ```
+   To catch a *missing* dependency, strip your PATH so only the wrapper's own PATH counts:
+   ```bash
+   env -i HOME="$HOME" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+     WAYLAND_DISPLAY="$WAYLAND_DISPLAY" NIRI_SOCKET="$NIRI_SOCKET" \
+     PATH=/run/current-system/sw/bin "$HP/bin/<wrapper>"
+   ```
+
+2. **Test a daemon by launching a throwaway instance with the config's env**, not your
+   shell's. For eww specifically, extract the exact `Environment=PATH` the unit uses and run
+   the daemon under it — don't add anything to it:
+   ```bash
+   EWW=$(nix build --no-link --print-out-paths '.#...eww')/bin/eww
+   PATH_LINE=$(nix eval --raw \
+     '.#nixosConfigurations.badlands.config.home-manager.users.guillaume.systemd.user.services.eww.Service.Environment' \
+     --apply 'x: builtins.elemAt x 0')   # "PATH=/nix/store/...:..."
+   env -i HOME="$HOME" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+     NIRI_SOCKET="$NIRI_SOCKET" "$PATH_LINE" \
+     "$EWW" --config "$CFG" daemon --no-daemonize
+   ```
+
+3. **Always read the daemon's own logs after a change** — the failure surfaces there, not in
+   your test:
+   ```bash
+   journalctl --user -u eww -e        # unit stdout/stderr (script-not-found, crashes)
+   eww logs                           # eww widget/deflisten errors
+   ```
+   `stderr of \`<var>\`: ... command not found` is the tell-tale of a missing `PATH` entry.
+
+4. **Rule of thumb:** any new external command used in a bar/service script MUST be added to
+   that module's runtime `PATH` (e.g. eww's `runtimePath` in `modules/gui/eww/default.nix`).
+   If you add a `sed`/`jq`/`awk`/etc. call, add the package in the same change.
+
 ## Repository Structure
 
 ### Core Files
@@ -35,8 +87,8 @@ Shared configuration modules:
 
 #### `modules/gui/`
 Desktop environment configuration:
-- Hyprland/Sway window manager setup
-- Waybar status bar
+- Niri (primary) / Sway window manager setup
+- eww status bar (`modules/gui/eww/`) — replaced waybar. See `modules/gui/eww/SUMMARY.md`.
 - Firefox browser config
 - Wallpapers collection
 - Screen locking configuration
