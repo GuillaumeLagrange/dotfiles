@@ -42,6 +42,18 @@ Interactions:
 - Empty state: "Nothing playing".
 - Seek bar advances smoothly while a track plays and the panel is open.
 
+## Active player
+
+The pill shows the **active player** — defined as *whatever your media keys will control*.
+This is synced to `playerctld` (the MPRIS proxy media keys route through): the active player
+is the one whose trackid matches what `playerctld` currently forwards. Falls back to a
+Playing player, then the first present, if `playerctld` isn't running.
+
+- The active player changes on play/pause/status changes (following `playerctld`) and updates
+  the pill live.
+- The active notion **never reorders the panel** — panel rows are sorted stably by player and
+  only change when a player is created/destroyed.
+
 ## Per-player conventions
 
 - Colors: spotify = green, firefox = orange, chrome = blue, other = aqua.
@@ -98,8 +110,11 @@ Status:
 - [x] Data-layer flicker fix verified: `state` var byte-stable while `pos` ticks.
 - [ ] Optimistic play/pause — DROPPED for now (D-Bus echo ~200ms feels instant; sticky-
       override bug not worth it). Revisit if 200ms bugs.
-- [ ] Visual flicker: confirm rendering doesn't rebuild rows/art on pos tick (looks OK at
-      data layer; needs live eyes).
+- [x] Flicker FIXED. Root cause was NOT position updates — it was the panel's own
+      onhover/onhoverlost re-running open/close on GTK hover churn over internal widgets,
+      re-`eww open`ing the window every event. Fix: panel hover only touches a keepalive
+      flag (`mpris-keep`, no eww calls); the debounced close checks the flag. No window
+      churn → no flicker.
 
 ## Port to Nix (after behavior settled)
 

@@ -108,10 +108,18 @@ class Bus:
         reply = self.bus.call_sync(
             "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
             "ListNames", None, GLib.VariantType("(as)"), Gio.DBusCallFlags.NONE, -1, None)
-        return [
+        # Sorted for a STABLE panel order — the active-player notion must never
+        # reorder rows; only player add/remove changes this list.
+        return sorted(
             n for n in reply.unpack()[0]
             if n.startswith(MPRIS_PREFIX) and n != PROXY_NAME
-        ]
+        )
+
+    def active_trackid(self) -> str:
+        """The trackid playerctld is currently forwarding — i.e. the player your
+        media keys will hit. Empty if playerctld isn't running."""
+        md = self.get_all(PROXY_NAME).get("Metadata", {}) or {}
+        return str(md.get("mpris:trackid", "") or "")
 
     def get_all(self, bus_name: str) -> dict:
         try:
@@ -155,6 +163,9 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
 
     md = props.get("Metadata", {}) or {}
     title = md.get("xesam:title", "") or ""
+    # Marquee the title only when it won't fit the panel's title column (~28
+    # chars at 14px). CSS can't detect overflow, so the backend gates it.
+    TITLE_FIT = 28
     artist_v = md.get("xesam:artist", []) or []
     artist = ", ".join(artist_v) if isinstance(artist_v, list) else str(artist_v)
     album = md.get("xesam:album", "") or ""
@@ -171,6 +182,7 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
         "color": color(name),
         "status": status,
         "title": title,
+        "title_long": len(title) > TITLE_FIT,
         "artist": artist,
         "album": album,
         "art": resolve_art(md.get("mpris:artUrl", "") or "") if with_art else "",
@@ -185,10 +197,17 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
     }
 
 
-def pick_active(players: list[dict]) -> dict | None:
-    """Active = a Playing player if any, else the first present."""
+def pick_active(bus: Bus, players: list[dict]) -> dict | None:
+    """The active player = whatever your media keys will hit. That is exactly
+    what playerctld forwards, identified by matching its current trackid. Falls
+    back to a Playing player, then the first present, if playerctld is absent."""
     if not players:
         return None
+    tid = bus.active_trackid()
+    if tid:
+        for p in players:
+            if p["trackid"] and p["trackid"] == tid:
+                return p
     for p in players:
         if p["playing"]:
             return p
@@ -213,7 +232,7 @@ class StateDaemon:
             p = build_player(self.bus, bn)
             if p:
                 players.append(p)
-        active = pick_active(players)
+        active = pick_active(self.bus, players)
         payload = {
             "present": active is not None,
             "players": players,
@@ -221,11 +240,16 @@ class StateDaemon:
         }
         # De-dupe: only print when the meaningful state changed. Position is not
         # part of state (the pos channel owns it), so this stays quiet at idle.
+        # `active.player` is in the snapshot so switching the media-key target
+        # re-emits (updating the pill) even when the player set is unchanged.
         snapshot = json.dumps(
-            [
-                {k: p[k] for k in ("player", "status", "title", "artist", "art", "len")}
-                for p in players
-            ],
+            {
+                "players": [
+                    {k: p[k] for k in ("player", "status", "title", "artist", "art", "len")}
+                    for p in players
+                ],
+                "active": active["player"] if active else None,
+            },
             sort_keys=True,
         )
         if snapshot == self._last:
