@@ -163,9 +163,11 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
 
     md = props.get("Metadata", {}) or {}
     title = md.get("xesam:title", "") or ""
-    # Marquee the title only when it won't fit the panel's title column (~28
-    # chars at 14px). CSS can't detect overflow, so the backend gates it.
-    TITLE_FIT = 28
+    # Marquee the title only when it won't fit the panel's title column. CSS
+    # can't detect overflow, so the backend gates it on a char count. The font
+    # is proportional, so this is a conservative estimate (wide glyphs crop
+    # sooner) — err low so anything that might crop still scrolls.
+    TITLE_FIT = 20
     artist_v = md.get("xesam:artist", []) or []
     artist = ", ".join(artist_v) if isinstance(artist_v, list) else str(artist_v)
     album = md.get("xesam:album", "") or ""
@@ -232,6 +234,11 @@ class StateDaemon:
             p = build_player(self.bus, bn)
             if p:
                 players.append(p)
+        # Distinct marquee-animation slot per row. GTK collapses two identical
+        # @keyframes animations (only one runs); giving each row its own
+        # animation name (marquee0/1/2/3) makes them all animate independently.
+        for i, p in enumerate(players):
+            p["mslot"] = i % 4
         active = pick_active(self.bus, players)
         payload = {
             "present": active is not None,
