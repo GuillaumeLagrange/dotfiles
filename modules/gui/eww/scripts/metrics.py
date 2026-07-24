@@ -105,10 +105,12 @@ class Cpu:
             (n for n in cur if n != "cpu"),
             key=lambda n: int(n[3:]),
         )
-        # Pad each core index to the widest one so the "%" column stays aligned
-        # when core counts cross into two digits (cpu0 ... cpu11).
-        width = max((len(n) for n in cores), default=0)
-        tooltip = "\n".join(f"{n + ':':<{width}} {pct(n)}%" for n in cores)
+        # Pad each label to the widest one so the "%" column stays aligned when
+        # core counts cross into two digits (cpu0: ... cpu11:). The colon is part
+        # of what gets padded, or the single-digit rows come up a column short.
+        labels = {n: n + ":" for n in cores}
+        width = max((len(x) for x in labels.values()), default=0)
+        tooltip = "\n".join(f"{labels[n]:<{width}} {pct(n)}%" for n in cores)
 
         usage = pct("cpu")
         self.prev = cur

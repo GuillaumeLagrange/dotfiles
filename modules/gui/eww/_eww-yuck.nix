@@ -337,7 +337,11 @@
           (box :class "np-title-clip" :halign "start" :hexpand false
             (button :class "np-title" :halign "start"
               :onclick "${bins.setsid} -f ${bins.mprisJump} ''${p.player}"
+              ;; limit-width matches the backend's frame width: until the first
+              ;; scroll frame arrives the fallback is the raw title, which is
+              ;; unbounded and would open the panel wider than the clip.
               (label :class "np-title-text" :halign "start" :wrap false
+                :limit-width 30
                 :text {scroll[p.player] ?: p.title}))))
         (label :class "np-artist" :halign "start" :text {p.artist}
           :limit-width 40 :show-truncated true :visible {p.artist != ""})

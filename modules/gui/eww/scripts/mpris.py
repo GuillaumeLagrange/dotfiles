@@ -347,7 +347,11 @@ class ScrollDaemon:
         self.loop = GLib.MainLoop()
         self._idx: dict[str, int] = {}
         self._title: dict[str, str] = {}     # reset detector: index restarts on title change
-        self._was_open = False
+        # Emit a start frame on the first idle tick as though the panel had just
+        # closed: the var is otherwise empty until the panel is first opened, and
+        # the widget's fallback is the unpadded title, which is wider than a
+        # frame and would size the panel to it on that first open.
+        self._was_open = True
 
     def _tick(self) -> bool:
         if not OPEN_FLAG.exists():
