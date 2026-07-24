@@ -28,6 +28,14 @@ require('sidekick').setup({
     enabled = false,
     debounce = 100,
   },
+  cli = {
+    win = {
+      keys = {
+        stopinsert = { '<esc>', 'stopinsert', mode = 't' },
+        stopinsert2 = { '<esc><esc>', 'stopinsert', mode = 't' },
+      },
+    },
+  },
 })
 
 -- Inline visualization of what the CLI agent (Claude Code) changes, driven by
@@ -107,3 +115,14 @@ end, { desc = 'Send Visual Selection' })
 vim.keymap.set({ 'n', 'x' }, '<leader>ap', function()
   require('sidekick.cli').prompt()
 end, { desc = 'Sidekick Select Prompt' })
+
+vim.keymap.set({ 'n', 't' }, '<leader>aF', function()
+  local cli = require('sidekick.cli')
+  vim.g._sk_layout = vim.g._sk_layout == 'float' and 'right' or 'float'
+  cli.hide()
+  cli.show({ win = { layout = vim.g._sk_layout, float = { width = 0.95, height = 0.95 } } })
+end, { desc = 'Sidekick: toggle float/split' })
+
+vim.keymap.set({ 'n', 't' }, '<leader>az', function()
+  Snacks.zoom()
+end, { desc = 'Toggle window zoom' })
