@@ -49,8 +49,12 @@ window {
 .workspaces {
   margin: 0 4px;
 
+  // Uniform padding across every state: the highlight is a background on the
+  // cell, so any state-dependent padding makes the pill a different size than
+  // its neighbors and the row's rhythm shifts as focus moves. Separation
+  // between cells comes from the box's :spacing, not from padding.
   .ws {
-    padding: 0 5px;
+    padding: 0 7px;
     background-color: transparent;
     color: #ffffff;
     // Match waybar: bottom "underline" via inset shadow, no border offset.
@@ -71,9 +75,6 @@ window {
       box-shadow: inset 0 -3px #ffffff;
     }
     &.urgent { background-color: #eb4d4b; }
-    // Empty non-focused workspaces are hidden entirely (niri-state marks them),
-    // matching waybar's collapse-empty behavior.
-    &.empty { padding: 0; margin: 0; min-width: 0; }
   }
 }
 
@@ -237,14 +238,6 @@ $np-colors: (
       color: rgba(255, 255, 255, 0.55);
       font-family: "Hack Nerd Font", monospace;
       font-size: 10px;
-    }
-    // Shown instead of the progress bar for length-less streams.
-    .np-live {
-      color: $red;
-      font-family: "Hack Nerd Font", monospace;
-      font-size: 10px;
-      font-weight: 700;
-      margin-left: 4px;
     }
     // Read-only progress = GtkProgressBar (trough / progress).
     .np-seek {

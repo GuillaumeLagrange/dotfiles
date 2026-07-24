@@ -18,21 +18,98 @@ elif [ "${1:-}" = "--restart" ]; then
   force_refresh=1
 fi
 
-fetch_data() {
-  local token response http_code
-  token=$(jq -r '.claudeAiOauth.accessToken' "$CREDENTIALS")
+OAUTH_TOKEN_URL="https://platform.claude.com/v1/oauth/token"
+OAUTH_CLIENT_ID="9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+ROTATION_GUARD="$CACHE_DIR/claude-refresh-disabled"
+
+# Access tokens live ~2h, so after a boot or suspend the stored one is usually
+# stale. Exchange the refresh token for a fresh access token in memory only:
+# Claude Code owns .credentials.json and stays the sole writer.
+#
+# This assumes the server does not rotate the refresh token. If it ever returns a
+# new one, the stored token is already dead and only the response holds a usable
+# one — writing it back would race Claude Code, so instead refreshing is disabled
+# and the stale-token path takes over rather than silently breaking re-auth.
+refresh_access_token() {
+  [ -f "$ROTATION_GUARD" ] && return 1
+
+  local refresh_token response http_code body
+  refresh_token=$(jq -r '.claudeAiOauth.refreshToken // empty' "$CREDENTIALS")
+  [ -z "$refresh_token" ] && return 1
+
+  response=$(curl -s -w '\n%{http_code}' -X POST "$OAUTH_TOKEN_URL" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg rt "$refresh_token" --arg cid "$OAUTH_CLIENT_ID" \
+      '{grant_type:"refresh_token",refresh_token:$rt,client_id:$cid}')")
+  http_code=$(echo "$response" | tail -1)
+  body=$(echo "$response" | sed '$d')
+
+  if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+    return 1
+  fi
+
+  if [ "$(echo "$body" | jq -r 'has("refresh_token")')" = "true" ]; then
+    mkdir -p "$CACHE_DIR"
+    echo "refresh token rotation detected; disabling bar-side refresh" \
+      > "$ROTATION_GUARD"
+    return 1
+  fi
+
+  echo "$body" | jq -r '.access_token // empty'
+}
+
+access_token() {
+  local expires_at now_ms token
+  expires_at=$(jq -r '.claudeAiOauth.expiresAt // 0' "$CREDENTIALS")
+  now_ms=$(( $(date +%s) * 1000 ))
+
+  # 60s skew guard: avoid spending a request on a token about to expire.
+  if [ "$expires_at" -gt $((now_ms + 60000)) ]; then
+    jq -r '.claudeAiOauth.accessToken // empty' "$CREDENTIALS"
+    return 0
+  fi
+
+  token=$(refresh_access_token) && [ -n "$token" ] && { echo "$token"; return 0; }
+
+  # Refresh unavailable — fall back to the stored token and let the API judge it.
+  jq -r '.claudeAiOauth.accessToken // empty' "$CREDENTIALS"
+}
+
+# Sets USAGE_BODY / LAST_HTTP_CODE rather than echoing, so the status code
+# survives: a $(...) capture would confine the assignment to a subshell.
+usage_request() {
+  local token="$1" response
   response=$(curl -s -w '\n%{http_code}' "https://api.anthropic.com/api/oauth/usage" \
     -H "Authorization: Bearer $token" \
     -H "anthropic-beta: oauth-2025-04-20")
-  http_code=$(echo "$response" | tail -1)
-  # shellcheck disable=SC2034
-  LAST_HTTP_CODE="$http_code"
-  local body
-  body=$(echo "$response" | sed '$d')
-  if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-    echo "$body"
+  LAST_HTTP_CODE=$(echo "$response" | tail -1)
+  [[ "$LAST_HTTP_CODE" =~ ^[0-9]+$ ]] || LAST_HTTP_CODE=0
+  USAGE_BODY=$(echo "$response" | sed '$d')
+}
+
+# Reports its payload via FETCH_OUTPUT (read by fetch_data_with_retries) so the
+# status code in LAST_HTTP_CODE survives to the caller.
+# shellcheck disable=SC2034
+fetch_data() {
+  local token fresh
+  token=$(access_token)
+  [ -z "$token" ] && { LAST_HTTP_CODE=0; return 1; }
+
+  usage_request "$token"
+  # A token that looked unexpired can still be rejected (clock skew across
+  # suspend, or server-side revocation), so a 401 gets one forced refresh.
+  if [ "$LAST_HTTP_CODE" = "401" ]; then
+    fresh=$(refresh_access_token)
+    if [ -n "$fresh" ]; then
+      usage_request "$fresh"
+    fi
+  fi
+
+  if [ "$LAST_HTTP_CODE" -ge 200 ] && [ "$LAST_HTTP_CODE" -lt 300 ]; then
+    FETCH_OUTPUT="$USAGE_BODY"
     return 0
   fi
+  FETCH_OUTPUT="$USAGE_BODY"
   return 1
 }
 

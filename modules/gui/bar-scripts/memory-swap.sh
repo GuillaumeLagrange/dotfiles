@@ -58,7 +58,7 @@ disk_h=$(human "$disk_used_kib")
 class="ok"
 
 # zram shows uncompressed pages -> real RAM cost, e.g. "5.2G->1.3G".
-text="&#xf061a; ${ram_pct}% &#xf140b; ${zram_raw_h}(${zram_real_h})"
+text="&#xf061a; ${ram_pct}% &#xf140b;${zram_raw_h}"
 tooltip="RAM ${ram_pct}% used\nzram ${zram_raw_h} pages → ${zram_real_h} in RAM\ndisk swap ${disk_h}"
 
 printf '{"text": "%s", "class": "%s", "tooltip": "%s"}\n' "$text" "$class" "$tooltip"

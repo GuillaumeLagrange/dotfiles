@@ -52,12 +52,27 @@ SCROLL_END_HOLD = 8        # ticks held at the end before reset (~1.5s at 180ms)
 
 # ── pure helpers ─────────────────────────────────────────────────────────────
 
+def _keep_leading_space(frame: str) -> str:
+    """Swap leading ASCII spaces for U+00A0 so the label cannot trim them."""
+    stripped = frame.lstrip(" ")
+    return "\u00a0" * (len(frame) - len(stripped)) + stripped
+
+
 def scroll_frames(title: str) -> list[str]:
     """The scroll sequence: start-hold, one window per char step to the end, then
-    end-hold. Titles that fit the window yield a single static frame."""
+    end-hold. Titles that fit the window yield a single static frame.
+
+    Every window position is emitted, so the text advances exactly one character
+    per tick. A leading ASCII space would be trimmed to zero width when the label
+    renders, making the frame look like it had jumped ahead; U+00A0 occupies its
+    column instead, keeping the motion even across word gaps. (Skipping mid-gap
+    windows instead makes the slice jump two positions at every word break, which
+    reads as a lurch.)
+    """
     if len(title) <= TITLE_WINDOW:
         return [title.ljust(TITLE_WINDOW)]
-    slides = [title[i:i + TITLE_WINDOW] for i in range(len(title) - TITLE_WINDOW + 1)]
+    slides = [_keep_leading_space(title[i:i + TITLE_WINDOW]).ljust(TITLE_WINDOW)
+              for i in range(len(title) - TITLE_WINDOW + 1)]
     return ([slides[0]] * SCROLL_START_HOLD) + slides + ([slides[-1]] * SCROLL_END_HOLD)
 
 

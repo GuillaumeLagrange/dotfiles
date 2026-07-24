@@ -27,12 +27,18 @@
   ;; Pushed by screen-tools.nix on record start/stop.
   (defvar screenrecord `{"recording":false,"text":""}`)
 
-  ;; Sampled metrics — no event source, so polling is the right model.
+  ;; Sampled metrics. One resident emitter for all four rather than a defpoll
+  ;; each: eww runs poll commands through a blocking wait on its script-var
+  ;; runtime, so every tick parks a worker for the script's whole duration and
+  ;; the resulting stalls are visible in the media panel's title marquee.
+  ;; Per-metric sampling periods live in the script.
+  (deflisten metrics
+    :initial `{"cpu":{"usage":0,"tooltip":""},"memswap":{"text":"","class":"ok","tooltip":""},"disk":{"free":"…","tooltip":""},"battery":{"capacity":0,"charging":false,"class":"hidden","text":"","tooltip":""}}`
+    "${bins.metrics}")
+
+  ;; Network-bound and slow, so it stays a poll: a 300s interval makes the
+  ;; blocking cost irrelevant, and it is refreshed on click via claude-refresh.
   (defpoll claude   :interval "300s" :initial `{"text":"󰜡 --","tooltip":"","class":"low","percentage":0}` "${bins.claudeUsage}")
-  (defpoll disk     :interval "30s"  :initial `{"free":"…","tooltip":""}` "${bins.disk}")
-  (defpoll cpu      :interval "3s"   :initial `{"usage":0,"tooltip":""}` "${bins.cpu}")
-  (defpoll memswap  :interval "5s"   :initial `{"text":"","class":"ok","tooltip":""}` "${bins.memorySwap}")
-  (defpoll battery  :interval "30s"  :initial `{"capacity":0,"charging":false,"class":"hidden","text":"","tooltip":""}` "${bins.battery}")
 
   ;; Settings state — pushed via `eww update` (toggle handlers + settings-watch).
   ;; Seed the bare gear glyph so the badge draws on first paint; the watch push
@@ -65,7 +71,7 @@
   ;; all-outputs=false). eww has no list filter, so off-output buttons render
   ;; but stay hidden.
   (defwidget workspaces [monitor]
-    (box :class "workspaces" :space-evenly false :spacing 0
+    (box :class "workspaces" :space-evenly false :spacing 2
       (for ws in {nstate.workspaces}
         (eventbox :visible {ws.output == monitor}
                   :onclick "${bins.niri} msg action focus-workspace ''${ws.name}"
@@ -109,7 +115,7 @@
           :text "''${mpris.active.title ?: ""}''${(mpris.active.artist ?: "") != "" ? "  —  " : ""}''${mpris.active.artist ?: ""}"
           :limit-width 34 :show-truncated true)
         (button :class "mpris-toggle"
-          :onclick "${bins.mpris} playpause ''${mpris.active.player}"
+          :onclick "${bins.mprisCtl} ''${mpris.active.bus} PlayPause"
           {(mpris.active.status ?: "Paused") == "Playing" ? "${bins.pauseGlyph}" : "${bins.playGlyph}"}))))
 
   ;; Native SNI tray (eww's `systray` widget). Same slot/size as waybar's tray.
@@ -128,20 +134,20 @@
         (label :text {claude.text}))))
 
   (defwidget disk-w []
-    (box :class "disk" :tooltip {disk.tooltip}
-      (label :text "󰋊 ''${disk.free}")))
+    (box :class "disk" :tooltip {metrics.disk.tooltip}
+      (label :text "󰋊 ''${metrics.disk.free}")))
 
   (defwidget cpu-w []
-    (box :class "cpu" :tooltip {cpu.tooltip}
-      (label :text "󰍛 ''${cpu.usage}%")))
+    (box :class "cpu" :tooltip {metrics.cpu.tooltip}
+      (label :text "󰍛 ''${metrics.cpu.usage}%")))
 
   (defwidget memswap-w []
-    (box :class "memswap ''${memswap.class}" :tooltip {memswap.tooltip}
-      (label :markup {memswap.text})))
+    (box :class "memswap ''${metrics.memswap.class}" :tooltip {metrics.memswap.tooltip}
+      (label :markup {metrics.memswap.text})))
 
   (defwidget battery-w []
-    (box :class "battery ''${battery.class}" :visible {battery.class != "hidden"} :tooltip {battery.tooltip}
-      (label :text {battery.text})))
+    (box :class "battery ''${metrics.battery.class}" :visible {metrics.battery.class != "hidden"} :tooltip {metrics.battery.tooltip}
+      (label :text {metrics.battery.text})))
 
   (defwidget audio-w []
     (eventbox
@@ -302,15 +308,16 @@
   ;; `?.[key]` safe-access does NOT resolve a variable key inside a for-generated
   ;; widget (it silently yields nothing).
 
-  ;; Read-only progress display; no click-to-seek. Tracks with no mpris:length
-  ;; (live streams) have no meaningful progress, so the bar and end time are
-  ;; hidden and a LIVE badge shows next to the elapsed time.
+  ;; Read-only progress display; no click-to-seek. A missing mpris:length is not
+  ;; evidence of a live stream: browsers publish the track before its duration,
+  ;; so a finite video reports no length for the first seconds of playback. The
+  ;; bar and end time are simply omitted until a length exists.
   (defwidget mpris-seek [p pos]
     (box :class "np-seek-row" :space-evenly false :spacing 8
       (label :class "np-time" :text {pos[p.player].posText ?: p.posText})
       (progress :class "np-seek" :hexpand true :visible {p.has_length}
         :value {pos[p.player].prog ?: p.prog})
-      (label :class "np-live" :text "LIVE" :visible {!p.has_length} :hexpand true :halign "start")
+      (box :hexpand true :visible {!p.has_length})
       (label :class "np-time" :text {p.lenText} :visible {p.has_length})))
 
   (defwidget mpris-row [p pos scroll]
@@ -336,11 +343,11 @@
           :limit-width 40 :show-truncated true :visible {p.artist != ""})
         (mpris-seek :p p :pos pos))
       (box :class "np-ctrl" :orientation "h" :space-evenly false :spacing 6 :valign "center"
-        (button :class "np-btn" :onclick "${bins.mpris} previous ''${p.player}" "${bins.prevGlyph}")
+        (button :class "np-btn" :onclick "${bins.mprisCtl} ''${p.bus} Previous" "${bins.prevGlyph}")
         (button :class "np-btn np-play"
-          :onclick "${bins.mpris} playpause ''${p.player}"
+          :onclick "${bins.mprisCtl} ''${p.bus} PlayPause"
           {p.playing ? "${bins.pauseGlyph}" : "${bins.playGlyph}"})
-        (button :class "np-btn" :onclick "${bins.mpris} next ''${p.player}" "${bins.nextGlyph}"))))
+        (button :class "np-btn" :onclick "${bins.mprisCtl} ''${p.bus} Next" "${bins.nextGlyph}"))))
 
   ;; Anchored above the bar. The pill sits mid-right, but its x drifts with the
   ;; tray/claude widths, so a fixed offset there would desync; bottom-center is

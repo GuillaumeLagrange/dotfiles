@@ -46,9 +46,10 @@ Interactions:
 - Empty state: "Nothing playing".
 - Progress bar advances smoothly while a track plays and the panel is open. It is a
   display only — no click-to-seek (was buggy across players).
-- **Length-less media** (live streams, some web media with no `mpris:length`): no progress
-  bar or end time — a red **LIVE** badge shows next to the elapsed time instead
-  (`has_length` flag gates it).
+- **Length-less media**: when a track publishes no `mpris:length`, the progress bar and end
+  time are omitted and only the elapsed time shows (`has_length` gates it). This is *not*
+  labelled "live": browsers publish a track before its duration, so a finite video legitimately
+  reports no length for the first seconds of playback, and the timeline appears once it does.
 
 ### Jump to window (title click)
 
@@ -124,6 +125,10 @@ not call `eww`). The media panel is the only one whose flag also gates deflisten
   no `eww` call); a debounced close checks the flag's mtime to detect a re-hover.
 - **eww `?.[dynamic-key]` doesn't resolve** a variable key inside a `for`-generated widget
   (silently empty). Index with bracket syntax — `pos[p.player]` — instead.
+- **Transport clicks go through `dbus-send`, not `mpris.py`.** Spawning Python costs ~200ms
+  before the D-Bus call is sent (mostly importing the GObject typelibs), which reads as a
+  dropped click. `dbus-send` needs `--print-reply` despite discarding the output: without it
+  the call carries NO_REPLY_EXPECTED and Spotify discards it, returning 0 having done nothing.
 - **`pos`/`scroll` deflistens are gated on panel-open** via `OPEN_FLAG`, and the vars are
   passed into `mpris-row` as params so eww tracks the dependency and starts the deflisten.
 - Session bus: the eww user unit inherits `DBUS_SESSION_BUS_ADDRESS`. MPRIS_ICON_* glyphs are

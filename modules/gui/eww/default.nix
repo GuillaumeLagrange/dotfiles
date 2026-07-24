@@ -54,10 +54,6 @@
         export AI_USAGE_RETRY_LIMIT="5"
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
       '';
-      memorySwap = pkgs.writeShellScriptBin "memory-swap-eww" ''
-        export PATH="${pkgs.lib.makeBinPath [ pkgs.gawk pkgs.coreutils ]}:$PATH"
-        exec ${pkgs.bash}/bin/bash ${../bar-scripts/memory-swap.sh} "$@"
-      '';
 
       niriState = mkScript "niri-state" ./scripts/niri-state.sh;
 
@@ -84,14 +80,24 @@
         export MPRIS_ICON_MUSIC=${pkgs.lib.escapeShellArg mprisIcons.music}
         exec ${mprisPython}/bin/python3 ${./scripts/mpris.py} "$@"
       '';
-      disk = mkScript "disk-eww" ./scripts/disk.sh;
-      cpu = mkScript "cpu-eww" ./scripts/cpu.sh;
-      battery = mkScript "battery-eww" ./scripts/battery.sh;
+      # CPU/memory/disk/battery in one long-lived deflisten: eww runs defpoll
+      # commands through a blocking wait on its script-var runtime, so each poll
+      # parks a worker for the script's whole duration, while listen-vars are
+      # read asynchronously. Reading procfs/sysfs from a resident process also
+      # avoids both the per-tick fork tree and the sample-window sleep a
+      # stateless CPU script needs. No PATH beyond python: it shells out to
+      # nothing.
+      metrics = pkgs.writeShellScriptBin "metrics-eww" ''
+        exec ${pkgs.python3}/bin/python3 ${./scripts/metrics.py} "$@"
+      '';
       pulseaudio = mkScript "pulseaudio-eww" ./scripts/pulseaudio.sh;
       # calendar's `push` mode calls `eww update`, so it needs eww on PATH.
+      # Python rather than shell because the grid is 42 cells x 3 fields: as
+      # `date` forks that was ~260 per two-pane push (~1.1s) on the popup's
+      # hover path, versus a few ms of datetime arithmetic.
       calendar = pkgs.writeShellScriptBin "calendar-eww" ''
-        export PATH="${runtimePath}:${pkgs.eww}/bin:$PATH"
-        exec ${pkgs.bash}/bin/bash ${./scripts/calendar.sh} "$@"
+        export EWW_BIN="${pkgs.eww}/bin/eww"
+        exec ${pkgs.python3}/bin/python3 ${./scripts/calendar.py} "$@"
       '';
 
       eww = "${pkgs.eww}/bin/eww";
@@ -166,6 +172,22 @@
         var = "settings_open";
       };
 
+      # Transport clicks (play-pause / next / previous) are a single D-Bus method
+      # call, so they bypass mpris.py: starting a Python interpreter and importing
+      # the GObject typelibs costs ~200ms before the call is even sent, which reads
+      # as a dropped click and invites a second one that undoes the first.
+      # dbus-send does the same call in ~0ms. Takes the full bus name (the state
+      # JSON carries it as `bus`), so no lookup is needed either.
+      # --print-reply is load-bearing, not debug output: without it dbus-send sends
+      # the call with NO_REPLY_EXPECTED and exits, and Spotify silently discards
+      # those — the call is delivered, returns 0, and nothing happens. Waiting for
+      # the reply still costs ~0ms.
+      mprisCtl = pkgs.writeShellScriptBin "eww-mpris-ctl" ''
+        exec ${pkgs.dbus}/bin/dbus-send --session --print-reply=literal \
+          --dest="$1" /org/mpris/MediaPlayer2 \
+          "org.mpris.MediaPlayer2.Player.$2" >/dev/null 2>&1
+      '';
+
       # Title click: raise the player's window and close the panel at once (a click
       # is a definite intent, so no debounce).
       mprisJump = pkgs.writeShellScriptBin "eww-mpris-jump" ''
@@ -182,14 +204,13 @@
       allScripts = [
         niriState
         mpris
-        disk
-        cpu
-        battery
+        metrics
         pulseaudio
         calendar
         mprisPopup.open
         mprisPopup.keep
         mprisPopup.close
+        mprisCtl
         mprisJump
         calPopup.open
         calPopup.keep
@@ -201,7 +222,6 @@
         idleInhibit
         settings
         claudeUsage
-        memorySwap
       ];
 
       # Absolute paths to every command the yuck / bar-launch invoke, so nothing
@@ -209,17 +229,15 @@
       bins = {
         niriState = "${niriState}/bin/niri-state";
         mpris = "${mpris}/bin/mpris-eww";
-        disk = "${disk}/bin/disk-eww";
-        cpu = "${cpu}/bin/cpu-eww";
-        battery = "${battery}/bin/battery-eww";
+        metrics = "${metrics}/bin/metrics-eww";
         pulseaudio = "${pulseaudio}/bin/pulseaudio-eww";
         settings = "${settings}/bin/settings-eww";
         claudeUsage = "${claudeUsage}/bin/claude-usage-eww";
-        memorySwap = "${memorySwap}/bin/memory-swap-eww";
         calendar = "${calendar}/bin/calendar-eww";
         mprisOpen = "${mprisPopup.open}/bin/eww-mpris-open";
         mprisKeep = "${mprisPopup.keep}/bin/eww-mpris-keep";
         mprisClose = "${mprisPopup.close}/bin/eww-mpris-close";
+        mprisCtl = "${mprisCtl}/bin/eww-mpris-ctl";
         mprisJump = "${mprisJump}/bin/eww-mpris-jump";
         calOpen = "${calPopup.open}/bin/eww-cal-open";
         calKeep = "${calPopup.keep}/bin/eww-cal-keep";
