@@ -9,9 +9,9 @@ code evolves — the behavior above it should not).
 1. **Cheap at idle.** Nothing playing + panel closed → no busy work.
 2. **Reacts to real changes on its own.** Track / play-pause / a player appearing or
    disappearing reflect within ~1s, including changes from media keys or other apps.
-3. **Instant on your own clicks.** Clicking play/pause (or seeking) updates the widget
-   immediately — you never wait to see your own action take effect.
-4. **No flicker.** Nothing visually rebuilds (album art, rows) just because the seek bar
+3. **Reasonably responsive to your own clicks.** Play/pause reflects on the next `state`
+   emit (~200ms D-Bus echo), which reads as near-instant.
+4. **No flicker.** Nothing visually rebuilds (album art, rows) just because the progress bar
    advances.
 
 ## Bar pill
@@ -37,10 +37,27 @@ Interactions:
 - **Opens on pill hover; closes on mouse leave** (pointer leaves both the pill and the panel).
 - Sits above the bar.
 - One row per player, each with: album art (fallback glyph when none), source icon,
-  title (click = open the source URL), artist, a click-to-seek scale with mm:ss on both
-  sides, and inline transport (prev / play-pause / next).
+  title (**click = jump to that player's window**), artist, a **read-only** progress bar
+  with mm:ss on both sides, and inline transport (prev / play-pause / next).
+- **Full title on hover** (tooltip is gone from the pill — that's the panel's job); when a
+  title overflows its column it **marquee-scrolls**: a single copy scrolls to the last
+  character, holds, then snaps back to the start (not a seamless dual-copy loop). Scroll
+  runs at a **constant pace**, so each row's cycle length ∝ its own title length and rows
+  never wait for one another (short titles cycle fast, long ones slow).
 - Empty state: "Nothing playing".
-- Seek bar advances smoothly while a track plays and the panel is open.
+- Progress bar advances smoothly while a track plays and the panel is open. It is a
+  display only — no click-to-seek (was buggy across players).
+- **Length-less media** (live streams, some web media with no `mpris:length`): no progress
+  bar or end time — a red **LIVE** badge shows next to the elapsed time instead
+  (`has_length` flag gates it).
+
+### Jump to window (title click)
+
+Clicking a title raises the player's window via the **MPRIS `Raise` method** and **closes
+the panel**. `Raise` is compositor-agnostic, crosses workspaces, and — crucially — is
+tab-accurate: the MPRIS session is bound to the exact browser tab, so Firefox/Chromium
+raise the window AND switch to the playing tab. No compositor IPC or window-title matching
+needed. (Players advertising `CanRaise: false` do nothing — rare.)
 
 ## Active player
 
@@ -57,7 +74,6 @@ Playing player, then the first present, if `playerctld` isn't running.
 ## Per-player conventions
 
 - Colors: spotify = green, firefox = orange, chrome = blue, other = aqua.
-- Spotify "open source" opens in the Spotify app (spotify: URI), not the browser.
 - Two instances of the same app are disambiguated.
 
 ---
@@ -78,8 +94,7 @@ Holds all players' state in memory. Modes:
 | `state` | deflisten (event-driven) | full player list + active player JSON, **only on real change** | idle = 0 (blocked on D-Bus) |
 | `pos` | deflisten (500ms timer) | per-player `{pos,prog,posText}` only — no metadata/art | runs **only while panel open + playing** |
 | `playpause`/`next`/`previous` `<player>` | one-shot | — | control |
-| `seek <player> <ratio>` | one-shot | — | control |
-| `open-url <player>` | one-shot | — | opens source |
+| `focus <player>` | one-shot | — | MPRIS `Raise` (jump to window/tab) |
 | `art <url>` | one-shot | resolved local path | art cache |
 
 **eww vars:**

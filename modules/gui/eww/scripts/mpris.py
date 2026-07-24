@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 import signal
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -44,8 +45,28 @@ PROXY_NAME = MPRIS_PREFIX + "playerctld"
 ART_CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "eww" / "mpris-art"
 POS_INTERVAL_MS = 500
 
+# Title marquee — backend string rotation (the standard eww/polybar approach: no
+# CSS animation, no pixel measurement). The scroll daemon slices the title into a
+# fixed-width window and emits one frame per tick, so it reaches the exact end and
+# the pauses are length-independent. Only runs while the panel is open.
+TITLE_WINDOW = 30          # chars visible in the panel title column
+SCROLL_INTERVAL_MS = 180   # per-char step
+SCROLL_START_HOLD = 3      # ticks held at the start before scrolling
+SCROLL_END_HOLD = 8        # ticks held at the end before reset (~1.5s at 180ms)
+
 
 # ── pure helpers ─────────────────────────────────────────────────────────────
+
+def scroll_frames(title: str) -> list[str]:
+    """The full scroll sequence for a title: start-hold, one window per char step
+    until the last char is at the right edge, then end-hold. Titles that fit the
+    window yield a single static frame (no scrolling). Deterministic — the daemon
+    just advances an index into this list, so pauses are length-independent."""
+    if len(title) <= TITLE_WINDOW:
+        return [title.ljust(TITLE_WINDOW)]
+    slides = [title[i:i + TITLE_WINDOW] for i in range(len(title) - TITLE_WINDOW + 1)]
+    return ([slides[0]] * SCROLL_START_HOLD) + slides + ([slides[-1]] * SCROLL_END_HOLD)
+
 
 def short_name(bus_name: str) -> str:
     """org.mpris.MediaPlayer2.spotify -> spotify; keep instance suffix."""
@@ -131,11 +152,11 @@ class Bus:
         except GLib.Error:
             return {}
 
-    def get(self, bus_name: str, prop: str):
+    def get(self, bus_name: str, prop: str, iface: str = PLAYER_IFACE):
         try:
             reply = self.bus.call_sync(
                 bus_name, OBJ_PATH, "org.freedesktop.DBus.Properties", "Get",
-                GLib.Variant("(ss)", (PLAYER_IFACE, prop)), GLib.VariantType("(v)"),
+                GLib.Variant("(ss)", (iface, prop)), GLib.VariantType("(v)"),
                 Gio.DBusCallFlags.NONE, -1, None)
             return reply.unpack()[0]
         except GLib.Error:
@@ -163,11 +184,6 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
 
     md = props.get("Metadata", {}) or {}
     title = md.get("xesam:title", "") or ""
-    # Marquee the title only when it won't fit the panel's title column. CSS
-    # can't detect overflow, so the backend gates it on a char count. The font
-    # is proportional, so this is a conservative estimate (wide glyphs crop
-    # sooner) — err low so anything that might crop still scrolls.
-    TITLE_FIT = 20
     artist_v = md.get("xesam:artist", []) or []
     artist = ", ".join(artist_v) if isinstance(artist_v, list) else str(artist_v)
     album = md.get("xesam:album", "") or ""
@@ -184,7 +200,6 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
         "color": color(name),
         "status": status,
         "title": title,
-        "title_long": len(title) > TITLE_FIT,
         "artist": artist,
         "album": album,
         "art": resolve_art(md.get("mpris:artUrl", "") or "") if with_art else "",
@@ -192,6 +207,9 @@ def build_player(bus: Bus, bus_name: str, with_art: bool = True) -> dict | None:
         "trackid": str(md.get("mpris:trackid", "") or ""),
         "pos": pos,
         "len": length,
+        # No mpris:length (live streams, some web media) → no meaningful progress
+        # bar. The widget hides the bar/length and shows just the elapsed time.
+        "has_length": length > 0,
         "prog": prog,
         "posText": fmt_time(pos),
         "lenText": fmt_time(length),
@@ -234,11 +252,6 @@ class StateDaemon:
             p = build_player(self.bus, bn)
             if p:
                 players.append(p)
-        # Distinct marquee-animation slot per row. GTK collapses two identical
-        # @keyframes animations (only one runs); giving each row its own
-        # animation name (marquee0/1/2/3) makes them all animate independently.
-        for i, p in enumerate(players):
-            p["mslot"] = i % 4
         active = pick_active(self.bus, players)
         payload = {
             "present": active is not None,
@@ -321,6 +334,64 @@ class PosDaemon:
         self.loop.run()
 
 
+class ScrollDaemon:
+    """Emit each player's current title FRAME (a window slice) every
+    SCROLL_INTERVAL_MS while the panel is open — backend string rotation, so the
+    label just displays the frame. Advances a per-player index through
+    scroll_frames(title); resets that index when the title changes. Idle (1s
+    re-arm, no work) while the panel is closed."""
+
+    def __init__(self) -> None:
+        self.bus = Bus()
+        self.loop = GLib.MainLoop()
+        self._idx: dict[str, int] = {}       # player -> frame index
+        self._title: dict[str, str] = {}     # player -> last title (reset detector)
+        self._was_open = False
+
+    def _tick(self) -> bool:
+        if not OPEN_FLAG.exists():
+            # On the close transition, emit ONE reset frame (index 0) so the
+            # deflisten's stale value is the start of the title, not a mid-scroll
+            # or hold frame — otherwise reopening the panel glimpses that state.
+            if self._was_open:
+                self._was_open = False
+                reset = {}
+                for bn in self.bus.list_players():
+                    reset[short_name(bn)] = scroll_frames(
+                        (self.bus.get_all(bn).get("Metadata", {}) or {}).get("xesam:title", "") or "")[0]
+                print(json.dumps(reset), flush=True)
+            self._idx.clear()
+            self._title.clear()
+            GLib.timeout_add(1000, self._tick)
+            return False
+        self._was_open = True
+        out = {}
+        seen = set()
+        for bn in self.bus.list_players():
+            name = short_name(bn)
+            seen.add(name)
+            md = self.bus.get_all(bn).get("Metadata", {}) or {}
+            title = md.get("xesam:title", "") or ""
+            if self._title.get(name) != title:   # new track → restart scroll
+                self._title[name] = title
+                self._idx[name] = 0
+            frames = scroll_frames(title)
+            i = self._idx.get(name, 0) % len(frames)
+            out[name] = frames[i]
+            self._idx[name] = (i + 1) % len(frames)
+        # Drop state for players that vanished.
+        for gone in [k for k in self._idx if k not in seen]:
+            self._idx.pop(gone, None)
+            self._title.pop(gone, None)
+        print(json.dumps(out), flush=True)
+        GLib.timeout_add(SCROLL_INTERVAL_MS, self._tick)
+        return False
+
+    def run(self) -> None:
+        self._tick()
+        self.loop.run()
+
+
 # ── controls (one-shot) ──────────────────────────────────────────────────────
 
 def resolve_bus(bus: Bus, player: str) -> str | None:
@@ -331,7 +402,7 @@ def resolve_bus(bus: Bus, player: str) -> str | None:
     return None
 
 
-def control(mode: str, player: str, arg: str | None = None) -> None:
+def control(mode: str, player: str) -> None:
     bus = Bus()
     bn = resolve_bus(bus, player)
     if not bn:
@@ -342,27 +413,31 @@ def control(mode: str, player: str, arg: str | None = None) -> None:
         bus.call_player(bn, "Next")
     elif mode == "previous":
         bus.call_player(bn, "Previous")
-    elif mode == "seek":
-        md = bus.get_all(bn).get("Metadata", {}) or {}
-        len_us = int(md.get("mpris:length", 0) or 0)
-        trackid = md.get("mpris:trackid", "/org/mpris/MediaPlayer2/track/0")
-        target_us = int(float(arg) * len_us)
-        bus.call_player(bn, "SetPosition", (trackid, target_us), "(ox)")
-    elif mode == "open-url":
-        open_source(bus, bn, player)
+    elif mode == "focus":
+        focus_window(bus, bn, player)
 
 
-def open_source(bus: Bus, bn: str, player: str) -> None:
-    md = bus.get_all(bn).get("Metadata", {}) or {}
-    target = ""
-    if player == "spotify":
-        tid = str(md.get("mpris:trackid", "") or "")
-        if "/track/" in tid:
-            target = "spotify:track:" + tid.rsplit("/track/", 1)[1]
-    if not target:
-        target = md.get("xesam:url", "") or ""
-    if target:
-        Gio.AppInfo.launch_default_for_uri(target, None)
+# ── compositor abstraction ───────────────────────────────────────────────────
+# Only these two functions are compositor-specific. To support another Wayland
+# compositor, add a branch keyed on $COMPOSITOR that returns a normalized window
+# list ({id, app_id, title}) and focuses a window by id. Everything above is
+# generic MPRIS/matching logic.
+
+def focus_window(bus: Bus, bn: str, player: str) -> None:
+    """Jump to the window playing this player via the MPRIS `Raise` method.
+
+    This is compositor-agnostic and, crucially, tab-accurate: the MPRIS session is
+    bound to the exact browser tab, so Firefox/Chromium Raise the window AND switch
+    to the playing tab. It also crosses workspaces (tested on niri). No compositor
+    IPC or window-title matching needed."""
+    if not bus.get(bn, "CanRaise", "org.mpris.MediaPlayer2"):
+        return
+    try:
+        bus.bus.call_sync(
+            bn, OBJ_PATH, "org.mpris.MediaPlayer2", "Raise", None, None,
+            Gio.DBusCallFlags.NONE, -1, None)
+    except GLib.Error:
+        pass
 
 
 # ── entry ────────────────────────────────────────────────────────────────────
@@ -373,16 +448,16 @@ def main(argv: list[str]) -> int:
         StateDaemon().run()
     elif mode == "pos":
         PosDaemon().run()
+    elif mode == "scroll":
+        ScrollDaemon().run()
     elif mode == "art":
         print(resolve_art(argv[2] if len(argv) > 2 else ""))
     elif mode in ("playpause", "next", "previous"):
         control(mode, argv[2])
-    elif mode == "seek":
-        control("seek", argv[2], argv[3])
-    elif mode == "open-url":
-        control("open-url", argv[2])
+    elif mode == "focus":
+        control("focus", argv[2])
     else:
-        print("usage: mpris.py {state|pos|art|playpause|next|previous|seek|open-url}",
+        print("usage: mpris.py {state|pos|scroll|art|playpause|next|previous|focus}",
               file=sys.stderr)
         return 2
     return 0
