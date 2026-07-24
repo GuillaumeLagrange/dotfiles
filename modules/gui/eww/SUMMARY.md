@@ -42,6 +42,8 @@ modules/gui/eww/
     bar-launch.sh   eww daemon + open one bar per connected niri output (3s hotplug poll)
     niri-state.sh   single niri event-stream tap -> workspaces + per-output title/dots
     calendar.sh     custom month-grid emitter (data only) + `push` mode for the popup
+    mpris.py        MPRIS state/position/title-scroll over Gio D-Bus + transport
+                    (needs pygobject3; see media-player.md)
     cpu.sh          usage% + per-core tooltip
     disk.sh battery.sh   sampled-metric pollers (battery has time-to-full/empty tooltip)
     pulseaudio.sh   deflisten on `pactl subscribe`; emits volume + sink name (tooltip)
@@ -81,8 +83,9 @@ signal-number IPC** like waybar's SIGRTMIN — the push primitive is `eww update
 | var | kind | trigger |
 | --- | --- | --- |
 | `nstate` (workspaces/title/dots) | deflisten | niri event-stream |
-| `mpris` (active player, bar pill) | deflisten | `playerctl --follow` — event-driven, no poll |
-| `mprisdeck` (all players, popup) | defvar (push) | seeded on popup open; a 1s loop lives only while the popup is open |
+| `mpris` (all players + active) | deflisten | MPRIS D-Bus signals via Gio — event-driven, idle at zero |
+| `mprispos` (per-player position) | deflisten 500ms | runs only while the panel is open |
+| `mprisscroll` (per-player title frame) | deflisten 180ms | runs only while the panel is open |
 | `audio` | deflisten | `pactl subscribe` (event-driven); emits volume + sink name |
 | `screenrecord` | defvar (push) | `screen-tools.nix` pushes on record start/stop (instant) |
 | `settings`/`idlest`/`dndst`/`profst` | defvar (push) | toggle handlers push; `eww-settings-watch` seeds at startup + pushes on external profile change (dbus) |
@@ -101,29 +104,35 @@ Rationale: event-driven things push (instant, idle at ~zero); sampled metrics po
 | custom/niri-windows | `niri-windows`, `by_output[monitor].windows.dots`, click = toggle-overview |
 | niri/window | `window-title`, `by_output[monitor].title` |
 | custom/screenrecord | `screenrecord-w`, push from screen-tools.nix (instant) |
-| mpris | `mpris-w` bar pill (whole = play/pause, ⤢ glyph opens deck) + `mpris-popup` expandable deck (album art, click-to-seek scale, per-player transport, title click = xdg-open source). Multi-player: one color-railed row per `playerctl -l` entry |
+| mpris | `mpris-w` bar pill (source icon + title—artist + play/pause button; hover opens the panel) + `mpris-popup` panel (album art, scrolling title, read-only progress, per-player transport, title click = MPRIS Raise to that window/tab). One color-railed row per player. See `media-player.md` |
 | tray | **native `systray` widget** (`tray-w`) — in-bar SNI host |
 | custom/claude-usage | reused `claude-usage.sh`, 300s poll; click refresh / right-click restart (detached) |
 | disk / cpu / battery | poller scripts; cpu has per-core tooltip, battery has time-to-full tooltip |
 | pulseaudio | `pulseaudio.sh` deflisten; scroll = volume ±1%, click = pavucontrol, tooltip = sink name |
 | custom/memory-swap | reused `memory-swap.sh`, 5s poll |
-| group/settings drawer | **settings popup panel** (`settings-popup`) — click gear or battery; toggle rows with state pills |
+| group/settings drawer | **settings popup panel** (`settings-popup`) — hover the gear; toggle rows with state pills |
 | idle_inhibitor | settings row -> `settings.sh toggle-idle` -> `idle-inhibit.sh` (systemd-inhibit) |
 | power-profiles-daemon | settings row: left-click = more powerful, right-click = more saving; `eww-settings-watch` catches external changes |
-| clock | `clock-w`, click = calendar popup, right-click = compact-time toggle |
+| clock | `clock-w`, hover = calendar popup, right-click = compact-time toggle |
 
-## Popups (calendar + settings) — open/close model
+## Popups (media panel, calendar, settings) — open/close model
 
-eww has **no dismiss-on-focus-loss**. Each popup pairs with a full-screen transparent
-**backdrop window** behind it; clicking the backdrop closes both. The trigger opens
-backdrop-then-popup (popup on top).
+All three open on **hovering their bar widget** and close when the pointer leaves both the
+widget and the popup. `mkHoverPopup` in `default.nix` generates three helpers per popup:
 
-**Triggers must be detached** (`setsid -f <helper>`): an onclick that calls `eww` back
-(open/update) blocks against the single-threaded daemon that's still running the handler,
-and eww kills any onclick after ~1s. So the trigger runs a small helper script
-(`eww-cal-open`, `eww-settings-open`, `eww-claude-refresh`) detached; it returns instantly
-and the eww calls happen in the background. Plain `open` (not `--toggle`) is used so the
-pair can't desync (`--toggle` on two windows led to "popup never appears").
+- **open** — trigger hover: touch a keepalive flag, seed content if needed, show the window.
+- **keep** — popup hover: touch the flag only. GTK fires hover/hover-lost as the pointer
+  crosses the popup's *child* widgets; calling `eww` there would re-open the window on every
+  crossing, which flickers.
+- **close** — hover-lost: touch a closing marker, wait ~0.3s, and bail if the flag's mtime is
+  now newer (a re-hover). Otherwise hide the window, then clear the flag.
+
+**Triggers must be detached** (`setsid -f <helper>`): a handler that calls `eww` back blocks
+against the single-threaded daemon that's still running it, and eww kills any handler after
+~1s. `keep` is the exception — it only touches a file, so it runs inline.
+
+eww has no dismiss-on-focus-loss, which is why this is done with flags and hover events
+rather than a focus-out signal.
 
 ## Calendar
 
@@ -161,8 +170,6 @@ single output end-to-end — docked multi-output untested.
 ## Known cleanups / TODO
 
 - [ ] Verify multi-monitor live (docked DP outputs untested end-to-end).
-- [x] `mpris.sh` — rewritten as the Terminal Deck now-playing widget (bar pill +
-      expandable multi-player deck with album art, click-to-seek, transport).
 - [ ] Battery `class` uses `charging` for both Charging and Full; waybar had `.plugged` too.
 - [ ] `settings.sh` still has unused `profst.icon` / `emit_profile` icon (gauge removed from the row).
 
@@ -197,7 +204,9 @@ single output end-to-end — docked multi-output untested.
   renders visually high in a pill; the MD equivalents (cog `\U000f0493`, gauges) are
   centered. Prefer MD glyphs for in-bar badges.
 - **`window { background-color: transparent }`** is needed globally — eww's top-level window
-  node is opaque by default, so a full-screen backdrop shows GTK grey without it.
+  node is opaque by default, so any window shows GTK grey around its content without it.
+- **eww's SCSS parser rejects attribute selectors** (`[class*="x"]`) with "Expected a valid
+  selector", which drops the whole stylesheet. Use plain classes.
 - **Flakes only see git-tracked files.** New files under `modules/` must be `git add`-ed or
   import-tree won't load them (`undefined variable 'eww'`).
 - **import-tree ignores `_`-prefixed files** — that's why the yuck template is `_eww-yuck.nix`

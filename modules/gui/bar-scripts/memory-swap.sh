@@ -56,14 +56,9 @@ disk_h=$(human "$disk_used_kib")
 # Disk spill is the signal worth surfacing: past zram, hitting slow storage.
 # Hide the disk slot entirely until something actually lands there.
 class="ok"
-disk_segment=""
-if [ "$disk_used_kib" -gt 0 ]; then
-  class="disk-spill"
-  disk_segment=" &#xf02ca; ${disk_h}"
-fi
 
 # zram shows uncompressed pages -> real RAM cost, e.g. "5.2G->1.3G".
-text="&#xf061a; ${ram_pct}% &#xf140b; ${zram_raw_h}(${zram_real_h})${disk_segment}"
+text="&#xf061a; ${ram_pct}% &#xf140b; ${zram_raw_h}(${zram_real_h})"
 tooltip="RAM ${ram_pct}% used\nzram ${zram_raw_h} pages → ${zram_real_h} in RAM\ndisk swap ${disk_h}"
 
 printf '{"text": "%s", "class": "%s", "tooltip": "%s"}\n' "$text" "$class" "$tooltip"

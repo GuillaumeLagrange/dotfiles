@@ -13,12 +13,15 @@
   (deflisten nstate :initial `{"workspaces":[],"by_output":{}}`
     "${bins.niriState}")
 
-  ;; Active player for the bar pill — event-driven (playerctl --follow), no poll.
-  (deflisten mpris :initial `{"present":false}` "${bins.mpris} bar")
-  ;; Deck (all players) for the expanded popup. Pushed by the open helper, then
-  ;; refreshed every 1s by a loop that lives only while the popup is open, so it
-  ;; costs nothing when closed.
-  (defvar mprisdeck `{"players":[]}`)
+  ;; Full media state — event-driven (D-Bus signals), emits only on real change.
+  ;; Drives the pill (mpris.active) and the panel rows (mpris.players).
+  (deflisten mpris :initial `{"present":false,"players":[]}` "${bins.mpris} state")
+  ;; Per-player live position (seek bar) and scrolling title frame. Both gate on
+  ;; the panel being open, so they cost nothing while it's closed.
+  (deflisten mprispos    :initial `{}` "${bins.mpris} pos")
+  (deflisten mprisscroll :initial `{}` "${bins.mpris} scroll")
+  ;; Panel visibility — set by hover (last-write-wins, no races).
+  (defvar mpris_open false)
   (deflisten audio :initial `{"volume":0,"muted":false,"text":"","class":"unmuted","sink":""}` "${bins.pulseaudio}")
 
   ;; Pushed by screen-tools.nix on record start/stop.
@@ -44,6 +47,9 @@
 
   ;; UI-only state.
   (defvar clock_compact false)   ;; toggled by right-clicking the clock
+  ;; Popup visibility — set by hover (last-write-wins, no races).
+  (defvar cal_open false)
+  (defvar settings_open false)
 
   ;; Custom calendar: a two-month sliding window (left = cal_offset months from
   ;; now, right = +1). Seeded/navigated by `calendar-eww push <base>`, which
@@ -89,24 +95,22 @@
         :visible {screenrecord.recording}
         (label :text {screenrecord.text}))))
 
-  ;; Bar pill (Terminal Deck): mono, player-tinted rail, a slim native progress
-  ;; bar (not a text meter — that clips/reads as squares at bar scale). Whole
-  ;; pill left-click = play/pause the active player; the expand glyph opens the
-  ;; deck popup, detached via the helper to avoid deadlocking the daemon on an
-  ;; eww-calls-eww onclick.
+  ;; Bar pill: source icon + title—artist + play/pause button. Reads the active
+  ;; player (mpris.active). Hover opens the panel; leaving closes it (debounced).
+  ;; play/pause reflects on the next `state` emit (~200ms D-Bus echo).
   (defwidget mpris-w [monitor]
     (eventbox :visible {mpris.present ?: false}
-      :onclick      "${bins.mpris} playpause ''${mpris.player}"
-      :onrightclick "${bins.setsid} -f ${bins.mprisOpen} ''${monitor}"
-      :tooltip "''${mpris.title}''${mpris.artist != "" ? "  —  " : ""}''${mpris.artist}"
-      (box :class "mpris ''${mpris.color} ''${mpris.playing ? "playing" : "paused"}"
+      :onhover     "${bins.setsid} -f ${bins.mprisOpen} ''${monitor}"
+      :onhoverlost "${bins.setsid} -f ${bins.mprisClose}"
+      (box :class "mpris ''${mpris.active.color ?: "grey"} ''${(mpris.active.status ?: "Paused") == "Playing" ? "playing" : "paused"}"
         :space-evenly false :spacing 7
-        (label :class "mpris-icon" :text {mpris.icon})
-        (label :class "mpris-title" :text {mpris.title} :limit-width 28 :show-truncated true)
-        (progress :class "mpris-bar" :orientation "h" :value {mpris.prog} :valign "center")
-        (button :class "mpris-expand"
-          :onclick "${bins.setsid} -f ${bins.mprisOpen} ''${monitor}"
-          "${bins.expandGlyph}"))))
+        (label :class "mpris-icon" :text {mpris.active.icon ?: ""})
+        (label :class "mpris-title"
+          :text "''${mpris.active.title ?: ""}''${(mpris.active.artist ?: "") != "" ? "  —  " : ""}''${mpris.active.artist ?: ""}"
+          :limit-width 34 :show-truncated true)
+        (button :class "mpris-toggle"
+          :onclick "${bins.mpris} playpause ''${mpris.active.player}"
+          {(mpris.active.status ?: "Paused") == "Playing" ? "${bins.pauseGlyph}" : "${bins.playGlyph}"}))))
 
   ;; Native SNI tray (eww's `systray` widget). Same slot/size as waybar's tray.
   (defwidget tray-w []
@@ -149,18 +153,18 @@
       (box :class "audio ''${audio.class}"
         (label :text {audio.text}))))
 
-  ;; Settings gear: glyph tinted to the active profile; click opens the panel.
+  ;; Settings gear: glyph tinted to the active profile; hover opens the panel.
   (defwidget settings-w [monitor]
-    (eventbox :onclick "${bins.setsid} -f ${bins.settingsOpen} ''${monitor}"
+    (eventbox
+      :onhover     "${bins.setsid} -f ${bins.settingsOpen} ''${monitor}"
+      :onhoverlost "${bins.setsid} -f ${bins.settingsClose}"
       (box :class "settings ''${settings.class}"
         (label :markup {settings.text}))))
 
   (defwidget clock-w [monitor]
     (eventbox
-      ;; Seed the grid then open popup+backdrop. Detached with setsid: these
-      ;; call `eww` back, which would deadlock against the daemon that's still
-      ;; running this very onclick handler (and hit eww's ~1s kill).
-      :onclick      "${bins.setsid} -f ${bins.calSeedOpen} ''${monitor}"
+      :onhover      "${bins.setsid} -f ${bins.calOpen} ''${monitor}"
+      :onhoverlost  "${bins.setsid} -f ${bins.calClose}"
       :onrightclick "${bins.eww} update clock_compact=''${!clock_compact}"
       (box :class "clock"
         (label :text {clock_compact ? clock_alt : clock_main}))))
@@ -197,32 +201,12 @@
       (box)
       (bar-right :monitor monitor)))
 
-  ;; ── Popups + click-outside backdrops ────────────────────────────────────────
-  ;; eww has no dismiss-on-focus-loss, so each popup pairs with a full-screen
-  ;; transparent backdrop window behind it; clicking the backdrop closes both.
-
-  (defwindow backdrop-settings [monitor]
-    :monitor monitor
-    :geometry (geometry :width "100%" :height "100%")
-    :stacking "fg"
-    (eventbox :onclick "${bins.eww} close settings-popup backdrop-settings"
-      (box :class "backdrop")))
-
-  (defwindow backdrop-calendar [monitor]
-    :monitor monitor
-    :geometry (geometry :width "100%" :height "100%")
-    :stacking "fg"
-    (eventbox :onclick "${bins.eww} close calendar-popup backdrop-calendar"
-      (box :class "backdrop")))
-
-  ;; Closing the mpris popup also stops the 1s refresh loop (its pidfile is read
-  ;; by mprisClose); detached so the eww-calls-eww close can't deadlock/timeout.
-  (defwindow backdrop-mpris [monitor]
-    :monitor monitor
-    :geometry (geometry :width "100%" :height "100%")
-    :stacking "fg"
-    (eventbox :onclick "${bins.setsid} -f ${bins.mprisClose}"
-      (box :class "backdrop")))
+  ;; ── Popups ──────────────────────────────────────────────────────────────────
+  ;; All three (media panel, calendar, settings) open on hovering their bar
+  ;; widget and close when the pointer leaves both the widget and the popup.
+  ;; Hovering a popup only refreshes its keepalive flag (the `*-keep` helper);
+  ;; calling `eww` from those handlers would re-open the window on every
+  ;; child-widget crossing, which flickers.
 
   ;; Custom-drawn month grid. The script emits only data (day number, other/
   ;; today flags, week number); every visual is a CSS class here, so styling
@@ -258,16 +242,19 @@
     :monitor monitor
     :geometry (geometry :anchor "bottom right" :x "8px" :y "30px")
     :stacking "fg"
-    (box :class "popup calendar-popup" :orientation "v" :space-evenly false :spacing 10
-      ;; Header:  ‹   June 2026     July 2026   ›  — year on each month so it's
-      ;; symmetric and correct when the window straddles a year boundary.
-      (cal-nav :base cal_offset
-        (box :class "cal-titles" :orientation "h" :space-evenly true :hexpand true
-          (label :class "cal-title" :text "''${cal_left.title} ''${cal_left.year}")
-          (label :class "cal-title" :text "''${cal_right.title} ''${cal_right.year}")))
-      (box :orientation "h" :space-evenly false :spacing 20
-        (month-grid :m cal_left)
-        (month-grid :m cal_right))))
+    (eventbox
+      :onhover     "${bins.calKeep}"
+      :onhoverlost "${bins.setsid} -f ${bins.calClose}"
+      (box :class "popup calendar-popup" :orientation "v" :space-evenly false :spacing 10
+        ;; Header:  ‹   June 2026     July 2026   ›  — year on each month so it's
+        ;; symmetric and correct when the window straddles a year boundary.
+        (cal-nav :base cal_offset
+          (box :class "cal-titles" :orientation "h" :space-evenly true :hexpand true
+            (label :class "cal-title" :text "''${cal_left.title} ''${cal_left.year}")
+            (label :class "cal-title" :text "''${cal_right.title} ''${cal_right.year}")))
+        (box :orientation "h" :space-evenly false :spacing 20
+          (month-grid :m cal_left)
+          (month-grid :m cal_right)))))
 
   ;; Settings/power panel: rows with a label and a right-aligned state pill.
   ;; `raction` is the optional right-click action (empty string = none).
@@ -281,35 +268,52 @@
     :monitor monitor
     :geometry (geometry :anchor "bottom right" :x "8px" :y "30px")
     :stacking "fg"
-    (box :class "popup settings-panel" :orientation "v" :space-evenly false :spacing 2
-      (label :class "panel-title" :halign "start" :text "Quick Settings")
-      (toggle-row
-        :label "Idle inhibit"
-        :state {idlest.on ? "ON" : "OFF"}
-        :class {idlest.on ? "on" : "off"}
-        :action "${bins.setsid} -f ${bins.settings} toggle-idle"
-        :raction "")
-      (toggle-row
-        :label "Do Not Disturb"
-        :state {dndst.on ? "ON" : "OFF"}
-        :class {dndst.on ? "on" : "off"}
-        :action "${bins.setsid} -f ${bins.settings} toggle-dnd"
-        :raction "")
-      ;; Left-click = more powerful, right-click = more saving.
-      (toggle-row
-        :label "Power profile"
-        :state {profst.profile}
-        :class {profst.profile}
-        :action  "${bins.setsid} -f ${bins.settings} profile-up"
-        :raction "${bins.setsid} -f ${bins.settings} profile-down")))
+    (eventbox
+      :onhover     "${bins.settingsKeep}"
+      :onhoverlost "${bins.setsid} -f ${bins.settingsClose}"
+      (box :class "popup settings-panel" :orientation "v" :space-evenly false :spacing 2
+        (label :class "panel-title" :halign "start" :text "Quick Settings")
+        (toggle-row
+          :label "Idle inhibit"
+          :state {idlest.on ? "ON" : "OFF"}
+          :class {idlest.on ? "on" : "off"}
+          :action "${bins.setsid} -f ${bins.settings} toggle-idle"
+          :raction "")
+        (toggle-row
+          :label "Do Not Disturb"
+          :state {dndst.on ? "ON" : "OFF"}
+          :class {dndst.on ? "on" : "off"}
+          :action "${bins.setsid} -f ${bins.settings} toggle-dnd"
+          :raction "")
+        ;; Left-click = more powerful, right-click = more saving.
+        (toggle-row
+          :label "Power profile"
+          :state {profst.profile}
+          :class {profst.profile}
+          :action  "${bins.setsid} -f ${bins.settings} profile-up"
+          :raction "${bins.setsid} -f ${bins.settings} profile-down"))))
 
-  ;; ── Now-playing deck (Terminal Deck) ─────────────────────────────────────────
-  ;; One color-railed row per player. Art thumb (fallback glyph if none), title
-  ;; (click = open the source URL), artist, a click-to-seek scale with mm:ss on
-  ;; either side, and inline transport. All actions are detached: they either
-  ;; call `eww` back (none here) or just shell out to playerctl (fast) — detached
-  ;; keeps them off the daemon's onclick timeout regardless.
-  (defwidget mpris-row [p]
+  ;; ── Now-playing panel ────────────────────────────────────────────────────────
+  ;; One color-railed row per player: art thumb (fallback glyph if none), source
+  ;; icon, scrolling title (click = jump to that player's window), artist, a
+  ;; read-only progress bar, and inline transport.
+  ;;
+  ;; NB: index the per-player maps with bracket syntax — `pos[p.player]`. eww's
+  ;; `?.[key]` safe-access does NOT resolve a variable key inside a for-generated
+  ;; widget (it silently yields nothing).
+
+  ;; Read-only progress display; no click-to-seek. Tracks with no mpris:length
+  ;; (live streams) have no meaningful progress, so the bar and end time are
+  ;; hidden and a LIVE badge shows next to the elapsed time.
+  (defwidget mpris-seek [p pos]
+    (box :class "np-seek-row" :space-evenly false :spacing 8
+      (label :class "np-time" :text {pos[p.player].posText ?: p.posText})
+      (progress :class "np-seek" :hexpand true :visible {p.has_length}
+        :value {pos[p.player].prog ?: p.prog})
+      (label :class "np-live" :text "LIVE" :visible {!p.has_length} :hexpand true :halign "start")
+      (label :class "np-time" :text {p.lenText} :visible {p.has_length})))
+
+  (defwidget mpris-row [p pos scroll]
     (box :class "np-row ''${p.color} ''${p.playing ? "playing" : "paused"}"
       :orientation "h" :space-evenly false :spacing 12
       (box :class "np-rail")
@@ -318,19 +322,19 @@
           (image :path {p.art} :image-width 52 :image-height 52))
         (label :class "np-art-fallback" :visible {p.art == ""} :text {p.icon}))
       (box :orientation "v" :space-evenly false :spacing 3 :hexpand true
-        (box :space-evenly false :spacing 6
+        (box :space-evenly false :spacing 6 :hexpand true
           (label :class "np-src" :text {p.icon})
-          (button :class "np-title" :halign "start" :hexpand true
-            :tooltip {p.url != "" ? "Open source" : ""}
-            :onclick "${bins.setsid} -f ${bins.mpris} open-url ''${p.player}"
-            (label :text {p.title} :limit-width 34 :show-truncated true :halign "start")))
+          ;; The backend pads every scroll frame to a fixed char count, and
+          ;; .np-title-clip pins the pixel width, so the row never resizes as the
+          ;; frame changes (emoji are much wider than a char).
+          (box :class "np-title-clip" :halign "start" :hexpand false
+            (button :class "np-title" :halign "start"
+              :onclick "${bins.setsid} -f ${bins.mprisJump} ''${p.player}"
+              (label :class "np-title-text" :halign "start" :wrap false
+                :text {scroll[p.player] ?: p.title}))))
         (label :class "np-artist" :halign "start" :text {p.artist}
           :limit-width 40 :show-truncated true :visible {p.artist != ""})
-        (box :class "np-seek-row" :space-evenly false :spacing 8
-          (label :class "np-time" :text {p.posText})
-          (scale :class "np-seek" :hexpand true :value {p.prog} :min 0 :max 100
-            :onchange "${bins.mpris} seek ''${p.player} {}")
-          (label :class "np-time" :text {p.lenText})))
+        (mpris-seek :p p :pos pos))
       (box :class "np-ctrl" :orientation "h" :space-evenly false :spacing 6 :valign "center"
         (button :class "np-btn" :onclick "${bins.mpris} previous ''${p.player}" "${bins.prevGlyph}")
         (button :class "np-btn np-play"
@@ -345,11 +349,17 @@
     :monitor monitor
     :geometry (geometry :anchor "bottom center" :y "30px")
     :stacking "fg"
-    (box :class "popup mpris-popup" :orientation "v" :space-evenly false :spacing 2
-      (label :class "panel-title" :halign "start" :text "Now Playing")
-      (box :orientation "v" :space-evenly false :spacing 8
-        (for p in {mprisdeck.players}
-          (mpris-row :p p)))
-      (label :class "np-empty" :halign "center" :text "Nothing playing"
-        :visible {arraylength(mprisdeck.players) == 0})))
+    ;; Panel hover only refreshes the keepalive flag (mprisKeep = touch, no eww
+    ;; call): GTK fires hover/hover-lost as the pointer crosses child widgets, and
+    ;; re-opening the window on each of those events makes it flicker.
+    (eventbox
+      :onhover     "${bins.mprisKeep}"
+      :onhoverlost "${bins.setsid} -f ${bins.mprisClose}"
+      (box :class "popup mpris-popup" :orientation "v" :space-evenly false :spacing 2
+        (label :class "panel-title" :halign "start" :text "Now Playing")
+        (box :orientation "v" :space-evenly false :spacing 8
+          (for p in {mpris.players}
+            (mpris-row :p p :pos mprispos :scroll mprisscroll)))
+        (label :class "np-empty" :halign "center" :text "Nothing playing"
+          :visible {arraylength(mpris.players) == 0}))))
 ''

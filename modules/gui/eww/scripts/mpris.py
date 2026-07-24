@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""MPRIS backend for the eww "now playing" widget — event-driven via Gio/D-Bus.
+"""MPRIS backend for the eww "now playing" widget, over Gio/D-Bus.
 
-A single long-lived process holds every player's state in memory and reacts to
-D-Bus signals (no polling at idle). It feeds two independent eww channels:
+Long-lived deflisten modes:
+  state   emit the full player list + active player, only when something changes
+          (track, status, player add/remove). Idle cost is zero (blocked on the
+          GLib main loop; no polling).
+  pos     emit per-player {pos,prog,posText} every 500ms — the seek bar. Runs only
+          while the panel is open (gated on OPEN_FLAG).
+  scroll  emit each player's current title frame every 180ms — the title marquee.
+          Runs only while the panel is open.
 
-  state   deflisten: emit the full player list + active player, ONLY when
-          something actually changes (track, status, player add/remove). Drives
-          the pill and the panel rows. Blocked on the GLib main loop at idle.
-  pos     deflisten: emit per-player {pos,prog,posText} every 500ms. Drives the
-          seek bar / time labels only. Run ONLY while the panel is open + playing,
-          so nothing rebuilds when position advances (that was the flicker).
+One-shot modes: playpause|next|previous|focus|art.
 
-Plus one-shot control modes: playpause|next|previous|seek|open-url|art.
-
-Glyphs arrive as MPRIS_ICON_* env vars (decoded once in Nix — the daemon shell
-mangles \\uXXXX). Session bus needs DBUS_SESSION_BUS_ADDRESS (eww user unit
-inherits it).
+Glyphs arrive as MPRIS_ICON_* env vars. Two things the daemon's env must provide:
+they're decoded in Nix because the daemon shell mangles \\uXXXX, and the session
+bus needs DBUS_SESSION_BUS_ADDRESS (the eww user unit inherits it).
 """
 from __future__ import annotations
 
@@ -23,7 +22,6 @@ import hashlib
 import json
 import os
 import signal
-import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -45,10 +43,7 @@ PROXY_NAME = MPRIS_PREFIX + "playerctld"
 ART_CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "eww" / "mpris-art"
 POS_INTERVAL_MS = 500
 
-# Title marquee — backend string rotation (the standard eww/polybar approach: no
-# CSS animation, no pixel measurement). The scroll daemon slices the title into a
-# fixed-width window and emits one frame per tick, so it reaches the exact end and
-# the pauses are length-independent. Only runs while the panel is open.
+# Title marquee: slice the title into a fixed-width window, one frame per tick.
 TITLE_WINDOW = 30          # chars visible in the panel title column
 SCROLL_INTERVAL_MS = 180   # per-char step
 SCROLL_START_HOLD = 3      # ticks held at the start before scrolling
@@ -58,10 +53,8 @@ SCROLL_END_HOLD = 8        # ticks held at the end before reset (~1.5s at 180ms)
 # ── pure helpers ─────────────────────────────────────────────────────────────
 
 def scroll_frames(title: str) -> list[str]:
-    """The full scroll sequence for a title: start-hold, one window per char step
-    until the last char is at the right edge, then end-hold. Titles that fit the
-    window yield a single static frame (no scrolling). Deterministic — the daemon
-    just advances an index into this list, so pauses are length-independent."""
+    """The scroll sequence: start-hold, one window per char step to the end, then
+    end-hold. Titles that fit the window yield a single static frame."""
     if len(title) <= TITLE_WINDOW:
         return [title.ljust(TITLE_WINDOW)]
     slides = [title[i:i + TITLE_WINDOW] for i in range(len(title) - TITLE_WINDOW + 1)]
@@ -129,8 +122,7 @@ class Bus:
         reply = self.bus.call_sync(
             "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
             "ListNames", None, GLib.VariantType("(as)"), Gio.DBusCallFlags.NONE, -1, None)
-        # Sorted for a STABLE panel order — the active-player notion must never
-        # reorder rows; only player add/remove changes this list.
+        # Sorted so the panel row order is stable across emits.
         return sorted(
             n for n in reply.unpack()[0]
             if n.startswith(MPRIS_PREFIX) and n != PROXY_NAME
@@ -243,8 +235,6 @@ class StateDaemon:
         self.bus = Bus()
         self.loop = GLib.MainLoop()
         self._last = None
-        # Track per-player PropertiesChanged subscriptions by bus name.
-        self._subs: dict[str, int] = {}
 
     def _emit(self) -> None:
         players = []
@@ -258,10 +248,10 @@ class StateDaemon:
             "players": players,
             **({"active": active} if active else {}),
         }
-        # De-dupe: only print when the meaningful state changed. Position is not
-        # part of state (the pos channel owns it), so this stays quiet at idle.
-        # `active.player` is in the snapshot so switching the media-key target
-        # re-emits (updating the pill) even when the player set is unchanged.
+        # Only emit when the state actually changed (position is excluded — the
+        # pos channel owns it — so this stays quiet at idle). active.player is in
+        # the key so switching the media-key target re-emits even when the player
+        # set is unchanged.
         snapshot = json.dumps(
             {
                 "players": [
@@ -295,19 +285,18 @@ class StateDaemon:
         self.bus.bus.signal_subscribe(
             "org.freedesktop.DBus", "org.freedesktop.DBus", "NameOwnerChanged",
             "/org/freedesktop/DBus", None, Gio.DBusSignalFlags.NONE, self._on_name_owner)
-        self._emit()  # initial paint
+        self._emit()
         self.loop.run()
 
 
-# Panel-open flag written by the open/close helper. The pos daemon runs always
-# (a deflisten can't be started on demand) but stays idle — no D-Bus calls, no
-# emits — until the panel is open, so idle cost is a single wakeup per second.
+# Written by the panel open/close helper. The pos/scroll deflistens run always
+# (eww can't start a deflisten on demand) but do nothing — no D-Bus, no emit —
+# until this exists, so a closed panel costs one wakeup per second.
 OPEN_FLAG = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "eww-mpris-open"
 
 
 class PosDaemon:
-    """Emit per-player position every POS_INTERVAL_MS, but only while the panel
-    is open. When closed it just re-arms a 1s idle timer without touching D-Bus."""
+    """Emit per-player position every POS_INTERVAL_MS while the panel is open."""
 
     def __init__(self) -> None:
         self.bus = Bus()
@@ -315,8 +304,8 @@ class PosDaemon:
 
     def _tick(self) -> bool:
         if not OPEN_FLAG.exists():
-            GLib.timeout_add(1000, self._tick)
-            return False  # idle: cheap re-arm, no D-Bus, no emit
+            GLib.timeout_add(1000, self._tick)  # idle: re-arm, no D-Bus, no emit
+            return False
         out = {}
         for bn in self.bus.list_players():
             md = self.bus.get_all(bn).get("Metadata", {}) or {}
@@ -335,24 +324,22 @@ class PosDaemon:
 
 
 class ScrollDaemon:
-    """Emit each player's current title FRAME (a window slice) every
-    SCROLL_INTERVAL_MS while the panel is open — backend string rotation, so the
-    label just displays the frame. Advances a per-player index through
-    scroll_frames(title); resets that index when the title changes. Idle (1s
-    re-arm, no work) while the panel is closed."""
+    """Emit each player's current title frame every SCROLL_INTERVAL_MS while the
+    panel is open, advancing an index through scroll_frames(title)."""
 
     def __init__(self) -> None:
         self.bus = Bus()
         self.loop = GLib.MainLoop()
-        self._idx: dict[str, int] = {}       # player -> frame index
-        self._title: dict[str, str] = {}     # player -> last title (reset detector)
+        self._idx: dict[str, int] = {}
+        self._title: dict[str, str] = {}     # reset detector: index restarts on title change
         self._was_open = False
 
     def _tick(self) -> bool:
         if not OPEN_FLAG.exists():
-            # On the close transition, emit ONE reset frame (index 0) so the
-            # deflisten's stale value is the start of the title, not a mid-scroll
-            # or hold frame — otherwise reopening the panel glimpses that state.
+            # Emit one start frame as the panel closes, so its stale value isn't a
+            # mid-scroll/hold frame that would flash when the panel reopens. The
+            # close helper hides the window before clearing OPEN_FLAG, so this
+            # lands in an already-hidden label.
             if self._was_open:
                 self._was_open = False
                 reset = {}
@@ -372,14 +359,13 @@ class ScrollDaemon:
             seen.add(name)
             md = self.bus.get_all(bn).get("Metadata", {}) or {}
             title = md.get("xesam:title", "") or ""
-            if self._title.get(name) != title:   # new track → restart scroll
+            if self._title.get(name) != title:
                 self._title[name] = title
                 self._idx[name] = 0
             frames = scroll_frames(title)
             i = self._idx.get(name, 0) % len(frames)
             out[name] = frames[i]
             self._idx[name] = (i + 1) % len(frames)
-        # Drop state for players that vanished.
         for gone in [k for k in self._idx if k not in seen]:
             self._idx.pop(gone, None)
             self._title.pop(gone, None)
@@ -414,22 +400,13 @@ def control(mode: str, player: str) -> None:
     elif mode == "previous":
         bus.call_player(bn, "Previous")
     elif mode == "focus":
-        focus_window(bus, bn, player)
+        focus_window(bus, bn)
 
 
-# ── compositor abstraction ───────────────────────────────────────────────────
-# Only these two functions are compositor-specific. To support another Wayland
-# compositor, add a branch keyed on $COMPOSITOR that returns a normalized window
-# list ({id, app_id, title}) and focuses a window by id. Everything above is
-# generic MPRIS/matching logic.
-
-def focus_window(bus: Bus, bn: str, player: str) -> None:
-    """Jump to the window playing this player via the MPRIS `Raise` method.
-
-    This is compositor-agnostic and, crucially, tab-accurate: the MPRIS session is
-    bound to the exact browser tab, so Firefox/Chromium Raise the window AND switch
-    to the playing tab. It also crosses workspaces (tested on niri). No compositor
-    IPC or window-title matching needed."""
+def focus_window(bus: Bus, bn: str) -> None:
+    """Jump to the window playing this player via MPRIS `Raise`. Tab-accurate: the
+    MPRIS session is bound to the specific browser tab, so Firefox/Chromium raise
+    the window and switch to the playing tab; also crosses compositor workspaces."""
     if not bus.get(bn, "CanRaise", "org.mpris.MediaPlayer2"):
         return
     try:

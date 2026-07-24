@@ -125,9 +125,9 @@ window {
   &.idle { padding: 0; margin: 0; min-width: 0; }
 }
 
-// ── mpris — Terminal Deck ────────────────────────────────────────────────────
-// Bar pill: mono, a player-tinted left rail via border, a short block meter,
-// and an expand button. Colors mirror mpris.sh's player_color().
+// ── mpris ────────────────────────────────────────────────────────────────────
+// Bar pill: mono, a player-tinted left rail via border, and a play/pause button.
+// Color names mirror mpris.py's color().
 $np-colors: (
   "green":  $green,
   "orange": $orange,
@@ -149,7 +149,7 @@ $np-colors: (
     &.#{$name} {
       border-left-color: $col;
       .mpris-icon { color: $col; }
-      .mpris-bar progress { background-color: $col; }
+      .mpris-toggle:hover { color: $col; }
     }
   }
 
@@ -158,33 +158,18 @@ $np-colors: (
   .mpris-icon  { font-size: 12px; }
   .mpris-title { font-weight: 500; }
 
-  // Slim inline progress line (GtkProgressBar: trough / progress).
-  .mpris-bar {
-    min-width: 46px;
-    trough {
-      min-height: 3px;
-      border-radius: 99px;
-      background-color: rgba(255, 255, 255, 0.18);
-    }
-    progress {
-      min-height: 3px;
-      border-radius: 99px;
-      background-color: #ffffff;
-    }
-  }
-
-  .mpris-expand {
-    color: rgba(255, 255, 255, 0.5);
+  .mpris-toggle {
+    color: rgba(255, 255, 255, 0.85);
     background-color: transparent;
-    padding: 0 2px;
+    padding: 0 2px 0 4px;
     font-size: 11px;
     &:hover { color: #ffffff; }
   }
 }
 
-// Expanded deck popup: one color-railed row per player.
+// Now-playing panel: one color-railed row per player.
 .mpris-popup {
-  min-width: 340px;
+  min-width: 420px;
 
   .panel-title {
     color: $grey;
@@ -208,7 +193,7 @@ $np-colors: (
     @each $name, $col in $np-colors {
       &.#{$name} {
         .np-rail { background-color: $col; }
-        .np-src, .np-seek trough highlight { background-color: $col; }
+        .np-src, .np-seek trough progress { background-color: $col; }
         .np-src { background-color: transparent; color: $col; }
         .np-btn:hover { color: $col; }
       }
@@ -235,6 +220,13 @@ $np-colors: (
       padding: 0;
       &:hover { color: $yellow; }
     }
+    // Fixed-width title box so the row/panel never resize with the scrolling
+    // frame's content — emoji are much wider than a char, so letting the label
+    // size itself would shift the panel as they enter/leave the window.
+    .np-title-clip {
+      min-width: 250px;
+    }
+    .np-title-text { color: inherit; }
     .np-artist {
       color: rgba(255, 255, 255, 0.6);
       font-size: 12px;
@@ -246,20 +238,26 @@ $np-colors: (
       font-family: "Hack Nerd Font", monospace;
       font-size: 10px;
     }
-    // eww scale = GtkScale (trough / highlight / slider). Slim, click-to-seek.
+    // Shown instead of the progress bar for length-less streams.
+    .np-live {
+      color: $red;
+      font-family: "Hack Nerd Font", monospace;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    // Read-only progress = GtkProgressBar (trough / progress).
     .np-seek {
+      min-width: 120px;
       trough {
-        border-radius: 99px;
         min-height: 4px;
-        background-color: rgba(255, 255, 255, 0.16);
-        highlight { border-radius: 99px; background-color: #ffffff; }
-      }
-      slider {
-        background-color: #ffffff;
         border-radius: 99px;
-        min-width: 10px;
-        min-height: 10px;
-        margin: -4px;
+        background-color: rgba(255, 255, 255, 0.16);
+      }
+      progress {
+        min-height: 4px;
+        border-radius: 99px;
+        background-color: #ffffff;
       }
     }
 
@@ -298,10 +296,7 @@ $np-colors: (
   &.power-saver { background-color: $green; }
 }
 
-// ── Popups (calendar + settings panel) ──────────────────────────────────────
-// Transparent full-screen catcher behind a popup; clicking it dismisses.
-.backdrop { background-color: transparent; }
-
+// ── Popups (media panel, calendar, settings panel) ──────────────────────────
 .popup {
   background-color: $drawer-bg;
   color: #ffffff;

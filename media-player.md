@@ -39,11 +39,10 @@ Interactions:
 - One row per player, each with: album art (fallback glyph when none), source icon,
   title (**click = jump to that player's window**), artist, a **read-only** progress bar
   with mm:ss on both sides, and inline transport (prev / play-pause / next).
-- **Full title on hover** (tooltip is gone from the pill — that's the panel's job); when a
-  title overflows its column it **marquee-scrolls**: a single copy scrolls to the last
-  character, holds, then snaps back to the start (not a seamless dual-copy loop). Scroll
-  runs at a **constant pace**, so each row's cycle length ∝ its own title length and rows
-  never wait for one another (short titles cycle fast, long ones slow).
+- When a title overflows its column it **marquee-scrolls**: scrolls one character at a
+  time to the last character, holds ~1.5s, then resets to the start. Each row scrolls on
+  its own length, independently. The panel width stays fixed regardless of content
+  (emoji included). Reset happens only after the panel is hidden — no glimpse on reopen.
 - Empty state: "Nothing playing".
 - Progress bar advances smoothly while a track plays and the panel is open. It is a
   display only — no click-to-seek (was buggy across players).
@@ -92,7 +91,8 @@ Holds all players' state in memory. Modes:
 | Mode | Kind | Emits | Cost |
 | --- | --- | --- | --- |
 | `state` | deflisten (event-driven) | full player list + active player JSON, **only on real change** | idle = 0 (blocked on D-Bus) |
-| `pos` | deflisten (500ms timer) | per-player `{pos,prog,posText}` only — no metadata/art | runs **only while panel open + playing** |
+| `pos` | deflisten (500ms timer) | per-player `{pos,prog,posText}` only — no metadata/art | runs **only while panel open** |
+| `scroll` | deflisten (180ms timer) | per-player current title FRAME (window slice) — backend string rotation | runs **only while panel open** |
 | `playpause`/`next`/`previous` `<player>` | one-shot | — | control |
 | `focus <player>` | one-shot | — | MPRIS `Raise` (jump to window/tab) |
 | `art <url>` | one-shot | resolved local path | art cache |
@@ -100,41 +100,31 @@ Holds all players' state in memory. Modes:
 **eww vars:**
 - `mpris` (deflisten `state`) — pill text/icon/button + panel rows + art.
 - `mprispos` (deflisten `pos`) — seek bar / time labels only; merged into rows by `player`.
-  Started on panel open, stopped on close.
+- `mprisscroll` (deflisten `scroll`) — per-player scrolling title frame; merged into rows.
 - `mpris_open` (defvar bool) — panel visibility; set by hover, last-write-wins (no races).
 
 **Separation of concerns** is what kills the flicker: heavy state updates on events only;
-the light `pos` channel touches only the seek widgets, so ticking never rebuilds a row.
+the light `pos`/`scroll` channels touch only their own widgets, so ticking never rebuilds a row.
 
-**Optimistic updates:** play/pause onclick runs the control command AND immediately
-`eww update`s a local override so the glyph flips before the D-Bus round-trip; the signal
-reconciles right after.
+**Marquee = backend string rotation.** `scroll_frames()` slices the title into a fixed-width
+window (start-hold, one window per char, end-hold); the daemon advances an index per tick.
+The label has a fixed `min-width` so variable-width emoji can't resize the panel. `mpris-close`
+hides the window *before* clearing the open-flag, so the daemon's reset frame lands in an
+already-hidden label.
 
-## Live-iteration setup
+**The hover model is shared** with the calendar and settings popups: `mkHoverPopup` in
+`default.nix` generates an open/keep/close trio per popup (see the Gotchas on why `keep` must
+not call `eww`). The media panel is the only one whose flag also gates deflistens.
 
-Writable copy at `scratchpad/eww-live/` (systemd `eww` service stopped; daemon run by hand).
-Python backend runs via a compat wrapper simulating the Nix env (MPRIS_ICON_* + PATH +
-DBUS_SESSION_BUS_ADDRESS). Reload: `bash scratchpad/eww-live/reload.sh`.
+## Gotchas
 
-Status:
-- [x] `mpris.py` PyGObject/Gio daemon (`state` + `pos` + controls). Verified event-driven.
-- [x] Pill: icon + title—artist + play/pause button, no progress bar.
-- [x] Panel: hover-open / leave-close via single `mpris_open` var.
-- [x] `pos` stream gated on panel-open (eww starts/stops the deflisten with the window;
-      `mprispos` passed into `mpris-row` as a param so eww tracks the dependency).
-- [x] Data-layer flicker fix verified: `state` var byte-stable while `pos` ticks.
-- [ ] Optimistic play/pause — DROPPED for now (D-Bus echo ~200ms feels instant; sticky-
-      override bug not worth it). Revisit if 200ms bugs.
-- [x] Flicker FIXED. Root cause was NOT position updates — it was the panel's own
-      onhover/onhoverlost re-running open/close on GTK hover churn over internal widgets,
-      re-`eww open`ing the window every event. Fix: panel hover only touches a keepalive
-      flag (`mpris-keep`, no eww calls); the debounced close checks the flag. No window
-      churn → no flicker.
-
-## Port to Nix (after behavior settled)
-
-- `default.nix`: `python3.withPackages (ps: [ ps.pygobject3 ])`; wrapper execs `mpris.py`
-  with `MPRIS_ICON_*` + runtime PATH (eww user unit already inherits
-  `DBUS_SESSION_BUS_ADDRESS` — verified).
-- yuck via `_eww-yuck.nix`: `state`/`pos` deflistens, `mpris_open` defvar, open/close helpers.
-- Delete old `scripts/mpris.sh`; restart systemd `eww`.
+- **Popup hover must not re-open the window.** GTK fires `onhover`/`onhoverlost` on a popup's
+  eventbox as the pointer crosses its child widgets; if those re-run `eww open`/`update`, the
+  window churns and flickers. Popup hover only refreshes a keepalive flag (the `*-keep` helper,
+  no `eww` call); a debounced close checks the flag's mtime to detect a re-hover.
+- **eww `?.[dynamic-key]` doesn't resolve** a variable key inside a `for`-generated widget
+  (silently empty). Index with bracket syntax — `pos[p.player]` — instead.
+- **`pos`/`scroll` deflistens are gated on panel-open** via `OPEN_FLAG`, and the vars are
+  passed into `mpris-row` as params so eww tracks the dependency and starts the deflisten.
+- Session bus: the eww user unit inherits `DBUS_SESSION_BUS_ADDRESS`. MPRIS_ICON_* glyphs are
+  decoded in Nix (the daemon shell mangles `\uXXXX`).
