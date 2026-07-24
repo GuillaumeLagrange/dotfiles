@@ -262,13 +262,29 @@
           (month-grid :m cal_left)
           (month-grid :m cal_right)))))
 
-  ;; Settings/power panel: rows with a label and a right-aligned state pill.
-  ;; `raction` is the optional right-click action (empty string = none).
-  (defwidget toggle-row [label state class action raction]
-    (eventbox :onclick action :onrightclick raction :class "settings-row"
+  ;; Settings/power panel. A toggle row is a click target the size of the whole
+  ;; row: icon tile, label with a sub-line naming what the toggle does, and a
+  ;; track/knob switch on the right. `on` drives every accent in one class.
+  (defwidget toggle-row [icon label sublabel on action]
+    (eventbox :onclick action :class "settings-row ''${on ? "on" : "off"}" :cursor "pointer"
       (box :orientation "h" :space-evenly false :spacing 12
-        (label :class "row-label" :halign "start" :hexpand true :text label)
-        (label :class "row-pill ''${class}" :text state))))
+        (box :class "row-tile" :valign "center" :halign "center"
+          (label :class "row-icon"
+            :halign "center" :valign "center" :hexpand true :vexpand true :text icon))
+        (box :orientation "v" :space-evenly false :hexpand true :valign "center"
+          (label :class "row-label" :halign "start" :text label)
+          (label :class "row-sub" :halign "start" :text sublabel))
+        (box :class "switch" :valign "center" :space-evenly false
+          (box :class "knob" :halign {on ? "end" : "start"} :hexpand true)))))
+
+  ;; One segment of the power-profile selector. Segments are equal-width so the
+  ;; selected pill doesn't resize the group as it moves between them.
+  (defwidget prof-seg [icon label profile]
+    (button :class "prof-seg ''${profst.profile == profile ? "sel ''${profile}" : ""}"
+      :onclick "${bins.setsid} -f ${bins.settings} profile-set ''${profile}"
+      (box :orientation "v" :space-evenly false :spacing 2
+        (label :class "prof-icon" :text icon)
+        (label :class "prof-label" :text label))))
 
   (defwindow settings-popup [monitor]
     :monitor monitor
@@ -277,27 +293,38 @@
     (eventbox
       :onhover     "${bins.settingsKeep}"
       :onhoverlost "${bins.setsid} -f ${bins.settingsClose}"
-      (box :class "popup settings-panel" :orientation "v" :space-evenly false :spacing 2
+      (box :class "popup settings-panel" :orientation "v" :space-evenly false :spacing 4
         (label :class "panel-title" :halign "start" :text "Quick Settings")
         (toggle-row
+          :icon "${bins.idleGlyph}"
           :label "Idle inhibit"
-          :state {idlest.on ? "ON" : "OFF"}
-          :class {idlest.on ? "on" : "off"}
-          :action "${bins.setsid} -f ${bins.settings} toggle-idle"
-          :raction "")
+          :sublabel {idlest.on ? "Screen stays awake" : "Screen may lock"}
+          :on {idlest.on}
+          :action "${bins.setsid} -f ${bins.settings} toggle-idle")
         (toggle-row
+          :icon "${bins.dndGlyph}"
           :label "Do Not Disturb"
-          :state {dndst.on ? "ON" : "OFF"}
-          :class {dndst.on ? "on" : "off"}
-          :action "${bins.setsid} -f ${bins.settings} toggle-dnd"
-          :raction "")
-        ;; Left-click = more powerful, right-click = more saving.
-        (toggle-row
-          :label "Power profile"
-          :state {profst.profile}
-          :class {profst.profile}
-          :action  "${bins.setsid} -f ${bins.settings} profile-up"
-          :raction "${bins.setsid} -f ${bins.settings} profile-down"))))
+          :sublabel {dndst.on ? "Notifications muted" : "Notifications shown"}
+          :on {dndst.on}
+          :action "${bins.setsid} -f ${bins.settings} toggle-dnd")
+        (box :class "settings-section" :orientation "v" :space-evenly false :spacing 6
+          (label :class "section-title" :halign "start" :text "Power profile")
+          (box :class "prof-group" :orientation "h" :space-evenly true :spacing 4
+            (prof-seg :icon "${bins.saverGlyph}"    :label "Saver"   :profile "power-saver")
+            (prof-seg :icon "${bins.balancedGlyph}" :label "Balanced" :profile "balanced")
+            (prof-seg :icon "${bins.perfGlyph}"     :label "Perf"    :profile "performance")))
+        ;; Battery mirrors the bar badge's own state, so it stays hidden on
+        ;; machines that report no battery.
+        (box :class "settings-battery" :orientation "h" :space-evenly false :spacing 10
+          :visible {metrics.battery.class != "hidden"}
+          :tooltip {metrics.battery.tooltip}
+          ;; metrics.battery.text is already "<tiered glyph> NN%", so the level
+          ;; ramp lives in one place instead of being mirrored here.
+          (label :class "row-icon batt ''${metrics.battery.class}"
+            :text {replace(metrics.battery.text, " .*", "")})
+          (label :class "row-label" :halign "start" :hexpand true
+            :text {metrics.battery.charging ? "Charging" : "On battery"})
+          (label :class "batt-pct" :text "''${metrics.battery.capacity}%")))))
 
   ;; ── Now-playing panel ────────────────────────────────────────────────────────
   ;; One color-railed row per player: art thumb (fallback glyph if none), source

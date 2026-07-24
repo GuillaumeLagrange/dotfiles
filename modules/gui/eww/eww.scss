@@ -347,37 +347,102 @@ $np-colors: (
 }
 
 .settings-panel {
-  min-width: 250px;
+  min-width: 300px;
 
   .panel-title {
     color: $grey;
     font-size: 12px;
-    margin: 0 4px 6px 4px;
+    margin: 0 4px 8px 4px;
   }
 
+  // Toggle rows: the whole row is the click target, so it carries the card
+  // background and the hover/active feedback rather than an inner control.
   .settings-row {
-    padding: 8px 10px;
-    border-radius: 6px;
-    &:hover { background-color: rgba(255, 255, 255, 0.08); }
+    background-color: rgba(0, 0, 0, 0.18);
+    padding: 9px 12px;
+    border-radius: 8px;
+    &:hover { background-color: rgba(255, 255, 255, 0.07); }
 
-    .row-icon {
-      font-size: 16px;
-      color: #ffffff;
-      &.on { color: $yellow; }
-      &.performance { color: $red; }
-      &.balanced    { color: $blue; }
-      &.power-saver { color: $green; }
+    // Icon in its own tinted tile; the tint is the row's at-a-glance state.
+    .row-tile {
+      min-width: 32px;
+      min-height: 32px;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.08);
     }
-    .row-label { color: #ffffff; }
+    // These nerd-font icons carry more advance-box space on the left of their
+    // ink than the right, so centering the label leaves the glyph sitting right
+    // of the tile's center; the right pad pulls the ink back.
+    .row-icon {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.55);
+      padding-right: 6px;
+    }
+    .row-label { color: #ffffff; font-size: 13px; }
+    .row-sub {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 10px;
+    }
 
-    // Right-aligned state pill.
-    .row-pill {
-      color: #000000;
-      font-size: 11px;
-      padding: 1px 8px;
-      border-radius: 10px;
-      background-color: $grey;
-      &.on { background-color: $yellow; }
+    // Track + knob. The knob is a fixed-size box pushed to either end of the
+    // track by its :halign, so the switch never changes width as it flips.
+    .switch {
+      min-width: 34px;
+      min-height: 18px;
+      border-radius: 99px;
+      padding: 2px;
+      margin-right: 4px;
+      background-color: rgba(255, 255, 255, 0.14);
+    }
+    .knob {
+      min-width: 14px;
+      min-height: 14px;
+      border-radius: 99px;
+      background-color: rgba(255, 255, 255, 0.55);
+    }
+
+    &.on {
+      background-color: rgba(137, 180, 130, 0.14);   // $aqua, tinted
+      .row-tile { background-color: rgba(137, 180, 130, 0.22); }
+      .row-icon { color: $aqua; }
+      .switch { background-color: $aqua; }
+      .knob { background-color: #1d2021; }
+      &:hover { background-color: rgba(137, 180, 130, 0.22); }
+    }
+  }
+
+  .settings-section {
+    margin-top: 8px;
+    padding: 0 2px;
+  }
+  .section-title {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  // Segmented power-profile selector: three equal cells, selected one filled.
+  .prof-group {
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .prof-seg {
+    background-color: transparent;
+    border-radius: 6px;
+    padding: 6px 4px;
+
+    // Same advance-box asymmetry as .row-icon.
+    .prof-icon  { font-size: 15px; color: rgba(255, 255, 255, 0.6); padding-right: 6px; }
+    .prof-label { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      .prof-icon, .prof-label { color: #ffffff; }
+    }
+    // Selected: filled with the profile's own color, dark ink on top.
+    &.sel {
+      .prof-icon, .prof-label { color: #1d2021; font-weight: bold; }
       &.performance { background-color: $red; }
       &.balanced    { background-color: $blue; }
       &.power-saver { background-color: $green; }
@@ -385,10 +450,17 @@ $np-colors: (
   }
 
   .settings-battery {
-    padding: 8px 10px;
-    margin-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    .row-icon.batt { font-size: 16px; color: $aqua; }
-    .row-label { color: #ffffff; }
+    padding: 8px 4px 0 4px;
+    margin-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+
+    .row-icon.batt {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
+      &.charging { color: $green; }
+      &.critical { color: $red; }
+    }
+    .row-label { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
+    .batt-pct { color: #ffffff; font-size: 12px; font-weight: bold; }
   }
 }

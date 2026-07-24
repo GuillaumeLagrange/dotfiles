@@ -63,6 +63,10 @@ case "${1:-gear}" in
     makoctl mode -t do-not-disturb >/dev/null 2>&1 || true
     push
     ;;
+  profile-set)
+    powerprofilesctl set "${2:-balanced}" 2>/dev/null || true
+    push
+    ;;
   profile-up)
     # Toward more performance: power-saver -> balanced -> performance.
     case "$(profile)" in

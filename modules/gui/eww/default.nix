@@ -257,6 +257,14 @@
         pauseGlyph  = builtins.fromJSON ''"\uf04c"'';   # nf-fa-pause
         prevGlyph   = builtins.fromJSON ''"\uf048"'';   # nf-fa-step_backward
         nextGlyph   = builtins.fromJSON ''"\uf051"'';   # nf-fa-step_forward
+        # Settings-panel row/segment icons (same md-* set settings.sh emits).
+        idleGlyph    = builtins.fromJSON ''"\uf06e"'';       # nf-fa-eye
+        dndGlyph     = builtins.fromJSON ''"\uf1f6"'';       # nf-fa-bell_slash
+        # Above-BMP md-* codepoints: JSON has no \UXXXXXXXX escape, so these are
+        # written as UTF-16 surrogate pairs, which fromJSON does decode.
+        saverGlyph    = builtins.fromJSON ''"\udb83\udf86"'';  # md-gauge-low U+F0F86
+        balancedGlyph = builtins.fromJSON ''"\udb83\udf85"'';  # md-gauge U+F0F85
+        perfGlyph     = builtins.fromJSON ''"\udb81\udcc5"'';  # md-speedometer U+F04C5
         niri = "${pkgs.niri}/bin/niri";
         wpctl = "${pkgs.wireplumber}/bin/wpctl";
         pavucontrol = "${pkgs.pavucontrol}/bin/pavucontrol";
