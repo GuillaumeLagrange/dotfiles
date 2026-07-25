@@ -36,10 +36,22 @@
 
       idleInhibit = mkScript "idle-inhibit" ./scripts/idle-inhibit.sh;
 
+      # Decoded here rather than with `printf '\uXXXX'` in the script: the unit
+      # runs under the POSIX locale, where bash's printf emits the literal escape
+      # text for astral-plane codepoints (\U) instead of the character.
+      settingsIcons = {
+        gear = builtins.fromJSON ''"\udb81\udc93"''; # md-cog U+F0493
+        idle = builtins.fromJSON ''"\uf06e"''; # nf-fa-eye
+        dnd = builtins.fromJSON ''"\uf1f6"''; # nf-fa-bell_slash
+      };
+
       # settings.sh reaches idle-inhibit by name and pushes state via `eww update`.
       settings = pkgs.writeShellScriptBin "settings-eww" ''
         export PATH="${runtimePath}:${idleInhibit}/bin:${pkgs.eww}/bin:$PATH"
         export IDLE_INHIBIT_BIN="${idleInhibit}/bin/idle-inhibit"
+        export SETTINGS_ICON_GEAR=${pkgs.lib.escapeShellArg settingsIcons.gear}
+        export SETTINGS_ICON_IDLE=${pkgs.lib.escapeShellArg settingsIcons.idle}
+        export SETTINGS_ICON_DND=${pkgs.lib.escapeShellArg settingsIcons.dnd}
         exec ${pkgs.bash}/bin/bash ${./scripts/settings.sh} "$@"
       '';
 

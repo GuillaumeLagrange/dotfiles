@@ -322,6 +322,7 @@ $np-colors: (
   .weekdays {
     margin-bottom: 2px;
     .wday { color: $grey; font-weight: bold; }
+    .wday-weekend { color: $orange; }
     .wk-corner { min-width: 24px; }
   }
 
@@ -337,6 +338,12 @@ $np-colors: (
     min-height: 24px;
     border-radius: 6px;
     &.other { color: $grey; }
+    // Weekends: warm tint plus a faint wash, so the week/weekend split reads at
+    // a glance while staying high-contrast enough on the dark popup.
+    &.weekend {
+      color: $orange;
+      background-color: rgba(231, 138, 78, 0.10);
+    }
     &.today {
       color: #1d2021;            // dark gruvbox bg for contrast on aqua
       background-color: $aqua;

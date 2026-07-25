@@ -10,9 +10,10 @@ Modes:
 
 Grid JSON:
   {"title":"July","month":7,"year":2026,
-   "weeks":[ {"num":27,"days":[ {"day":1,"other":true,"today":false}, ...7 ]}, ...6 ]}
+   "weeks":[ {"num":27,"days":[ {"day":1,"other":true,"today":false,
+                                 "weekend":false}, ...7 ]}, ...6 ]}
 Weeks start Monday (ISO) with ISO week numbers; `other` = adjacent-month spill;
-`today` = the real current date.
+`today` = the real current date; `weekend` = Saturday or Sunday.
 """
 
 import json
@@ -45,6 +46,7 @@ def grid(offset: int) -> dict:
                 "day": cur.day,
                 "other": cur.month != first.month,
                 "today": cur == today,
+                "weekend": cur.weekday() >= 5,
             })
         monday = start + timedelta(days=w * 7)
         weeks.append({"num": monday.isocalendar()[1], "days": days})

@@ -171,9 +171,8 @@ def sample_memswap() -> dict:
 
 
 def sample_disk() -> dict:
-    """Free space on the root filesystem, mirroring waybar's disk {free} (one
-    decimal, binary units with the iB suffix). The tooltip mirrors waybar's
-    default disk tooltip: used/total and percentage on the mount."""
+    """Free space on the root filesystem (one decimal, binary units with the iB
+    suffix), plus a used/total and percentage tooltip."""
     du = shutil.disk_usage("/")
     avail_kib = du.free / 1024
     used_kib = du.used / 1024

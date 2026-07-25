@@ -223,14 +223,15 @@
         (label :class "wk-corner" :text "")
         (label :class "wday" :text "Mo") (label :class "wday" :text "Tu")
         (label :class "wday" :text "We") (label :class "wday" :text "Th")
-        (label :class "wday" :text "Fr") (label :class "wday" :text "Sa")
-        (label :class "wday" :text "Su"))
+        (label :class "wday" :text "Fr")
+        (label :class "wday wday-weekend" :text "Sa")
+        (label :class "wday wday-weekend" :text "Su"))
       (box :orientation "v" :space-evenly false :spacing 1
         (for week in {m.weeks}
           (box :class "week" :space-evenly true
             (label :class "wknum" :text {week.num})
             (for d in {week.days}
-              (label :class "day ''${d.today ? "today" : d.other ? "other" : "normal"}"
+              (label :class "day ''${d.today ? "today" : d.other ? "other" : d.weekend ? "weekend" : "normal"}"
                 :text {d.day})))))))
 
   ;; Nav arrows re-push the grid (calls `eww update`), so detach to avoid the
