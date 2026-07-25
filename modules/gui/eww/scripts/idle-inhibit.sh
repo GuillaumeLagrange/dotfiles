@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Idle-inhibit toggle for the eww bar. eww can't hold the Wayland
-# zwp_idle_inhibit protocol the way waybar's native module does, so this holds
-# a systemd idle lock instead: your swayidle timeouts and suspend-then-hibernate
-# are driven through systemd/logind, so a held "idle" lock blocks them.
+# Idle-inhibit toggle for the eww bar. eww cannot hold the Wayland
+# zwp_idle_inhibit protocol, so this holds a systemd idle lock instead: swayidle
+# timeouts and suspend-then-hibernate are driven through systemd/logind, so a
+# held "idle" lock blocks them.
 #
 # A backgrounded `systemd-inhibit --what=idle sleep infinity` is the lock; its
 # PID is tracked in a runtime-dir pidfile so status/toggle survive across bar
-# restarts (and the reset service clears it on (re)start to match waybar's
-# deactivate-on-start behavior).
+# restarts. `reset` clears it so the toggle starts deactivated on every start.
 set -euo pipefail
 
 STATEDIR="${XDG_RUNTIME_DIR:-/tmp}"

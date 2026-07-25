@@ -73,7 +73,7 @@
           prefer-no-csd
 
           layout {
-              gaps 4
+              gaps 2
 
               focus-ring {
                   width 2

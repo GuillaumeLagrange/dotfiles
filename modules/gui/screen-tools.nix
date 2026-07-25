@@ -2,9 +2,9 @@
   flake.modules.homeManager.screen-tools =
     { pkgs, lib, ... }:
     let
-      # Push recording state into the eww bar (replaces the old SIGRTMIN+8
-      # waybar signal). Explicit state at each call site because the start push
-      # happens before wl-screenrec is up, so pgrep would still read "off".
+      # Push recording state into the eww bar. The state is explicit at each call
+      # site because the start push happens before wl-screenrec is up, so probing
+      # for the process would still read "off".
       barRecording = state: text:
         "${pkgs.eww}/bin/eww update 'screenrecord={\"recording\":${state},\"text\":\"${text}\"}' 2>/dev/null || true";
       # nf-fa-circle rather than U+23FA: the plain Unicode symbol sits low

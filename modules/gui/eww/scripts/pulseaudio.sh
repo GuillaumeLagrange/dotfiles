@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Default sink volume + mute state, mirroring waybar's pulseaudio module.
+# Default sink volume + mute state.
 # Long-running `deflisten` source: emit once, then re-emit whenever pulse
 # reports a sink change (pactl subscribe), so the badge is event-driven
 # instead of polled.
 # Emits: {"volume":34,"muted":false,"text":"󰕾 34%","class":"...","sink":"AirPods"}
 set -euo pipefail
 
-# Volume glyphs by level (waybar format-icons.default order: low/mid/high).
+# Volume glyphs by level.
 ICON_LOW="󰕿"
 ICON_MID="󰖀"
 ICON_HIGH="󰕾"

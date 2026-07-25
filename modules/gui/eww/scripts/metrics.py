@@ -158,7 +158,7 @@ def sample_memswap() -> dict:
     zram_raw_h = human_short(zram_used)
     return {
         # zram shows uncompressed pages -> real RAM cost, e.g. "5.2G->1.3G".
-        "text": f"{RAM_GLYPH} {ram_pct}% {ZRAM_GLYPH}{zram_raw_h}",
+        "text": f"{RAM_GLYPH} {ram_pct}%",
         # Disk spill is the signal worth surfacing: past zram, hitting slow
         # storage. Kept at "ok" until something actually lands there.
         "class": "ok",

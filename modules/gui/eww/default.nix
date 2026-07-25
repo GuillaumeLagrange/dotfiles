@@ -14,15 +14,11 @@
         pkgs.gawk
         pkgs.gnugrep
         pkgs.gnused # sed, for pulseaudio sink-name extraction
-        pkgs.playerctl
-        pkgs.curl # mpris album-art download
-        pkgs.xdg-utils # xdg-open, for "jump to source" from the now-playing title
         pkgs.wireplumber
         pkgs.pulseaudio # pactl, for the pulseaudio deflisten
         pkgs.mako
         pkgs.power-profiles-daemon
         pkgs.glib.bin # gdbus, for the power-profile watch
-        pkgs.procps
         pkgs.systemd
         pkgs.pavucontrol
       ];
@@ -47,7 +43,6 @@
         exec ${pkgs.bash}/bin/bash ${./scripts/settings.sh} "$@"
       '';
 
-      # Reused verbatim from the waybar setup.
       claudeUsage = pkgs.writeShellScriptBin "claude-usage-eww" ''
         export PATH="${pkgs.lib.makeBinPath [ pkgs.jq pkgs.curl pkgs.coreutils pkgs.gnused ]}:$PATH"
         export AI_USAGE_COMMON="${../bar-scripts/ai-usage-common.sh}"
@@ -248,11 +243,10 @@
         claudeRefresh = "${claudeRefresh}/bin/eww-claude-refresh";
         eww = "${pkgs.eww}/bin/eww";
         # Glyphs via JSON \u escapes so the source stays ASCII (literal glyphs
-        # get stripped by some editors). Chevrons U+2039/U+203A; transport +
-        # expand are nerd-font (U+F048.. play/pause/skip, U+F065 expand).
+        # get stripped by some editors). Chevrons are U+2039/U+203A; the
+        # transport glyphs are nerd-font.
         larrow = builtins.fromJSON ''"\u2039"'';
         rarrow = builtins.fromJSON ''"\u203a"'';
-        expandGlyph = builtins.fromJSON ''"\uf065"'';   # nf-fa-expand
         playGlyph   = builtins.fromJSON ''"\uf04b"'';   # nf-fa-play
         pauseGlyph  = builtins.fromJSON ''"\uf04c"'';   # nf-fa-pause
         prevGlyph   = builtins.fromJSON ''"\uf048"'';   # nf-fa-step_backward
@@ -295,7 +289,7 @@
       };
 
       # Clear the idle-inhibit pidfile before the bar comes up so the toggle
-      # starts deactivated on every (re)start, matching waybar's native module.
+      # starts deactivated on every (re)start.
       systemd.user.services.eww-idle-reset = {
         Unit = {
           Description = "Reset eww idle-inhibit state on (re)start";

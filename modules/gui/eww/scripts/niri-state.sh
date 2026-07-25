@@ -3,9 +3,9 @@
 # Emits one JSON object per relevant event, consumed by eww `deflisten`:
 #   {"workspaces":[...], "by_output":{"<name>":{"title":..,"windows":{..}}}}
 # `workspaces` is the full list (each bar filters to its own output); title and
-# dots are per-output so each monitor's bar shows its own visible workspace,
-# matching waybar's separate-outputs behavior. Keeping it all on one stream
-# means every bar repaints from a single niri subscription.
+# dots are per-output so each monitor's bar shows its own visible workspace.
+# Keeping it all on one stream means every bar repaints from a single niri
+# subscription.
 set -euo pipefail
 
 emit() {

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Start the eww daemon and keep one bar window open per connected niri output,
-# mirroring waybar's output = ["*"] (a bar on every monitor, auto-tracking
-# dock/undock). Runs in the foreground as the systemd service's main process.
+# so every monitor has a bar across dock/undock. Runs in the foreground as the
+# systemd service's main process.
 #
-# niri exposes no output-hotplug event on its stream, so unlike waybar (which
-# tracks outputs natively) we reconcile by polling `niri msg outputs`: open a
-# bar for any newly connected output, close it when the output disappears.
+# niri exposes no output-hotplug event on its stream, so outputs are reconciled
+# by polling `niri msg outputs`: open a bar for any newly connected output,
+# close it when the output disappears.
 set -euo pipefail
 
 eww daemon --no-daemonize &

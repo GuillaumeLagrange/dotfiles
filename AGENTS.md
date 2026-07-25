@@ -88,7 +88,7 @@ Shared configuration modules:
 #### `modules/gui/`
 Desktop environment configuration:
 - Niri (primary) / Sway window manager setup
-- eww status bar (`modules/gui/eww/`) — replaced waybar. See `modules/gui/eww/SUMMARY.md`.
+- eww status bar (`modules/gui/eww/`) — see `modules/gui/eww/AGENTS.md`.
 - Firefox browser config
 - Wallpapers collection
 - Screen locking configuration

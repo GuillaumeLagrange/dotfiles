@@ -1,4 +1,4 @@
-// Ported from waybar.css — gruvbox material palette, same badge-pill look.
+// Gruvbox material palette, badge-pill look.
 $aqua:   #89B482;
 $orange: #E78A4E;
 $blue:   #7DAEA3;
@@ -15,7 +15,7 @@ $drawer-bg: rgba(43, 48, 59, 0.9);
   font-family: "Hack Nerd Font", FontAwesome, monospace;
   font-size: 13px;
   // GTK gives widgets a default min-height that makes the 22px bar grow; pin
-  // it to 0 so the bar height is driven by the window geometry, like waybar.
+  // it to 0 so the bar height is driven by the window geometry.
   min-height: 0;
 }
 
@@ -33,8 +33,8 @@ window {
 }
 
 // ── Badge pills (right side + niri-windows) ─────────────────────────────────
-// waybar gave each status module black text, rounded corners. Small vertical
-// margin keeps the pills inside the 22px bar instead of forcing it taller.
+// The small vertical margin keeps the pills inside the 22px bar instead of
+// forcing it taller.
 @mixin pill {
   color: black;
   margin: 2px 4px;
@@ -57,7 +57,7 @@ window {
     padding: 0 7px;
     background-color: transparent;
     color: #ffffff;
-    // Match waybar: bottom "underline" via inset shadow, no border offset.
+    // Bottom "underline" via inset shadow, so it adds no border offset.
     box-shadow: inset 0 -3px transparent;
     border: none;
     border-radius: 0;

@@ -1,33 +1,26 @@
 #!/usr/bin/env bash
-# Settings-drawer state + actions for the eww bar, mirroring the behavior of
-# waybar's group/settings (gear + idle + dnd + power-profile).
+# Settings-drawer state + actions for the eww bar: gear badge, idle inhibit,
+# do-not-disturb, power profile.
 #
 # State is pushed into eww vars (idlest/dndst/profst/settings) rather than
 # polled: user toggles push right after acting, and external power-profile
 # changes are caught by a gdbus watcher (the `watch` subcommand). The gear
 # badge summarizes active toggles (idle / dnd) and tints to the power profile.
 #
-# Glyphs are written as Unicode codepoints (printf '\uXXXX') so the source stays
-# ASCII — nerd-font bytes have been silently stripped by edits before.
+# Glyphs arrive decoded from Nix rather than via `printf '\uXXXX'`: under the
+# POSIX locale the unit runs with, bash's printf emits the literal escape text
+# for astral-plane codepoints (\U) instead of the character.
 set -euo pipefail
 
-ICON_GEAR=$(printf '\U000f0493')  # md-cog (metrically centered, unlike fa-cog)
-ICON_IDLE=$(printf '\uf06e')  # fa-eye
-ICON_DND=$(printf '\uf1f6')   # fa-bell-slash
+ICON_GEAR="${SETTINGS_ICON_GEAR:?SETTINGS_ICON_GEAR not set}"  # md-cog
+ICON_IDLE="${SETTINGS_ICON_IDLE:?SETTINGS_ICON_IDLE not set}"  # fa-eye
+ICON_DND="${SETTINGS_ICON_DND:?SETTINGS_ICON_DND not set}"     # fa-bell-slash
 
 IDLE_INHIBIT="${IDLE_INHIBIT_BIN:-idle-inhibit}"
 
 dnd_on() { makoctl mode 2>/dev/null | grep -qw do-not-disturb; }
 idle_on() { [ "$("$IDLE_INHIBIT" status)" = "on" ]; }
 profile() { powerprofilesctl get 2>/dev/null || echo balanced; }
-
-profile_icon() {
-  case "$1" in
-    performance) printf '\U000f04c5' ;; # md-speedometer
-    power-saver) printf '\U000f0f86' ;; # md-gauge-low
-    *)           printf '\U000f0f85' ;; # md-gauge
-  esac
-}
 
 emit_gear() {
   local badges=()
@@ -38,7 +31,7 @@ emit_gear() {
 }
 emit_idle()    { idle_on && s=on || s=off; jq -cn --arg s "$s" '{on:($s=="on"),class:$s}'; }
 emit_dnd()     { dnd_on  && s=on || s=off; jq -cn --arg s "$s" '{on:($s=="on"),class:$s}'; }
-emit_profile() { local p; p=$(profile); jq -cn --arg p "$p" --arg i "$(profile_icon "$p")" '{profile:$p,icon:$i}'; }
+emit_profile() { jq -cn --arg p "$(profile)" '{profile:$p}'; }
 
 # Push all four settings vars into the running eww daemon in one call.
 push() {

@@ -4,7 +4,7 @@
 { bins }:
 # yuck
 ''
-  ;; eww bar — recreation of the waybar setup, generated from _eww-yuck.nix.
+  ;; eww bar, generated from _eww-yuck.nix.
   ;; One `bar` window per niri output (opened by bar-launch.sh). Left side comes
   ;; from a single niri event-stream tap; right side from pollers + pushes.
 
@@ -46,7 +46,7 @@
   (defvar settings `{"text":"󰒓","class":"balanced"}`)
   (defvar idlest   `{"on":false,"class":"off"}`)
   (defvar dndst    `{"on":false,"class":"off"}`)
-  (defvar profst   `{"profile":"balanced","icon":"󰾅"}`)
+  (defvar profst   `{"profile":"balanced"}`)
 
   (defpoll clock_main :interval "10s" :initial "…" `${bins.date} +'󰃰 %B %d, %H:%M'`)
   (defpoll clock_alt  :interval "10s" :initial "…" `${bins.date} +'󰥔 %H:%M'`)
@@ -67,9 +67,8 @@
 
   ;; ── Left modules ────────────────────────────────────────────────────────────
 
-  ;; Per-bar workspaces: only this monitor's workspaces shown (waybar
-  ;; all-outputs=false). eww has no list filter, so off-output buttons render
-  ;; but stay hidden.
+  ;; Per-bar workspaces: only this monitor's workspaces shown. eww has no list
+  ;; filter, so off-output buttons render but stay hidden.
   (defwidget workspaces [monitor]
     (box :class "workspaces" :space-evenly false :spacing 2
       (for ws in {nstate.workspaces}
@@ -118,7 +117,7 @@
           :onclick "${bins.mprisCtl} ''${mpris.active.bus} PlayPause"
           {(mpris.active.status ?: "Paused") == "Playing" ? "${bins.pauseGlyph}" : "${bins.playGlyph}"}))))
 
-  ;; Native SNI tray (eww's `systray` widget). Same slot/size as waybar's tray.
+  ;; Native SNI tray (eww's `systray` widget).
   (defwidget tray-w []
     (box :class "tray"
       (systray :orientation "h" :spacing 8 :icon-size 14 :prepend-new false)))
