@@ -7,7 +7,17 @@ keybinds clear-defaults=true {
         bind "{" { MovePaneBackwards; SwitchToMode "locked"; }
         bind "}" { MovePane; SwitchToMode "locked"; }
         bind "f" { ToggleFocusFullscreen; SwitchToMode "locked"; }
-        bind "w" { 
+        bind "u" {
+            Run "zellij-fzf-url" {
+                floating true
+                width "80%"
+                height "60%"
+                close_on_exit true
+                name "urls"
+            }
+            SwitchToMode "locked"
+        }
+        bind "w" {
             LaunchOrFocusPlugin "session-manager" {
                 floating true
                 move_to_focused_tab true

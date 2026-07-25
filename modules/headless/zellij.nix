@@ -74,6 +74,21 @@
         text = builtins.readFile ./zellij-rename-current.sh;
       };
 
+      zellijFzfUrl = pkgs.writeShellApplication {
+        name = "zellij-fzf-url";
+        runtimeInputs = [
+          pkgs.zellij
+          pkgs.fzf
+          pkgs.jq
+          pkgs.gnugrep
+          pkgs.gnused
+          pkgs.gawk
+          pkgs.coreutils
+          pkgs.xdg-utils
+        ];
+        text = builtins.readFile ./zellij-fzf-url.sh;
+      };
+
     in
     {
       programs.zellij.enable = true;
@@ -112,6 +127,7 @@
         zsmScript
         zskScript
         zellijRenameCurrent
+        zellijFzfUrl
       ];
     };
 }

@@ -114,6 +114,21 @@ window {
   padding: 0 4px;
 }
 
+// SNI menus are GTK popups outside the widget tree, so they only inherit the
+// global `*` rule (mono). Match the proportional font used elsewhere.
+menu, menu menuitem, menu label {
+  font-family: Inter, sans-serif;
+}
+
+// The global `min-height: 0` also hits the check/radio indicator nodes GTK
+// draws for menu toggles, collapsing them to nothing. Give them a size back.
+menu menuitem {
+  check, radio {
+    min-width: 14px;
+    min-height: 14px;
+  }
+}
+
 // ── Screenrecord ────────────────────────────────────────────────────────────
 .screenrecord {
   &.recording {
