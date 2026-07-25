@@ -101,7 +101,7 @@
         :visible {screenrecord.recording}
         (label :text {screenrecord.text}))))
 
-  ;; Bar pill: source icon + title—artist + play/pause button. Reads the active
+  ;; Bar pill: source icon + title + play/pause button. Reads the active
   ;; player (mpris.active). Hover opens the panel; leaving closes it (debounced).
   ;; play/pause reflects on the next `state` emit (~200ms D-Bus echo).
   (defwidget mpris-w [monitor]
@@ -112,7 +112,7 @@
         :space-evenly false :spacing 7
         (label :class "mpris-icon" :text {mpris.active.icon ?: ""})
         (label :class "mpris-title"
-          :text "''${mpris.active.title ?: ""}''${(mpris.active.artist ?: "") != "" ? "  —  " : ""}''${mpris.active.artist ?: ""}"
+          :text {mpris.active.title ?: ""}
           :limit-width 34 :show-truncated true)
         (button :class "mpris-toggle"
           :onclick "${bins.mprisCtl} ''${mpris.active.bus} PlayPause"

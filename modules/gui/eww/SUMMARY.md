@@ -104,7 +104,7 @@ Rationale: event-driven things push (instant, idle at ~zero); sampled metrics po
 | custom/niri-windows | `niri-windows`, `by_output[monitor].windows.dots`, click = toggle-overview |
 | niri/window | `window-title`, `by_output[monitor].title` |
 | custom/screenrecord | `screenrecord-w`, push from screen-tools.nix (instant) |
-| mpris | `mpris-w` bar pill (source icon + title—artist + play/pause button; hover opens the panel) + `mpris-popup` panel (album art, scrolling title, read-only progress, per-player transport, title click = MPRIS Raise to that window/tab). One color-railed row per player. See `media-player.md` |
+| mpris | `mpris-w` bar pill (source icon + title + play/pause button; hover opens the panel) + `mpris-popup` panel (album art, scrolling title, read-only progress, per-player transport, title click = MPRIS Raise to that window/tab). One color-railed row per player. See `media-player.md` |
 | tray | **native `systray` widget** (`tray-w`) — in-bar SNI host |
 | custom/claude-usage | reused `claude-usage.sh`, 300s poll; click refresh / right-click restart (detached) |
 | disk / cpu / battery | poller scripts; cpu has per-core tooltip, battery has time-to-full tooltip |
