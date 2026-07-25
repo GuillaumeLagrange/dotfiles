@@ -38,20 +38,9 @@ fetch_data_with_retries() {
   local backoff="$base_backoff"
   local output
   local http_code
-  local rc
 
   while [ "$attempt" -le "$retry_limit" ]; do
-    # fetch_data runs in this shell, not a $(...) subshell, so the LAST_HTTP_CODE
-    # it sets is visible here — a captured call would strand it in the subshell
-    # and make the 429 check below unreachable. It reports its payload via
-    # FETCH_OUTPUT for the same reason.
-    FETCH_OUTPUT=
-    LAST_HTTP_CODE=
-    fetch_data > /dev/null 2>&1
-    rc=$?
-    output="$FETCH_OUTPUT"
-
-    if [ "$rc" -eq 0 ]; then
+    if output=$(fetch_data 2>&1); then
       echo "$output"
       return 0
     fi

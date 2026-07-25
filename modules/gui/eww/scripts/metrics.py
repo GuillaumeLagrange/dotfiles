@@ -16,7 +16,7 @@ interval is the window, which is both free and a more representative average.
 
 Emits one line, shaped so the yuck can use fields directly (no simplexpr-side
 JSON re-parsing or class/glyph derivation):
-  {"cpu":{"usage":42,"tooltip":"..."},
+  {"cpu":{"usage":"42","tooltip":"..."},
    "memswap":{"text":"...","class":"ok","tooltip":"..."},
    "disk":{"free":"123.5GiB","tooltip":"..."},
    "battery":{"capacity":93,"charging":false,"class":"...","text":"...","tooltip":"..."}}
@@ -114,7 +114,9 @@ class Cpu:
 
         usage = pct("cpu")
         self.prev = cur
-        return {"usage": usage, "tooltip": tooltip}
+        # Zero-padded to a fixed width so the label never changes length and
+        # shifts every module to its right as usage crosses 10% or 100%.
+        return {"usage": f"{usage:02d}", "tooltip": tooltip}
 
 
 def sample_memswap() -> dict:
@@ -275,7 +277,7 @@ def sample_battery() -> dict:
 def main() -> int:
     cpu = Cpu()
     state = {
-        "cpu": {"usage": 0, "tooltip": ""},
+        "cpu": {"usage": "00", "tooltip": ""},
         "memswap": sample_memswap(),
         "disk": sample_disk(),
         "battery": sample_battery(),

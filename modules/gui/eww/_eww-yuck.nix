@@ -33,7 +33,7 @@
   ;; the resulting stalls are visible in the media panel's title marquee.
   ;; Per-metric sampling periods live in the script.
   (deflisten metrics
-    :initial `{"cpu":{"usage":0,"tooltip":""},"memswap":{"text":"","class":"ok","tooltip":""},"disk":{"free":"…","tooltip":""},"battery":{"capacity":0,"charging":false,"class":"hidden","text":"","tooltip":""}}`
+    :initial `{"cpu":{"usage":"00","tooltip":""},"memswap":{"text":"","class":"ok","tooltip":""},"disk":{"free":"…","tooltip":""},"battery":{"capacity":0,"charging":false,"class":"hidden","text":"","tooltip":""}}`
     "${bins.metrics}")
 
   ;; Network-bound and slow, so it stays a poll: a 300s interval makes the
@@ -98,8 +98,8 @@
   (defwidget screenrecord-w []
     (eventbox :onclick "${bins.screenrecord}"
       (box :class "screenrecord ''${screenrecord.recording ? "recording" : "idle"}"
-        :visible {screenrecord.recording}
-        (label :text {screenrecord.text}))))
+        :visible {screenrecord.recording} :valign "center"
+        (label :valign "center" :text {screenrecord.text}))))
 
   ;; Bar pill: source icon + title + play/pause button. Reads the active
   ;; player (mpris.active). Hover opens the panel; leaving closes it (debounced).

@@ -7,7 +7,9 @@
       # happens before wl-screenrec is up, so pgrep would still read "off".
       barRecording = state: text:
         "${pkgs.eww}/bin/eww update 'screenrecord={\"recording\":${state},\"text\":\"${text}\"}' 2>/dev/null || true";
-      barRecOn = barRecording "true" "⏺ REC";
+      # nf-fa-circle rather than U+23FA: the plain Unicode symbol sits low
+      # against the nerd-font glyphs in the neighbouring pills.
+      barRecOn = barRecording "true" "${builtins.fromJSON ''"\uf111"''} REC";
       barRecOff = barRecording "false" "";
 
       screenshotTool = pkgs.writeShellScriptBin "screenshot_tool" ''
