@@ -1,0 +1,473 @@
+// Gruvbox material palette, badge-pill look.
+$aqua:   #89B482;
+$orange: #E78A4E;
+$blue:   #7DAEA3;
+$yellow: #D8A657;
+$red:    #EA6962;
+$purple: #D3869B;
+$grey:   #6C6F64;
+$green:  #A9B665;
+
+$bar-bg:   rgba(43, 48, 59, 0.7);
+$drawer-bg: rgba(43, 48, 59, 0.9);
+
+* {
+  font-family: "Hack Nerd Font", FontAwesome, monospace;
+  font-size: 13px;
+  // GTK gives widgets a default min-height that makes the 22px bar grow; pin
+  // it to 0 so the bar height is driven by the window geometry.
+  min-height: 0;
+}
+
+// eww's top-level window widget has an opaque GTK background by default. Every
+// window here paints its own background on an inner box (bar, popups) or wants
+// none at all (backdrops), so blank the window node globally — otherwise a
+// full-screen backdrop shows GTK's grey instead of being see-through.
+window {
+  background-color: transparent;
+}
+
+.bar {
+  background-color: $bar-bg;
+  color: #ffffff;
+}
+
+// ── Badge pills (right side + niri-windows) ─────────────────────────────────
+// The small vertical margin keeps the pills inside the 22px bar instead of
+// forcing it taller.
+@mixin pill {
+  color: black;
+  margin: 2px 4px;
+  padding: 0 8px;
+  border-radius: 4px;
+}
+
+.claude, .disk, .cpu, .memswap, .battery, .audio, .clock,
+.niri-windows, .window { @include pill; }
+
+// ── Workspaces ──────────────────────────────────────────────────────────────
+.workspaces {
+  margin: 0 4px;
+
+  // Uniform padding across every state: the highlight is a background on the
+  // cell, so any state-dependent padding makes the pill a different size than
+  // its neighbors and the row's rhythm shifts as focus moves. Separation
+  // between cells comes from the box's :spacing, not from padding.
+  .ws {
+    padding: 0 7px;
+    background-color: transparent;
+    color: #ffffff;
+    // Bottom "underline" via inset shadow, so it adds no border offset.
+    box-shadow: inset 0 -3px transparent;
+    border: none;
+    border-radius: 0;
+
+    &:hover { background: rgba(0, 0, 0, 0.2); }
+
+    &.active {
+      background-color: $blue;
+      color: #000000;
+      box-shadow: inset 0 -3px #ffffff;
+    }
+    &.focused {
+      background-color: $orange;
+      color: #000000;
+      box-shadow: inset 0 -3px #ffffff;
+    }
+    &.urgent { background-color: #eb4d4b; }
+  }
+}
+
+// ── Left: window title + niri-windows dots ──────────────────────────────────
+.window {
+  background-color: $aqua;
+  &, label { font-family: Inter, sans-serif; }
+}
+
+.niri-windows {
+  background-color: $blue;
+  &.empty { background-color: transparent; padding: 0; margin: 0; }
+}
+
+// ── Right badges ────────────────────────────────────────────────────────────
+.claude            { background-color: $green; }
+.claude.mid        { background-color: $yellow; }
+.claude.high       { background-color: $orange; }
+.claude.critical   { background-color: $red; }
+
+.disk    { background-color: $purple; }
+.cpu     { background-color: $yellow; }
+.memswap { background-color: $blue; }
+
+.battery                  { background-color: #ffffff; }
+.battery.charging         { background-color: $green; }
+.battery.critical         { background-color: $red; }
+
+.audio       { background-color: $orange; }
+.audio.muted { background-color: $grey; }
+
+.clock { background-color: $aqua; }
+
+// ── Tray (native systray widget) ────────────────────────────────────────────
+.tray {
+  background-color: transparent;
+  padding: 0 4px;
+}
+
+// ── Screenrecord ────────────────────────────────────────────────────────────
+.screenrecord {
+  &.recording {
+    background-color: $red;
+    color: #000000;
+    padding: 0 8px;
+    margin: 2px 4px;
+    border-radius: 4px;
+  }
+  &.idle { padding: 0; margin: 0; min-width: 0; }
+}
+
+// ── mpris ────────────────────────────────────────────────────────────────────
+// Bar pill: mono, a player-tinted left rail via border, and a play/pause button.
+// Color names mirror mpris.py's color().
+$np-colors: (
+  "green":  $green,
+  "orange": $orange,
+  "blue":   $blue,
+  "aqua":   $aqua,
+);
+
+.mpris {
+  color: #ffffff;
+  font-family: "Hack Nerd Font", monospace;
+  font-size: 12px;
+  padding: 0 6px 0 8px;
+  margin: 2px 4px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.22);
+  border-left: 2px solid $grey;
+
+  @each $name, $col in $np-colors {
+    &.#{$name} {
+      border-left-color: $col;
+      .mpris-icon { color: $col; }
+      .mpris-toggle:hover { color: $col; }
+    }
+  }
+
+  &.paused { color: rgba(255, 255, 255, 0.55); }
+
+  .mpris-icon  { font-size: 12px; }
+  .mpris-title { font-weight: 500; }
+
+  .mpris-toggle {
+    color: rgba(255, 255, 255, 0.85);
+    background-color: transparent;
+    padding: 0 2px 0 4px;
+    font-size: 11px;
+    &:hover { color: #ffffff; }
+  }
+}
+
+// Now-playing panel: one color-railed row per player.
+.mpris-popup {
+  min-width: 420px;
+
+  .panel-title {
+    color: $grey;
+    font-size: 12px;
+    margin: 0 4px 8px 4px;
+  }
+
+  .np-empty { color: $grey; padding: 10px 0; }
+
+  .np-row {
+    background-color: rgba(0, 0, 0, 0.18);
+    border-radius: 8px;
+    padding: 10px 12px 10px 0;
+
+    .np-rail {
+      min-width: 3px;
+      border-radius: 3px;
+      background-color: $grey;
+      margin-right: 2px;
+    }
+    @each $name, $col in $np-colors {
+      &.#{$name} {
+        .np-rail { background-color: $col; }
+        .np-src, .np-seek trough progress { background-color: $col; }
+        .np-src { background-color: transparent; color: $col; }
+        .np-btn:hover { color: $col; }
+      }
+    }
+    &.paused { background-color: rgba(0, 0, 0, 0.10); }
+
+    .np-art {
+      border-radius: 6px;
+      margin-left: 8px;
+    }
+    .np-art-fallback {
+      font-size: 26px;
+      min-width: 52px;
+      min-height: 52px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .np-src { font-size: 11px; }
+    .np-title {
+      background-color: transparent;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 0;
+      &:hover { color: $yellow; }
+    }
+    // Fixed-width title box so the row/panel never resize with the scrolling
+    // frame's content — emoji are much wider than a char, so letting the label
+    // size itself would shift the panel as they enter/leave the window.
+    .np-title-clip {
+      min-width: 250px;
+    }
+    .np-title-text { color: inherit; }
+    .np-artist {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+    }
+
+    .np-seek-row { margin-top: 2px; }
+    .np-time {
+      color: rgba(255, 255, 255, 0.55);
+      font-family: "Hack Nerd Font", monospace;
+      font-size: 10px;
+    }
+    // Read-only progress = GtkProgressBar (trough / progress).
+    .np-seek {
+      min-width: 120px;
+      trough {
+        min-height: 4px;
+        border-radius: 99px;
+        background-color: rgba(255, 255, 255, 0.16);
+      }
+      progress {
+        min-height: 4px;
+        border-radius: 99px;
+        background-color: #ffffff;
+      }
+    }
+
+    .np-ctrl { margin-left: 6px; }
+    .np-btn {
+      background-color: transparent;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      padding: 4px 5px;
+      border-radius: 6px;
+      &:hover { background-color: rgba(255, 255, 255, 0.08); }
+    }
+    .np-play {
+      background-color: rgba(255, 255, 255, 0.12);
+      font-size: 14px;
+    }
+  }
+}
+
+// ── Settings gear (in-bar) ──────────────────────────────────────────────────
+// Same metrics as the other badges so the glyph sits centered in the 22px bar
+// (a larger font-size pushed it visually high). The md-cog glyph renders 1px
+// right of its advance-box center, so equal padding leaves it off-center; the
+// asymmetric padding (1px more on the right) pulls the ink back to center.
+.settings {
+  background-color: $grey;
+  color: #000000;
+  padding: 0 9px 0 7px;
+  margin: 2px 4px;
+  border-radius: 4px;
+
+  label { color: #000000; }
+
+  &.performance { background-color: $red; }
+  &.balanced    { background-color: $blue; }
+  &.power-saver { background-color: $green; }
+}
+
+// ── Popups (media panel, calendar, settings panel) ──────────────────────────
+.popup {
+  background-color: $drawer-bg;
+  color: #ffffff;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+// Custom-drawn calendar. Every visual is a class the yuck attaches; the shell
+// script emits only data. GtkCalendar was abandoned because it won't render a
+// legible today marker under eww's CSS (no !important support).
+.calendar-popup {
+  .cal-header { margin-bottom: 4px; }
+
+  .cal-arrow {
+    color: $aqua;
+    font-size: 16px;
+    padding: 0 8px;
+    background-color: transparent;
+    &:hover { color: $orange; }
+  }
+
+  .cal-title {
+    color: $yellow;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 0 12px;
+  }
+
+  .weekdays {
+    margin-bottom: 2px;
+    .wday { color: $grey; font-weight: bold; }
+    .wday-weekend { color: $orange; }
+    .wk-corner { min-width: 24px; }
+  }
+
+  .week .wknum {
+    color: $grey;
+    min-width: 24px;
+  }
+
+  // Day cells: uniform box so the today pill fills the cell.
+  .day {
+    color: #ffffff;
+    min-width: 26px;
+    min-height: 24px;
+    border-radius: 6px;
+    &.other { color: $grey; }
+    // Weekends: warm tint plus a faint wash, so the week/weekend split reads at
+    // a glance while staying high-contrast enough on the dark popup.
+    &.weekend {
+      color: $orange;
+      background-color: rgba(231, 138, 78, 0.10);
+    }
+    &.today {
+      color: #1d2021;            // dark gruvbox bg for contrast on aqua
+      background-color: $aqua;
+      font-weight: bold;
+    }
+    &:hover { background-color: rgba(255, 255, 255, 0.08); }
+  }
+}
+
+.settings-panel {
+  min-width: 300px;
+
+  .panel-title {
+    color: $grey;
+    font-size: 12px;
+    margin: 0 4px 8px 4px;
+  }
+
+  // Toggle rows: the whole row is the click target, so it carries the card
+  // background and the hover/active feedback rather than an inner control.
+  .settings-row {
+    background-color: rgba(0, 0, 0, 0.18);
+    padding: 9px 12px;
+    border-radius: 8px;
+    &:hover { background-color: rgba(255, 255, 255, 0.07); }
+
+    // Icon in its own tinted tile; the tint is the row's at-a-glance state.
+    .row-tile {
+      min-width: 32px;
+      min-height: 32px;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+    // These nerd-font icons carry more advance-box space on the left of their
+    // ink than the right, so centering the label leaves the glyph sitting right
+    // of the tile's center; the right pad pulls the ink back.
+    .row-icon {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.55);
+      padding-right: 6px;
+    }
+    .row-label { color: #ffffff; font-size: 13px; }
+    .row-sub {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 10px;
+    }
+
+    // Track + knob. The knob is a fixed-size box pushed to either end of the
+    // track by its :halign, so the switch never changes width as it flips.
+    .switch {
+      min-width: 34px;
+      min-height: 18px;
+      border-radius: 99px;
+      padding: 2px;
+      margin-right: 4px;
+      background-color: rgba(255, 255, 255, 0.14);
+    }
+    .knob {
+      min-width: 14px;
+      min-height: 14px;
+      border-radius: 99px;
+      background-color: rgba(255, 255, 255, 0.55);
+    }
+
+    &.on {
+      background-color: rgba(137, 180, 130, 0.14);   // $aqua, tinted
+      .row-tile { background-color: rgba(137, 180, 130, 0.22); }
+      .row-icon { color: $aqua; }
+      .switch { background-color: $aqua; }
+      .knob { background-color: #1d2021; }
+      &:hover { background-color: rgba(137, 180, 130, 0.22); }
+    }
+  }
+
+  .settings-section {
+    margin-top: 8px;
+    padding: 0 2px;
+  }
+  .section-title {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  // Segmented power-profile selector: three equal cells, selected one filled.
+  .prof-group {
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .prof-seg {
+    background-color: transparent;
+    border-radius: 6px;
+    padding: 6px 4px;
+
+    // Same advance-box asymmetry as .row-icon.
+    .prof-icon  { font-size: 15px; color: rgba(255, 255, 255, 0.6); padding-right: 6px; }
+    .prof-label { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      .prof-icon, .prof-label { color: #ffffff; }
+    }
+    // Selected: filled with the profile's own color, dark ink on top.
+    &.sel {
+      .prof-icon, .prof-label { color: #1d2021; font-weight: bold; }
+      &.performance { background-color: $red; }
+      &.balanced    { background-color: $blue; }
+      &.power-saver { background-color: $green; }
+    }
+  }
+
+  .settings-battery {
+    padding: 8px 4px 0 4px;
+    margin-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+
+    .row-icon.batt {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
+      &.charging { color: $green; }
+      &.critical { color: $red; }
+    }
+    .row-label { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
+    .batt-pct { color: #ffffff; font-size: 12px; font-weight: bold; }
+  }
+}

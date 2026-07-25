@@ -2,7 +2,15 @@
   flake.modules.homeManager.screen-tools =
     { pkgs, lib, ... }:
     let
-      signalWaybar = "${pkgs.procps}/bin/pkill -RTMIN+8 waybar 2>/dev/null || true";
+      # Push recording state into the eww bar. The state is explicit at each call
+      # site because the start push happens before wl-screenrec is up, so probing
+      # for the process would still read "off".
+      barRecording = state: text:
+        "${pkgs.eww}/bin/eww update 'screenrecord={\"recording\":${state},\"text\":\"${text}\"}' 2>/dev/null || true";
+      # nf-fa-circle rather than U+23FA: the plain Unicode symbol sits low
+      # against the nerd-font glyphs in the neighbouring pills.
+      barRecOn = barRecording "true" "${builtins.fromJSON ''"\uf111"''} REC";
+      barRecOff = barRecording "false" "";
 
       screenshotTool = pkgs.writeShellScriptBin "screenshot_tool" ''
         ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
@@ -11,7 +19,7 @@
       screenrecordStop = ''
         ${pkgs.killall}/bin/killall -s SIGINT wl-screenrec 2>/dev/null && \
           ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord stopped"
-        ${signalWaybar}
+        ${barRecOff}
       '';
 
       screenrecordStart = extraArgs: ''
@@ -19,10 +27,10 @@
         echo "$file" > /tmp/screenrec-path
 
         ${pkgs.libnotify}/bin/notify-send -t 2000 -a "Screen Recording" "Screenrecord starting..."
-        ${signalWaybar}
+        ${barRecOn}
         ${pkgs.wl-screenrec}/bin/wl-screenrec ${extraArgs} -f "$file"
         ${pkgs.wl-clipboard}/bin/wl-copy "file:/$file" -t text/uri-list
-        ${signalWaybar}
+        ${barRecOff}
       '';
 
       screenrecordScreenTool = pkgs.writeShellScriptBin "screenrecord_screen" ''

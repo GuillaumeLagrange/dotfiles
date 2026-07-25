@@ -29,7 +29,7 @@
         audio
         lock
         firefox
-        waybar
+        eww
         vicinae
         niri
         sway
