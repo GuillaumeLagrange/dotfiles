@@ -42,6 +42,11 @@ PROXY_NAME = MPRIS_PREFIX + "playerctld"
 
 ART_CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "eww" / "mpris-art"
 POS_INTERVAL_MS = 500
+# Some players (Spotify) drop PropertiesChanged emissions, so the signal stream
+# alone can leave the state stale indefinitely. Re-read on a slow tick as a safety
+# net, armed only while a player owns a bus name; the emit is deduped, so an
+# unchanged state costs nothing downstream.
+STATE_RESYNC_MS = 2000
 
 # Title marquee: slice the title into a fixed-width window, one frame per tick.
 TITLE_WINDOW = 30          # chars visible in the panel title column
@@ -250,10 +255,13 @@ class StateDaemon:
         self.bus = Bus()
         self.loop = GLib.MainLoop()
         self._last = None
+        self._resync_id = 0
 
-    def _emit(self) -> None:
+    def _emit(self, bus_names: list[str] | None = None) -> None:
+        if bus_names is None:
+            bus_names = self.bus.list_players()
         players = []
-        for bn in self.bus.list_players():
+        for bn in bus_names:
             p = build_player(self.bus, bn)
             if p:
                 players.append(p)
@@ -289,7 +297,28 @@ class StateDaemon:
         name, old, new = params.unpack()
         if not name.startswith(MPRIS_PREFIX) or name == PROXY_NAME:
             return
-        self._emit()
+        bus_names = self.bus.list_players()
+        self._emit(bus_names)
+        self._sync_resync(bus_names)
+
+    def _sync_resync(self, bus_names: list[str]) -> None:
+        """Run the resync timer only while some player owns a bus name. Status is
+        not part of the condition: a stopped player still changes track under us.
+        Without a player there is nothing to poll, and probing the playerctld
+        proxy would D-Bus-activate it for no reason."""
+        if bus_names and not self._resync_id:
+            self._resync_id = GLib.timeout_add(STATE_RESYNC_MS, self._resync)
+        elif not bus_names and self._resync_id:
+            GLib.source_remove(self._resync_id)
+            self._resync_id = 0
+
+    def _resync(self) -> bool:
+        bus_names = self.bus.list_players()
+        if not bus_names:
+            self._resync_id = 0
+            return False
+        self._emit(bus_names)
+        return True
 
     def run(self) -> None:
         # PropertiesChanged from any MPRIS player (match on interface + path).
@@ -300,7 +329,9 @@ class StateDaemon:
         self.bus.bus.signal_subscribe(
             "org.freedesktop.DBus", "org.freedesktop.DBus", "NameOwnerChanged",
             "/org/freedesktop/DBus", None, Gio.DBusSignalFlags.NONE, self._on_name_owner)
-        self._emit()
+        bus_names = self.bus.list_players()
+        self._emit(bus_names)
+        self._sync_resync(bus_names)
         self.loop.run()
 
 
