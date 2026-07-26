@@ -7,6 +7,16 @@ keybinds clear-defaults=true {
         bind "{" { MovePaneBackwards; SwitchToMode "locked"; }
         bind "}" { MovePane; SwitchToMode "locked"; }
         bind "f" { ToggleFocusFullscreen; SwitchToMode "locked"; }
+        bind "n" {
+            Run "zellij-rename-current" {
+                floating true
+                close_on_exit true
+                width 24
+                height 3
+                name "rename"
+            }
+            SwitchToMode "locked"
+        }
         bind "u" {
             Run "zellij-fzf-url" {
                 floating true

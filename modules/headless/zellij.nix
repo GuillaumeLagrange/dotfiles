@@ -68,9 +68,20 @@
         fi
       '';
 
+      muxName = pkgs.writeShellApplication {
+        name = "mux-name";
+        runtimeInputs = [ pkgs.git ];
+        text = builtins.readFile ./mux-name.sh;
+      };
+
+      # Bound to a zellij keybind, so it runs with the zellij server's PATH rather
+      # than an interactive shell's: every command it calls has to be listed here.
       zellijRenameCurrent = pkgs.writeShellApplication {
         name = "zellij-rename-current";
-        runtimeInputs = [ pkgs.zellij ];
+        runtimeInputs = [
+          pkgs.zellij
+          muxName
+        ];
         text = builtins.readFile ./zellij-rename-current.sh;
       };
 
@@ -111,15 +122,6 @@
           fi
           export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
         fi
-
-        # Auto-rename zellij tab on directory change and on shell start
-        function zellij_rename_current_tab() {
-          if [ -n "''${ZELLIJ}" ]; then
-            ${zellijRenameCurrent}/bin/zellij-rename-current > /dev/null 2>&1
-          fi
-        }
-        add-zsh-hook chpwd zellij_rename_current_tab
-        zellij_rename_current_tab
       '';
 
       home.packages = [
