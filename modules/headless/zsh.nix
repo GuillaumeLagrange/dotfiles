@@ -70,6 +70,14 @@
             fi
           }
 
+          # Navigate relative to the root of the current workspace. Anything that
+          # re-points WORKSPACE_ROOT (a per-session mirror, a container) moves
+          # cdr with it.
+          cdr() {
+            cd "''${WORKSPACE_ROOT:-$HOME}/$@"
+          }
+          compdef '_files -W "''${WORKSPACE_ROOT:-$HOME}" -/' cdr
+
           # Fuzzy-pick a worktree of the current repo and cd into it. The
           # displayed line carries the path in a trailing tab-delimited field so
           # fzf matches on branch/path text while the exact path (which may

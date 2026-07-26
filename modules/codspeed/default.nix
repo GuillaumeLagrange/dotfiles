@@ -22,17 +22,19 @@
     }:
     let
       codspeed_root = "${config.home.homeDirectory}/codspeed";
-      vgbasedir = "${codspeed_root}/valgrind-codspeed";
+      vgbasedir = "\${WORKSPACE_ROOT:-${codspeed_root}}/valgrind-codspeed";
+
+      # `cargo install` a crate of <repo>, resolved against the current workspace
+      # root and run under that repo's direnv environment.
+      cargoInstall =
+        name: repo: path:
+        pkgs.writeShellScriptBin name ''
+          dir="''${WORKSPACE_ROOT:-${codspeed_root}}/${repo}"
+          cd "$dir" || exit 1
+          exec direnv exec "$dir" cargo install --path ${path} --locked
+        '';
     in
     {
-      programs.zsh.initContent = ''
-        # Easy navigation in the codspeed repositories
-        cdc() {
-          cd "${codspeed_root}/$@"
-        }
-        compdef '_files -W "${codspeed_root}" -/' cdc
-      '';
-
       programs.granted.enable = true;
 
       programs.git = {
@@ -56,6 +58,8 @@
 
       home.sessionVariables = {
         CODSPEED_ROOT = codspeed_root;
+        # `cdr` and anything else keyed on the workspace root land in ~/codspeed
+        WORKSPACE_ROOT = codspeed_root;
       };
 
       home.packages =
@@ -70,21 +74,10 @@
           '')
         ]
         ++ [
-          (writeShellScriptBin "cicc" ''
-            direnv exec ${codspeed_root}/codspeed-rust bash -c 'cd ${codspeed_root}/codspeed-rust && cargo install --path ./crates/cargo-codspeed --locked'
-          '')
-
-          (writeShellScriptBin "cicr" ''
-            direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path . --locked'
-          '')
-
-          (writeShellScriptBin "cieh" ''
-            direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path ./crates/exec-harness --locked'
-          '')
-
-          (writeShellScriptBin "cicm" ''
-            direnv exec ${codspeed_root}/codspeed bash -c 'cd ${codspeed_root}/codspeed && cargo install --path ./crates/memtrack --locked'
-          '')
+          (cargoInstall "cicc" "codspeed-rust" "./crates/cargo-codspeed")
+          (cargoInstall "cicr" "codspeed" ".")
+          (cargoInstall "cieh" "codspeed" "./crates/exec-harness")
+          (cargoInstall "cicm" "codspeed" "./crates/memtrack")
 
           (writeShellScriptBin "local_run_helper" ''
             archive_name="''${1:-sample.tar.gz}"
