@@ -42,7 +42,7 @@
       };
 
       home.shellAliases = {
-        cs = "codspeed";
+        ct = "cargo nextest run";
         mj = "make -j";
         m = "make";
         cm = "cmake ..";
