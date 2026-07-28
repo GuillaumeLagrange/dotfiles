@@ -128,6 +128,7 @@
         zellijFzfGetSession
         zsmScript
         zskScript
+        muxName
         zellijRenameCurrent
         zellijFzfUrl
       ];

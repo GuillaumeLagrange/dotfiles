@@ -1,12 +1,10 @@
 {
   "attribution": {
-    "commit": "Generated with AI Agent (Claude Code)",
+    "commit": "",
     "pr": ""
   },
   "permissions": {
-    "allow": [
-      "mcp__claude_ai_CodSpeed__compare_runs"
-    ],
+    "allow": ["mcp__claude_ai_CodSpeed__compare_runs"],
     "defaultMode": "auto"
   },
   "model": "opus[1m]",
@@ -93,11 +91,11 @@
   "enabledPlugins": {
     "codspeed-internal@codspeed-internal-marketplace": true
   },
-  "alwaysThinkingEnabled": false,
   "effortLevel": "high",
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
   "skipWorkflowUsageWarning": true,
+  "thinking": true,
   "verbose": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,

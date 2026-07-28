@@ -13,6 +13,7 @@
         tmux
         zellij
         zsh
+        zwt
       ];
 
       home.packages =
@@ -106,7 +107,7 @@
         lg = "lazygit";
         lgl = "lazygit log";
         lgb = "lazygit branch";
-        cdr = "[ -d \"$(git rev-parse --show-toplevel 2>/dev/null)\" ] && cd $(git rev-parse --show-toplevel)";
+        cdg = "[ -d \"$(git rev-parse --show-toplevel 2>/dev/null)\" ] && cd $(git rev-parse --show-toplevel)";
         grbim = "git rebase -i $(git_main_branch)";
         "grbim!" = "git rebase --autosquash -i $(git_main_branch)";
         grbiom = "git rebase -i origin/$(git_main_branch)";
@@ -191,6 +192,16 @@
           push.autoSetupRemote = true;
           rebase.updateRefs = true;
           diff.lfstext.textconv = "cat";
+          alias.steal = "!${
+            pkgs.writeShellApplication {
+              name = "git-steal";
+              runtimeInputs = [
+                pkgs.git
+                pkgs.gawk
+              ];
+              text = builtins.readFile ./git-steal.sh;
+            }
+          }/bin/git-steal";
         };
         ignores = [
           ".envrc"
