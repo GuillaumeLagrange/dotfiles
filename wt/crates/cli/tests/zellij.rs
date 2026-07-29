@@ -18,8 +18,16 @@ use wt_core::zellij;
 /// Run a closure with the fixture's environment applied to this process, since the
 /// library talks to zellij through plain `Command`s that inherit it.
 ///
-/// Tests each get their own process under nextest, so this does not leak.
+/// The environment is per-process, and `cargo test` runs a binary's tests as threads
+/// of one process: without the lock, two fixtures would overwrite each other's
+/// `XDG_RUNTIME_DIR` and look for their servers in the wrong socket directory. Under
+/// nextest, where each test is its own process, the lock is free.
 fn with_env<T>(f: &Fixture, body: impl FnOnce() -> T) -> T {
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    // A panicking test poisons the lock; the next one should still report its own
+    // failure rather than the poisoning.
+    let _guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+
     for var in [
         "HOME",
         "XDG_STATE_HOME",
