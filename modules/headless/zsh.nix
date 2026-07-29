@@ -87,6 +87,23 @@
               unset _zwt_root
             fi
 
+            # A new pane starts in the *resolved* cwd of the one it was opened
+            # from: zellij reads it from the process, and there is nothing to tell
+            # it otherwise (no OSC 7 support, and `default_cwd` overrides the cwd
+            # wholesale). Inside a session that lands us in the workspace, where
+            # `../<repo>` reaches the main checkout rather than the session, so
+            # walk back in through the mirror symlink that leads here.
+            if [[ -f "''${WORKSPACE_ROOT:-/nonexistent}/.zwt/session.json" && "$PWD" != $WORKSPACE_ROOT* ]]; then
+              for _zwt_link in "$WORKSPACE_ROOT"/*(@N); do
+                _zwt_target=''${_zwt_link:A}
+                if [[ "$PWD" == "$_zwt_target" || "$PWD" == "$_zwt_target"/* ]]; then
+                  builtin cd -- "$_zwt_link''${PWD#$_zwt_target}"
+                  break
+                fi
+              done
+              unset _zwt_link _zwt_target
+            fi
+
             # The root everything is navigated relative to: a session directory
             # when one encloses us, else whatever re-pointed WORKSPACE_ROOT (a
             # session we are a pane of, a container, the workspace itself), else

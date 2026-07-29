@@ -91,7 +91,7 @@ pub fn check_out(cfg: &Config, session: &Path, repo: &str) -> Result<()> {
         eprintln!("zwt: {repo}: the checkout succeeded but a git hook failed:\n{warning}");
     }
 
-    let report = hydrate::hydrate(&git::main_worktree(&repo_path)?, &worktree)?;
+    let report = hydrate::hydrate(cfg, &git::main_worktree(&repo_path)?, &worktree)?;
     for (path, err) in &report.failed {
         eprintln!("zwt: {repo}: could not copy {path}: {err}");
     }

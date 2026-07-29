@@ -38,7 +38,7 @@ for repo in app docs lib; do
   git -C "$repo" init -q -b main
   git -C "$repo" config user.email t@t.t
   git -C "$repo" config user.name t
-  printf 'node_modules/\n.envrc\n.env\ntarget/\n' > "$repo/.gitignore"
+  printf 'node_modules/\n.envrc\n.env\ntarget/\nlocal.mk\nSession.vim\n' > "$repo/.gitignore"
   printf '# %s\n' "$repo" > "$repo/README.md"
   git -C "$repo" add -A
   git -C "$repo" commit -qm init
@@ -52,6 +52,9 @@ for repo in app docs lib; do
   mkdir -p "$repo/node_modules/pkg"
   printf 'x\n' > "$repo/node_modules/pkg/index.js"
   printf 'SECRET=1\n' > "$repo/.env"
+  # Ignored, but only one of the two is in the configured hydrate list.
+  printf 'PREFIX=/usr/local\n' > "$repo/local.mk"
+  printf 'cd %s/%s\n' "$ZWT_WORKSPACE" "$repo" > "$repo/Session.vim"
 done
 # Each repo calls its main branch something different, and only `lib` has a
 # remote: what a worktree forks from has to be resolved per repo.
@@ -84,8 +87,10 @@ printf 'workspace = "%s"\nrepos = ["app", "lib"]\n' "$ZWT_WORKSPACE" \
 printf 'workspace = "%s"\nrepo = ["app"]\n' "$ZWT_WORKSPACE" \
   > "$XDG_CONFIG_HOME/zwt/config.toml"
 expect_err "unknown field \`repo\`" env -u ZWT_WORKSPACE "$ZWT" ls
-printf 'workspace = "%s"\nrepos = ["app", "lib"]\n' "$ZWT_WORKSPACE" \
-  > "$XDG_CONFIG_HOME/zwt/config.toml"
+# `hydrate` names what a worktree cannot work without here: `local.mk` instead of
+# the defaults' editor files, and `Session.vim` deliberately left out.
+printf 'workspace = "%s"\nrepos = ["app", "lib"]\nhydrate = [".envrc", ".env*", "local.mk"]\n' \
+  "$ZWT_WORKSPACE" > "$XDG_CONFIG_HOME/zwt/config.toml"
 
 # A repo's post-checkout hook needs the toolchain an interactive shell's
 # per-directory hooks install (fnm's node, direnv's flake), so the checkout has to
@@ -201,11 +206,14 @@ step "members are detached at their own main branch"
 [ -z "$(git -C app branch --list 'proj-*')" ] || fail "a branch was created for the session"
 ok "detached at staging and origin/main, no branch invented"
 
-step "hydration carries the environment and nothing else"
+step "hydration carries what the config asks for and nothing else"
 [ -f "$SESSION/app/.envrc" ] || fail ".envrc was not hydrated"
 [ -f "$SESSION/app/.env" ] || fail ".env was not hydrated"
+[ -f "$SESSION/app/local.mk" ] || fail "the configured local.mk was not hydrated"
+[ -e "$SESSION/app/Session.vim" ] &&
+  fail "Session.vim was copied; no pattern asks for it"
 [ -e "$SESSION/app/node_modules" ] && fail "node_modules was copied; that is a hook's job now"
-ok "environment files only"
+ok "the configured patterns only"
 
 step "sibling paths resolve as they do in the workspace"
 rel=$(cd "$SESSION/app" && cd ../docs && git rev-parse --show-toplevel)

@@ -238,13 +238,19 @@ globally gitignored, so `git worktree add` brings none of them — a fresh workt
 ```
 git worktree add --detach <path> <base>
 git -C <main> status --porcelain --ignored=matching -uall | grep '^!!'
-  keep the environment files only
+  keep what `hydrate` names
   cp -a --reflink=auto -> worktree
 direnv allow <path>
 ```
 
 That is the whole of it. The copies are verbatim: nothing is rewritten, so a member's
 environment is the main checkout's, which is the least surprising thing it can be.
+
+The list is `hydrate` in `~/.config/zwt/config.toml`, on the same grounds as `repos`:
+which ignored files a worktree cannot work without describes a codebase, and mine is not
+this repository's business. Patterns read like gitignore's — a bare name matches at any
+depth, one with a `/` from the repo root, `*` within a single name — and the default is
+the five above, so a config that says nothing behaves as before.
 
 Installed dependencies and generated code are **not** copied: they are the repo's own
 `post-checkout` hook's business, per repo, and a hook that installs its own `node_modules`

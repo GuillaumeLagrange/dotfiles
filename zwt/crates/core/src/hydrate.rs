@@ -126,16 +126,41 @@ pub fn allow_direnv(path: &Path) -> Result<bool> {
 mod tests {
     use super::*;
 
+    fn patterns(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
     #[test]
-    fn environment_files_are_recognised() {
-        assert!(is_environment(".envrc"));
-        assert!(is_environment("apps/api/.env"));
-        assert!(is_environment("apps/api/.env.local"));
-        assert!(is_environment(".claude/settings.local.json"));
-        assert!(!is_environment("node_modules"));
-        assert!(!is_environment("target"));
-        // State, not environment: it pins the checkout it was written in.
-        assert!(!is_environment("Session.vim"));
+    fn the_configured_patterns_decide() {
+        let p = patterns(&[
+            ".envrc",
+            ".env*",
+            ".claude/settings.local.json",
+            "config/*.local.toml",
+        ]);
+        // A bare name matches at any depth, a path only from the repo root.
+        assert!(wanted(&p, ".envrc"));
+        assert!(wanted(&p, "apps/api/.envrc"));
+        assert!(wanted(&p, "apps/api/.env.local"));
+        assert!(wanted(&p, ".claude/settings.local.json"));
+        assert!(!wanted(&p, "apps/api/.claude/settings.local.json"));
+        assert!(wanted(&p, "config/db.local.toml"));
+        assert!(!wanted(&p, "config/nested/db.local.toml"));
+        assert!(!wanted(&p, "node_modules"));
+        // State, not environment: it pins the checkout it was written in, and no
+        // default pattern asks for it.
+        assert!(!wanted(&p, "Session.vim"));
+        assert!(!wanted(&[], ".envrc"));
+    }
+
+    #[test]
+    fn a_star_stops_at_a_slash() {
+        assert!(glob(".env*", ".env.local"));
+        assert!(glob("*.local.json", "settings.local.json"));
+        assert!(glob("a*c", "abc"));
+        assert!(glob("a*c", "ac"));
+        assert!(!glob("a*c", "abd"));
+        assert!(!glob("a*c", "ab/c"));
     }
 
     #[test]

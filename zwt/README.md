@@ -36,6 +36,7 @@ every other key has a default:
 workspace = "~/work"                 # the multi-repo checkout to mirror; else $ZWT_WORKSPACE
 default_root = "~/work/sessions"     # default: <workspace>/sessions
 repos = ["app", "docs", "lib"]       # the picker's pre-approved list; default: every repo
+hydrate = [".envrc", ".env*"]        # git-ignored paths a worktree needs; see below
 ```
 
 Unknown keys are an error rather than a shrug, so a typo says so.
@@ -48,11 +49,17 @@ each one is checked out **detached** at its own main branch — `origin/HEAD`, e
 `GIT_MAIN_BRANCH` that resolves there, else whichever of `main`/`master`/`staging`/
 `trunk`/`develop` exists. Naming a branch is left to whoever does the work.
 
-Hydration copies the environment files (`.envrc`, `.env*`, `.nvim.lua`,
-`.taplo.toml`, `.claude/settings.local.json`) as they stand, and runs `direnv
-allow`. Anything heavier — installed dependencies, generated code — belongs in the
-repo's own `post-checkout` hook, and editor state is left behind entirely: a
-`Session.vim` names absolute paths, so a copy restores the checkout it came from.
+Hydration copies the paths `hydrate` names, as they stand, and runs `direnv allow`.
+Which git-ignored files a worktree is unusable without is a property of a codebase,
+so the list is configuration; the default is `.envrc`, `.env*`, `.nvim.lua`,
+`.taplo.toml`, `.claude/settings.local.json`. A pattern with no `/` matches a name
+at any depth, one with a `/` matches the path from the repo root, and `*` stands for
+any run of characters within a single name. An empty list is taken at its word.
+
+Keep it to *environment*. Anything heavier — installed dependencies, generated code
+— belongs in the repo's own `post-checkout` hook, and state does not travel at all:
+a `Session.vim` records a cwd and absolute paths, so a copy restores the checkout it
+was written in.
 
 ## The session root
 
