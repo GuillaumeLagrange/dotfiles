@@ -135,6 +135,9 @@
             # fzf matches on branch/path text while the exact path (which may
             # contain spaces) survives extraction. ctrl-x removes the highlighted
             # worktree and closes the picker.
+            # oh-my-zsh's git plugin holds this name for `git worktree`, and zsh
+            # refuses to define a function over an alias. `gwta`/`gwtls` stay.
+            unalias gwt 2> /dev/null
             gwt () {
               command git rev-parse --git-dir >/dev/null 2>&1 || {
                 echo "gwt: not inside a git repository" >&2
