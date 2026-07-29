@@ -13,7 +13,7 @@
         tmux
         zellij
         zsh
-        zwt
+        wt
       ];
 
       home.packages =
@@ -155,11 +155,66 @@
         };
       };
 
-      programs.fzf = {
-        enable = true;
-        changeDirWidgetCommand = "${pkgs.fd}/bin/fd --type d --hidden --follow --exclude .git";
-        fileWidgetCommand = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-      };
+      programs.fzf =
+        let
+          # Ignore build artifacts and caches rather than everything in .gitignore,
+          # so generated-but-interesting files stay reachable.
+          excludes = [
+            ".git"
+            ".jj"
+            ".svn"
+            ".hg"
+            ".direnv"
+            ".cache"
+            ".venv"
+            "venv"
+            ".tox"
+            ".mypy_cache"
+            ".ruff_cache"
+            ".pytest_cache"
+            "__pycache__"
+            "node_modules"
+            ".pnpm-store"
+            ".yarn"
+            ".next"
+            ".nuxt"
+            ".svelte-kit"
+            ".turbo"
+            ".parcel-cache"
+            "bower_components"
+            "target"
+            "build"
+            "dist"
+            "out"
+            ".gradle"
+            ".m2"
+            ".terraform"
+            ".angular"
+            ".cargo"
+            "vendor"
+            "result"
+            "result-*"
+            "*.egg-info"
+          ];
+          fd =
+            type:
+            lib.concatStringsSep " " (
+              [
+                "${pkgs.fd}/bin/fd"
+                "--type"
+                type
+                "--hidden"
+                "--follow"
+                "--no-ignore-vcs"
+              ]
+              ++ map (e: "--exclude ${lib.escapeShellArg e}") excludes
+            );
+        in
+        {
+          enable = true;
+          changeDirWidgetCommand = fd "d";
+          fileWidgetCommand = fd "f";
+        };
 
       programs.atuin = {
         enable = true;
@@ -169,11 +224,6 @@
           filter_mode = "host";
           filter_mode_shell_up_key_binding = "session";
         };
-      };
-
-      programs.z-lua = {
-        enable = true;
-        enableAliases = true;
       };
 
       programs.git = {

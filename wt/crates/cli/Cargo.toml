@@ -1,0 +1,22 @@
+[package]
+name = "wt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "wt"
+path = "src/main.rs"
+
+[dependencies]
+wt-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap = { version = "4", features = ["derive", "env"] }
+# The dynamic engine: candidates are computed by running wt, so completing a
+# session id lists the sessions that exist right now.
+clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

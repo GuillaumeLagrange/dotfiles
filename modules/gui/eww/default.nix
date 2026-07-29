@@ -109,18 +109,27 @@
 
       eww = "${pkgs.eww}/bin/eww";
 
+      # Hover dwell before a popup opens, and the debounce before it closes, in
+      # seconds (`sleep` syntax, so fractions are fine). Tweak here; each popup
+      # can override via mkHoverPopup's `openDelay` / `closeDelay`.
+      hoverOpenDelay = "0.5";
+      hoverCloseDelay = "0.30";
+
       # Hover-driven popups (media panel, calendar, settings). Three scripts per
       # popup, because GTK fires hover/hover-lost as the pointer crosses a
       # window's *child* widgets:
-      #   open  — trigger hover: mark open, show the window (runs detached; an
-      #           onclick/onhover that calls `eww` back would block the
-      #           single-threaded daemon and hit its ~1s handler kill).
+      #   open  — trigger hover: dwell, then mark open and show the window (runs
+      #           detached; an onclick/onhover that calls `eww` back would block
+      #           the single-threaded daemon and hit its ~1s handler kill).
       #   keep  — popup hover: only refresh the flag's mtime. No `eww` call, so
       #           the churn from crossing child widgets can't re-open the window
       #           (re-opening on every event makes it flicker).
       #   close — popup/trigger hover-lost: debounce, then hide. A re-hover during
       #           the debounce (from open or keep) pushes the flag's mtime past the
       #           closing marker, which aborts the close.
+      # The two markers also carry the open dwell: `open` bails when the closing
+      # marker outlives its own flag touch, i.e. the pointer left mid-dwell. The
+      # closing marker therefore outlives a close and is only ever re-touched.
       # `seed` runs before the window is shown, for popups whose content is pushed
       # rather than polled. `postClose` runs after it's hidden.
       mkHoverPopup =
@@ -130,6 +139,8 @@
           var,
           seed ? "",
           postClose ? "",
+          openDelay ? hoverOpenDelay,
+          closeDelay ? hoverCloseDelay,
         }:
         let
           flag = "\${XDG_RUNTIME_DIR:-/tmp}/eww-${name}-open";
@@ -140,6 +151,8 @@
           open = pkgs.writeShellScriptBin "eww-${name}-open" ''
             m="$1"
             touch "${flag}"
+            sleep ${openDelay}
+            if [ "${closing}" -nt "${flag}" ]; then exit 0; fi
             ${seed}
             ${eww} update ${var}=true
             ${eww} open ${window} --screen "$m" --arg monitor="$m" 2>/dev/null || true
@@ -149,9 +162,8 @@
           '';
           close = pkgs.writeShellScriptBin "eww-${name}-close" ''
             touch "${closing}"
-            sleep 0.30
-            if [ "${flag}" -nt "${closing}" ]; then rm -f "${closing}"; exit 0; fi
-            rm -f "${closing}"
+            sleep ${closeDelay}
+            if [ "${flag}" -nt "${closing}" ]; then exit 0; fi
             ${eww} update ${var}=false
             ${eww} close ${window} 2>/dev/null || true
             rm -f "${flag}"

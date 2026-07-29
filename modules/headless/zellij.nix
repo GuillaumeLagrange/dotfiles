@@ -61,14 +61,14 @@
 
         # Panes inherit the zellij server's environment, and the server inherits
         # this process's — on creation and on resurrection alike, since both start a
-        # server. So a session that zwt knows is attached with its root in the
+        # server. So a session that wt knows is attached with its root in the
         # environment, which is the only way to set it for a whole session that adds
         # nothing to the zellij config: a layout or a --config file would replace
-        # what it is passed rather than extend it. zwt is looked up on PATH rather
+        # what it is passed rather than extend it. wt is looked up on PATH rather
         # than pinned, so this stays usable on a host without it.
         root=""
-        if command -v zwt > /dev/null; then
-          root=$(zwt path --exact "$session" 2>/dev/null) || root=""
+        if command -v wt > /dev/null; then
+          root=$(wt path --exact "$session" 2>/dev/null) || root=""
         fi
 
         if [[ -n "$root" ]]; then
@@ -129,6 +129,10 @@
       xdg.configFile."zellij/resurrect-launch.sh" = {
         source = ./zellij-resurrect-launch.sh;
         executable = true;
+      };
+
+      home.shellAliases = {
+        z = "zellij";
       };
 
       programs.zsh.initContent = ''

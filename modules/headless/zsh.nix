@@ -75,16 +75,16 @@
             # WORKSPACE_ROOT belongs to the session a pane is in, not to the
             # directory it stands in, so `cd ~` must not send cdr back to the
             # workspace. The multiplexer normally hands it down: zellij fixes a
-            # pane's environment when the server starts, and zwt attaches with a
-            # layout that sets it. A session attached any other way (`zellij
-            # attach`, the session-manager plugin, the welcome screen) starts a
-            # server that never saw it, and lands here instead — the session name
-            # is the registry key, so the value can be looked up.
-            if [[ -n "$ZELLIJ_SESSION_NAME" && ! -f "''${WORKSPACE_ROOT:-/nonexistent}/.zwt/session.json" ]] &&
-                 (( $+commands[zwt] )); then
-              _zwt_root=$(zwt path --exact "$ZELLIJ_SESSION_NAME" 2>/dev/null)
-              [[ -d "$_zwt_root" ]] && export WORKSPACE_ROOT="$_zwt_root"
-              unset _zwt_root
+            # pane's environment when the server starts, and `wt` starts it with
+            # this in its own. A session attached any other way (`zellij attach`,
+            # the session-manager plugin, the welcome screen) starts a server that
+            # never saw it, and lands here instead — the session name is the
+            # registry key, so the value can be looked up.
+            if [[ -n "$ZELLIJ_SESSION_NAME" && ! -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" ]] &&
+                 (( $+commands[wt] )); then
+              _wt_root=$(wt path --exact "$ZELLIJ_SESSION_NAME" 2>/dev/null)
+              [[ -d "$_wt_root" ]] && export WORKSPACE_ROOT="$_wt_root"
+              unset _wt_root
             fi
 
             # A new pane starts in the *resolved* cwd of the one it was opened
@@ -93,15 +93,15 @@
             # wholesale). Inside a session that lands us in the workspace, where
             # `../<repo>` reaches the main checkout rather than the session, so
             # walk back in through the mirror symlink that leads here.
-            if [[ -f "''${WORKSPACE_ROOT:-/nonexistent}/.zwt/session.json" && "$PWD" != $WORKSPACE_ROOT* ]]; then
-              for _zwt_link in "$WORKSPACE_ROOT"/*(@N); do
-                _zwt_target=''${_zwt_link:A}
-                if [[ "$PWD" == "$_zwt_target" || "$PWD" == "$_zwt_target"/* ]]; then
-                  builtin cd -- "$_zwt_link''${PWD#$_zwt_target}"
+            if [[ -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" && "$PWD" != $WORKSPACE_ROOT* ]]; then
+              for _wt_link in "$WORKSPACE_ROOT"/*(@N); do
+                _wt_target=''${_wt_link:A}
+                if [[ "$PWD" == "$_wt_target" || "$PWD" == "$_wt_target"/* ]]; then
+                  builtin cd -- "$_wt_link''${PWD#$_wt_target}"
                   break
                 fi
               done
-              unset _zwt_link _zwt_target
+              unset _wt_link _wt_target
             fi
 
             # The root everything is navigated relative to: a session directory
@@ -116,7 +116,7 @@
             workspace_root() {
               local dir=$PWD
               while [[ -n "$dir" && "$dir" != "/" ]]; do
-                if [[ -f "$dir/.zwt/session.json" ]]; then
+                if [[ -f "$dir/.wt/session.json" ]]; then
                   print -r -- "$dir"
                   return
                 fi
@@ -135,9 +135,9 @@
             # fzf matches on branch/path text while the exact path (which may
             # contain spaces) survives extraction. ctrl-x removes the highlighted
             # worktree and closes the picker.
-            wt () {
+            gwt () {
               command git rev-parse --git-dir >/dev/null 2>&1 || {
-                echo "wt: not inside a git repository" >&2
+                echo "gwt: not inside a git repository" >&2
                 return 1
               }
               local selection dir
