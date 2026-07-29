@@ -91,6 +91,14 @@ enum Command {
     Path {
         #[arg(add = ArgValueCandidates::new(complete::sessions))]
         id: Option<String>,
+        /// Print the zellij layout to attach with instead of the root.
+        #[arg(long)]
+        layout: bool,
+        /// Take the id literally, rather than as a prefix. For callers handing over
+        /// a name they did not get from the registry, where the nearest session is
+        /// the wrong answer.
+        #[arg(long)]
+        exact: bool,
     },
 }
 
@@ -133,6 +141,8 @@ fn run() -> Result<()> {
         Some(Command::Rm { id, force }) => cmd::remove::run(&cfg, id.as_deref(), force),
         Some(Command::Ls { json }) => cmd::ls::run(&cfg, json),
         Some(Command::Sync { id, fix, all }) => cmd::sync::run(&cfg, id.as_deref(), fix, all),
-        Some(Command::Path { id }) => cmd::path::run(&cfg, id.as_deref()),
+        Some(Command::Path { id, layout, exact }) => {
+            cmd::path::run(&cfg, id.as_deref(), layout, exact)
+        }
     }
 }

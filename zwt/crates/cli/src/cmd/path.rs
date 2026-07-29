@@ -7,20 +7,31 @@ use zwt_core::session::Session;
 use crate::cmd;
 use crate::ui::{self, Choice};
 
-/// The root of the session named, or of the one holding the cwd. This is what a
-/// shell reads to point `WORKSPACE_ROOT` at a session.
-pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
+/// The root of the session named, or of the one holding the cwd — what a shell
+/// reads to resolve a session it knows only by name — or the layout to attach it
+/// with.
+pub fn run(cfg: &Config, id: Option<&str>, layout: bool, exact: bool) -> Result<()> {
     let reg = Registry::open_raw(cfg)?;
     let session = match id {
         Some(needle) => {
-            let id = cmd::resolve_id(&reg, needle)?;
+            let id = if exact {
+                anyhow::ensure!(reg.get(needle).is_some(), "no session `{needle}`");
+                needle.to_string()
+            } else {
+                cmd::resolve_id(&reg, needle)?
+            };
             Session::from_registry(&reg, &id)?
         }
         None => {
             zwt_core::session::current(&reg)?.ok_or_else(|| anyhow::anyhow!("not in a session"))?
         }
     };
-    println!("{}", session.path.display());
+    let path = if layout {
+        zwt_core::layout::path(&session.path)
+    } else {
+        session.path
+    };
+    println!("{}", path.display());
     Ok(())
 }
 

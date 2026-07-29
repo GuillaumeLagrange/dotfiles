@@ -44,8 +44,8 @@ for repo in app docs lib; do
   git -C "$repo" commit -qm init
   # Ignored files that hydration must carry over.
   printf 'export FROM_MAIN=1\n' > "$repo/.envrc"
-  # One repo already reaches its parent; the others do not, and have to be
-  # linked up by hydration.
+  # One repo reaches its parent, the others do not: hydration copies both as they
+  # are, so a member behaves exactly as it does in the main checkout.
   if [ "$repo" = app ]; then
     printf 'source_env ../.envrc\nexport FROM_MAIN=1\n' > "$repo/.envrc"
   fi
@@ -151,33 +151,42 @@ step "mirror layout"
 [ -e "$SESSION/sessions" ] && fail "the sessions root must not be mirrored into itself"
 ok "worktrees, symlinks and the generated .envrc are in place"
 
-step "the session root exports itself, and is marked"
-grep -q 'export WORKSPACE_ROOT="\$(expand_path \.)"' "$SESSION/.envrc" ||
-  fail "the session .envrc does not export WORKSPACE_ROOT: $(cat "$SESSION/.envrc")"
+step "the session defers to the workspace, and is marked"
 grep -qF "source_env '$ZWT_WORKSPACE/.envrc'" "$SESSION/.envrc" ||
   fail "the session .envrc does not defer to the workspace's"
+grep -q 'WORKSPACE_ROOT' "$SESSION/.envrc" &&
+  fail "the session root must not come from direnv: $(cat "$SESSION/.envrc")"
 [ -f "$SESSION/.zwt/session.json" ] || fail "no session marker"
 grep -q '"id": "proj-1234"' "$SESSION/.zwt/session.json" || fail "the marker has the wrong id"
 grep -qF "\"workspace\": \"$ZWT_WORKSPACE\"" "$SESSION/.zwt/session.json" ||
   fail "the marker has the wrong workspace"
 ok "generated .envrc and marker written"
 
-step "a member's own .envrc is made to source the session's"
-grep -q '^source_up_if_exists$' "$SESSION/lib/.envrc" ||
-  fail "lib was left unable to see the session root"
+step "a member's .envrc is copied as it stands"
 head -1 "$SESSION/app/.envrc" | grep -q '^source_env \.\./\.envrc$' ||
   fail "app's own parent reference was not left alone"
-ok "linked where needed, untouched where not"
+[ "$(cat "$SESSION/lib/.envrc")" = "$(cat lib/.envrc)" ] ||
+  fail "lib's .envrc was rewritten: $(cat "$SESSION/lib/.envrc")"
+ok "untouched, so a member behaves as it does in the main checkout"
 
-# The whole point of the generated .envrc: WORKSPACE_ROOT is the session, in the
-# root and in a member, with the workspace's own environment still loaded.
+# WORKSPACE_ROOT reaches a pane through the zellij layout, so that it survives
+# leaving the directory. The .envrc's job is only the workspace's environment.
+step "the layout points a whole session at itself"
+grep -qF "WORKSPACE_ROOT \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
+  fail "the layout does not set WORKSPACE_ROOT: $(cat "$SESSION/.zwt/layout.kdl")"
+grep -qF "cwd \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
+  fail "the layout does not open in the session"
+[ "$("$ZWT" path --layout proj-1234)" = "$SESSION/.zwt/layout.kdl" ] ||
+  fail "path --layout printed '$("$ZWT" path --layout proj-1234)'"
+ok "layout written, and findable by name"
+
 if command -v direnv > /dev/null; then
-  step "direnv resolves WORKSPACE_ROOT to the session"
-  for dir in "$SESSION" "$SESSION/app" "$SESSION/lib"; do
-    got=$(direnv exec "$dir" sh -c 'printf "%s|%s" "$WORKSPACE_ROOT" "$FROM_WORKSPACE"' 2>/dev/null)
-    [ "$got" = "$SESSION|1" ] || fail "in $dir direnv gave '$got', expected '$SESSION|1'"
+  step "direnv still carries the workspace environment"
+  for dir in "$SESSION" "$SESSION/app"; do
+    got=$(direnv exec "$dir" sh -c 'printf "%s" "$FROM_WORKSPACE"' 2>/dev/null)
+    [ "$got" = 1 ] || fail "in $dir direnv gave '$got', expected '1'"
   done
-  ok "session root and members all see the session"
+  ok "the flake environment reaches the session and its members"
 fi
 
 step "members are detached at their own main branch"
@@ -216,19 +225,19 @@ p=$(cd "$SESSION/docs" && "$ZWT" path)
 [ "$p" = "$SESSION" ] || fail "path from a symlinked repo printed '$p'"
 ok "path resolves by key, and from inside a symlinked member"
 
-step "sync repairs a stripped .envrc, marker and member link"
+step "sync repairs a stripped .envrc, marker and layout"
 printf 'export TAMPERED=1\n' > "$SESSION/.envrc"
 rm -rf "$SESSION/.zwt"
-sed -i '/^source_up_if_exists$/d' "$SESSION/lib/.envrc"
 "$ZWT" sync proj-1234 | tee "$ROOT/env.out"
-grep -q "WORKSPACE_ROOT" "$ROOT/env.out" || fail "sync missed the tampered .envrc"
+grep -q ".envrc" "$ROOT/env.out" || fail "sync missed the tampered .envrc"
 grep -q "session.json" "$ROOT/env.out" || fail "sync missed the missing marker"
-grep -q "lib" "$ROOT/env.out" || fail "sync missed the unlinked member .envrc"
+grep -q "layout.kdl" "$ROOT/env.out" || fail "sync missed the missing layout"
 "$ZWT" sync proj-1234 --fix > /dev/null
-grep -q 'export WORKSPACE_ROOT' "$SESSION/.envrc" || fail "--fix did not rewrite the .envrc"
+grep -qF "source_env '$ZWT_WORKSPACE/.envrc'" "$SESSION/.envrc" ||
+  fail "--fix did not rewrite the .envrc"
 [ -f "$SESSION/.zwt/session.json" ] || fail "--fix did not restore the marker"
-grep -q '^source_up_if_exists$' "$SESSION/lib/.envrc" ||
-  fail "--fix did not relink the member .envrc"
+grep -qF "WORKSPACE_ROOT \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
+  fail "--fix did not restore the layout"
 "$ZWT" sync proj-1234 | grep -q clean || fail "sync is not clean after --fix"
 ok "all three repaired"
 

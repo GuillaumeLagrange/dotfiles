@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::session::{RepoState, Session};
 use crate::util::capture;
 use crate::workspace::{self, Reproduce};
-use crate::{envrc, git, hydrate, mirror, session, util};
+use crate::{envrc, git, hydrate, layout, mirror, session, util};
 
 #[derive(Debug, Clone)]
 pub enum Drift {
@@ -20,17 +20,15 @@ pub enum Drift {
     MirrorLinkDangling {
         name: String,
     },
-    /// The `.envrc` that carries the flake environment and the session root, absent
-    /// or no longer what zwt generates.
+    /// The `.envrc` that carries the workspace's environment, absent or no longer
+    /// what zwt generates.
     SessionEnvrcStale,
     DirenvNotAllowed,
     /// Nothing marks the directory as a session, so nothing walking up finds it.
     MarkerMissing,
-    /// A member whose own `.envrc` never reaches the session root, and therefore
-    /// runs without `WORKSPACE_ROOT`.
-    MemberEnvrcUnlinked {
-        repo: String,
-    },
+    /// The zellij layout is absent or points somewhere else, so a session attached
+    /// with it hands its panes the wrong `WORKSPACE_ROOT`.
+    LayoutStale,
     /// git still records a worktree whose directory someone deleted.
     WorktreeRecordStale {
         repo: String,
@@ -46,12 +44,12 @@ impl Drift {
                 format!("`{name}` links to something that no longer exists")
             }
             Self::SessionEnvrcStale => {
-                ".envrc does not point WORKSPACE_ROOT at this session".into()
+                ".envrc is not the one zwt generates for a session".into()
             }
             Self::DirenvNotAllowed => "direnv has not been allowed here".into(),
             Self::MarkerMissing => format!("{} is missing", session::MARKER),
-            Self::MemberEnvrcUnlinked { repo } => {
-                format!("`{repo}`'s .envrc does not source the session's")
+            Self::LayoutStale => {
+                format!("{} does not set WORKSPACE_ROOT to this session", layout::FILE)
             }
             Self::WorktreeRecordStale { repo, path } => {
                 format!("`{repo}` still records a worktree at {path}")
@@ -138,12 +136,8 @@ pub fn detect(cfg: &Config, session: &Session) -> Result<Vec<Drift>> {
         drift.push(Drift::MarkerMissing);
     }
 
-    for member in &members {
-        if envrc::member_is_orphaned(&member.path) {
-            drift.push(Drift::MemberEnvrcUnlinked {
-                repo: member.repo.clone(),
-            });
-        }
+    if !layout::is_current(&session.path) {
+        drift.push(Drift::LayoutStale);
     }
 
     for repo in workspace::repo_names(cfg)? {
@@ -190,10 +184,8 @@ pub fn fix(cfg: &Config, session: &Session, item: &Drift) -> Result<()> {
         Drift::MarkerMissing => {
             session::write_marker(&session.path, &session.id, &cfg.workspace)?;
         }
-        Drift::MemberEnvrcUnlinked { repo } => {
-            let worktree = session.path.join(repo);
-            envrc::link_member(&worktree)?;
-            hydrate::allow_direnv(&worktree)?;
+        Drift::LayoutStale => {
+            layout::write(&session.path)?;
         }
         Drift::WorktreeRecordStale { repo, path } => {
             git::prune_record(&cfg.workspace.join(repo), std::path::Path::new(path))?;

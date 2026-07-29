@@ -49,9 +49,29 @@ each one is checked out **detached** at its own main branch — `origin/HEAD`, e
 `trunk`/`develop` exists. Naming a branch is left to whoever does the work.
 
 Hydration copies the environment files (`.envrc`, `.env*`, `.nvim.lua`,
-`.taplo.toml`, `Session.vim`, `.claude/settings.local.json`) and runs `direnv
+`.taplo.toml`, `.claude/settings.local.json`) as they stand, and runs `direnv
 allow`. Anything heavier — installed dependencies, generated code — belongs in the
-repo's own `post-checkout` hook.
+repo's own `post-checkout` hook, and editor state is left behind entirely: a
+`Session.vim` names absolute paths, so a copy restores the checkout it came from.
+
+## The session root
+
+`WORKSPACE_ROOT` points at the session, so anything resolving paths against it
+lands in the session's own repos. It is a property of the **session**, not of a
+directory: `cd ~` inside one must not send `cdr` back to the workspace, which rules
+out direnv.
+
+It is set for a whole zellij session by `<session>/.zwt/layout.kdl`, passed on
+every attach (`zellij --layout <that> attach --create <id>`). A pane's environment
+is fixed when the zellij server starts and zellij keeps no per-session environment
+of its own, so the layout is the only place it can come from — it applies both when
+creating a session and when resurrecting one. Attaching without it leaves panes
+with whatever the client had; a shell can repair that itself from
+`$ZELLIJ_SESSION_NAME`, which is the registry key:
+
+```sh
+zwt path --exact "$ZELLIJ_SESSION_NAME"
+```
 
 ## State
 
@@ -59,6 +79,7 @@ repo's own `post-checkout` hook.
 | ---------------- | ----------------------------------- |
 | session registry | `$XDG_STATE_HOME/zwt/sessions.json` |
 | session marker   | `<session>/.zwt/session.json`       |
+| zellij layout    | `<session>/.zwt/layout.kdl`         |
 
 The registry stores only what nothing else knows: path, title, extra ticket keys.
 Members and branches are read from the filesystem and git on every call, so they

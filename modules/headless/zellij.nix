@@ -54,10 +54,25 @@
           session="$1"
         fi
 
-        if [[ -n "$session" ]]; then
-          ${pkgs.zellij}/bin/zellij attach --create "$session"
-        else
+        if [[ -z "$session" ]]; then
           echo "No session selected"
+          exit 0
+        fi
+
+        # A zwt session sets WORKSPACE_ROOT through a layout, which zellij applies
+        # both when creating the session and when resurrecting it. It has to be
+        # passed on every attach: the value reaches panes through the server's
+        # environment, and zellij stores none of it itself. zwt is looked up on
+        # PATH rather than pinned, so this stays usable on a host without it.
+        layout=""
+        if command -v zwt > /dev/null; then
+          layout=$(zwt path --exact --layout "$session" 2>/dev/null) || layout=""
+        fi
+
+        if [[ -n "$layout" && -f "$layout" ]]; then
+          ${pkgs.zellij}/bin/zellij --layout "$layout" attach --create "$session"
+        else
+          ${pkgs.zellij}/bin/zellij attach --create "$session"
         fi
       '';
 

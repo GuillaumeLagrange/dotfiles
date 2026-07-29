@@ -72,9 +72,25 @@
               fi
             }
 
+            # WORKSPACE_ROOT belongs to the session a pane is in, not to the
+            # directory it stands in, so `cd ~` must not send cdr back to the
+            # workspace. The multiplexer normally hands it down: zellij fixes a
+            # pane's environment when the server starts, and zwt attaches with a
+            # layout that sets it. A session attached any other way (`zellij
+            # attach`, the session-manager plugin, the welcome screen) starts a
+            # server that never saw it, and lands here instead — the session name
+            # is the registry key, so the value can be looked up.
+            if [[ -n "$ZELLIJ_SESSION_NAME" && ! -f "''${WORKSPACE_ROOT:-/nonexistent}/.zwt/session.json" ]] &&
+                 (( $+commands[zwt] )); then
+              _zwt_root=$(zwt path --exact "$ZELLIJ_SESSION_NAME" 2>/dev/null)
+              [[ -d "$_zwt_root" ]] && export WORKSPACE_ROOT="$_zwt_root"
+              unset _zwt_root
+            fi
+
             # The root everything is navigated relative to: a session directory
             # when one encloses us, else whatever re-pointed WORKSPACE_ROOT (a
-            # container, the workspace itself), else $HOME.
+            # session we are a pane of, a container, the workspace itself), else
+            # $HOME.
             #
             # The walk uses $PWD rather than the resolved path on purpose. A
             # session reaches the repos it does not own through symlinks, so the

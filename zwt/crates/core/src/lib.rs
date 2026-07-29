@@ -6,6 +6,7 @@ pub mod drift;
 pub mod envrc;
 pub mod git;
 pub mod hydrate;
+pub mod layout;
 pub mod mirror;
 pub mod registry;
 pub mod session;

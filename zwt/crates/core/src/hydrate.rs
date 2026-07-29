@@ -10,17 +10,19 @@ pub struct Report {
     pub copied: Vec<String>,
     pub failed: Vec<(String, String)>,
     pub direnv_allowed: bool,
-    pub envrc_linked: bool,
 }
 
 /// A git-ignored path that carries environment rather than build output: what a
 /// worktree is unusable without.
+///
+/// Editor and tool *state* is excluded even when it sits next to these: a
+/// `Session.vim` records absolute paths and a cwd, so a copy of one restores the
+/// checkout it was written in, not the worktree it was copied to.
 fn is_environment(path: &str) -> bool {
     let base = path.rsplit('/').next().unwrap_or(path);
     base == ".envrc"
         || base == ".nvim.lua"
         || base == ".taplo.toml"
-        || base == "Session.vim"
         || base.starts_with(".env")
         || path.ends_with(".claude/settings.local.json")
 }
@@ -78,12 +80,6 @@ pub fn hydrate(main: &Path, worktree: &Path) -> Result<Report> {
         }
     }
 
-    // Before direnv is allowed below, since its approval covers the contents.
-    match envrc::link_member(worktree) {
-        Ok(linked) => report.envrc_linked = linked,
-        Err(err) => report.failed.push((envrc::FILE.into(), err.to_string())),
-    }
-
     match allow_direnv(worktree) {
         Ok(allowed) => report.direnv_allowed = allowed,
         Err(err) => report.failed.push((envrc::FILE.into(), err.to_string())),
@@ -117,6 +113,8 @@ mod tests {
         assert!(is_environment(".claude/settings.local.json"));
         assert!(!is_environment("node_modules"));
         assert!(!is_environment("target"));
+        // State, not environment: it pins the checkout it was written in.
+        assert!(!is_environment("Session.vim"));
     }
 
     #[test]
