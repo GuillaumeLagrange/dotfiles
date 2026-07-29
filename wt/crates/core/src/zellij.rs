@@ -134,14 +134,20 @@ pub fn is_default_tab_name(name: &str) -> bool {
     name.starts_with("Tab #")
 }
 
-/// One tab per member, named after the repo and opened in it.
+/// Whether a tab is a member's.
 ///
-/// Idempotent, so re-attaching adds the tabs a session has gained and leaves the
-/// rest — including however the panes inside them have been split, which is not
-/// wt's business. `started` says the server was just brought up by us: only then is
-/// a tab zellij named itself surplus, since on a session that was already running
-/// one is a tab the user made and kept.
-pub fn ensure_tabs(session: &crate::session::Session, started: bool) -> Result<Vec<String>> {
+/// Compared on the last word of the name, since a tab can be decorated: the shell
+/// renames the focused one to the repo behind an icon, and that is still its tab.
+pub fn tab_is_for(tab: &str, repo: &str) -> bool {
+    tab.split_whitespace().last() == Some(repo)
+}
+
+/// One tab per member, named after the repo and opened in it, for a session whose
+/// server was just brought up.
+///
+/// Idempotent, and it leaves whatever tabs are already there — including however
+/// the panes inside them have been split, which is not wt's business.
+pub fn ensure_tabs(session: &crate::session::Session) -> Result<Vec<String>> {
     let members = session.members()?;
     if members.is_empty() {
         return Ok(Vec::new());
@@ -150,7 +156,7 @@ pub fn ensure_tabs(session: &crate::session::Session, started: bool) -> Result<V
     let before = tabs(&session.id)?;
     let mut added = Vec::new();
     for member in &members {
-        if before.iter().any(|tab| tab.name == member.repo) {
+        if before.iter().any(|tab| tab_is_for(&tab.name, &member.repo)) {
             continue;
         }
         new_tab(&session.id, &member.path, &member.repo)?;
@@ -158,10 +164,8 @@ pub fn ensure_tabs(session: &crate::session::Session, started: bool) -> Result<V
     }
 
     // After the members' tabs exist, so the session is never left without one.
-    if started {
-        for tab in before.iter().filter(|t| is_default_tab_name(&t.name)) {
-            close_tab(&session.id, tab.tab_id)?;
-        }
+    for tab in before.iter().filter(|t| is_default_tab_name(&t.name)) {
+        close_tab(&session.id, tab.tab_id)?;
     }
     Ok(added)
 }
@@ -172,7 +176,7 @@ pub fn untabbed(session: &crate::session::Session) -> Result<Vec<String>> {
     Ok(session
         .members()?
         .into_iter()
-        .filter(|m| !tabs.iter().any(|tab| tab.name == m.repo))
+        .filter(|m| !tabs.iter().any(|tab| tab_is_for(&tab.name, &m.repo)))
         .map(|m| m.repo)
         .collect())
 }
@@ -203,5 +207,13 @@ mod tests {
         assert!(is_default_tab_name("Tab #12"));
         assert!(!is_default_tab_name("platform"));
         assert!(!is_default_tab_name("Tabs"));
+    }
+
+    #[test]
+    fn a_decorated_tab_is_still_its_members() {
+        assert!(tab_is_for("platform", "platform"));
+        assert!(tab_is_for("\u{e702} platform", "platform"));
+        assert!(!tab_is_for("platform-docs", "platform"));
+        assert!(!tab_is_for("Tab #1", "platform"));
     }
 }

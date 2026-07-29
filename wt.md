@@ -327,9 +327,9 @@ wt <id>
   is_live(id)?                     zellij list-sessions --no-formatting, minus "(EXITED"
   no  -> attach --create-background id     creates or resurrects, detached, with
                                            WORKSPACE_ROOT in *our* environment
-  ensure_tabs                      list-tabs --json, then one new-tab --cwd --name
-                                   per member that has none; then close the tab
-                                   zellij named itself, if we just made the session
+      -> ensure_tabs               one new-tab --cwd --name per member, then close
+                                   the tab zellij named itself
+  yes -> nothing at all
   inside zellij? -> action switch-session id
   else           -> exec zellij attach id
 ```
@@ -341,10 +341,16 @@ wt <id>
 - **Tabs are `new-tab` calls, not a layout file.** A layout replaces zellij's default
   instead of extending it (see milestone 1), and zellij's own serialized layout wins for
   tabs on a resurrect anyway.
-- **Idempotent**: re-attaching adds only what is missing. `zellij`'s own `Tab #1` is
-  closed only when wt created the session in that run — later on, a tab still carrying a
-  default name is one I made and kept. Closing it after the members' tabs exist is what
-  keeps the session from running out of tabs (which would end it).
+- **A session that is already up is not touched at all.** Attaching to one is not the
+  moment to reorganise it: its tabs are whatever I have made of them, and a member it
+  gained since is `wt sync --fix`'s business, on demand. Tabs are therefore only ever laid
+  out on the run that created the server, which is also what makes closing zellij's own
+  `Tab #1` safe — and it is closed after the members' tabs exist, so the session is never
+  left without one (which would end it).
+- Where tabs *are* compared — `sync`, and `add`'s "does it already have one" — a tab counts
+  as its member's when the **last word** of its name is the repo. The rename hook decorates
+  the focused tab with an icon (`" action"`), and that is still `action`'s tab. Comparing
+  the whole name is what made an attach to a decorated session add every member again.
 - `wt add` opens a tab for the new member when the session is up, cross-session, so a
   detached session gains it without being attached. Best effort: a tab is not worth
   failing an `add` that has already produced the worktree.
@@ -355,7 +361,8 @@ wt <id>
 - `zsm` stays for zellij sessions that are not wt sessions, and keeps its own
   `wt path --exact` lookup so that attaching by name that way sets the root too.
 - The chpwd auto-rename hook is gone already (`e7ce169`): it would clobber the tab names.
-  Renaming is manual, on `Ctrl+b → n`.
+  Renaming is manual, on `Ctrl+b → n` (`zellij-rename-current`), which is where the
+  decorated names come from.
 
 ---
 

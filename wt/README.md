@@ -9,7 +9,8 @@ top of them. The agent dashboard is not.
 
 ```
 wt                 attach to a session, picking one when none is named
-wt <id>            the same, by name or unique prefix
+wt <id>            the same, by name or unique prefix; a session that is already
+                   running is attached to as it stands, and never rearranged
 wt new <name>      pick members, mirror the workspace, check them out detached
 wt add <repo>      turn a mirror symlink into a worktree, and open a tab for it
 wt promote <repo>  the swap backwards: the main checkout takes the branch

@@ -41,12 +41,14 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
     // Started here even when we are inside another session and only going to
     // switch: the server has to inherit the root from this process, and zellij's
     // own server could not give it one.
-    let started = !zellij::is_live(&id)?;
-    if started {
+    //
+    // A session that is already up is left exactly as it is: whatever its tabs have
+    // become is the user's, and the members it may have gained since are `sync`'s.
+    if !zellij::is_live(&id)? {
         zellij::start_detached(&id, &session.path)?;
-    }
-    for repo in zellij::ensure_tabs(&session, started)? {
-        println!("{id}: opened a tab for {repo}");
+        for repo in zellij::ensure_tabs(&session)? {
+            println!("{id}: opened a tab for {repo}");
+        }
     }
 
     match zellij::current() {

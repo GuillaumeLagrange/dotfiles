@@ -73,7 +73,7 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
         zellij::start_detached("proj-tabs", &session.path).unwrap();
         assert!(zellij::is_live("proj-tabs").unwrap());
 
-        let mut added = zellij::ensure_tabs(&session, true).unwrap();
+        let mut added = zellij::ensure_tabs(&session).unwrap();
         added.sort();
         assert_eq!(added, vec!["app".to_string(), "lib".to_string()]);
 
@@ -109,11 +109,24 @@ fn tabs_are_only_added_for_members_that_have_none() {
         let session = load("proj-idem");
         let _live = Live("proj-idem".into());
         zellij::start_detached("proj-idem", &session.path).unwrap();
-        zellij::ensure_tabs(&session, true).unwrap();
+        zellij::ensure_tabs(&session).unwrap();
 
         assert!(
-            zellij::ensure_tabs(&session, false).unwrap().is_empty(),
-            "re-attaching should add nothing"
+            zellij::ensure_tabs(&session).unwrap().is_empty(),
+            "a second pass should add nothing"
+        );
+        assert!(zellij::untabbed(&session).unwrap().is_empty());
+
+        // Nor should the shell having renamed a tab to the repo behind an icon.
+        let app = zellij::tabs("proj-idem")
+            .unwrap()
+            .into_iter()
+            .find(|t| t.name == "app")
+            .expect("app tab");
+        rename_tab("proj-idem", app.tab_id, "\u{e702} app");
+        assert!(
+            zellij::ensure_tabs(&session).unwrap().is_empty(),
+            "a decorated tab is still its member's"
         );
         assert!(zellij::untabbed(&session).unwrap().is_empty());
 
@@ -150,7 +163,7 @@ fn a_session_with_no_members_keeps_the_tab_zellij_made() {
         let _live = Live("proj-empty".into());
         zellij::start_detached("proj-empty", &session.path).unwrap();
 
-        assert!(zellij::ensure_tabs(&session, true).unwrap().is_empty());
+        assert!(zellij::ensure_tabs(&session).unwrap().is_empty());
         let names: Vec<String> = zellij::tabs("proj-empty")
             .unwrap()
             .into_iter()
@@ -159,6 +172,27 @@ fn a_session_with_no_members_keeps_the_tab_zellij_made() {
         assert_eq!(names.len(), 1, "a session must never be left without a tab");
         assert!(zellij::is_default_tab_name(&names[0]));
     });
+}
+
+/// Stand in for what the shell's rename hook does to a tab. wt has no reason to
+/// rename one, so this is a test-only reach for `zellij action`.
+fn rename_tab(session: &str, id: u32, name: &str) {
+    let out = std::process::Command::new("zellij")
+        .args([
+            "--session",
+            session,
+            "action",
+            "rename-tab-by-id",
+            &id.to_string(),
+            name,
+        ])
+        .output()
+        .expect("zellij should run");
+    assert!(
+        out.status.success(),
+        "could not rename tab {id}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 /// A variable as the session's server process holds it, which is what its panes
