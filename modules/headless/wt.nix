@@ -32,6 +32,12 @@
           pkgs.installShellFiles
           pkgs.makeWrapper
         ];
+
+        # The end-to-end tests build real repos in a throwaway workspace, so git has
+        # to be on PATH for them. direnv and zellij are deliberately left out: those
+        # tests skip when the tool is missing, and a zellij server inside the build
+        # sandbox is not something to make a package's success depend on.
+        nativeCheckInputs = [ pkgs.git ];
         postInstall = ''
           wrapProgram $out/bin/wt --prefix PATH : ${lib.makeBinPath runtimeInputs}
           # A shim that asks the binary for candidates, so completing a session id
