@@ -59,20 +59,22 @@
           exit 0
         fi
 
-        # A zwt session sets WORKSPACE_ROOT through a layout, which zellij applies
-        # both when creating the session and when resurrecting it. It has to be
-        # passed on every attach: the value reaches panes through the server's
-        # environment, and zellij stores none of it itself. zwt is looked up on
-        # PATH rather than pinned, so this stays usable on a host without it.
-        layout=""
+        # Panes inherit the zellij server's environment, and the server inherits
+        # this process's — on creation and on resurrection alike, since both start a
+        # server. So a session that zwt knows is attached with its root in the
+        # environment, which is the only way to set it for a whole session that adds
+        # nothing to the zellij config: a layout or a --config file would replace
+        # what it is passed rather than extend it. zwt is looked up on PATH rather
+        # than pinned, so this stays usable on a host without it.
+        root=""
         if command -v zwt > /dev/null; then
-          layout=$(zwt path --exact --layout "$session" 2>/dev/null) || layout=""
+          root=$(zwt path --exact "$session" 2>/dev/null) || root=""
         fi
 
-        if [[ -n "$layout" && -f "$layout" ]]; then
-          ${pkgs.zellij}/bin/zellij --layout "$layout" attach --create "$session"
+        if [[ -n "$root" ]]; then
+          WORKSPACE_ROOT="$root" exec ${pkgs.zellij}/bin/zellij attach --create "$session"
         else
-          ${pkgs.zellij}/bin/zellij attach --create "$session"
+          exec ${pkgs.zellij}/bin/zellij attach --create "$session"
         fi
       '';
 

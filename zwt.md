@@ -46,7 +46,6 @@ symlinks to the main checkout for every other repo, plus the workspace's own dot
 ~/codspeed/sessions/cod-2931/
   .envrc                 generated: defers to the workspace's, for the flake
   .zwt/session.json      the marker that makes the directory self-describing
-  .zwt/layout.kdl        generated: the zellij layout, and where WORKSPACE_ROOT is set
   platform/              real worktree      (member)
   codspeed-node/         real worktree      (member)
   docs/               -> ~/codspeed/docs    (symlink)
@@ -145,38 +144,34 @@ session's `.envrc` keeps only what it is good at — `source_env` of the workspa
 `use flake ./flake` still reaches the session — and hydration copies member `.envrc`s
 exactly as they stand, so a member behaves as it does in the main checkout.
 
-The root comes from **the zellij session** instead, through a generated layout:
+The root comes from **the zellij session** instead, handed to it at attach time:
 
-```kdl
-// ~/codspeed/sessions/cod-2931/.zwt/layout.kdl
-layout {
-    cwd "/home/guillaume/codspeed/sessions/cod-2931"
-    pane
-}
-env {
-    WORKSPACE_ROOT "/home/guillaume/codspeed/sessions/cod-2931"
-}
+```sh
+# zsm, when `zwt path --exact <name>` resolves
+WORKSPACE_ROOT="$root" zellij attach --create "$session"
 ```
 
 Measured on zellij 0.44.3, since the mechanism depends on it:
 
-- panes inherit the **server** process env, including panes opened later, so the value is
-  cwd-independent for the session's whole life;
-- an `env` block works in a layout as well as in `config.kdl`, and a layout's config
-  section is additive — `~/.config/zellij/config.kdl` still loads, unlike `--config`,
-  which would replace it (zellij has no include);
-- `--layout` applies the block when **creating** a session *and* when resurrecting one,
-  which is what makes it survive a reboot;
-- nothing else does: there is no `set-env` action, and an `env` block in the layout zellij
-  serializes for resurrection is ignored. Zellij stores no per-session environment.
+- panes inherit the **server** process env, and the server inherits the env of whoever
+  started it — including panes opened later, so the value is cwd-independent for the
+  session's whole life;
+- both creating and resurrecting a session start a server, so the same one line covers a
+  reboot;
+- zellij stores no per-session environment of its own: no `set-env` action, and the `env`
+  block in the layout it serializes for resurrection is ignored.
 
-So the layout has to be passed on every attach, which `zsm` does when `zwt path --exact
---layout <name>` resolves. Attaching any other way — the session-manager plugin, the
-welcome screen, plain `zellij attach` — starts a server that never saw the value, and the
-shell repairs it: `$ZELLIJ_SESSION_NAME` is the registry key, so `zwt path --exact` on it
-gives the root (`modules/headless/zsh.nix`). No tabs or panes are described in the layout:
-naming the members there would make `add` and `promote` rewrite it, and splits are not
-zwt's to decide.
+An `env` block does work in a layout or in a `--config` file, and that was tried first. It
+is the wrong shape: **a layout replaces the default rather than extending it** — a session
+attached with `layout { pane }` comes up with no tab bar and no status bar — and zellij has
+no `include`, so carrying one variable would mean restating the whole zellij config in a
+file zwt generates. The environment is the only additive channel, and it needs no file at
+all.
+
+Attaching any other way — the session-manager plugin, the welcome screen, plain `zellij
+attach` — starts a server that never saw the value, and the shell repairs it:
+`$ZELLIJ_SESSION_NAME` is the registry key, so `zwt path --exact` on it gives the root
+(`modules/headless/zsh.nix`).
 
 Below the session, `cdr` resolves its root in this order — the walk comes first so that a
 bare terminal, or a pane of some other session, that `cd`s into a session directory still
@@ -274,9 +269,8 @@ entry.
 
 `zwt sync` reports drift, `zwt sync --fix` repairs it: stale mirror symlinks (repos
 cloned or removed since creation), un-allowed direnv, an `.envrc` that is missing or no
-longer what zwt generates, a missing marker, a layout that is missing or no longer points
-`WORKSPACE_ROOT` at this session, worktrees deleted by hand, branches no longer matching
-the key.
+longer what zwt generates, a missing marker, worktrees deleted by hand, branches no longer
+matching the key.
 
 ## CLI surface (milestone 1)
 
@@ -287,9 +281,9 @@ zwt promote <repo>        worktree -> symlink, main checkout switches to the bra
 zwt rm [<id>]             guarded teardown (dirty tree / unpushed / stashes; --force)
 zwt ls                    sessions, members, branches
 zwt path [<id>]           the session root, for shell use (`cd "$(zwt path cod-2931)"`)
-  --layout                  the zellij layout to attach with instead
   --exact                   the id as given, not as a prefix: for a name that came
-                            from elsewhere, where the nearest session is wrong
+                            from elsewhere — a zellij session's — where the nearest
+                            session is the wrong answer
 zwt sync [--fix]          drift report / repair
 ```
 
@@ -299,13 +293,15 @@ choice as a path (milestone 2 turns that into an attach).
 ## Validation checklist
 
 - [ ] `zwt new cod-2931-…` with two members: worktrees real, every other repo a symlink,
-      `.envrc` + `.zwt/session.json` + `.zwt/layout.kdl` present, direnv allowed.
+      `.envrc` + `.zwt/session.json` present, direnv allowed.
 - [ ] `zsm cod-2931`: `WORKSPACE_ROOT` is the session in every pane, `cdr docs` lands in
       the symlink, `cdr platform` in the worktree, `cdg` jumps to the enclosing repo root.
 - [ ] `cd ~`, then `cdr platform`: still the session's, not `~/codspeed`'s. Same in a pane
       opened afterwards, and after the zellij server is killed and the session reattached.
-- [ ] `zellij attach cod-2931` without a layout: the shell repairs `WORKSPACE_ROOT` from
-      `$ZELLIJ_SESSION_NAME` anyway.
+- [ ] `zellij attach cod-2931` directly, bypassing `zsm`: the shell repairs
+      `WORKSPACE_ROOT` from `$ZELLIJ_SESSION_NAME` anyway.
+- [ ] the session comes up with its tab bar and status bar: nothing replaced the zellij
+      config's own layout.
 - [ ] `cicr` / `cicc` / `cieh` / `cicm` inside the session build from the session's repos.
 - [ ] `platform`'s `../docs`, `../codspeed` paths and `pnpm docs:dev` resolve.
 - [ ] hydration: `node_modules`, `target/`, `.venv`, `.env` present; `du` of the session
@@ -332,13 +328,12 @@ Works cross-session (`zellij --session X action ...`), so `zwt add` can add a ta
 detached session.
 
 - `zwt <id>` attaches, creating the zellij session and its tabs if absent. Attach never
-  mutates the session directory, and always passes `--layout <session>/.zwt/layout.kdl`,
-  which is what carries `WORKSPACE_ROOT` (milestone 1) — it takes over `zsm`'s job of
-  finding that file.
+  mutates the session directory, and carries `WORKSPACE_ROOT` in the environment it starts
+  the server with (milestone 1) — it takes over that part of `zsm`.
+- Tabs are made with `new-tab` calls, not with a layout file: a layout replaces zellij's
+  default instead of extending it, and its own serialized layout wins on a resurrect
+  anyway.
 - `ZELLIJ_SESSION_NAME` == id, so panes self-identify — the join key milestone 3 needs.
-- Whether the tabs belong in `layout.kdl` rather than in `new-tab` calls is the open
-  question: putting them there means `add` and `promote` have to rewrite it, and zellij's
-  own serialized layout wins for tabs on a resurrect anyway.
 - The chpwd auto-rename hook goes away — it would clobber the tab names. Renaming becomes
   manual on `Ctrl+b → n` (`modules/headless/zellij.nix:106-123`).
 - `zwt sync` gains "missing tabs" to its drift list.
@@ -431,14 +426,15 @@ zwt/
 One schema, defined once, shared by the CLI and the plugin.
 
 Milestone 1 keeps `zwt`'s runtime PATH down to `coreutils direnv fzf git` — no zellij, no
-niri, no notify-send. It never runs zellij itself: it generates the layout and prints its
-path, and `zsm` (later `zwt <id>`) is what attaches with it. The one thing reading
-`ZELLIJ_SESSION_NAME` is the zsh init, which resolves it through `zwt path --exact`.
+niri, no notify-send. It never runs or configures zellij at all: it answers "where is
+session X", and `zsm` (later `zwt <id>`) is what attaches with that in the environment. The
+things reading `ZELLIJ_SESSION_NAME` are `zsm` and the zsh init, both through `zwt path
+--exact`.
 
 ## Verified primitives
 
 Everything here was checked on this machine (zellij 0.44.3, niri, kitty). Milestone 1 uses
-only the layout `env` block (above); the rest is recorded for 2 and 3.
+only the server's inherited environment (above); the rest is recorded for 2 and 3.
 
 ```
 zellij --session X action list-panes --all --json    # id, tab_id, tab_name, is_focused
@@ -458,6 +454,13 @@ PaneInfo:    has terminal_command; has NO cwd and NO pid (use get_pane_cwd)
 
 in-pane env: ZELLIJ_SESSION_NAME, ZELLIJ_PANE_ID, NVIM   (inherited through nvim)
 window title: "<zellij session> | <pane title>"          (fallback for pid archaeology)
+
+pane env  = server env, fixed at server start; server env = attaching client's env
+--layout / --config  REPLACE the default / the config file; there is no include, and
+                     no `env` in a serialized layout is honoured on resurrect
+pane cwd  read from the process, so always the resolved path: no OSC 7 support
+          (`file://` appears nowhere in the binary), and `default_cwd` overrides it
+          wholesale rather than preserving the path walked in through
 ```
 
 ## Open items

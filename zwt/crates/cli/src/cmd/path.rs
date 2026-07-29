@@ -7,10 +7,9 @@ use zwt_core::session::Session;
 use crate::cmd;
 use crate::ui::{self, Choice};
 
-/// The root of the session named, or of the one holding the cwd — what a shell
-/// reads to resolve a session it knows only by name — or the layout to attach it
-/// with.
-pub fn run(cfg: &Config, id: Option<&str>, layout: bool, exact: bool) -> Result<()> {
+/// The root of the session named, or of the one holding the cwd: what a shell
+/// reads to resolve a session it knows only by name.
+pub fn run(cfg: &Config, id: Option<&str>, exact: bool) -> Result<()> {
     let reg = Registry::open_raw(cfg)?;
     let session = match id {
         Some(needle) => {
@@ -26,12 +25,7 @@ pub fn run(cfg: &Config, id: Option<&str>, layout: bool, exact: bool) -> Result<
             zwt_core::session::current(&reg)?.ok_or_else(|| anyhow::anyhow!("not in a session"))?
         }
     };
-    let path = if layout {
-        zwt_core::layout::path(&session.path)
-    } else {
-        session.path
-    };
-    println!("{}", path.display());
+    println!("{}", session.path.display());
     Ok(())
 }
 

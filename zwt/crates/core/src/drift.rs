@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::session::{RepoState, Session};
 use crate::util::capture;
 use crate::workspace::{self, Reproduce};
-use crate::{envrc, git, hydrate, layout, mirror, session, util};
+use crate::{envrc, git, hydrate, mirror, session, util};
 
 #[derive(Debug, Clone)]
 pub enum Drift {
@@ -26,9 +26,6 @@ pub enum Drift {
     DirenvNotAllowed,
     /// Nothing marks the directory as a session, so nothing walking up finds it.
     MarkerMissing,
-    /// The zellij layout is absent or points somewhere else, so a session attached
-    /// with it hands its panes the wrong `WORKSPACE_ROOT`.
-    LayoutStale,
     /// git still records a worktree whose directory someone deleted.
     WorktreeRecordStale {
         repo: String,
@@ -48,9 +45,6 @@ impl Drift {
             }
             Self::DirenvNotAllowed => "direnv has not been allowed here".into(),
             Self::MarkerMissing => format!("{} is missing", session::MARKER),
-            Self::LayoutStale => {
-                format!("{} does not set WORKSPACE_ROOT to this session", layout::FILE)
-            }
             Self::WorktreeRecordStale { repo, path } => {
                 format!("`{repo}` still records a worktree at {path}")
             }
@@ -136,9 +130,6 @@ pub fn detect(cfg: &Config, session: &Session) -> Result<Vec<Drift>> {
         drift.push(Drift::MarkerMissing);
     }
 
-    if !layout::is_current(&session.path) {
-        drift.push(Drift::LayoutStale);
-    }
 
     for repo in workspace::repo_names(cfg)? {
         let repo_path = cfg.workspace.join(&repo);
@@ -183,9 +174,6 @@ pub fn fix(cfg: &Config, session: &Session, item: &Drift) -> Result<()> {
         }
         Drift::MarkerMissing => {
             session::write_marker(&session.path, &session.id, &cfg.workspace)?;
-        }
-        Drift::LayoutStale => {
-            layout::write(&session.path)?;
         }
         Drift::WorktreeRecordStale { repo, path } => {
             git::prune_record(&cfg.workspace.join(repo), std::path::Path::new(path))?;

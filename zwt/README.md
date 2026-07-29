@@ -68,17 +68,25 @@ lands in the session's own repos. It is a property of the **session**, not of a
 directory: `cd ~` inside one must not send `cdr` back to the workspace, which rules
 out direnv.
 
-It is set for a whole zellij session by `<session>/.zwt/layout.kdl`, passed on
-every attach (`zellij --layout <that> attach --create <id>`). A pane's environment
-is fixed when the zellij server starts and zellij keeps no per-session environment
-of its own, so the layout is the only place it can come from — it applies both when
-creating a session and when resurrecting one. Attaching without it leaves panes
-with whatever the client had; a shell can repair that itself from
-`$ZELLIJ_SESSION_NAME`, which is the registry key:
+It is set for a whole zellij session by **attaching with it in the environment**:
+panes inherit the server's environment, and the server inherits the environment of
+whoever started it — on creation and on resurrection alike, since both start a
+server. `zsm` does that when `zwt path --exact <name>` resolves:
 
 ```sh
-zwt path --exact "$ZELLIJ_SESSION_NAME"
+WORKSPACE_ROOT="$(zwt path --exact "$session")" zellij attach --create "$session"
 ```
+
+Nothing is written for zellij to read. A generated layout would work too, but a
+layout — like `--config` — *replaces* what it is given rather than adding to it, so
+carrying one variable would mean restating the tab bar, the status bar and every
+other default in a file zwt owns. Zellij has no additive mechanism for this: there
+is no `set-env` action, no `include`, and the `env` block in the layout zellij
+serializes for resurrection is ignored.
+
+A pane attached some other way (the session-manager plugin, the welcome screen,
+plain `zellij attach`) gets no value; a shell repairs that itself from
+`$ZELLIJ_SESSION_NAME`, which is the registry key, with the same call.
 
 ## State
 
@@ -86,7 +94,6 @@ zwt path --exact "$ZELLIJ_SESSION_NAME"
 | ---------------- | ----------------------------------- |
 | session registry | `$XDG_STATE_HOME/zwt/sessions.json` |
 | session marker   | `<session>/.zwt/session.json`       |
-| zellij layout    | `<session>/.zwt/layout.kdl`         |
 
 The registry stores only what nothing else knows: path, title, extra ticket keys.
 Members and branches are read from the filesystem and git on every call, so they

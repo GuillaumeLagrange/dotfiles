@@ -174,16 +174,15 @@ head -1 "$SESSION/app/.envrc" | grep -q '^source_env \.\./\.envrc$' ||
   fail "lib's .envrc was rewritten: $(cat "$SESSION/lib/.envrc")"
 ok "untouched, so a member behaves as it does in the main checkout"
 
-# WORKSPACE_ROOT reaches a pane through the zellij layout, so that it survives
-# leaving the directory. The .envrc's job is only the workspace's environment.
-step "the layout points a whole session at itself"
-grep -qF "WORKSPACE_ROOT \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
-  fail "the layout does not set WORKSPACE_ROOT: $(cat "$SESSION/.zwt/layout.kdl")"
-grep -qF "cwd \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
-  fail "the layout does not open in the session"
-[ "$("$ZWT" path --layout proj-1234)" = "$SESSION/.zwt/layout.kdl" ] ||
-  fail "path --layout printed '$("$ZWT" path --layout proj-1234)'"
-ok "layout written, and findable by name"
+# WORKSPACE_ROOT reaches a pane through the multiplexer's environment, so that it
+# survives leaving the directory; what a shell needs to set it is the root under
+# the name the multiplexer knows the session by, and nothing else.
+step "a session resolves from its name alone"
+[ "$("$ZWT" path --exact proj-1234)" = "$SESSION" ] ||
+  fail "path --exact printed '$("$ZWT" path --exact proj-1234)'"
+expect_err "no session \`proj-12\`" "$ZWT" path --exact proj-12
+[ "$("$ZWT" path proj-12)" = "$SESSION" ] || fail "a prefix no longer resolves without --exact"
+ok "exact by name, prefix only when asked for"
 
 if command -v direnv > /dev/null; then
   step "direnv still carries the workspace environment"
@@ -233,21 +232,18 @@ p=$(cd "$SESSION/docs" && "$ZWT" path)
 [ "$p" = "$SESSION" ] || fail "path from a symlinked repo printed '$p'"
 ok "path resolves by key, and from inside a symlinked member"
 
-step "sync repairs a stripped .envrc, marker and layout"
+step "sync repairs a stripped .envrc and a missing marker"
 printf 'export TAMPERED=1\n' > "$SESSION/.envrc"
 rm -rf "$SESSION/.zwt"
 "$ZWT" sync proj-1234 | tee "$ROOT/env.out"
 grep -q ".envrc" "$ROOT/env.out" || fail "sync missed the tampered .envrc"
 grep -q "session.json" "$ROOT/env.out" || fail "sync missed the missing marker"
-grep -q "layout.kdl" "$ROOT/env.out" || fail "sync missed the missing layout"
 "$ZWT" sync proj-1234 --fix > /dev/null
 grep -qF "source_env '$ZWT_WORKSPACE/.envrc'" "$SESSION/.envrc" ||
   fail "--fix did not rewrite the .envrc"
 [ -f "$SESSION/.zwt/session.json" ] || fail "--fix did not restore the marker"
-grep -qF "WORKSPACE_ROOT \"$SESSION\"" "$SESSION/.zwt/layout.kdl" ||
-  fail "--fix did not restore the layout"
 "$ZWT" sync proj-1234 | grep -q clean || fail "sync is not clean after --fix"
-ok "all three repaired"
+ok "both repaired"
 
 step "sync on a fresh session"
 "$ZWT" sync proj-1234

@@ -5,7 +5,7 @@ use anyhow::Result;
 use zwt_core::config::Config;
 use zwt_core::hydrate;
 use zwt_core::registry::Registry;
-use zwt_core::{envrc, git, layout, mirror, session, util, workspace};
+use zwt_core::{envrc, git, mirror, session, util, workspace};
 
 use crate::ui::{self, Choice};
 
@@ -41,8 +41,7 @@ pub fn run(cfg: &Config, args: Args) -> Result<()> {
 
     let scaffold = mirror::build(cfg, &path, &members)
         .and_then(|()| envrc::write_session(cfg, &path))
-        .and_then(|()| session::write_marker(&path, &id, &cfg.workspace))
-        .and_then(|()| layout::write(&path));
+        .and_then(|()| session::write_marker(&path, &id, &cfg.workspace));
     if let Err(err) = scaffold {
         // Safe to wipe: only symlinks and copies exist at this point, and no
         // worktree yet, so nothing here is the only copy of anything.
