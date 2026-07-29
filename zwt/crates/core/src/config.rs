@@ -14,8 +14,22 @@ pub struct Config {
     /// Repos a session may take as members. Empty offers every repo the workspace
     /// holds instead of a curated subset.
     pub repos: Vec<String>,
+    /// Which git-ignored paths a fresh worktree is unusable without, as patterns
+    /// (see `hydrate`). Which files those are is a property of a codebase, not of
+    /// zwt.
+    pub hydrate: Vec<String>,
     pub state_dir: PathBuf,
 }
+
+/// The environment files a worktree needs when the config names none: enough to
+/// make direnv, an editor and Claude behave as they do in the main checkout.
+const DEFAULT_HYDRATE: &[&str] = &[
+    ".envrc",
+    ".env*",
+    ".nvim.lua",
+    ".taplo.toml",
+    ".claude/settings.local.json",
+];
 
 /// `~/.config/zwt/config.toml`, all keys optional.
 #[derive(Debug, Default, Deserialize)]
@@ -25,6 +39,7 @@ struct File {
     default_root: Option<String>,
     #[serde(default)]
     repos: Vec<String>,
+    hydrate: Option<Vec<String>>,
 }
 
 impl Config {
@@ -56,10 +71,18 @@ impl Config {
             .map(|s| util::expand_tilde(&s))
             .unwrap_or_else(|| workspace.join("sessions"));
 
+        // An empty list is taken at its word — a workspace whose repos need nothing
+        // carried is a valid answer, and silently substituting the defaults for it
+        // would not be.
+        let hydrate = file
+            .hydrate
+            .unwrap_or_else(|| DEFAULT_HYDRATE.iter().map(|s| s.to_string()).collect());
+
         Ok(Self {
             workspace,
             default_root,
             repos: file.repos,
+            hydrate,
             state_dir: util::xdg_dir("XDG_STATE_HOME", ".local/state").join("zwt"),
         })
     }

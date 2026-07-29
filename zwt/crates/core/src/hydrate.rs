@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 
+use crate::config::Config;
 use crate::util::{capture, which};
 use crate::{envrc, git, util};
 
@@ -12,19 +13,39 @@ pub struct Report {
     pub direnv_allowed: bool,
 }
 
-/// A git-ignored path that carries environment rather than build output: what a
-/// worktree is unusable without.
+/// Whether a git-ignored path is one the config asks for.
 ///
-/// Editor and tool *state* is excluded even when it sits next to these: a
-/// `Session.vim` records absolute paths and a cwd, so a copy of one restores the
-/// checkout it was written in, not the worktree it was copied to.
-fn is_environment(path: &str) -> bool {
-    let base = path.rsplit('/').next().unwrap_or(path);
-    base == ".envrc"
-        || base == ".nvim.lua"
-        || base == ".taplo.toml"
-        || base.starts_with(".env")
-        || path.ends_with(".claude/settings.local.json")
+/// A pattern with no `/` matches a name at any depth, one with a `/` matches the
+/// path from the repo root, and `*` stands for any run of characters within a
+/// single name — the reading gitignore trains you to expect.
+///
+/// The point of the list being narrow is that it carries *environment*, not state
+/// or build output: a `Session.vim` records absolute paths and a cwd, so a copy of
+/// one restores the checkout it was written in, not the worktree it landed in.
+fn wanted(patterns: &[String], path: &str) -> bool {
+    patterns.iter().any(|pattern| {
+        if pattern.contains('/') {
+            glob(pattern, path)
+        } else {
+            glob(pattern, path.rsplit('/').next().unwrap_or(path))
+        }
+    })
+}
+
+/// `*` against a single name: it never matches across a `/`.
+fn glob(pattern: &str, name: &str) -> bool {
+    match pattern.split_once('*') {
+        None => pattern == name,
+        Some((head, tail)) => {
+            let Some(rest) = name.strip_prefix(head) else {
+                return false;
+            };
+            (0..=rest.len())
+                .filter(|i| rest.is_char_boundary(*i))
+                .filter(|i| !rest[..*i].contains('/'))
+                .any(|i| glob(tail, &rest[i..]))
+        }
+    }
 }
 
 /// Containers whose contents belong to other checkouts, not to this one.
@@ -40,7 +61,7 @@ fn is_excluded(path: &str) -> bool {
 ///
 /// `git worktree add` brings no ignored file, which on a globally-gitignored
 /// `.envrc` means the flake environment is silently missing.
-pub fn hydrate(main: &Path, worktree: &Path) -> Result<Report> {
+pub fn hydrate(cfg: &Config, main: &Path, worktree: &Path) -> Result<Report> {
     let mut report = Report::default();
 
     let ignored = git::ignored_paths(main)
@@ -50,7 +71,7 @@ pub fn hydrate(main: &Path, worktree: &Path) -> Result<Report> {
         if is_excluded(&rel) {
             continue;
         }
-        if !is_environment(&rel) {
+        if !wanted(&cfg.hydrate, &rel) {
             continue;
         }
         let src = main.join(&rel);
