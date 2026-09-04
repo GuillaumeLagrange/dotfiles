@@ -13,7 +13,7 @@
         tmux
         zellij
         zsh
-        zwt
+        wt
       ];
 
       home.packages =

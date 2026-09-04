@@ -54,10 +54,27 @@
           session="$1"
         fi
 
-        if [[ -n "$session" ]]; then
-          ${pkgs.zellij}/bin/zellij attach --create "$session"
-        else
+        if [[ -z "$session" ]]; then
           echo "No session selected"
+          exit 0
+        fi
+
+        # Panes inherit the zellij server's environment, and the server inherits
+        # this process's — on creation and on resurrection alike, since both start a
+        # server. So a session that wt knows is attached with its root in the
+        # environment, which is the only way to set it for a whole session that adds
+        # nothing to the zellij config: a layout or a --config file would replace
+        # what it is passed rather than extend it. wt is looked up on PATH rather
+        # than pinned, so this stays usable on a host without it.
+        root=""
+        if command -v wt > /dev/null; then
+          root=$(wt path --exact "$session" 2>/dev/null) || root=""
+        fi
+
+        if [[ -n "$root" ]]; then
+          WORKSPACE_ROOT="$root" exec ${pkgs.zellij}/bin/zellij attach --create "$session"
+        else
+          exec ${pkgs.zellij}/bin/zellij attach --create "$session"
         fi
       '';
 
