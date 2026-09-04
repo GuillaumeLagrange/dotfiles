@@ -198,7 +198,10 @@
 
   (defwindow bar [monitor]
     :monitor monitor
-    :geometry (geometry :width "100%" :height "28px" :anchor "bottom center")
+    ;; 30px of exclusive zone for a 28px bar: `.bar`'s 2px top margin leaves the
+    ;; window's top strip transparent, so tiled windows stop short of the bar
+    ;; instead of butting against it.
+    :geometry (geometry :width "100%" :height "30px" :anchor "bottom center")
     :stacking "fg"
     :exclusive true
     (centerbox :class "bar"
@@ -246,7 +249,7 @@
 
   (defwindow calendar-popup [monitor]
     :monitor monitor
-    :geometry (geometry :anchor "bottom right" :x "8px" :y "30px")
+    :geometry (geometry :anchor "bottom right" :x "8px" :y "32px")
     :stacking "fg"
     (eventbox
       :onhover     "${bins.calKeep}"
@@ -288,7 +291,7 @@
 
   (defwindow settings-popup [monitor]
     :monitor monitor
-    :geometry (geometry :anchor "bottom right" :x "8px" :y "30px")
+    :geometry (geometry :anchor "bottom right" :x "8px" :y "32px")
     :stacking "fg"
     (eventbox
       :onhover     "${bins.settingsKeep}"
@@ -385,7 +388,7 @@
   ;; stable and reads as intentional for a media panel.
   (defwindow mpris-popup [monitor]
     :monitor monitor
-    :geometry (geometry :anchor "bottom center" :y "30px")
+    :geometry (geometry :anchor "bottom center" :y "32px")
     :stacking "fg"
     ;; Panel hover only refreshes the keepalive flag (mprisKeep = touch, no eww
     ;; call): GTK fires hover/hover-lost as the pointer crosses child widgets, and
