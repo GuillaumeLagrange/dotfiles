@@ -55,10 +55,10 @@
         exec ${pkgs.bash}/bin/bash ${./scripts/settings.sh} "$@"
       '';
 
+      # omp is a user-local binary (~/.local/bin), not a nix package, so it is
+      # referenced by path rather than added to PATH.
       claudeUsage = pkgs.writeShellScriptBin "claude-usage-eww" ''
-        export PATH="${pkgs.lib.makeBinPath [ pkgs.jq pkgs.curl pkgs.coreutils pkgs.gnused ]}:$PATH"
-        export AI_USAGE_COMMON="${../bar-scripts/ai-usage-common.sh}"
-        export AI_USAGE_RETRY_LIMIT="5"
+        export PATH="${pkgs.lib.makeBinPath [ pkgs.jq ]}:$PATH"
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
       '';
 

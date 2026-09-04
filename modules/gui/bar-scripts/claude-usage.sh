@@ -1,85 +1,50 @@
 #!/usr/bin/env bash
-# Claude Code usage for waybar — reads OAuth token from ~/.claude/.credentials.json
+# Claude Code usage for the bar — formats `omp usage -j` (omp owns fetching,
+# caching and token refresh).
+set -uo pipefail
 
-# shellcheck disable=SC1090,SC1091
-source "${AI_USAGE_COMMON:?AI_USAGE_COMMON not set}"
+OMP_BIN="${OMP_BIN:-$HOME/.local/bin/omp}"
 
-CREDENTIALS="$HOME/.claude/.credentials.json"
-if [ ! -f "$CREDENTIALS" ]; then
-  output_error "󰜡" "No credentials file"
+case "${1:-}" in
+  --force-refresh | --restart)
+    "$OMP_BIN" usage invalidate --provider anthropic >/dev/null 2>&1
+    ;;
+esac
+
+if ! data=$("$OMP_BIN" usage -j --provider anthropic 2>/dev/null); then
+  printf '{"text":"󰜡 Err","tooltip":"omp usage failed","class":"critical"}\n'
   exit 0
 fi
 
-force_refresh=0
-if [ "${1:-}" = "--force-refresh" ]; then
-  force_refresh=1
-elif [ "${1:-}" = "--restart" ]; then
-  clear_usage_cache "claude"
-  force_refresh=1
-fi
+jq -c '
+  def pad2: tostring | if length < 2 then "0" + . else . end;
+  def eta:
+    if . == null then "--"
+    else (. / 1000 - now | floor) as $d
+    | if $d <= 0 then "0m"
+      elif $d >= 86400 then "\($d / 86400 | floor)d\(($d % 86400) / 3600 | floor | pad2)h"
+      elif $d >= 3600 then "\($d / 3600 | floor)h\(($d % 3600) / 60 | floor | pad2)m"
+      else "\($d / 60 | floor)m"
+      end
+    end;
+  def clock($fmt):
+    if . == null then "--" else (. / 1000 | floor | strflocaltime($fmt)) end;
+  def window($id; $prefix; $fmt):
+    (([.reports[].limits[] | select(.window.id == $id)] | sort_by(.amount.usedFraction) | last) // {})
+    | ((.window // {}).resetsAt) as $r
+    | { pct: ((.amount.usedFraction // 0) * 100 | round), eta: ($r | eta),
+        at: (if $r == null then "--" else "\($prefix) \($r | clock($fmt))" end) };
 
-fetch_data() {
-  local token response http_code
-  token=$(jq -r '.claudeAiOauth.accessToken' "$CREDENTIALS")
-  response=$(curl -s -w '\n%{http_code}' "https://api.anthropic.com/api/oauth/usage" \
-    -H "Authorization: Bearer $token" \
-    -H "anthropic-beta: oauth-2025-04-20")
-  http_code=$(echo "$response" | tail -1)
-  # shellcheck disable=SC2034
-  LAST_HTTP_CODE="$http_code"
-  local body
-  body=$(echo "$response" | sed '$d')
-  if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-    echo "$body"
-    return 0
-  fi
-  return 1
-}
-
-rate_limited=0
-data=$(get_cached_or_fetch "claude" 300 "$force_refresh")
-rc=$?
-if [ "$rc" -eq 3 ]; then
-  rate_limited=1
-elif [ "$rc" -eq 2 ]; then
-  output_error "󰜡" "Rate limited (no cache)"
-  exit 0
-elif [ "$rc" -ne 0 ]; then
-  output_error "󰜡" "API request failed"
-  exit 0
-fi
-
-fh_pct=$(echo "$data" | jq -r '.five_hour.utilization // 0 | round')
-sd_pct=$(echo "$data" | jq -r '.seven_day.utilization // 0 | round')
-fh_reset=$(echo "$data" | jq -r '.five_hour.resets_at // empty')
-sd_reset=$(echo "$data" | jq -r '.seven_day.resets_at // empty')
-
-fh_eta="--"
-sd_eta="--"
-if [ -n "$fh_reset" ]; then
-  fh_ts=$(date -d "$fh_reset" +%s 2>/dev/null)
-  [ -n "$fh_ts" ] && fh_eta=$(format_eta "$fh_ts")
-fi
-if [ -n "$sd_reset" ]; then
-  sd_ts=$(date -d "$sd_reset" +%s 2>/dev/null)
-  [ -n "$sd_ts" ] && sd_eta=$(format_eta "$sd_ts")
-fi
-
-cls=$(css_class "$fh_pct")
-rl_note=""
-if [ "$rate_limited" -eq 1 ]; then
-  rl_note="\n⚠ Rate limited — showing cached data"
-fi
-
-tooltip="Claude Code Usage\n━━━━━━━━━━━━━━━━━━━━━━━━\n5h:  ${fh_pct}%  ${fh_eta}\n7d:  ${sd_pct}%  ${sd_eta}${rl_note}"
-
-# At 100%: show reset timer instead of percentage (7d takes priority)
-bar_text="${fh_pct}%"
-if [ "$sd_pct" -ge 100 ]; then
-  bar_text="${sd_eta}"
-elif [ "$fh_pct" -ge 100 ]; then
-  bar_text="${fh_eta}"
-fi
-
-printf '{"text":"󰜡 %s","tooltip":"%s","class":"%s","percentage":%s}\n' \
-  "$bar_text" "$tooltip" "$cls" "$fh_pct"
+  window("5h"; "at"; "%H:%M") as $fh
+  | window("7d"; "on"; "%a %H:%M") as $sd
+  | {
+      text: "󰜡 " + (
+        if $sd.pct >= 100 then $sd.eta
+        elif $fh.pct >= 100 then $fh.eta
+        else "\($fh.pct)%" end
+      ),
+      tooltip: "Claude Code Usage\n━━━━━━━━━━━━━━━━━━━━━━━━\n5h:  \($fh.pct)%  \($fh.eta) (\($fh.at))\n7d:  \($sd.pct)%  \($sd.eta) (\($sd.at))",
+      class: (if $fh.pct >= 80 then "high" elif $fh.pct >= 50 then "mid" else "low" end),
+      percentage: $fh.pct,
+    }
+' <<<"$data"
