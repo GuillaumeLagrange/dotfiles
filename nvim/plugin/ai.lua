@@ -19,6 +19,11 @@ vim.keymap.set('n', '<leader>uC', toggle_copilot, { desc = 'Toggle Copilot' })
 vim.keymap.set('i', '<M-u>', toggle_copilot, { desc = 'Toggle Copilot' })
 
 require('sidekick').setup({
+  cli = {
+    tools = {
+      pi = { cmd = { 'omp' } },
+    },
+  },
   copilot = {
     status = {
       enabled = false,
@@ -77,11 +82,11 @@ vim.keymap.set({ 'n', 'i' }, '<tab>', function()
 end, { expr = true, desc = 'Goto/Apply Next Edit Suggestion' })
 
 vim.keymap.set({ 'n', 't', 'i', 'x' }, '<c-.>', function()
-  require('sidekick.cli').toggle({ name = 'claude', focus = true })
+  require('sidekick.cli').toggle({ focus = true })
 end, { desc = 'Sidekick Toggle' })
 
 vim.keymap.set('n', '<leader>aa', function()
-  require('sidekick.cli').toggle({ name = 'claude', focus = true })
+  require('sidekick.cli').toggle({ focus = true })
 end, { desc = 'Sidekick Toggle CLI' })
 
 vim.keymap.set('n', '<leader>as', function()
