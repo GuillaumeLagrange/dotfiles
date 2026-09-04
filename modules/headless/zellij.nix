@@ -131,6 +131,10 @@
         executable = true;
       };
 
+      home.shellAliases = {
+        z = "zellij";
+      };
+
       programs.zsh.initContent = ''
         # Keep SSH agent working across Zellij reattaches via a stable symlink
         if [ -n "$SSH_CONNECTION" ] && [ -n "$SSH_AUTH_SOCK" ]; then
