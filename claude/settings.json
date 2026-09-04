@@ -4,10 +4,12 @@
     "pr": ""
   },
   "permissions": {
-    "allow": ["mcp__claude_ai_CodSpeed__compare_runs"],
+    "allow": [
+      "mcp__claude_ai_CodSpeed__compare_runs"
+    ],
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
+  "model": "claude-opus-4-8",
   "hooks": {
     "Notification": [
       {
@@ -95,9 +97,9 @@
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
   "skipWorkflowUsageWarning": true,
-  "thinking": true,
   "verbose": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
+  "thinking": true,
   "autoUpdates": true
 }

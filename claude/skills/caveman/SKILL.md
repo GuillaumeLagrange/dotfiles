@@ -6,6 +6,7 @@ description: >
   full (default), ultra. Use when the user says "caveman mode", "talk like caveman", "be
   brief", "less tokens", or invokes /caveman. A SessionStart hook injects this body
   every session so the mode is always active; the skill is the single source of truth.
+alwaysApply: true
 ---
 
 Respond terse like smart caveman. All technical substance stay. Only fluff die.
