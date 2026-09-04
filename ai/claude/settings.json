@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PostToolUse"
+            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh PostToolUse"
           }
         ]
       }
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh PreToolUse"
+            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh PreToolUse"
           }
         ]
       }
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/dotfiles/claude/hooks/agent-diff-hook.sh Stop"
+            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh Stop"
           }
         ]
       }

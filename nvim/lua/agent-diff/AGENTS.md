@@ -21,8 +21,8 @@ Claude hook (PreToolUse/PostToolUse/Stop)
   → render.lua                  (hunks → extmarks)
 ```
 
-`agent-diff-hook.sh` lives OUTSIDE this dir — at `claude/hooks/agent-diff-hook.sh` in
-the dotfiles repo — and is registered in `claude/settings.json`. Editing the event
+`agent-diff-hook.sh` lives OUTSIDE this dir — at `ai/claude/hooks/agent-diff-hook.sh` in
+the dotfiles repo — and is registered in `ai/claude/settings.json`. Editing the event
 set, or how the payload is encoded, means touching all three: the hook script,
 `settings.json`, and `claude.lua`'s `on_event`.
 

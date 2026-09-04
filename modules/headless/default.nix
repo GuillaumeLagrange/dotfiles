@@ -9,7 +9,7 @@
     }:
     {
       imports = with self.modules.homeManager; [
-        claude
+        ai
         tmux
         zellij
         zsh

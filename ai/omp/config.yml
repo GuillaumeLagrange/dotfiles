@@ -1,0 +1,24 @@
+setupVersion: 2
+modelRoles:
+  default: anthropic/claude-opus-5
+  advisor: anthropic/claude-fable-5:low
+theme:
+  dark: dark-gruvbox
+symbolPreset: nerd
+omitThinking: false
+hideThinkingBlock: true
+advisor:
+  enabled: true
+  syncBacklog: "off"
+  immuneTurns: 5
+lsp:
+  enabled: false
+defaultThinkingLevel: medium
+statusLine:
+  compactThinkingLevel: true
+startup:
+  checkUpdate: true
+composer:
+  shape: claude
+disabledProviders:
+  - claude-plugins
