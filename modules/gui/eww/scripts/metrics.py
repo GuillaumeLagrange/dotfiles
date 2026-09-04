@@ -24,7 +24,9 @@ JSON re-parsing or class/glyph derivation):
 
 import json
 import os
+import select
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -37,6 +39,10 @@ CPU_PERIOD_S = 3.0
 MEMSWAP_PERIOD_S = 5.0
 DISK_PERIOD_S = 30.0
 BATTERY_PERIOD_S = 30.0
+
+# udevadm is only used to *wake* the loop; the battery is still resampled from
+# sysfs, and the periodic tick keeps working if the monitor cannot start.
+UDEVADM = os.environ.get("UDEVADM") or shutil.which("udevadm")
 
 # nf-md-battery glyphs. Charging shows the bolt-in-battery icon regardless of
 # level, so only the discharging tiers need a ramp.
@@ -273,6 +279,27 @@ def sample_battery() -> dict:
     }
 
 
+def start_udev_monitor() -> subprocess.Popen | None:
+    """Stream of power_supply udev events, used as a wakeup source.
+
+    `--udev` (post-processed events) is readable unprivileged, unlike the raw
+    kernel netlink group. Only the fact that a line arrived matters, so no
+    properties are requested.
+    """
+    if UDEVADM is None:
+        return None
+    try:
+        return subprocess.Popen(
+            [UDEVADM, "monitor", "--udev", "--subsystem-match=power_supply"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError as e:
+        print(f"udev monitor: {e}", file=sys.stderr, flush=True)
+        return None
+
+
 def main() -> int:
     cpu = Cpu()
     state = {
@@ -288,8 +315,30 @@ def main() -> int:
     started = time.monotonic()
     print(json.dumps(state, separators=(",", ":")), flush=True)
 
+    udev = start_udev_monitor()
+    udev_fd = [udev.stdout] if udev is not None else []
+
     while True:
-        time.sleep(TICK_S)
+        # AC plug/unplug and charge-threshold changes emit power_supply udev
+        # events; waiting on them instead of sleeping makes the battery react
+        # immediately while the periodic resample stays the fallback (level
+        # drift emits no event).
+        ready, _, _ = select.select(udev_fd, [], [], TICK_S)
+        forced = set()
+        if ready:
+            line = udev.stdout.readline()
+            if line == "":
+                # Monitor died: fall back to polling only.
+                udev_fd = []
+            else:
+                # Coalesce the burst a single transition produces (one event per
+                # power_supply device, plus udev's blank separator lines).
+                while select.select([udev.stdout], [], [], 0.2)[0]:
+                    if udev.stdout.readline() == "":
+                        udev_fd = []
+                        break
+                forced.add("battery")
+
         now = time.monotonic() - started
         changed = False
         for key, period, fn in (
@@ -298,7 +347,7 @@ def main() -> int:
             ("disk", DISK_PERIOD_S, sample_disk),
             ("battery", BATTERY_PERIOD_S, sample_battery),
         ):
-            if now - last[key] < period:
+            if key not in forced and now - last[key] < period:
                 continue
             last[key] = now
             try:

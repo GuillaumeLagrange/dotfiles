@@ -92,9 +92,11 @@
       # parks a worker for the script's whole duration, while listen-vars are
       # read asynchronously. Reading procfs/sysfs from a resident process also
       # avoids both the per-tick fork tree and the sample-window sleep a
-      # stateless CPU script needs. No PATH beyond python: it shells out to
-      # nothing.
+      # stateless CPU script needs. Battery changes are picked up from
+      # `udevadm monitor` rather than the poll period, so udevadm is the one
+      # binary it needs.
       metrics = pkgs.writeShellScriptBin "metrics-eww" ''
+        export UDEVADM="${pkgs.systemd}/bin/udevadm"
         exec ${pkgs.python3}/bin/python3 ${./scripts/metrics.py} "$@"
       '';
       pulseaudio = mkScript "pulseaudio-eww" ./scripts/pulseaudio.sh;
