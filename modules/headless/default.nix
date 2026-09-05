@@ -65,7 +65,6 @@
           taplo
           vscode-langservers-extracted
           pkgs.unstable.copilot-language-server
-          zellij
           dua
 
           (pkgs.writeShellApplication {

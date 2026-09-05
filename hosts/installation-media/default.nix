@@ -29,7 +29,7 @@
       ];
 
       users.users.root.openssh.authorizedKeys.keys = [
-        (inputs.nixpkgs.lib.trim (builtins.readFile ../../headless/guiom_ssh.pub))
+        (inputs.nixpkgs.lib.trim (builtins.readFile ../../modules/headless/guiom_ssh.pub))
       ];
 
       networking.networkmanager.enable = true;

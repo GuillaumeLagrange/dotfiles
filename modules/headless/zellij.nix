@@ -15,8 +15,10 @@
   flake.modules.homeManager.zellij =
     { pkgs, ... }:
     let
+      zellijPkg = pkgs.unstable.zellij;
+
       zellijFzfGetSession = pkgs.writeShellScriptBin "zellij-fzf-get-session" ''
-        sessions=$(${pkgs.zellij}/bin/zellij list-sessions --short 2>/dev/null)
+        sessions=$(${zellijPkg}/bin/zellij list-sessions --short 2>/dev/null)
         echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10
       '';
 
@@ -72,16 +74,16 @@
         fi
 
         if [[ -n "$root" ]]; then
-          WORKSPACE_ROOT="$root" exec ${pkgs.zellij}/bin/zellij attach --create "$session"
+          WORKSPACE_ROOT="$root" exec ${zellijPkg}/bin/zellij attach --create "$session"
         else
-          exec ${pkgs.zellij}/bin/zellij attach --create "$session"
+          exec ${zellijPkg}/bin/zellij attach --create "$session"
         fi
       '';
 
       zskScript = pkgs.writeShellScriptBin "zsk" ''
         session=$(${zellijFzfGetSession}/bin/zellij-fzf-get-session)
         if [[ -n "$session" ]]; then
-          ${pkgs.zellij}/bin/zellij delete-session --force "$session"
+          ${zellijPkg}/bin/zellij delete-session --force "$session"
         fi
       '';
 
@@ -96,7 +98,7 @@
       zellijRenameCurrent = pkgs.writeShellApplication {
         name = "zellij-rename-current";
         runtimeInputs = [
-          pkgs.zellij
+          zellijPkg
           muxName
         ];
         text = builtins.readFile ./zellij-rename-current.sh;
@@ -105,7 +107,7 @@
       zellijFzfUrl = pkgs.writeShellApplication {
         name = "zellij-fzf-url";
         runtimeInputs = [
-          pkgs.zellij
+          zellijPkg
           pkgs.fzf
           pkgs.jq
           pkgs.gnugrep
@@ -119,7 +121,10 @@
 
     in
     {
-      programs.zellij.enable = true;
+      programs.zellij = {
+        enable = true;
+        package = zellijPkg;
+      };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
       xdg.configFile."zellij/resurrect-wrap.sh" = {

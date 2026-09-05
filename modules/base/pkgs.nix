@@ -13,5 +13,12 @@
         inherit system;
         config.allowUnfree = true;
       };
+
+      overlayAttrs = {
+        unstable = import inputs.nixpkgs-unstable {
+          inherit system;
+          config.allowUnfree = true;
+        };
+      };
     };
 }
