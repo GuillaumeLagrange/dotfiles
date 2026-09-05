@@ -93,6 +93,10 @@ vim.keymap.set('n', '<leader>aa', function()
   require('sidekick.cli').toggle({ focus = true })
 end, { desc = 'Sidekick Toggle CLI' })
 
+vim.keymap.set('n', '<leader>am', function()
+  require('sidekick-omp').move()
+end, { desc = 'Move omp between nvim and a zellij pane' })
+
 vim.keymap.set('n', '<leader>as', function()
   require('sidekick.cli').select()
 end, { desc = 'Select CLI' })

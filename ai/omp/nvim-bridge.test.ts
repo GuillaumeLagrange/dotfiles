@@ -36,6 +36,10 @@ const pi = {
 const ctx = {
 	hasUI: true,
 	cwd: "/tmp/project",
+	sessionManager: {
+		getSessionId: () => "sess-abc123",
+		getSessionFile: () => "/tmp/project/sess-abc123.jsonl",
+	},
 	ui: {
 		async pasteToEditor(text: string) {
 			await new Promise((resolve) => setTimeout(resolve, pasteDelayMs));
@@ -78,11 +82,13 @@ describe("nvim-bridge", () => {
 		fs.rmSync(RUN_DIR, { recursive: true, force: true });
 	});
 
-	it("advertises the session with its cwd", () => {
+	it("advertises the session with its cwd, resume id and file", () => {
 		assert.deepEqual(JSON.parse(fs.readFileSync(metaPath, "utf8")), {
 			pid: process.pid,
 			cwd: "/tmp/project",
 			socket: sockPath,
+			session: "sess-abc123",
+			file: "/tmp/project/sess-abc123.jsonl",
 		});
 	});
 

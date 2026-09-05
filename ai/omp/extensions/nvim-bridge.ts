@@ -21,7 +21,12 @@ type Ui = {
 	getEditorText: () => unknown;
 	setEditorText: (text: string) => unknown;
 };
-type Ctx = { hasUI: boolean; cwd: string; ui: Ui };
+type Ctx = {
+	hasUI: boolean;
+	cwd: string;
+	ui: Ui;
+	sessionManager?: { getSessionId?: () => string | undefined };
+};
 type Pi = {
 	on: (event: string, handler: (event: unknown, ctx: Ctx) => void) => void;
 	sendUserMessage: (text: string) => unknown;
@@ -102,7 +107,19 @@ export default function nvimBridge(pi: Pi) {
 		});
 		server.on("error", (err) => pi.logger?.error?.(`nvim-bridge: ${err.message}`));
 		server.listen(sockPath, () =>
-			fs.writeFileSync(metaPath, JSON.stringify({ pid: process.pid, cwd: ctx.cwd, socket: sockPath })),
+			fs.writeFileSync(
+				metaPath,
+				JSON.stringify({
+					pid: process.pid,
+					cwd: ctx.cwd,
+					socket: sockPath,
+					// Lets a client resume this conversation in another terminal.
+					// `omp --resume` only accepts an id whose file already exists,
+					// and the file appears on the first turn.
+					session: ctx.sessionManager?.getSessionId?.() ?? null,
+					file: ctx.sessionManager?.getSessionFile?.() ?? null,
+				}),
+			),
 		);
 		server.unref();
 	});
