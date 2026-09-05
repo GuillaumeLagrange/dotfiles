@@ -31,26 +31,6 @@
             "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.rs) (cd \"$(dirname \"$f\")\" && cargo fmt -- \"$(basename \"$f\")\") 2>/dev/null || true ;; esac; }"
           }
         ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh PostToolUse"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh PreToolUse"
-          }
-        ]
       }
     ],
     "SessionStart": [
@@ -74,17 +54,6 @@
             "type": "command",
             "command": "bash '/home/guillaume/.claude/hooks/herdr-agent-state.sh' session",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/dotfiles/ai/claude/hooks/agent-diff-hook.sh Stop"
           }
         ]
       }
