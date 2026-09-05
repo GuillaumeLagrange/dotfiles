@@ -35,6 +35,10 @@ require('sidekick').setup({
   },
 })
 
+-- Attach to omp TUIs running outside nvim (zellij/tmux pane) over the unix
+-- socket exposed by the `nvim-bridge` omp extension.
+require('sidekick-omp').setup()
+
 -- Inline visualization of what the CLI agent (Claude Code) changes, driven by
 -- Claude hooks that reach this nvim over its RPC socket. Visualize-only; the
 -- accept/reject decision stays in the sidekick chat.

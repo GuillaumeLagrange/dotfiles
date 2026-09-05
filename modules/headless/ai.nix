@@ -39,6 +39,10 @@
           run rm -rf "${ompAgentDir}/rules"
         fi
         run ln -sfn "${aiDir}/omp/rules" "${ompAgentDir}/rules"
+        if [ -d "${ompAgentDir}/extensions" ] && [ ! -L "${ompAgentDir}/extensions" ]; then
+          run rm -rf "${ompAgentDir}/extensions"
+        fi
+        run ln -sfn "${aiDir}/omp/extensions" "${ompAgentDir}/extensions"
       '';
     };
 }
