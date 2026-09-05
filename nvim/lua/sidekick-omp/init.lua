@@ -91,7 +91,7 @@ local function state_of(info)
   return {
     id = 'omp: ' .. info.pid,
     cwd = info.cwd,
-    tool = 'pi',
+    tool = 'omp',
     pids = { info.pid },
     omp_pid = info.pid,
     omp_socket = info.socket,
@@ -209,7 +209,7 @@ end
 ---@param info sidekick.omp.Descriptor
 local function to_nvim(info)
   local Session = require('sidekick.cli.session')
-  local tool = require('sidekick.config').get_tool('pi')
+  local tool = require('sidekick.config').get_tool('omp')
   quit(info, function()
     require('sidekick.cli.state').attach({
       tool = tool,

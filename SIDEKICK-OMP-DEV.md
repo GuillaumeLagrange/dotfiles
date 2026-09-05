@@ -22,7 +22,9 @@ no cwd/pid), so attach goes through a socket exposed by omp itself.
   the descriptor dir (dropping dead pids), sessions are `external = true` (no nvim
   terminal), `send`/`submit` write to the socket. Tests: `cd nvim/lua/sidekick-omp &&
   just test` (plenary busted, same harness as `agent-diff`).
-- `nvim/plugin/ai.lua` — `require('sidekick-omp').setup()`.
+- `nvim/plugin/ai.lua` — `require('sidekick-omp').setup()`, and `Config.cli.tools` is
+  replaced by a single `omp` entry so the CLI picker only appears when an omp is
+  already running outside nvim (one candidate auto-attaches).
 - `M.move()` (`<leader>am`) — handoff: SIGTERM the omp
   holding the attached session, wait for the process to go, then start
   `omp --resume <id>` on the other side (nvim terminal ↔ zellij pane). The session

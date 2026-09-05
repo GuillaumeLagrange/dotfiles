@@ -19,11 +19,6 @@ vim.keymap.set('n', '<leader>uC', toggle_copilot, { desc = 'Toggle Copilot' })
 vim.keymap.set('i', '<M-u>', toggle_copilot, { desc = 'Toggle Copilot' })
 
 require('sidekick').setup({
-  cli = {
-    tools = {
-      pi = { cmd = { 'omp' } },
-    },
-  },
   copilot = {
     status = {
       enabled = false,
@@ -34,6 +29,18 @@ require('sidekick').setup({
     debounce = 100,
   },
 })
+
+-- omp is the only CLI worth a picker entry here. Assigning over the defaults
+-- (rather than passing `tools` to setup, which deep-merges) drops the other
+-- eleven, so `<leader>aa` auto-attaches instead of asking — the selection only
+-- appears once there is also an omp running outside nvim to choose from.
+require('sidekick.config').cli.tools = {
+  omp = {
+    cmd = { 'omp' },
+    is_proc = '\\<omp\\>',
+    native_scroll = false,
+  },
+}
 
 -- Attach to omp TUIs running outside nvim (zellij/tmux pane) over the unix
 -- socket exposed by the `nvim-bridge` omp extension.

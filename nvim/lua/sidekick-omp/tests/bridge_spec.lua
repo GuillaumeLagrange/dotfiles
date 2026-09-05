@@ -59,7 +59,7 @@ describe('session discovery', function()
     assert.same({
       id = 'omp: ' .. vim.uv.os_getpid(),
       cwd = '/tmp/project',
-      tool = 'pi',
+      tool = 'omp',
       pids = { vim.uv.os_getpid() },
       omp_pid = vim.uv.os_getpid(),
       omp_socket = RUN_DIR .. '/' .. vim.uv.os_getpid() .. '.sock',
