@@ -25,7 +25,9 @@
 
       programs.nix-ld.enable = true;
 
-      time.timeZone = lib.mkDefault "Europe/Paris";
+      # By default, imperatively set timezone throughV
+      # `sudo timedatectl set-timezone Europe/Paris`
+      time.timeZone = lib.mkDefault null;
 
       programs.zsh.enable = true;
 

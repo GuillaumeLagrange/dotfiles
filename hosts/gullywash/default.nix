@@ -24,6 +24,8 @@
       networking.networkmanager.enable = true;
       networking.hostId = "deadbeef";
 
+      time.timeZone = "Europe/Paris";
+
       networking.firewall = {
         enable = true;
         allowedTCPPorts = [
