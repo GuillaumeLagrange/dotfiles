@@ -17,7 +17,7 @@
         pkgs.direnv
         pkgs.fzf
         pkgs.git
-        pkgs.zellij
+        config.programs.zellij.package
       ]
       ++ cfg.extraRuntimeInputs;
 

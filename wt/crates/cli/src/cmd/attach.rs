@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use wt_core::config::Config;
 use wt_core::registry::Registry;
@@ -41,23 +41,46 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
     // Started here even when we are inside another session and only going to
     // switch: the server has to inherit the root from this process, and zellij's
     // own server could not give it one.
-    //
-    // A session that is already up is left exactly as it is: whatever its tabs have
-    // become is the user's, and the members it may have gained since are `sync`'s.
     if !zellij::is_live(&id)? {
         zellij::start_detached(&id, &session.path)?;
-        for repo in zellij::ensure_tabs(&session)? {
-            println!("{id}: opened a tab for {repo}");
-        }
     }
 
+    // The tabs come after a client is on the session, never before: `new-tab`
+    // needs an attached client to lay a tab out against (see
+    // `zellij::has_client`). So the terminal is handed over first, and the tabs
+    // are laid out behind the client that took it.
+    //
+    // This runs on every attach, not just the one that started the server: a
+    // session keeps the tabs it has, and a member without one gets it here.
     match zellij::current() {
         Some(current) if current == id => {
+            for repo in zellij::ensure_tabs(&session)? {
+                println!("{id}: opened a tab for {repo}");
+            }
             println!("{id}: already here");
             Ok(())
         }
-        Some(_) => zellij::switch_to(&id),
-        None => zellij::attach(&id, &session.path),
+        Some(_) => {
+            zellij::switch_to(&id)?;
+            tabs_behind_the_client(&session);
+            Ok(())
+        }
+        None => {
+            let mut child = zellij::attach_child(&id, &session.path)?;
+            tabs_behind_the_client(&session);
+            let status = child.wait().context("waiting for zellij to exit")?;
+            std::process::exit(status.code().unwrap_or(1))
+        }
+    }
+}
+
+/// Lay out the tabs of the session the terminal has just been given to.
+///
+/// Nothing is printed and nothing fails: the screen belongs to zellij by now, and
+/// `wt sync` reports the members left without a tab.
+fn tabs_behind_the_client(session: &Session) {
+    if zellij::wait_for_client(&session.id).unwrap_or(false) {
+        let _ = zellij::ensure_tabs(session);
     }
 }
 

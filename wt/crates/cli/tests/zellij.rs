@@ -1,8 +1,9 @@
 //! The multiplexer side: a session's server, its tabs, and the root its panes
 //! inherit.
 //!
-//! Attaching replaces the process and needs a terminal, so what is driven here is
-//! everything up to that point — which is where all the behaviour is. The fixture's
+//! A client is attached where the behaviour needs one — zellij sizes a new tab
+//! against the attached client, so a session nobody is looking at cannot be given
+//! a tab that works. `script` provides the terminal it insists on. The fixture's
 //! `XDG_RUNTIME_DIR` and `XDG_CACHE_HOME` keep these sessions invisible to the
 //! machine's own, and each one is killed on the way out.
 
@@ -57,9 +58,40 @@ impl Drop for Live {
     }
 }
 
+/// A real client on a session, the way a user's terminal is one.
+///
+/// Its stdin is held open for as long as the guard lives: `script` ends when its
+/// input does, and the client with it.
+struct Attached(std::process::Child);
+
+impl Attached {
+    fn to(session: &str) -> Self {
+        let child = std::process::Command::new("script")
+            .args(["-q", "-c", &format!("zellij attach {session}"), "/dev/null"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("script should run");
+        let attached = Self(child);
+        assert!(
+            zellij::wait_for_client(session).unwrap(),
+            "no client reached `{session}`"
+        );
+        attached
+    }
+}
+
+impl Drop for Attached {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 #[test]
 fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
-    if !have("zellij") {
+    if !have("zellij") || !have("script") {
         return;
     }
     let f = Fixture::new();
@@ -72,22 +104,27 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
         assert!(!zellij::is_live("proj-tabs").unwrap(), "nothing should be up yet");
         zellij::start_detached("proj-tabs", &session.path).unwrap();
         assert!(zellij::is_live("proj-tabs").unwrap());
+        assert!(
+            !zellij::has_client("proj-tabs").unwrap(),
+            "a session started this way is one nobody is on yet"
+        );
 
+        let _attached = Attached::to("proj-tabs");
         let mut added = zellij::ensure_tabs(&session).unwrap();
         added.sort();
         assert_eq!(added, vec!["app".to_string(), "lib".to_string()]);
 
-        let mut names: Vec<String> = zellij::tabs("proj-tabs")
-            .unwrap()
-            .into_iter()
-            .map(|t| t.name)
-            .collect();
+        let tabs = zellij::tabs("proj-tabs").unwrap();
+        let mut names: Vec<String> = tabs.iter().map(|t| t.name.clone()).collect();
         names.sort();
         assert_eq!(
             names,
             vec!["app".to_string(), "lib".to_string()],
             "zellij's own tab should have been closed once the members had theirs"
         );
+        for tab in &tabs {
+            assert!(!tab.is_empty(), "`{}` came up with no pane", tab.name);
+        }
 
         // What the whole session-root mechanism comes down to: the server carries it,
         // so every pane it ever starts inherits it whatever directory it is in.
@@ -98,7 +135,7 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
 
 #[test]
 fn tabs_are_only_added_for_members_that_have_none() {
-    if !have("zellij") {
+    if !have("zellij") || !have("script") {
         return;
     }
     let f = Fixture::new();
@@ -109,6 +146,7 @@ fn tabs_are_only_added_for_members_that_have_none() {
         let session = load("proj-idem");
         let _live = Live("proj-idem".into());
         zellij::start_detached("proj-idem", &session.path).unwrap();
+        let _attached = Attached::to("proj-idem");
         zellij::ensure_tabs(&session).unwrap();
 
         assert!(
@@ -147,6 +185,40 @@ fn tabs_are_only_added_for_members_that_have_none() {
         f.wt(&["sync", "proj-idem"]).ok().says("`docs` has no tab");
         f.wt(&["sync", "proj-idem", "--fix"]).ok();
         assert!(zellij::untabbed(&session).unwrap().is_empty());
+    });
+}
+
+/// Tabs are the one thing that cannot be prepared ahead of the client (see
+/// `zellij::has_client`), so nothing touches them until someone is on the
+/// session — `sync` included.
+#[test]
+fn tabs_wait_for_a_client() {
+    if !have("zellij") || !have("script") {
+        return;
+    }
+    let f = Fixture::new();
+    f.wt(&["new", "proj-wait", "--repo", "app"]).ok();
+
+    with_env(&f, || {
+        let session = load("proj-wait");
+        let _live = Live("proj-wait".into());
+        zellij::start_detached("proj-wait", &session.path).unwrap();
+
+        assert!(!zellij::has_client("proj-wait").unwrap());
+        f.wt(&["sync", "proj-wait"]).ok().silent_about("has no tab");
+
+        let _attached = Attached::to("proj-wait");
+        assert_eq!(
+            zellij::ensure_tabs(&session).unwrap(),
+            vec!["app".to_string()],
+            "the client is what the member's tab was waiting for"
+        );
+        let app = zellij::tabs("proj-wait")
+            .unwrap()
+            .into_iter()
+            .find(|t| t.name == "app")
+            .expect("app tab");
+        assert!(!app.is_empty(), "`app` came up with no pane");
     });
 }
 

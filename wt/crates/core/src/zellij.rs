@@ -10,7 +10,8 @@
 //! own server spawn it would hand it an environment that never saw the root.
 
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
@@ -27,6 +28,16 @@ const BIN: &str = "zellij";
 pub struct Tab {
     pub tab_id: u32,
     pub name: String,
+    pub selectable_tiled_panes_count: u32,
+    pub selectable_floating_panes_count: u32,
+}
+
+impl Tab {
+    /// A tab with nothing in it: what a `new-tab` zellij could not lay out leaves
+    /// behind (see `has_client`). Zellij cannot show it, and the user cannot use it.
+    pub fn is_empty(&self) -> bool {
+        self.selectable_tiled_panes_count == 0 && self.selectable_floating_panes_count == 0
+    }
 }
 
 pub fn available() -> bool {
@@ -49,8 +60,43 @@ pub fn is_live(name: &str) -> Result<bool> {
     }))
 }
 
-/// Start a session without attaching to it, so that its tabs can be set up before
-/// anyone looks at it. Creates it, or resurrects it if zellij kept it.
+/// Whether a client is attached to a session.
+///
+/// Tabs are only ever added to a session someone is looking at: zellij lays a new
+/// tab out against the attached client's size, and a server with no client has
+/// none — since 0.45 it reports a zero-sized viewport, so `new-tab` fails with
+/// "Not enough room for panes" and leaves a tab with no pane in it at all. A
+/// client landing later does not repair it, and attaching to such a tab drops the
+/// client straight back out.
+pub fn has_client(name: &str) -> Result<bool> {
+    let out = run(&["--session", name, "action", "list-clients"], None)?;
+    if !out.ok() {
+        return Err(anyhow!(
+            "could not list the clients of `{name}`: {}",
+            out.stderr.trim()
+        ));
+    }
+    // A header line is always printed; a client is a line after it.
+    Ok(out.stdout.lines().skip(1).any(|line| !line.trim().is_empty()))
+}
+
+/// Wait for the client handed the terminal to reach a session, so its tabs can be
+/// laid out. False if none turned up, or if the session went away first — a user
+/// who quits immediately is not an error.
+pub fn wait_for_client(name: &str) -> Result<bool> {
+    for _ in 0..100 {
+        match has_client(name) {
+            Ok(true) => return Ok(true),
+            Ok(false) => {}
+            Err(_) => return Ok(false),
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Ok(false)
+}
+
+/// Start a session's server without attaching to it, which is what puts the root
+/// in its environment. Creates the session, or resurrects it if zellij kept it.
 pub fn start_detached(name: &str, root: &Path) -> Result<()> {
     let out = run(&["attach", "--create-background", name], Some(root))?;
     if !out.ok() {
@@ -61,7 +107,7 @@ pub fn start_detached(name: &str, root: &Path) -> Result<()> {
         if is_live(name)? {
             return Ok(());
         }
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(50));
     }
     Err(anyhow!("`{name}` did not come up"))
 }
@@ -118,15 +164,15 @@ pub fn switch_to(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Hand the terminal over to zellij: this replaces the process, so it returns only
-/// when the attach itself could not happen.
-pub fn attach(name: &str, root: &Path) -> Result<()> {
-    use std::os::unix::process::CommandExt;
-    let err = Command::new(BIN)
+/// Hand the terminal over to zellij, as a child of this process rather than by
+/// replacing it: the session's tabs can only be laid out once this client is
+/// attached, so the caller stays around to do that and then waits for it.
+pub fn attach_child(name: &str, root: &Path) -> Result<Child> {
+    Command::new(BIN)
         .args(["attach", name])
         .env(ROOT_VAR, root)
-        .exec();
-    Err(err).with_context(|| format!("failed to attach to `{name}`"))
+        .spawn()
+        .with_context(|| format!("failed to attach to `{name}`"))
 }
 
 /// A tab zellij named itself, which is therefore nobody's repo.
@@ -142,8 +188,8 @@ pub fn tab_is_for(tab: &str, repo: &str) -> bool {
     tab.split_whitespace().last() == Some(repo)
 }
 
-/// One tab per member, named after the repo and opened in it, for a session whose
-/// server was just brought up.
+/// One tab per member, named after the repo and opened in it, for a session a
+/// client is attached to.
 ///
 /// Idempotent, and it leaves whatever tabs are already there — including however
 /// the panes inside them have been split, which is not wt's business.
@@ -156,27 +202,43 @@ pub fn ensure_tabs(session: &crate::session::Session) -> Result<Vec<String>> {
     let before = tabs(&session.id)?;
     let mut added = Vec::new();
     for member in &members {
-        if before.iter().any(|tab| tab_is_for(&tab.name, &member.repo)) {
+        if before
+            .iter()
+            .any(|tab| tab_is_for(&tab.name, &member.repo) && !tab.is_empty())
+        {
             continue;
         }
         new_tab(&session.id, &member.path, &member.repo)?;
         added.push(member.repo.clone());
     }
 
-    // After the members' tabs exist, so the session is never left without one.
-    for tab in before.iter().filter(|t| is_default_tab_name(&t.name)) {
+    // Closed after the members' tabs exist, so the session is never left without
+    // one: the tab zellij opens with, and any that is empty — a tab holding
+    // nothing is one a member has just been given a working replacement for.
+    //
+    // Zellij's own name only counts on a pass that added something, since a later
+    // pass runs on every attach and a tab still carrying that name is then one the
+    // user opened.
+    for tab in before
+        .iter()
+        .filter(|t| t.is_empty() || (!added.is_empty() && is_default_tab_name(&t.name)))
+    {
         close_tab(&session.id, tab.tab_id)?;
     }
     Ok(added)
 }
 
-/// The members a running session has no tab for.
+/// The members a running session has no usable tab for.
 pub fn untabbed(session: &crate::session::Session) -> Result<Vec<String>> {
     let tabs = tabs(&session.id)?;
     Ok(session
         .members()?
         .into_iter()
-        .filter(|m| !tabs.iter().any(|tab| tab_is_for(&tab.name, &m.repo)))
+        .filter(|m| {
+            !tabs
+                .iter()
+                .any(|tab| tab_is_for(&tab.name, &m.repo) && !tab.is_empty())
+        })
         .map(|m| m.repo)
         .collect())
 }

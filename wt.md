@@ -327,36 +327,43 @@ wt <id>
   is_live(id)?                     zellij list-sessions --no-formatting, minus "(EXITED"
   no  -> attach --create-background id     creates or resurrects, detached, with
                                            WORKSPACE_ROOT in *our* environment
-      -> ensure_tabs               one new-tab --cwd --name per member, then close
-                                   the tab zellij named itself
   yes -> nothing at all
   inside zellij? -> action switch-session id
-  else           -> exec zellij attach id
+  else           -> zellij attach id, as a child
+  then           -> wait for the client, then ensure_tabs: one new-tab --cwd --name
+                    per member, then close the tab zellij named itself
 ```
 
 - **The server is always started by wt**, never by zellij: a `switch-session` into a
   session that is not up would have zellij's own server spawn it, with an environment
-  that never saw the root. Bringing it up detached first also means the tabs are in
-  place before anyone looks at the session.
+  that never saw the root.
+- **The tabs come after the client, never before.** Zellij sizes a new tab against the
+  attached client, and a server that has none reports a zero-sized viewport: since
+  0.45 `new-tab` on a session nobody is on fails to lay anything out and leaves a tab
+  with no pane in it, which the next client to attach is dropped straight back out of
+  ("Bye from Zellij!"). So the terminal is handed over first — `attach` as a child
+  rather than an `exec`, so that wt is still there to lay the tabs out behind it — and
+  a tab holding nothing counts as no tab at all, which is what repairs a session left
+  that way.
 - **Tabs are `new-tab` calls, not a layout file.** A layout replaces zellij's default
   instead of extending it (see milestone 1), and zellij's own serialized layout wins for
   tabs on a resurrect anyway.
-- **A session that is already up is not touched at all.** Attaching to one is not the
-  moment to reorganise it: its tabs are whatever I have made of them, and a member it
-  gained since is `wt sync --fix`'s business, on demand. Tabs are therefore only ever laid
-  out on the run that created the server, which is also what makes closing zellij's own
-  `Tab #1` safe — and it is closed after the members' tabs exist, so the session is never
-  left without one (which would end it).
+- **A session that is already up is not touched beyond its missing tabs.** Attaching to
+  one is not the moment to reorganise it: its tabs are whatever I have made of them, and
+  only a member with none gets one. Zellij's own `Tab #1` is closed only on a pass that
+  added tabs — on any later attach a tab still carrying that name is one I opened — and
+  after the members' tabs exist, so the session is never left without one (which would
+  end it).
 - Where tabs *are* compared — `sync`, and `add`'s "does it already have one" — a tab counts
   as its member's when the **last word** of its name is the repo. The rename hook decorates
   the focused tab with an icon (`" action"`), and that is still `action`'s tab. Comparing
   the whole name is what made an attach to a decorated session add every member again.
-- `wt add` opens a tab for the new member when the session is up, cross-session, so a
-  detached session gains it without being attached. Best effort: a tab is not worth
-  failing an `add` that has already produced the worktree.
-- `wt sync` reports a member with no tab, and `--fix` opens it. Only for a running
-  session: tabs are the multiplexer's state, and a session that is not up has none to be
-  missing.
+- `wt add` opens a tab for the new member when a client is on the session, cross-session.
+  Best effort: a tab is not worth failing an `add` that has already produced the
+  worktree. Attaching lays out whatever it missed.
+- `wt sync` reports a member with no tab, and `--fix` opens it. Only for a session with a
+  client on it: tabs are the multiplexer's state, a session that is not up has none to be
+  missing, and one nobody is looking at cannot be given one that works.
 - `ZELLIJ_SESSION_NAME` == id, so panes self-identify — the join key milestone 3 needs.
 - `zsm` stays for zellij sessions that are not wt sessions, and keeps its own
   `wt path --exact` lookup so that attaching by name that way sets the root too.

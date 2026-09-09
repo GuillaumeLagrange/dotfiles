@@ -136,10 +136,11 @@ pub fn detect(cfg: &Config, session: &Session) -> Result<Vec<Drift>> {
         drift.push(Drift::MarkerMissing);
     }
 
-    // Only a running session can be asked, and only it can be repaired: tabs are
-    // the multiplexer's state, not the directory's, and a session that is not up has
-    // none to be missing.
-    if zellij::available() && zellij::is_live(&session.id).unwrap_or(false) {
+    // Only a session with a client on it can be asked, and only it can be
+    // repaired: tabs are the multiplexer's state, not the directory's, and one
+    // nobody is looking at cannot be given a tab that works (see
+    // `zellij::has_client`).
+    if zellij::available() && zellij::has_client(&session.id).unwrap_or(false) {
         for repo in zellij::untabbed(session).unwrap_or_default() {
             drift.push(Drift::TabMissing { repo });
         }

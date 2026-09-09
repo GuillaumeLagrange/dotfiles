@@ -28,9 +28,11 @@ pub fn run(cfg: &Config, repo: &str, session_id: Option<&str>) -> Result<()> {
 
     println!("{repo} joined {}", session.id);
 
-    // Best effort, and only for a session with a server to add it to: a tab is not
+    // Best effort, and only for a session a client is on: a tab added to a
+    // client-less server comes up with no pane in it (see `zellij::has_client`),
+    // and attaching lays out the missing ones anyway. Either way a tab is not
     // worth failing an `add` that has already produced the worktree.
-    if zellij::available() && zellij::is_live(&session.id).unwrap_or(false) {
+    if zellij::available() && zellij::has_client(&session.id).unwrap_or(false) {
         if let Err(err) = zellij::new_tab(&session.id, &session.path.join(repo), repo) {
             eprintln!("wt: {err:#}");
         }

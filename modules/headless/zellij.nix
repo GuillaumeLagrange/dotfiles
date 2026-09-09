@@ -13,12 +13,10 @@
   };
 
   flake.modules.homeManager.zellij =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     let
-      zellijPkg = pkgs.unstable.zellij;
-
       zellijFzfGetSession = pkgs.writeShellScriptBin "zellij-fzf-get-session" ''
-        sessions=$(${zellijPkg}/bin/zellij list-sessions --short 2>/dev/null)
+        sessions=$(${config.programs.zellij.package}/bin/zellij list-sessions --short 2>/dev/null)
         echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10
       '';
 
@@ -74,16 +72,16 @@
         fi
 
         if [[ -n "$root" ]]; then
-          WORKSPACE_ROOT="$root" exec ${zellijPkg}/bin/zellij attach --create "$session"
+          WORKSPACE_ROOT="$root" exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
         else
-          exec ${zellijPkg}/bin/zellij attach --create "$session"
+          exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
         fi
       '';
 
       zskScript = pkgs.writeShellScriptBin "zsk" ''
         session=$(${zellijFzfGetSession}/bin/zellij-fzf-get-session)
         if [[ -n "$session" ]]; then
-          ${zellijPkg}/bin/zellij delete-session --force "$session"
+          ${config.programs.zellij.package}/bin/zellij delete-session --force "$session"
         fi
       '';
 
@@ -98,7 +96,7 @@
       zellijRenameCurrent = pkgs.writeShellApplication {
         name = "zellij-rename-current";
         runtimeInputs = [
-          zellijPkg
+          config.programs.zellij.package
           muxName
         ];
         text = builtins.readFile ./zellij-rename-current.sh;
@@ -107,7 +105,7 @@
       zellijFzfUrl = pkgs.writeShellApplication {
         name = "zellij-fzf-url";
         runtimeInputs = [
-          zellijPkg
+          config.programs.zellij.package
           pkgs.fzf
           pkgs.jq
           pkgs.gnugrep
@@ -123,7 +121,7 @@
     {
       programs.zellij = {
         enable = true;
-        package = zellijPkg;
+        package = pkgs.unstable.zellij;
       };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
