@@ -18,6 +18,7 @@ fi
 
 jq -c '
   def pad2: tostring | if length < 2 then "0" + . else . end;
+  def rpad($n): tostring | . + ("               "[0:$n - length] // "");
   def eta:
     if . == null then "--"
     else (. / 1000 - now | floor) as $d
@@ -29,22 +30,32 @@ jq -c '
     end;
   def clock($fmt):
     if . == null then "--" else (. / 1000 | floor | strflocaltime($fmt)) end;
-  def window($id; $prefix; $fmt):
-    (([.reports[].limits[] | select(.window.id == $id)] | sort_by(.amount.usedFraction) | last) // {})
-    | ((.window // {}).resetsAt) as $r
-    | { pct: ((.amount.usedFraction // 0) * 100 | round), eta: ($r | eta),
-        at: (if $r == null then "--" else "\($prefix) \($r | clock($fmt))" end) };
+  # `f` selects the limits of one window; the tightest one wins when a plan
+  # reports several. Missing window (account without that limit) => null, so
+  # the tooltip line is dropped instead of rendering zeroes.
+  def window(f; $label; $prefix; $fmt):
+    (([.reports[].limits[] | select(f)] | sort_by(.amount.usedFraction) | last) // null) as $l
+    | if $l == null then null
+      else (($l.window // {}).resetsAt) as $r
+      | { label: $label, pct: (($l.amount.usedFraction // 0) * 100 | round),
+          eta: ($r | eta),
+          at: (if $r == null then "--" else "\($prefix) \($r | clock($fmt))" end) }
+      end;
 
-  window("5h"; "at"; "%H:%M") as $fh
-  | window("7d"; "on"; "%a %H:%M") as $sd
+  window(.id | endswith(":5h"); "5h"; "at"; "%H:%M") as $fh
+  | window(.id | endswith(":7d"); "7d"; "on"; "%a %H:%M") as $sd
+  | window(.id | endswith(":7d:fable"); "fable"; "on"; "%a %H:%M") as $fb
+  | [$fh, $sd, $fb | select(. != null)] as $ws
+  | (($fh.pct) // 0) as $pct
   | {
       text: "󰜡 " + (
-        if $sd.pct >= 100 then $sd.eta
-        elif $fh.pct >= 100 then $fh.eta
-        else "\($fh.pct)%" end
+        ([$ws[] | select(.pct >= 100)] | first) as $full
+        | if $full != null then $full.eta else "\($pct)%" end
       ),
-      tooltip: "Claude Code Usage\n━━━━━━━━━━━━━━━━━━━━━━━━\n5h:  \($fh.pct)%  \($fh.eta) (\($fh.at))\n7d:  \($sd.pct)%  \($sd.eta) (\($sd.at))",
-      class: (if $fh.pct >= 80 then "high" elif $fh.pct >= 50 then "mid" else "low" end),
-      percentage: $fh.pct,
+      tooltip: (["Claude Code Usage", "━━━━━━━━━━━━━━━━━━━━━━━━"]
+        + [$ws[] | "\(.label + ":" | rpad(7))\(.pct)%  \(.eta) (\(.at))"]
+        | join("\n")),
+      class: (if $pct >= 80 then "high" elif $pct >= 50 then "mid" else "low" end),
+      percentage: $pct,
     }
 ' <<<"$data"
