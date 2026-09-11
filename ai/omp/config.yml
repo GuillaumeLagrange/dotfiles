@@ -3,7 +3,7 @@ modelRoles:
   default: anthropic/claude-opus-5:high
   advisor: anthropic/claude-sonnet-5:medium
   task: anthropic/claude-sonnet-5:high
-  slow: anthropic/claude-fable-5:high
+  slow: anthropic/claude-fable-5-1:medium
   smol: anthropic/claude-opus-5:low
 theme:
   dark: dark-gruvbox

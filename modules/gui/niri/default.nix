@@ -102,6 +102,7 @@
               Mod+D { spawn "vicinae" "toggle"; }
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
               Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
+              Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/store.vicinae.firefox/bookmarks"; }
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
               Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
@@ -136,7 +137,6 @@
               Mod+Print hotkey-overlay-title="Toggle Screen Recording" { spawn "sh" "-c" "${config.screenrecordScreenTool}"; }
               Mod+Shift+Print hotkey-overlay-title="Toggle Region Recording" { spawn "sh" "-c" "${config.screenrecordRegionTool}"; }
 
-              Mod+O repeat=false { toggle-overview; }
               Mod+Tab repeat=false { toggle-overview; }
               Mod+Q repeat=false { close-window; }
 

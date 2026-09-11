@@ -49,8 +49,8 @@
         pavucontrol
         playerctl
         pomodoro-gtk
-        proton-pass
-        proton-vpn
+        unstable.proton-pass
+        unstable.proton-vpn
         qwerty-fr
         signal-desktop
         slack
