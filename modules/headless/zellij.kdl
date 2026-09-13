@@ -124,6 +124,7 @@ keybinds clear-defaults=true {
         bind "Alt up" { MoveFocus "up"; SwitchToMode "locked"; }
         bind "Alt right" { MoveTab "right"; SwitchToMode "locked"; }
         bind "e" { EditScrollback; SwitchToMode "locked"; }
+        bind "y" { CopyLastCommandOutput; SwitchToMode "locked"; }
         bind "f" { SwitchToMode "entersearch"; SearchInput 0; }
         bind "Alt h" { MoveFocusOrTab "left"; SwitchToMode "locked"; }
         bind "Alt j" { MoveFocus "down"; SwitchToMode "locked"; }
@@ -194,6 +195,7 @@ keybinds clear-defaults=true {
         bind "Alt =" { Resize "Increase"; }
         bind "Alt [" { PreviousSwapLayout; }
         bind "Alt ]" { NextSwapLayout; }
+        bind "Alt y" { CopyLastCommandOutput; }
         bind "Alt f" { ToggleFloatingPanes; }
         bind "Alt h" { MoveFocusOrTab "left"; }
         bind "Alt i" { MoveTab "left"; }
@@ -224,7 +226,7 @@ keybinds clear-defaults=true {
     shared_except "locked" "entersearch" "renametab" "renamepane" {
         bind "esc" { SwitchToMode "locked"; }
     }
-    shared_except "locked" "entersearch" "renametab" "renamepane" "move" {
+    shared_except "locked" "entersearch" "renametab" "renamepane" "move" "scroll" "search" {
         bind "m" { SwitchToMode "move"; }
     }
     shared_except "locked" "entersearch" "search" "renametab" "renamepane" "session" {
@@ -243,6 +245,9 @@ keybinds clear-defaults=true {
         bind "r" { SwitchToMode "resize"; }
     }
     shared_among "scroll" "search" {
+        bind "[" { ScrollToPreviousPrompt; }
+        bind "]" { ScrollToNextPrompt; }
+        bind "m" { SelectCommandAtScrollPosition; }
         bind "PageDown" { PageScrollDown; }
         bind "PageUp" { PageScrollUp; }
         bind "left" { PageScrollUp; }

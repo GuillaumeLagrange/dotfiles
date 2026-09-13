@@ -48,6 +48,44 @@
 
             bindkey '^e' autosuggest-accept
 
+            # OSC 133 semantic prompt marks. zsh emits none on its own, and
+            # without them zellij cannot tell a command from its output, so
+            # jumping prompt by prompt, selecting a command with its output and
+            # copying the last output all do nothing.
+            autoload -U add-zsh-hook
+            _osc133_running=0
+            _osc133_precmd() {
+              local ret=$?
+              (( _osc133_running )) && print -n "\e]133;D;$ret\a"
+              _osc133_running=0
+              print -n "\e]133;A\a"
+            }
+            _osc133_preexec() {
+              _osc133_running=1
+              print -n "\e]133;C\a"
+            }
+            add-zsh-hook precmd _osc133_precmd
+            add-zsh-hook preexec _osc133_preexec
+            # End of the prompt / start of what is typed, as a zero-width part of
+            # the prompt itself — the only place the mark can sit.
+            PS1="$PS1"$'%{\e]133;B\a%}'
+
+            # Copy the line being typed to the clipboard without reaching for the
+            # mouse. OSC 52 is what carries it: the terminal (or zellij, which
+            # intercepts the sequence) does the clipboard write, so this also
+            # works over ssh.
+            copy-buffer-to-clipboard() {
+              [[ -n "$BUFFER" ]] || return
+              local encoded
+              encoded=$(print -rn -- "$BUFFER" \
+                | ${pkgs.coreutils}/bin/base64 \
+                | ${pkgs.coreutils}/bin/tr -d '\n')
+              printf '\e]52;c;%s\a' "$encoded" > /dev/tty
+              zle -M "copied ''${#BUFFER} chars"
+            }
+            zle -N copy-buffer-to-clipboard
+            bindkey '^[w' copy-buffer-to-clipboard
+
             if [[ "$TERM" == "xterm-kitty" ]]; then
               alias ssh="kitten ssh"
             fi
