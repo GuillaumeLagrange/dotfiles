@@ -5,7 +5,11 @@
       "type": "http",
       "url": "https://mcp.linear.app/mcp"
     },
-    "Logfire": {
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "logfire": {
       "type": "http",
       "url": "https://logfire-eu.pydantic.dev/mcp"
     }
