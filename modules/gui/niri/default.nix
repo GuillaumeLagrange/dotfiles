@@ -20,7 +20,7 @@
       xdg.configFile."niri/config.kdl".text =
         let
           ws_web = "1.Web";
-          ws_term = "2.Term";
+          ws_term = "2.Work";
           ws_code = "3.Code";
           ws_scratchpad = "4.Scratch";
           ws_perso = "5.Perso";
@@ -102,7 +102,8 @@
               Mod+D { spawn "vicinae" "toggle"; }
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
               Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
-              Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/store.vicinae.firefox/bookmarks"; }
+              Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
+              Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
               Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
@@ -246,6 +247,13 @@
           window-rule {
               geometry-corner-radius 4
               clip-to-geometry true
+          }
+
+          window-rule {
+              match app-id="signal"
+              match app-id="Spotify"
+
+              open-on-workspace "${ws_perso}"
           }
 
           // Disable alt tab
