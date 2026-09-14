@@ -122,6 +122,7 @@
       programs.zellij = {
         enable = true;
         package = pkgs.unstable.zellij;
+        layouts.guiom = ./zellij-layout-guiom.kdl;
       };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;

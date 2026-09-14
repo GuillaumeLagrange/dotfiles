@@ -48,6 +48,31 @@
 
             bindkey '^e' autosuggest-accept
 
+            # OSC 133 semantic prompt marks
+            autoload -Uz add-zsh-hook
+            _osc133_precmd() { print -n "\e]133;D;$?\a\e]133;A\a" }
+            _osc133_preexec() { print -n "\e]133;C\a" }
+            add-zsh-hook precmd _osc133_precmd
+            add-zsh-hook preexec _osc133_preexec
+
+            # Copy the line being typed to the clipboard
+            zmodload zsh/zselect
+            copy-buffer-to-clipboard() {
+              [[ -n "$BUFFER" ]] || return
+              local encoded
+              encoded=$(print -rn -- "$BUFFER" \
+                | ${pkgs.coreutils}/bin/base64 \
+                | ${pkgs.coreutils}/bin/tr -d '\n')
+              printf '\e]52;c;%s\a' "$encoded" > /dev/tty
+              region_highlight+=("0 ''${#BUFFER} standout")
+              zle -R
+              zselect -t 12
+              region_highlight[-1]=()
+              zle -R
+            }
+            zle -N copy-buffer-to-clipboard
+            bindkey '^[w' copy-buffer-to-clipboard
+
             if [[ "$TERM" == "xterm-kitty" ]]; then
               alias ssh="kitten ssh"
             fi
