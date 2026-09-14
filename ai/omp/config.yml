@@ -4,16 +4,16 @@ modelRoles:
   advisor: anthropic/claude-sonnet-5:medium
   task: anthropic/claude-sonnet-5:high
   slow: anthropic/claude-fable-5-1:medium
-  smol: anthropic/claude-opus-5:low
+  smol: anthropic/claude-sonnet-5:low
 theme:
   dark: dark-gruvbox
 symbolPreset: nerd
 omitThinking: false
 hideThinkingBlock: true
 advisor:
-  enabled: true
+  enabled: false
   syncBacklog: "off"
-  immuneTurns: 5
+  immuneTurns: 10
 lsp:
   enabled: false
 defaultThinkingLevel: medium
@@ -25,3 +25,4 @@ composer:
   shape: claude
 disabledProviders:
   - claude-plugins
+

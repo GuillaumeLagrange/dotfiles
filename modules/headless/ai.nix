@@ -43,6 +43,10 @@
           run rm -rf "${ompAgentDir}/extensions"
         fi
         run ln -sfn "${aiDir}/omp/extensions" "${ompAgentDir}/extensions"
+        if [ -d "${ompAgentDir}/skills" ] && [ ! -L "${ompAgentDir}/skills" ]; then
+          run rm -rf "${ompAgentDir}/skills"
+        fi
+        run ln -sfn "${aiDir}/skills" "${ompAgentDir}/skills"
       '';
     };
 }
