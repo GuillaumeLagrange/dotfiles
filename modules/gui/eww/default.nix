@@ -123,32 +123,34 @@
 
       # Hover dwell before a popup opens, and the debounce before it closes, in
       # seconds (`sleep` syntax, so fractions are fine). Tweak here; each popup
-      # can override via mkHoverPopup's `openDelay` / `closeDelay`.
+      # can override via mkHoverReveal's `openDelay` / `closeDelay`.
       hoverOpenDelay = "0.5";
       hoverCloseDelay = "0.30";
 
-      # Hover-driven popups (media panel, calendar, settings). Three scripts per
-      # popup, because GTK fires hover/hover-lost as the pointer crosses a
+      # Hover-driven reveals: the three popups, and the tray drawer. Three scripts
+      # each, because GTK fires hover/hover-lost as the pointer crosses a
       # window's *child* widgets:
-      #   open  — trigger hover: dwell, then mark open and show the window (runs
-      #           detached; an onclick/onhover that calls `eww` back would block
-      #           the single-threaded daemon and hit its ~1s handler kill).
-      #   keep  — popup hover: only refresh the flag's mtime. No `eww` call, so
-      #           the churn from crossing child widgets can't re-open the window
-      #           (re-opening on every event makes it flicker).
-      #   close — popup/trigger hover-lost: debounce, then hide. A re-hover during
-      #           the debounce (from open or keep) pushes the flag's mtime past the
-      #           closing marker, which aborts the close.
+      #   open  — trigger hover: dwell, then mark open and reveal (runs detached;
+      #           an onclick/onhover that calls `eww` back would block the
+      #           single-threaded daemon and hit its ~1s handler kill).
+      #   keep  — hover over the revealed content: only refresh the flag's mtime.
+      #           No `eww` call, so the churn from crossing child widgets can't
+      #           re-open it (re-opening on every event makes it flicker).
+      #   close — hover-lost: debounce, then hide. A re-hover during the debounce
+      #           (from open or keep) pushes the flag's mtime past the closing
+      #           marker, which aborts the close.
       # The two markers also carry the open dwell: `open` bails when the closing
       # marker outlives its own flag touch, i.e. the pointer left mid-dwell. The
       # closing marker therefore outlives a close and is only ever re-touched.
-      # `seed` runs before the window is shown, for popups whose content is pushed
-      # rather than polled. `postClose` runs after it's hidden.
-      mkHoverPopup =
+      # `window` is omitted for content that lives in the bar itself, where the
+      # var alone drives a revealer. `seed` runs before the content is shown, for
+      # popups whose content is pushed rather than polled. `postClose` runs after
+      # it is hidden.
+      mkHoverReveal =
         {
           name,
-          window,
           var,
+          window ? null,
           seed ? "",
           postClose ? "",
           openDelay ? hoverOpenDelay,
@@ -157,6 +159,11 @@
         let
           flag = "\${XDG_RUNTIME_DIR:-/tmp}/eww-${name}-open";
           closing = "\${XDG_RUNTIME_DIR:-/tmp}/eww-${name}-closing";
+          showWindow =
+            pkgs.lib.optionalString (window != null)
+              ''${eww} open ${window} --screen "$m" --arg monitor="$m" 2>/dev/null || true'';
+          hideWindow =
+            pkgs.lib.optionalString (window != null) "${eww} close ${window} 2>/dev/null || true";
         in
         {
           inherit flag;
@@ -167,7 +174,7 @@
             if [ "${closing}" -nt "${flag}" ]; then exit 0; fi
             ${seed}
             ${eww} update ${var}=true
-            ${eww} open ${window} --screen "$m" --arg monitor="$m" 2>/dev/null || true
+            ${showWindow}
           '';
           keep = pkgs.writeShellScriptBin "eww-${name}-keep" ''
             touch "${flag}"
@@ -177,7 +184,7 @@
             sleep ${closeDelay}
             if [ "${flag}" -nt "${closing}" ]; then exit 0; fi
             ${eww} update ${var}=false
-            ${eww} close ${window} 2>/dev/null || true
+            ${hideWindow}
             rm -f "${flag}"
             ${postClose}
           '';
@@ -186,21 +193,30 @@
       # The pos/scroll deflistens gate on the media panel's flag — it is cleared
       # only after the window is hidden, so the scroll daemon's reset frame lands
       # in an already-hidden label instead of visibly snapping to the title start.
-      mprisPopup = mkHoverPopup {
+      mprisPopup = mkHoverReveal {
         name = "mpris";
         window = "mpris-popup";
         var = "mpris_open";
       };
-      calPopup = mkHoverPopup {
+      calPopup = mkHoverReveal {
         name = "cal";
         window = "calendar-popup";
         var = "cal_open";
         seed = "${calendar}/bin/calendar-eww push 0";
       };
-      settingsPopup = mkHoverPopup {
+      settingsPopup = mkHoverReveal {
         name = "settings";
         window = "settings-popup";
         var = "settings_open";
+      };
+      # The tray sits behind a handle: its icons arrive in whatever order their
+      # apps registered on D-Bus, which differs every session, and eww's systray
+      # has no way to sort them. Opening is near-immediate because the handle is a
+      # deliberate target, unlike the popups' hover-through triggers.
+      trayDrawer = mkHoverReveal {
+        name = "tray";
+        var = "tray_open";
+        openDelay = "0.1";
       };
 
       # Transport clicks (play-pause / next / previous) are a single D-Bus method
@@ -249,6 +265,9 @@
         settingsPopup.open
         settingsPopup.keep
         settingsPopup.close
+        trayDrawer.open
+        trayDrawer.keep
+        trayDrawer.close
         claudeRefresh
         idleInhibit
         settings
@@ -276,6 +295,9 @@
         settingsOpen = "${settingsPopup.open}/bin/eww-settings-open";
         settingsKeep = "${settingsPopup.keep}/bin/eww-settings-keep";
         settingsClose = "${settingsPopup.close}/bin/eww-settings-close";
+        trayOpen = "${trayDrawer.open}/bin/eww-tray-open";
+        trayKeep = "${trayDrawer.keep}/bin/eww-tray-keep";
+        trayClose = "${trayDrawer.close}/bin/eww-tray-close";
         claudeRefresh = "${claudeRefresh}/bin/eww-claude-refresh";
         eww = "${pkgs.eww}/bin/eww";
         # Glyphs via JSON \u escapes so the source stays ASCII (literal glyphs
@@ -287,6 +309,9 @@
         pauseGlyph  = builtins.fromJSON ''"\uf04c"'';   # nf-fa-pause
         prevGlyph   = builtins.fromJSON ''"\uf048"'';   # nf-fa-step_backward
         nextGlyph   = builtins.fromJSON ''"\uf051"'';   # nf-fa-step_forward
+        # Tray handle: points the way the drawer moves.
+        trayOpenGlyph  = builtins.fromJSON ''"\uf053"'';  # nf-fa-chevron_left
+        trayCloseGlyph = builtins.fromJSON ''"\uf054"'';  # nf-fa-chevron_right
         # Settings-panel row/segment icons (same md-* set settings.sh emits).
         idleGlyph    = builtins.fromJSON ''"\uf06e"'';       # nf-fa-eye
         dndGlyph     = builtins.fromJSON ''"\uf1f6"'';       # nf-fa-bell_slash

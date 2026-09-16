@@ -111,18 +111,20 @@ scaled image centres exactly on `halign`/`valign`.
 cd niri-state && cargo test        # geometry and model invariants
 ```
 
-## Popups
+## Hover reveals
 
-The media panel, calendar, and settings popups all open on hovering their bar
-widget and close when the pointer leaves both the widget and the popup.
-`mkHoverPopup` in `default.nix` generates three helpers per popup:
+The media panel, calendar, and settings popups open on hovering their bar widget
+and close when the pointer leaves both the widget and the popup. The tray works
+the same way, except its content is a `revealer` in the bar rather than a window.
+`mkHoverReveal` in `default.nix` generates three helpers for each:
 
-- **open** — touch a keepalive flag, seed content if needed, show the window.
+- **open** — touch a keepalive flag, seed content if needed, set the var, and show
+  the window when there is one.
 - **keep** — touch the flag only. GTK fires hover/hover-lost as the pointer
-  crosses the popup's *child* widgets, so calling `eww` here would re-open the
-  window on every crossing and make it flicker.
+  crosses *child* widgets, so calling `eww` here would re-open on every crossing
+  and make it flicker.
 - **close** — touch a closing marker, wait ~0.3s, then bail if the flag's mtime is
-  newer (meaning a re-hover). Otherwise hide the window, then clear the flag.
+  newer (meaning a re-hover). Otherwise hide, then clear the flag.
 
 eww has no dismiss-on-focus-loss, hence the flag-and-hover approach.
 

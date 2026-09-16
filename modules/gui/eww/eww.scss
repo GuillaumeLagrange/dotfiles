@@ -154,10 +154,18 @@ window {
 
 .clock { background-color: $aqua; }
 
-// ── Tray (native systray widget) ────────────────────────────────────────────
+// ── Tray (native systray widget, behind a hover drawer) ─────────────────────
 .tray {
   background-color: transparent;
   padding: 0 4px;
+
+  .tray-handle {
+    color: #ffffff;
+    font-size: 10px;
+    padding: 0 3px;
+    opacity: 0.55;
+  }
+  &.open .tray-handle { opacity: 1; }
 }
 
 // SNI menus are GTK popups outside the widget tree, so they only inherit the

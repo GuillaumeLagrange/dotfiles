@@ -62,6 +62,7 @@ in
   ;; Popup visibility — set by hover (last-write-wins, no races).
   (defvar cal_open false)
   (defvar settings_open false)
+  (defvar tray_open false)
 
   ;; Custom calendar: a two-month sliding window (left = cal_offset months from
   ;; now, right = +1). Seeded/navigated by `calendar-eww push <base>`, which
@@ -193,10 +194,20 @@ in
           :onclick "${bins.mprisCtl} ''${mpris.active.bus} PlayPause"
           {(mpris.active.status ?: "Paused") == "Playing" ? "${bins.pauseGlyph}" : "${bins.playGlyph}"}))))
 
-  ;; Native SNI tray (eww's `systray` widget).
+  ;; Native SNI tray (eww's `systray` widget), behind a handle. Its icons arrive
+  ;; in whatever order their apps registered on D-Bus and eww cannot sort them, so
+  ;; the bar shows a stable handle and the icons only while pointed at. The
+  ;; systray host is started when the widget is built, not when it is revealed, so
+  ;; items still register while the drawer is shut.
   (defwidget tray-w []
-    (box :class "tray"
-      (systray :orientation "h" :spacing 8 :icon-size 14 :prepend-new false)))
+    (eventbox :onhover     "${bins.setsid} -f ${bins.trayOpen}"
+              :onhoverlost "${bins.setsid} -f ${bins.trayClose}"
+      (box :class "tray ''${tray_open ? "open" : "shut"}" :space-evenly false :spacing 0
+        (revealer :transition "slideright" :duration "150ms" :reveal tray_open
+          (systray :orientation "h" :spacing 8 :icon-size 14
+                   :prepend-new false :space-evenly false))
+        (label :class "tray-handle"
+          :text {tray_open ? "${bins.trayCloseGlyph}" : "${bins.trayOpenGlyph}"}))))
 
   ;; Refresh calls `eww update` (and hits the network), so run detached via the
   ;; claude-refresh helper to avoid blocking the daemon / eww's onclick timeout.
