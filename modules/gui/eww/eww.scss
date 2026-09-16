@@ -79,15 +79,60 @@ window {
   }
 }
 
-// ── Left: window title + niri-windows dots ──────────────────────────────────
+// ── Left: window title + niri-windows strip ─────────────────────────────────
 .window {
   background-color: $aqua;
   &, label { font-family: Inter, sans-serif; }
 }
 
+// The pill is a dark track rather than a coloured badge: the column blocks carry
+// the colour, and a bright fill behind them would fight the on/off-screen
+// contrast the strip is built around.
 .niri-windows {
-  background-color: $blue;
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 0 5px;
   &.empty { background-color: transparent; padding: 0; margin: 0; }
+
+  // The rails sit above and below the band in the same flow, 2px clear of it, so
+  // the pill ends up as tall as the window-title pill beside it. This height is
+  // the emitter's ICON_MAX_PX.
+  .band { min-height: 18px; }
+
+  // GtkEventBox owns a GdkWindow and paints the GTK theme's background behind the
+  // blocks, so translucent tiles would composite over that instead of the pill.
+  .col-hit { background-color: transparent; }
+
+  // A column is one rounded block wherever the screen edge falls in it; the part
+  // that is off screen is shaded by a gradient the widget paints over this
+  // colour. That is what separates "one screen-wide window, half scrolled off"
+  // from "two half-width windows side by side": only the gap between columns
+  // breaks the strip.
+  .tile { min-height: 3px; border-radius: 2px; background-color: rgba(255, 255, 255, 0.22); }
+  .col.focused .tile.on  { background-color: $orange; }
+  .col.focused .tile.off { background-color: rgba(231, 138, 78, 0.4); }
+  .col.normal  .tile.on  { background-color: $blue; }
+  .col.normal  .tile.off { background-color: rgba(125, 174, 163, 0.4); }
+  // Urgent keeps full saturation: a window demanding attention from outside the
+  // view is exactly the one worth noticing, so the scrim is all that dims it.
+  .col.urgent .tile { background-color: $red; }
+
+  // Nudged past the frame's overshoot so the marker lands on the band's top edge,
+  // where the window actually floats, rather than on the rail.
+  .float { min-height: 3px; margin-top: 3px; border-radius: 2px; background-color: $purple; }
+
+  // Rails, not a box around the view: a vertical border would land inside a
+  // column that straddles the screen edge and cut the block in two, which is the
+  // one thing the strip must never suggest. They sit in the 3px the strip is
+  // taller than the band, clear of the blocks, and their ends mark the screen
+  // edge.
+  .rail { min-height: 1px; background-color: rgba(255, 255, 255, 0.85); }
+
+  // Cropped strips fade into the bar rather than ending on a cut block; the
+  // gradient must end in the bar's own colour, which is translucent.
+  .fade-l.shown { background-image: linear-gradient(to right, $bar-bg, rgba(43, 48, 59, 0)); }
+  .fade-r.shown { background-image: linear-gradient(to left,  $bar-bg, rgba(43, 48, 59, 0)); }
+  // A hidden fade would otherwise paint the GTK theme's own background.
+  .fade-l.hidden, .fade-r.hidden { background-color: transparent; background-image: none; }
 }
 
 // ── Right badges ────────────────────────────────────────────────────────────

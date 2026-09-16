@@ -62,7 +62,17 @@
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
       '';
 
-      niriState = mkScript "niri-state" ./scripts/niri-state.sh;
+      # The only compiled bar component, and the only one that never forks: it
+      # speaks to $NIRI_SOCKET directly and keeps the layout model in memory, so
+      # a burst of niri events costs a socket read and some arithmetic instead of
+      # three `niri msg` processes. It has no dependencies, so the lock file is
+      # trivial and nothing is vendored; `cargo test` runs in the check phase.
+      niriState = pkgs.rustPlatform.buildRustPackage {
+        pname = "niri-state";
+        version = "0.1.0";
+        src = ./niri-state;
+        cargoLock.lockFile = ./niri-state/Cargo.lock;
+      };
 
       # Player glyphs injected from Nix (fromJSON \u escapes) rather than printed
       # by the script: `printf '\uXXXX'` is not portable across the daemon's

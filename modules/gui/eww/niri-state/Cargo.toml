@@ -1,0 +1,15 @@
+[package]
+name = "niri-state"
+version = "0.1.0"
+edition = "2021"
+
+# No dependencies on purpose: the only external surface is niri's JSON over a
+# unix socket, and vendoring a crate tree into the flake costs more than the
+# reader in src/json.rs.
+[dependencies]
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true

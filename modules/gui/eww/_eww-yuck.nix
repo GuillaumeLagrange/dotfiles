@@ -2,6 +2,12 @@
 # deflisten does not reliably resolve bare command names against PATH, so all
 # data sources and click handlers reference `${bins.*}` absolute paths.
 { bins }:
+let
+  # The strip's only colour outside eww.scss: the shade over the part of a column
+  # that is scrolled off screen. It has to live here because it is a gradient stop
+  # at a per-column pixel offset, which CSS classes cannot express.
+  scrim = "rgba(0, 0, 0, 0.55)";
+in
 # yuck
 ''
   ;; eww bar, generated from _eww-yuck.nix.
@@ -81,11 +87,81 @@
                          ws.is_empty   ? "empty"   : "inactive"}"
             (label :text {ws.name}))))))
 
+  ;; Scale model of the active workspace's scrolling layout: one block per
+  ;; column, widths proportional to the real column widths, a frame marking the
+  ;; screenful that is on screen, and a scrim over what is scrolled off it.
+  ;; All geometry arrives in final pixels from niri-state.py (see its docstring
+  ;; for why the frame position is reconstructed rather than read from niri).
   (defwidget niri-windows [monitor]
-    (eventbox :onclick "${bins.niri} msg action toggle-overview"
-      (box :class "niri-windows ''${(nstate.by_output?.[monitor]?.windows?.count ?: 0) > 0 ? "has-windows" : "empty"}"
-        :visible {(nstate.by_output?.[monitor]?.windows?.count ?: 0) > 0}
-        (label :text {nstate.by_output?.[monitor]?.windows?.dots ?: ""}))))
+    (box :class "niri-windows ''${(nstate.by_output?.[monitor]?.strip?.count ?: 0) > 0 ? "has-windows" : "empty"}"
+      :visible {(nstate.by_output?.[monitor]?.strip?.count ?: 0) > 0}
+      (strip :s {nstate.by_output?.[monitor]?.strip ?: '{"w":0,"frame":{"x":0,"w":0},"crop":{"left":false,"right":false},"columns":[],"floating":[]}'})))
+
+  ;; One screenful of workspace, marked by a rail above and below the band. Both
+  ;; rails are rows in the same vertical flow as the band, so their origin is the
+  ;; band's origin by construction. Positioning them as overlay children instead
+  ;; drifted a pixel: GTK subtracts margins from a widget's width request, and an
+  ;; overlay child is measured against the overlay rather than against the band.
+  (defwidget strip [s]
+    (box :class "strip" :orientation "v" :space-evenly false :spacing 2 :valign "center"
+      (rail :s s)
+      (overlay
+        (box :class "band" :space-evenly false :spacing 0 :halign "start"
+          (for c in {s.columns}
+            (box :space-evenly false :spacing 0
+              (spacer :w {c.pad})
+              (eventbox :class "col-hit" :tooltip {c.tooltip} :cursor "pointer"
+                :onclick      "${bins.niri} msg action focus-column ''${c.idx}"
+                :onrightclick "${bins.niri} msg action toggle-overview"
+                ;; One box per column, never a box per run: GTK leaks a pixel of
+                ;; its own theme background between adjacent boxes, which inside a
+                ;; column reads as a cut — the one thing the strip must not say.
+                ;; The part that is off screen is shaded by a gradient over the
+                ;; same box instead, so a scrolled-off window stays a single
+                ;; rounded block and only the gap between columns breaks the strip.
+                (overlay
+                  (box :class "col ''${c.state}" :width {c.w}
+                       :orientation "v" :space-evenly true :spacing 1
+                    ;; The scrim rides on the tile itself: background-image paints
+                    ;; over background-color, so the state colour stays in eww.scss
+                    ;; and only the per-column offsets come from here.
+                    (for t in {c.tiles}
+                      (box :class "tile ''${t.active ? "on" : "off"}"
+                        :style "background-image: linear-gradient(to right, ${scrim} ''${c.dim.left}px, transparent ''${c.dim.left}px, transparent ''${c.w - c.dim.right}px, ${scrim} ''${c.w - c.dim.right}px);")))
+                  ;; The app's own icon, resolved to a file by the emitter. An
+                  ;; overlay child so it never enters the block's size, and a
+                  ;; scaled image rather than a font glyph so `halign`/`valign`
+                  ;; centre it exactly — glyph ink sits off-centre in its advance
+                  ;; box by an amount that differs per glyph.
+                  (image :class "col-icon" :path {c.icon} :visible {c.icon != ""}
+                    :image-width {c.icon_px} :image-height {c.icon_px}
+                    :halign "center" :valign "center"))))))
+        ;; Floating windows are drawn where niri actually puts them: they are the
+        ;; only tiles whose position in the view the IPC reports.
+        (box :halign "start" :valign "start" :space-evenly false :spacing 0
+          (for f in {s.floating}
+            (box :space-evenly false :spacing 0
+              (spacer :w {f.pad})
+              (box :class "float" :width {f.w}))))
+        (box :class "fade-l ''${s.crop.left ? "shown" : "hidden"}" :halign "start" :width 8)
+        (box :class "fade-r ''${s.crop.right ? "shown" : "hidden"}" :halign "end" :width 8))
+      (rail :s s)))
+
+  ;; Filled bars, not a box with top and bottom borders: a bordered box also
+  ;; paints its border joins, which landed as a grey pixel inside the column under
+  ;; each end of the rails. The trailing spacer keeps any slack off the rail.
+  (defwidget rail [s]
+    (box :space-evenly false :spacing 0 :halign "start"
+      (spacer :w {s.frame.x})
+      (box :class "rail" :width {s.frame.w})
+      (spacer :w {s.w - s.frame.x - s.frame.w})))
+
+  ;; Every horizontal offset in the strip goes through this. A box with a width
+  ;; request of 0 is still allocated a pixel, so a zero-width gap silently shifts
+  ;; everything after it — which is how the rails ended up one pixel off the
+  ;; blocks they mark. Hidden widgets are allocated nothing.
+  (defwidget spacer [w]
+    (box :width w :visible {w > 0}))
 
   (defwidget window-title [monitor]
     (box :class "window ''${(nstate.by_output?.[monitor]?.title ?: "") != "" ? "filled" : "empty"}"

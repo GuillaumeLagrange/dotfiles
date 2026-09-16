@@ -11,9 +11,17 @@ default.nix     Script wrappers (each with its own runtime PATH), the `bins` set
 _eww-yuck.nix   The yuck config as a Nix function `{ bins }: "…"`. Underscore-prefixed
                 so import-tree does not treat it as a flake module.
 eww.scss        Styling (gruvbox material).
+niri-state/     One niri IPC tap -> workspaces + per-output title/strip. A cargo crate
+                with no dependencies, built by `buildRustPackage`; `cargo test` runs in
+                the check phase, so a broken invariant fails the rebuild.
+                src/json.rs   minimal JSON reader/writer for niri's shapes
+                src/model.rs  workspace/window model, updated from event deltas
+                src/strip.rs  the strip geometry and its tests
+                src/icons.rs  app_id -> icon file, via .desktop entries
+                src/emit.rs   one snapshot line for the deflisten
+                src/main.rs   socket, coalescing, dedupe
 scripts/
   bar-launch.sh   Starts the daemon, opens one bar per connected niri output.
-  niri-state.sh   One niri event-stream tap -> workspaces + per-output title/dots.
   metrics.py      CPU / memory+swap / disk / battery in one long-lived deflisten.
   mpris.py        Media state, position, and title scrolling over Gio D-Bus.
   calendar.py     Two-month grid data + `push` mode for the popup.
@@ -51,7 +59,7 @@ for the tray).
 
 **One `bar` window per output.** eww vars are global, so per-monitor behavior is
 threaded through a `monitor` argument: each bar filters workspaces to
-`ws.output == monitor` and reads `by_output[monitor]` for its title and dots.
+`ws.output == monitor` and reads `by_output[monitor]` for its title and strip.
 
 **Event-driven sources push; sampled metrics poll.** `deflisten` for things with a
 real event stream (niri, MPRIS D-Bus, `pactl subscribe`), `defpoll` for sampled
@@ -62,6 +70,46 @@ like waybar's SIGRTMIN; `eww update name=value` is the only push primitive.
 The calendar is drawn from scratch rather than using GtkCalendar, whose built-in
 `.today` decoration cannot be overridden under eww's CSS (see the `!important`
 gotcha below).
+
+**The niri tap is compiled and never forks.** It connects to `$NIRI_SOCKET` (which
+niri puts in the systemd user environment) for both the one-shot `Outputs` query
+and the event stream, keeps the workspace/window model in memory, updates it from
+event deltas, and prints a snapshot only when it differs from the last one. The
+shell version it replaced re-ran `niri msg` three times per event and cost 2.9% of
+a core over a day; this one is unmeasurable at idle (0 CPU ticks over 30s, 2.4MB
+RSS). Anything added to the left side should follow the same shape — the expensive
+parts of a bar are process spawns and eww relayouts, not the work itself.
+
+The strip is a scale model of the scrolling layout: block widths are proportional
+to real column widths, and the frame is a fixed 32px standing for one screenful, so
+the strip grows behind it up to an 80px cap and is then cropped around the frame.
+niri does not expose the scroll position (`tile_pos_in_workspace_view` is set for
+floating tiles only), so the view is reconstructed from the rule niri guarantees:
+the focused column is fully on screen.
+
+A column is drawn as exactly one box, and the emitter says how many pixels of it
+fall outside the view (`dim.left` / `dim.right`) so the widget can shade that part
+with a gradient. Splitting it into two boxes instead is wrong twice over: it reads
+as two windows, and GTK paints a pixel of its own theme background between
+adjacent boxes, which inside a column looks like a cut. The only break in the
+strip is the `SEP_PX` gap between columns — that is what keeps "one wide window,
+half scrolled off" distinct from "two half-width windows". For the same reason the
+view rails are two filled bars, not one box with top and bottom borders: a
+bordered box still paints its border joins, which showed up as a grey pixel inside
+the column under each end of the rails.
+
+Blocks carry the application's icon, scaled to the block (`ICON_MAX_PX` down to
+`ICON_MIN_PX`, below which it is dropped) because the widget draws it as an
+overlay and GTK does not clip those. `src/icons.rs` resolves the file: `.desktop`
+entries map an `app_id` to an icon name — `Spotify` ships `spotify-client`, so the
+name is rarely the `app_id` — and the XDG icon directories are then probed for it.
+It is drawn with `image` rather than a font glyph because a glyph's ink sits
+off-centre inside its advance box by an amount that differs per glyph, while a
+scaled image centres exactly on `halign`/`valign`.
+
+```bash
+cd niri-state && cargo test        # geometry and model invariants
+```
 
 ## Popups
 
@@ -92,6 +140,17 @@ flag so they cost nothing while the panel is closed.
   a daemon".
 - **Use absolute paths in the yuck** (`${bins.*}`), because `deflisten` does not
   reliably resolve bare command names.
+- **A box with `:width 0` is still allocated a pixel**, so a zero-width gap shifts
+  everything after it. Every offset in the strip goes through the `spacer` widget,
+  which hides itself at zero; this is what made the view rails sit one pixel off
+  the blocks they mark.
+- **`:width` is a size *request*, and GTK subtracts margins from it.** A sized box
+  can end up narrower than asked (margins) or wider (an overlay child stretching to
+  the overlay). Lay pixel-exact things out as siblings in one box, never as an
+  overlay child positioned by margins.
+- **GTK paints its own theme background at widget edges.** A bordered box also
+  paints border joins, and a `GtkEventBox` paints the theme's background behind its
+  child — both surfaced as stray grey pixels inside the blocks.
 - **Never call `eww` synchronously from an onclick.** It deadlocks against the
   single-threaded daemon that is still running the handler, and eww kills handlers
   after ~1s. Detach with `setsid -f`.
