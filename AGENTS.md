@@ -118,6 +118,8 @@ Desktop environment configuration:
 
 - Niri (primary) / Sway window manager setup
 - eww status bar (`modules/gui/eww/`) — see `modules/gui/eww/AGENTS.md`.
+- quickshell bar (`modules/gui/quickshell/`), a port of the eww bar kept beside
+  it for comparison — see `modules/gui/quickshell/AGENTS.md`.
 - Firefox browser config
 - Wallpapers collection
 - Screen locking configuration

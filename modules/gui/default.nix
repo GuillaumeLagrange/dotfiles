@@ -30,6 +30,7 @@
         lock
         firefox
         eww
+        quickshell
         vicinae
         niri
         sway
