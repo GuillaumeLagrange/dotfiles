@@ -64,6 +64,22 @@ actually launches it:
    that module's runtime `PATH` (e.g. eww's `runtimePath` in `modules/gui/eww/default.nix`).
    If you add a `sed`/`jq`/`awk`/etc. call, add the package in the same change.
 
+5. **A nested compositor hijacks the session's systemd environment.** Running a headless
+   `sway`/`wayland` instance to render a widget is fine, but sway imports its own
+   `WAYLAND_DISPLAY` into the systemd user manager on start. Once it exits, every user
+   service that restarts — `eww` among them — dies with `Failed to initialize GTK`,
+   because the display it is told to use no longer exists. Put the session's values back
+   afterwards:
+
+   ```bash
+   systemctl --user set-environment WAYLAND_DISPLAY=wayland-1 DISPLAY=:0
+   dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY
+   systemctl --user restart eww
+   ```
+
+   Recover the right values from a process the real compositor spawned
+   (`tr '\0' '\n' < /proc/$(pgrep -f kitty | head -1)/environ`), not from your shell.
+
 ## Repository Structure
 
 ### Core Files
