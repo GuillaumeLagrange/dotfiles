@@ -65,14 +65,8 @@
       # The only compiled bar component, and the only one that never forks: it
       # speaks to $NIRI_SOCKET directly and keeps the layout model in memory, so
       # a burst of niri events costs a socket read and some arithmetic instead of
-      # three `niri msg` processes. It has no dependencies, so the lock file is
-      # trivial and nothing is vendored; `cargo test` runs in the check phase.
-      niriState = pkgs.rustPlatform.buildRustPackage {
-        pname = "niri-state";
-        version = "0.1.0";
-        src = ./niri-state;
-        cargoLock.lockFile = ./niri-state/Cargo.lock;
-      };
+      # three `niri msg` processes. See ../niri-state/AGENTS.md.
+      niriState = pkgs.callPackage ../niri-state/_package.nix { };
 
       # Player glyphs injected from Nix (fromJSON \u escapes) rather than printed
       # by the script: `printf '\uXXXX'` is not portable across the daemon's
@@ -339,6 +333,10 @@
         Install.WantedBy = [ "eww.service" ];
       };
 
+      # Not wanted by graphical-session.target: quickshell owns the session, and
+      # two bars would both claim an exclusive zone. Start this one with
+      # `systemctl --user stop quickshell && systemctl --user start eww`; its
+      # idle-reset and settings-watch units follow it.
       systemd.user.services.eww = {
         Unit = {
           Description = "eww bar";
@@ -350,7 +348,6 @@
           ExecStart = "${barLaunch}/bin/eww-bar-launch";
           Restart = "on-failure";
         };
-        Install.WantedBy = [ "graphical-session.target" ];
       };
 
       # Seeds the settings vars at startup and pushes on external power-profile

@@ -78,12 +78,63 @@ pub struct Strip {
     pub floating: Vec<Float>,
 }
 
-/// Where niri's view starts, given that the focused column is fully on screen.
-pub fn view_start(focused_x: f64, focused_w: f64, view_w: f64, total: f64) -> f64 {
-    if focused_w < view_w && focused_x + view_w > total {
-        return (total - view_w).max(0.0);
+/// Reconstructed scroll position of a workspace's view, carried between
+/// snapshots because niri never reports it.
+#[derive(Debug, Clone, Default)]
+pub struct View {
+    /// Window identifying the column `offset` is measured from. Anchoring to a
+    /// column, the form niri keeps internally, holds the view still when
+    /// columns elsewhere open, close, or resize.
+    anchor: Option<u64>,
+    /// Distance from the anchor column's left edge to the view's.
+    offset: f64,
+    /// Fallback for when the anchor's column is gone, e.g. it was just closed.
+    start: f64,
+}
+
+impl View {
+    /// Moves the view onto the focused column, returning where it now starts.
+    fn follow(
+        &mut self,
+        columns: &[Column],
+        positions: &[f64],
+        focused: usize,
+        view_w: f64,
+        total: f64,
+    ) -> f64 {
+        let prev = self
+            .anchor
+            .and_then(|id| columns.iter().position(|c| c.tiles.contains(&id)))
+            .map_or(self.start, |i| positions[i] + self.offset);
+        let (x, w) = (positions[focused], columns[focused].width);
+        let start = view_start(prev, x, w, view_w, total);
+        *self = View {
+            anchor: columns[focused].tiles.first().copied(),
+            offset: start - x,
+            start,
+        };
+        start
     }
-    focused_x
+}
+
+/// Where niri's view starts, moved the way niri moves it: a focused column
+/// already on screen leaves the view alone, one off screen scrolls it by the
+/// least that brings the column fully in. The view never runs past either end
+/// of the workspace.
+pub fn view_start(prev: f64, focused_x: f64, focused_w: f64, view_w: f64, total: f64) -> f64 {
+    let fit = |start: f64| start.clamp(0.0, (total - view_w).max(0.0));
+    // Nothing to fit: niri aligns its left edge and lets the rest hang off.
+    if focused_w >= view_w {
+        return fit(focused_x);
+    }
+    let prev = fit(prev);
+    if prev <= focused_x && focused_x + focused_w <= prev + view_w {
+        prev
+    } else if focused_x < prev {
+        fit(focused_x)
+    } else {
+        fit(focused_x + focused_w - view_w)
+    }
 }
 
 /// How many pixels of a block lie left of the view, and how many lie right of it.
@@ -98,6 +149,7 @@ pub fn build_strip(
     floats: &[(f64, f64)],
     view_w: f64,
     active: Option<u64>,
+    view: &mut View,
 ) -> Strip {
     let count = columns.iter().map(|c| c.tiles.len()).sum::<usize>() + floats.len();
     let view_w = if view_w > 0.0 {
@@ -118,9 +170,7 @@ pub fn build_strip(
         .iter()
         .position(|c| active.is_some_and(|id| c.tiles.contains(&id)))
         .or(if columns.is_empty() { None } else { Some(0) });
-    let start = focused.map_or(0.0, |i| {
-        view_start(positions[i], columns[i].width, view_w, total)
-    });
+    let start = focused.map_or(0.0, |i| view.follow(columns, &positions, i, view_w, total));
 
     let scale = SCREEN_PX as f64 / view_w;
     // Strictly proportional. niri's gaps are ~0.05px at this scale; drawing them
@@ -326,7 +376,12 @@ mod tests {
     }
 
     fn build(columns: &[Column], active: u64) -> Strip {
-        build_strip(columns, &[], VIEW, Some(active))
+        build_strip(columns, &[], VIEW, Some(active), &mut View::default())
+    }
+
+    /// Successive focus changes on one workspace, sharing its view.
+    fn refocus(view: &mut View, columns: &[Column], active: u64) -> Strip {
+        build_strip(columns, &[], VIEW, Some(active), view)
     }
 
     fn states(strip: &Strip) -> Vec<&'static str> {
@@ -397,6 +452,60 @@ mod tests {
     }
 
     #[test]
+    fn focusing_rightwards_scrolls_the_least_it_can() {
+        // Focusing the middle column brings its right edge into the view, so the
+        // screen-wide column behind it is left half on screen rather than
+        // scrolled off.
+        let columns = [
+            column(1, FULL, &[1]),
+            column(2, HALF, &[2]),
+            column(3, HALF, &[3]),
+        ];
+        let view = &mut View::default();
+        assert_eq!(refocus(view, &columns, 1).frame_x, 0);
+
+        let strip = refocus(view, &columns, 2);
+        let focused = &strip.columns[1];
+        assert!(focused.x > strip.frame_x, "not flush with the view's left");
+        assert!(focused.x + focused.w <= strip.frame_x + SCREEN_PX);
+        let behind = &strip.columns[0];
+        assert!(
+            behind.dim_left > 0 && behind.dim_left < behind.w,
+            "the wide column stays half visible"
+        );
+    }
+
+    #[test]
+    fn a_column_already_on_screen_does_not_move_the_view() {
+        let columns = row(3);
+        let view = &mut View::default();
+        let before = refocus(view, &columns, 1);
+        // Two halves fit one screenful, so niri has nothing to scroll.
+        assert_eq!(refocus(view, &columns, 2).frame_x, before.frame_x);
+    }
+
+    #[test]
+    fn the_view_rides_the_focused_column_when_the_layout_shifts_under_it() {
+        // niri holds the view relative to the focused column, so a column
+        // widening to its left pushes the view along with it instead of leaving
+        // the focused column to be refitted against the view's edge.
+        let narrow: Vec<Column> = (1..=7).map(|i| column(i, 400.0, &[i as u64])).collect();
+        let view = &mut View::default();
+        let before = refocus(view, &narrow, 3);
+        let mut widened = narrow.clone();
+        widened[0].width = 1200.0;
+        let after = refocus(view, &widened, 3);
+
+        let place = |strip: &Strip| strip.columns[2].x - strip.frame_x;
+        assert!(
+            (place(&after) - place(&before)).abs() <= 1,
+            "focused column moved in the view: {} -> {}",
+            place(&before),
+            place(&after)
+        );
+    }
+
+    #[test]
     fn widths_are_proportional_with_a_floor() {
         // A screen-wide column spans the frame, a half-width one spans half of it,
         // and a sliver is floored so it cannot vanish.
@@ -464,7 +573,7 @@ mod tests {
 
     #[test]
     fn a_column_wider_than_the_screen_is_dimmed_on_both_sides() {
-        let strip = build_strip(&[column(1, 5760.0, &[1])], &[], VIEW, Some(1));
+        let strip = build(&[column(1, 5760.0, &[1])], 1);
         let block = &strip.columns[0];
         assert!(block.dim_left == 0 && block.dim_right > 0);
         assert_eq!(block.w - block.dim_left - block.dim_right, SCREEN_PX);
@@ -519,7 +628,13 @@ mod tests {
 
     #[test]
     fn floating_windows_are_placed_relative_to_the_frame() {
-        let strip = build_strip(&[column(1, FULL, &[1])], &[(960.0, 480.0)], VIEW, Some(1));
+        let strip = build_strip(
+            &[column(1, FULL, &[1])],
+            &[(960.0, 480.0)],
+            VIEW,
+            Some(1),
+            &mut View::default(),
+        );
         let float = &strip.floating[0];
         assert_eq!(float.x, strip.frame_x + SCREEN_PX / 2);
         assert_eq!(float.w, SCREEN_PX / 4);
@@ -527,7 +642,7 @@ mod tests {
 
     #[test]
     fn empty_workspace_yields_an_empty_strip() {
-        let strip = build_strip(&[], &[], VIEW, None);
+        let strip = build_strip(&[], &[], VIEW, None, &mut View::default());
         assert_eq!((strip.count, strip.w), (0, SCREEN_PX));
         assert!(strip.columns.is_empty());
     }

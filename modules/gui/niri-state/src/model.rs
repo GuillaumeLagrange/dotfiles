@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::icons::Icons;
 use crate::json::Json;
+use crate::strip::View;
 
 #[derive(Debug, Clone, Default)]
 pub struct Window {
@@ -77,6 +78,8 @@ pub struct State {
     pub workspaces: BTreeMap<u64, Workspace>,
     pub windows: BTreeMap<u64, Window>,
     pub icons: Icons,
+    /// Reconstructed scroll position per workspace, since niri reports none.
+    pub views: BTreeMap<u64, View>,
 }
 
 impl State {

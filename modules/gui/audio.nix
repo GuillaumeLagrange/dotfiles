@@ -3,7 +3,11 @@
     { pkgs, lib, ... }:
     let
       wpctl = "${pkgs.wireplumber}/bin/wpctl";
-      volumeNotification = "${pkgs.pulseaudio}/bin/paplay ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
+      # Tagged as an event sound (pulse maps it to media.role=Notification) so
+      # it is not mistaken for an application playing: an untagged stream is
+      # indistinguishable from a music player, and the bar's audio panel
+      # flashed a row of its own for the length of the blip.
+      volumeNotification = "${pkgs.pulseaudio}/bin/paplay --property=media.role=event ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
 
       # Bluetooth devices with priority (higher wins).
       bluetoothDevices = [
