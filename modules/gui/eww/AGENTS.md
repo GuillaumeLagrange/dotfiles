@@ -34,9 +34,17 @@ scripts/
 
 ## Services
 
-Three user services under `graphical-session.target`: `eww` (the bar),
-`eww-idle-reset` (clears idle-inhibit state on start), and `eww-settings-watch`
-(seeds the settings vars, then pushes on external power-profile changes).
+The session bar is now `quickshell` (`modules/gui/quickshell/`); eww is still
+installed but nothing wants it, since two bars would both claim an exclusive
+zone. Start it in place of quickshell:
+
+```bash
+systemctl --user stop quickshell && systemctl --user start eww
+```
+
+`eww.service` pulls in two units of its own: `eww-idle-reset` (clears
+idle-inhibit state on start) and `eww-settings-watch` (seeds the settings vars,
+then pushes on external power-profile changes).
 
 Iterate:
 
@@ -55,7 +63,9 @@ eww's `deflisten` does not reliably resolve bare command names on PATH, so
 **eww ships few prebuilt modules.** CPU, disk, battery, volume, clock, and power
 profiles are all scripts feeding eww vars that primitives render. eww does provide
 `calendar`, `graph`, `circular-progress`, and `systray` (a native SNI host, used
-for the tray).
+for the tray). Networking is not in this bar: nm-applet is gone, since the
+quickshell bar talks to NetworkManager directly, so the eww fallback has no
+network control beyond `nmtui`.
 
 **One `bar` window per output.** eww vars are global, so per-monitor behavior is
 threaded through a `monitor` argument: each bar filters workspaces to
@@ -83,9 +93,16 @@ parts of a bar are process spawns and eww relayouts, not the work itself.
 The strip is a scale model of the scrolling layout: block widths are proportional
 to real column widths, and the frame is a fixed 32px standing for one screenful, so
 the strip grows behind it up to an 80px cap and is then cropped around the frame.
+
 niri does not expose the scroll position (`tile_pos_in_workspace_view` is set for
-floating tiles only), so the view is reconstructed from the rule niri guarantees:
-the focused column is fully on screen.
+floating tiles only), so `strip.rs` tracks the view itself, in the form niri uses
+internally: an offset from the focused column, anchored to one of its windows so
+that columns opening, closing, or resizing elsewhere do not drag the view. Each
+snapshot moves it the way niri moves it — a focused column already on screen
+leaves it alone, one off screen scrolls by the least that brings the column fully
+in — which is why focusing rightwards leaves the column behind half visible
+rather than scrolling it off. A free scroll (touchpad swipe) can leave the frame a
+few pixels off until the next focus change re-anchors it.
 
 A column is drawn as exactly one box, and the emitter says how many pixels of it
 fall outside the view (`dim.left` / `dim.right`) so the widget can shade that part

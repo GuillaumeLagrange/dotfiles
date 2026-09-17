@@ -15,10 +15,11 @@
 //! cost is one process blocked on a socket read.
 //!
 //! niri does not report the scroll position: `tile_pos_in_workspace_view` is set
-//! for floating tiles only, and is None for every tiled one, so the view is
-//! reconstructed from the rule niri guarantees — the focused column is fully on
-//! screen. A free scroll (touchpad swipe) can leave the frame a few pixels off
-//! until the next focus change re-anchors it.
+//! for floating tiles only, and is None for every tiled one. The view is
+//! therefore tracked here, anchored to the focused column and moved the way niri
+//! moves it — the least that brings the focused column fully on screen. A free
+//! scroll (touchpad swipe) can leave the frame a few pixels off until the next
+//! focus change re-anchors it.
 
 mod emit;
 mod icons;
@@ -93,7 +94,7 @@ fn main() -> std::io::Result<()> {
             continue;
         }
         dirty = false;
-        let next = snapshot(&state);
+        let next = snapshot(&mut state);
         if next != last {
             let mut handle = stdout.lock();
             handle.write_all(next.as_bytes())?;

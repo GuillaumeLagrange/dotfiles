@@ -339,6 +339,10 @@
         Install.WantedBy = [ "eww.service" ];
       };
 
+      # Not wanted by graphical-session.target: quickshell owns the session, and
+      # two bars would both claim an exclusive zone. Start this one with
+      # `systemctl --user stop quickshell && systemctl --user start eww`; its
+      # idle-reset and settings-watch units follow it.
       systemd.user.services.eww = {
         Unit = {
           Description = "eww bar";
@@ -350,7 +354,6 @@
           ExecStart = "${barLaunch}/bin/eww-bar-launch";
           Restart = "on-failure";
         };
-        Install.WantedBy = [ "graphical-session.target" ];
       };
 
       # Seeds the settings vars at startup and pushes on external power-profile

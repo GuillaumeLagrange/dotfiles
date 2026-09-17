@@ -67,7 +67,6 @@
 
           spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
           spawn-at-startup "${pkgs.mako}/bin/mako"
-          spawn-at-startup "${pkgs.blueman}/bin/blueman-applet"
           spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
 
           prefer-no-csd

@@ -30,6 +30,7 @@
         lock
         firefox
         eww
+        quickshell
         vicinae
         niri
         sway
@@ -87,7 +88,6 @@
           name = "Adwaita";
         };
       };
-      services.network-manager-applet.enable = true;
 
       home.pointerCursor = {
         gtk.enable = true;

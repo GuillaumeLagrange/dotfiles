@@ -4,7 +4,11 @@ use crate::json::push_str_escaped;
 use crate::model::{State, Workspace};
 use crate::strip::{build_strip, columns_of, Strip, FALLBACK_VIEW_W};
 
-pub fn snapshot(state: &State) -> String {
+pub fn snapshot(state: &mut State) -> String {
+    // Taken out so the view of each workspace can be advanced while the rest of
+    // the state is read; dropped for workspaces niri no longer has.
+    let mut views = std::mem::take(&mut state.views);
+    views.retain(|id, _| state.workspaces.contains_key(id));
     let mut out = String::with_capacity(1024);
     out.push_str("{\"workspaces\":[");
     let mut named: Vec<&Workspace> = state
@@ -52,7 +56,13 @@ pub fn snapshot(state: &State) -> String {
             .filter(|w| w.workspace_id == ws.id && w.scroll_pos.is_none())
             .filter_map(|w| w.view_x.map(|x| (x, w.tile_w)))
             .collect();
-        let strip = build_strip(&columns, &floats, view_w, ws.active_window);
+        let strip = build_strip(
+            &columns,
+            &floats,
+            view_w,
+            ws.active_window,
+            views.entry(ws.id).or_default(),
+        );
         let title = ws
             .active_window
             .and_then(|id| state.windows.get(&id))
@@ -66,6 +76,7 @@ pub fn snapshot(state: &State) -> String {
         out.push('}');
     }
     out.push_str("}}");
+    state.views = views;
     out
 }
 

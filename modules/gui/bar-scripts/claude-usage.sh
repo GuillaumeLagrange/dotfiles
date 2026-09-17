@@ -19,6 +19,9 @@ fi
 jq -c '
   def pad2: tostring | if length < 2 then "0" + . else . end;
   def rpad($n): tostring | . + ("               "[0:$n - length] // "");
+  # The percentage column is right-aligned: a single-digit one would otherwise
+  # shove the rest of its row a character left of the others.
+  def lpad($n): tostring | ("               "[0:$n - length] // "") + .;
   def eta:
     if . == null then "--"
     else (. / 1000 - now | floor) as $d
@@ -53,7 +56,7 @@ jq -c '
         | if $full != null then $full.eta else "\($pct)%" end
       ),
       tooltip: (["Claude Code Usage", "━━━━━━━━━━━━━━━━━━━━━━━━"]
-        + [$ws[] | "\(.label + ":" | rpad(7))\(.pct)%  \(.eta) (\(.at))"]
+        + [$ws[] | "\(.label + ":" | rpad(7))\("\(.pct)%" | lpad(4))  \(.eta) (\(.at))"]
         | join("\n")),
       class: (if $pct >= 80 then "high" elif $pct >= 50 then "mid" else "low" end),
       percentage: $pct,
