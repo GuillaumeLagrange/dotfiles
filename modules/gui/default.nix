@@ -47,6 +47,9 @@
         gnome-tweaks
         libnotify
         libreoffice
+        # Not running: quickshell owns org.freedesktop.Notifications. Kept for
+        # the eww fallback bar, which is started by hand the same way.
+        mako
         pavucontrol
         playerctl
         pomodoro-gtk
@@ -238,21 +241,6 @@
       programs.feh.enable = true;
 
       programs.vscode.enable = false;
-
-      services.mako = {
-        enable = true;
-        settings = {
-          default-timeout = 10000;
-
-          "app-name=Slack" = {
-            invisible = 1;
-          };
-
-          "mode=do-not-disturb" = {
-            invisible = 1;
-          };
-        };
-      };
 
       services.wpaperd = {
         enable = true;

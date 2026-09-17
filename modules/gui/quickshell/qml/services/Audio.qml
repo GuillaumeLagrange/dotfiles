@@ -21,15 +21,32 @@ Singleton {
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property PwNode source: Pipewire.defaultAudioSource
 
-    readonly property int volume: root.sink?.audio ? Math.round(root.sink.audio.volume * 100) : 0
-    readonly property bool muted: root.sink?.audio ? root.sink.audio.muted : false
+    // Held rather than bound: a node's data is momentarily unpopulated while
+    // quickshell rebinds the tracked set, and a read in that window would
+    // render the pill's default instead of the volume.
+    property int volume: 0
+    property bool muted: false
 
-    // Event and notification sounds are blips, not something playing: the
-    // volume-change feedback would otherwise flash a row of its own every time
-    // the volume keys are pressed.
+    // -1 when the sink has no readable audio object.
+    readonly property int liveVolume: root.sink?.audio ? Math.round(root.sink.audio.volume * 100) : -1
+    readonly property int liveMuted: root.sink?.audio ? (root.sink.audio.muted ? 1 : 0) : -1
+
+    onLiveVolumeChanged: if (root.liveVolume >= 0)
+        root.volume = root.liveVolume
+    onLiveMutedChanged: if (root.liveMuted >= 0)
+        root.muted = root.liveMuted === 1
+
+    // Event sounds are blips, not something playing: the volume-key feedback
+    // would otherwise flash a row of its own on every press. Its properties
+    // are often still empty in the instant it exists, so the node's own name
+    // is checked too - that one is always there.
+    readonly property var blipNames: ["paplay", "pw-play", "pw-cat", "canberra-gtk-play", "speech-dispatcher"]
+
     function isNotification(node): bool {
         const role = (node.properties["media.role"] ?? "").toLowerCase();
-        return role === "notification" || role === "event";
+        if (role === "notification" || role === "event")
+            return true;
+        return root.blipNames.includes((node.name ?? "").toLowerCase());
     }
 
     function label(node): string {

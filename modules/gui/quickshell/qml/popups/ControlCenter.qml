@@ -1,5 +1,15 @@
-// Quick-settings drawer: idle-inhibit and do-not-disturb toggles, the
-// power-profile segmented selector, and a battery footer (hidden on desktops).
+// Control centre: what arrived, and the toggles that decide what arrives.
+//
+// One panel rather than a notification centre beside a quick-settings drawer -
+// do-not-disturb belonged to both, and they were two surfaces hanging off two
+// pills for one thing.
+//
+// Notifications sit above the toggles because the panel grows upwards from the
+// pill: the controls then stay where they were, whatever the list is doing.
+//
+// The rows are snapshots, not live notifications - the sending application has
+// usually closed them by the time the panel is opened - so a row carries no
+// action buttons and dismissing one only drops it from the list.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
@@ -7,10 +17,10 @@ import qs
 import qs.components
 import qs.services
 
-PopupPanel {
+ClickPanel {
     id: root
 
-    minContentWidth: 300
+    panelWidth: 420
 
     readonly property var battery: UPower.displayDevice
     readonly property bool hasBattery: !!battery && battery.isLaptopBattery && battery.isPresent
@@ -28,6 +38,8 @@ PopupPanel {
             return Config.glyph.batMedium;
         return Config.glyph.batLow;
     }
+
+    onShown: Notifs.markRead()
 
     // Whole-row click target: icon tile, label + sub-line, track/knob switch.
     // `active` drives every accent (tile tint, icon color, switch fill, knob ink).
@@ -161,12 +173,99 @@ PopupPanel {
         anchors.fill: parent
         spacing: 8
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                Layout.fillWidth: true
+                text: "Notifications"
+                color: Theme.grey
+                font.family: Theme.ui
+                font.pixelSize: 12
+            }
+
+            Rectangle {
+                visible: Notifs.history.length > 0
+                implicitWidth: clearLabel.implicitWidth + 16
+                implicitHeight: 22
+                radius: 6
+                color: clearHover.hovered ? Theme.alpha(Theme.fg, 0.18) : Theme.alpha(Theme.fg, 0.09)
+
+                Text {
+                    id: clearLabel
+
+                    anchors.centerIn: parent
+                    text: "Clear all"
+                    color: Theme.fg
+                    font.family: Theme.ui
+                    font.pixelSize: 11
+                }
+
+                HoverHandler {
+                    id: clearHover
+
+                    cursorShape: Qt.PointingHandCursor
+                }
+
+                TapHandler {
+                    onSingleTapped: {
+                        Notifs.dismissAll();
+                        Notifs.clearHistory();
+                    }
+                }
+            }
+        }
+
         Text {
             Layout.fillWidth: true
-            text: "Quick Settings"
-            color: Theme.grey
+            Layout.topMargin: 6
+            Layout.bottomMargin: 6
+            visible: Notifs.history.length === 0
+            text: Notifs.dnd ? "Nothing to catch up on - notifications are muted" : "Nothing to catch up on"
+            horizontalAlignment: Text.AlignHCenter
+            color: Theme.alpha(Theme.fg, 0.35)
             font.family: Theme.ui
             font.pixelSize: 12
+        }
+
+        ListView {
+            id: list
+
+            Layout.fillWidth: true
+            // A ListView has no implicit height, and the panel's window covers
+            // the output, so the rest of the panel is measured out of the
+            // screen rather than guessed: a full history otherwise pushed the
+            // toggles off the top edge.
+            Layout.preferredHeight: Math.min(list.contentHeight, 480, Math.max(120, root.height - 420))
+            visible: Notifs.history.length > 0
+            clip: true
+            spacing: 6
+            model: Notifs.history
+
+            delegate: NotifCard {
+                id: card
+
+                required property var modelData
+
+                width: list.width
+                appName: card.modelData.appName
+                summary: card.modelData.summary
+                body: card.modelData.body
+                iconSource: Notifs.iconFor(card.modelData.image, card.modelData.appIcon)
+                critical: card.modelData.critical
+                time: Notifs.ago(card.modelData.time)
+
+                onActivated: Notifs.forget(card.modelData.key)
+                onDismissed: Notifs.forget(card.modelData.key)
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            height: 1
+            color: Theme.border
         }
 
         ToggleRow {
@@ -180,9 +279,9 @@ PopupPanel {
         ToggleRow {
             icon: Config.glyph.dnd
             label: "Do Not Disturb"
-            sub: Quick.dndOn ? "Notifications muted" : "Notifications shown"
-            active: Quick.dndOn
-            onActivated: Quick.toggleDnd()
+            sub: Notifs.dnd ? "Notifications muted" : "Notifications shown"
+            active: Notifs.dnd
+            onActivated: Notifs.toggleDnd()
         }
 
         ColumnLayout {

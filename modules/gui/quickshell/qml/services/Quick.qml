@@ -1,5 +1,6 @@
 pragma Singleton
-// Quick-settings state: power profile, idle inhibit, do-not-disturb.
+// Quick-settings state: power profile and idle inhibit. Do-not-disturb is the
+// notification server's own (services/Notifs.qml).
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -51,39 +52,5 @@ Singleton {
     Process {
         running: root.idleInhibit
         command: [Config.systemdInhibit, "--what=idle", "--who=quickshell-bar", "--why=Idle inhibited from bar", "--mode=block", Config.sleepBin, "infinity"]
-    }
-
-    property bool dndOn: false
-
-    function toggleDnd(): void {
-        dndToggle.running = true;
-    }
-
-    // Seeds dndOn at startup; re-queried after every toggle.
-    Process {
-        id: dndQuery
-
-        command: [Config.makoctl, "mode"]
-        running: true
-
-        stdout: StdioCollector {
-            onStreamFinished: root.dndOn = text.includes("do-not-disturb")
-        }
-    }
-
-    Process {
-        id: dndToggle
-
-        command: [Config.makoctl, "mode", "-t", "do-not-disturb"]
-        onExited: dndQuery.running = true
-    }
-
-    readonly property string gearText: {
-        const badges = [];
-        if (root.idleInhibit)
-            badges.push(Config.glyph.idle);
-        if (root.dndOn)
-            badges.push(Config.glyph.dnd);
-        return badges.length > 0 ? badges.join(" ") + " " + Config.glyph.gear : Config.glyph.gear;
     }
 }

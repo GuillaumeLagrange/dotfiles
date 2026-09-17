@@ -66,7 +66,6 @@
           }
 
           spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
-          spawn-at-startup "${pkgs.mako}/bin/mako"
           spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
 
           prefer-no-csd
@@ -111,9 +110,8 @@
               Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }
               Mod+Ctrl+W { spawn "${config.browsers.chromium}"; }
 
-              Mod+B { spawn "${pkgs.blueman}/bin/blueman-manager"; }
-              Mod+N { spawn "${pkgs.mako}/bin/makoctl" "restore"; }
-              Mod+Shift+N { spawn "${pkgs.mako}/bin/makoctl" "dismiss" "-a"; }
+              Mod+N { spawn ${quoteArgs "${config.quickshellIpc} notifs center"}; }
+              Mod+Shift+N { spawn ${quoteArgs "${config.quickshellIpc} notifs dismiss"}; }
 
               XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }
               XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.down}"; }

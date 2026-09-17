@@ -1,8 +1,9 @@
 # niri-state
 
 One niri IPC tap feeding the left side of a status bar: workspaces, the focused
-window title per output, and the strip - a scale model of the active
-workspace's scrolling layout. Emits one JSON line per change on stdout.
+window title per output, the focused output itself, and the strip - a scale
+model of the active workspace's scrolling layout. Emits one JSON line per
+change on stdout.
 
 Both bars read it: `modules/gui/eww/` through a `deflisten`, and
 `modules/gui/quickshell/` through a `SplitParser`. It lives beside them rather
@@ -49,4 +50,9 @@ splitting it into two boxes would read as a cut.
 updated from event deltas, snapshots are printed only when they differ, and a
 burst of events (the startup dump, a drag moving every column) folds into one
 line.
+
+**`focused_output` is read off every workspace, not the emitted ones.** The
+`workspaces` array carries only named workspaces, because that is what the bars
+draw, while focus can sit on a dynamic one; the quickshell bar places
+notification popups on that output, so it needs the answer even then.
 

@@ -93,7 +93,9 @@ PanelWindow {
 
                 AudioPill {}
 
-                SettingsPill {}
+                ControlPill {
+                    monitor: bar.monitor
+                }
             }
 
             ClockPill {

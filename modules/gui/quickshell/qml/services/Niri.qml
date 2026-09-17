@@ -13,6 +13,11 @@ Singleton {
     property var workspaces: []
     property var byOutput: ({})
 
+    // The output a notification or a panel should appear on. It comes from the
+    // snapshot rather than from `workspaces`, which holds only named ones -
+    // focus sitting on a dynamic workspace would otherwise name no output.
+    property string focusedOutput: ""
+
     function focusWorkspace(name: string): void {
         Quickshell.execDetached([Config.niri, "msg", "action", "focus-workspace", name]);
     }
@@ -45,6 +50,7 @@ Singleton {
                 const snapshot = JSON.parse(line);
                 root.workspaces = snapshot.workspaces;
                 root.byOutput = snapshot.by_output;
+                root.focusedOutput = snapshot.focused_output;
             }
         }
 

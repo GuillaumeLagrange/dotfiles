@@ -75,7 +75,17 @@ pub fn snapshot(state: &mut State) -> String {
         push_strip(&mut out, &strip);
         out.push('}');
     }
-    out.push_str("}}");
+    out.push_str("},\"focused_output\":");
+    // Focus is exclusive across outputs, and unnamed workspaces hold it too, so
+    // this cannot be read off the named workspaces the bar draws.
+    let focused = state
+        .workspaces
+        .values()
+        .find(|ws| ws.focused)
+        .and_then(|ws| ws.output.as_deref())
+        .unwrap_or("");
+    push_str_escaped(&mut out, focused);
+    out.push('}');
     state.views = views;
     out
 }

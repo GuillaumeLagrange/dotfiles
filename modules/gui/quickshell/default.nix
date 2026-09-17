@@ -104,6 +104,7 @@
         gamepad = glyph "F0297";
         device = glyph "F0625";
         idle = glyph "F06E";
+        bell = glyph "F009A";
         dnd = glyph "F1F6";
         saver = glyph "F0F86";
         balanced = glyph "F0F85";
@@ -136,7 +137,6 @@
             readonly property string niriState: "${niriState}/bin/niri-state"
             readonly property string niri: "${pkgs.niri}/bin/niri"
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
-            readonly property string makoctl: "${pkgs.mako}/bin/makoctl"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"
@@ -162,26 +162,34 @@
       '';
     in
     {
-      home.packages = [ quickshell ];
+      options.quickshellIpc = lib.mkOption {
+        type = lib.types.str;
+        default = "${quickshell}/bin/qs -c bar ipc call";
+        description = "Command prefix for calls into the running bar's IpcHandlers.";
+      };
 
-      xdg.configFile."quickshell/bar".source = shellDir;
+      config = {
+        home.packages = [ quickshell ];
 
-      systemd.user.services.quickshell = {
-        Unit = {
-          Description = "quickshell bar";
-          PartOf = [ "graphical-session.target" ];
-          After = [ "graphical-session.target" ];
-          # The unit only names the quickshell package, and `-c bar` resolves the
-          # shell through ~/.config at runtime, so editing QML left the unit text
-          # identical and sd-switch restarted nothing. systemd ignores this key;
-          # it is here so the shell's hash is part of the unit.
-          X-Restart-Triggers = [ "${shellDir}" ];
+        xdg.configFile."quickshell/bar".source = shellDir;
+
+        systemd.user.services.quickshell = {
+          Unit = {
+            Description = "quickshell bar";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+            # The unit only names the quickshell package, and `-c bar` resolves the
+            # shell through ~/.config at runtime, so editing QML left the unit text
+            # identical and sd-switch restarted nothing. systemd ignores this key;
+            # it is here so the shell's hash is part of the unit.
+            X-Restart-Triggers = [ "${shellDir}" ];
+          };
+          Service = {
+            ExecStart = "${quickshell}/bin/qs -c bar";
+            Restart = "on-failure";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
         };
-        Service = {
-          ExecStart = "${quickshell}/bin/qs -c bar";
-          Restart = "on-failure";
-        };
-        Install.WantedBy = [ "graphical-session.target" ];
       };
     };
 }
