@@ -7,9 +7,9 @@
 // Notifications sit above the toggles because the panel grows upwards from the
 // pill: the controls then stay where they were, whatever the list is doing.
 //
-// The rows are snapshots, not live notifications - the sending application has
-// usually closed them by the time the panel is opened - so a row carries no
-// action buttons and dismissing one only drops it from the list.
+// The rows are snapshots, not live notifications, so a row acts through the
+// notification behind it: the service holds an actionable one open past its
+// popup, and the row carries its buttons for as long as that lasts.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
@@ -39,7 +39,7 @@ ClickPanel {
         return Config.glyph.batLow;
     }
 
-    onShown: Notifs.markRead()
+    onShown: Notifs.markAllRead()
 
     // Whole-row click target: icon tile, label + sub-line, track/knob switch.
     // `active` drives every accent (tile tint, icon color, switch fill, knob ink).
@@ -255,9 +255,11 @@ ClickPanel {
                 iconSource: Notifs.iconFor(card.modelData.image, card.modelData.appIcon)
                 critical: card.modelData.critical
                 time: Notifs.ago(card.modelData.time)
+                actions: Notifs.actionsFor(card.modelData.notifId)
 
-                onActivated: Notifs.forget(card.modelData.key)
+                onActivated: Notifs.activateEntry(card.modelData)
                 onDismissed: Notifs.forget(card.modelData.key)
+                onActionInvoked: action => Notifs.invokeEntryAction(card.modelData, action)
             }
         }
 

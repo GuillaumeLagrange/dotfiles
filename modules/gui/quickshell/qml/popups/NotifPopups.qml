@@ -57,11 +57,12 @@ PanelWindow {
                 required property var modelData
 
                 // -1 asks for the server default, 0 means it never expires.
+                // The value is milliseconds, whatever quickshell's docs say.
                 readonly property int timeout: {
                     const requested = entry.modelData.expireTimeout;
                     if (requested === 0)
                         return 0;
-                    return requested > 0 ? requested * 1000 : Notifs.defaultTimeout;
+                    return requested > 0 ? requested : Notifs.defaultTimeout;
                 }
 
                 width: stack.width
@@ -80,26 +81,18 @@ PanelWindow {
                     critical: Notifs.isCritical(entry.modelData)
                     actions: entry.modelData.actions
 
-                    // A click with no default action is just a dismissal, which
-                    // is what a notification with nothing to open deserves.
-                    onActivated: {
-                        const fallback = entry.modelData.actions.find(action => action.identifier === "default");
-                        if (fallback)
-                            fallback.invoke();
-                        else
-                            entry.modelData.dismiss();
-                    }
-
-                    onDismissed: entry.modelData.dismiss()
-                    onActionInvoked: action => action.invoke()
+                    onActivated: Notifs.activate(entry.modelData)
+                    onDismissed: Notifs.dismiss(entry.modelData)
+                    onActionInvoked: action => Notifs.invokeAction(entry.modelData, action)
                 }
 
                 // Paused while the pointer is on the card, so a notification
-                // being read does not vanish mid-sentence.
+                // being read does not vanish mid-sentence. Expiry only takes
+                // the popup down: what it leaves is the service's to decide.
                 Timer {
                     running: entry.timeout > 0 && !cardHover.hovered
                     interval: entry.timeout
-                    onTriggered: entry.modelData.expire()
+                    onTriggered: Notifs.expire(entry.modelData)
                 }
 
                 HoverHandler {

@@ -78,12 +78,31 @@ and do-not-disturb dropping the popup - and `makoctl` left with it: dnd is a
 bool, and `makoctl restore` / `dismiss -a` are `qs -c bar ipc call notifs
 center|dismiss`, bound to Mod+N and Mod+Shift+N.
 
-**Popups are the server's tracked notifications, the centre is snapshots.** An
-application closes its own notification whenever it likes, which destroys the
-object; the centre has to outlive that, so `onNotification` records a plain JS
-copy and `tracked` decides only whether it pops up. The consequence is that a
-row in the centre has no action buttons - the actions belong to an object that
-is usually gone.
+**The centre is snapshots, the popup stack is a set of ids.** An application
+closes its own notification whenever it likes, which destroys the object, so
+`arrive()` records a plain JS copy and the popup stack is just the ids the bar
+is currently drawing. A popup timing out therefore does not have to close
+anything, which is what makes a centre row actionable.
+
+**An action is a live D-Bus call, so an actionable notification is held open**
+(`sweep()`). `NotificationAction.invoke()` sends `ActionInvoked(id, key)` to
+the sender and refuses to run on a closed notification; once the server has
+sent `NotificationClosed` the client has dropped its handler, and nothing on
+this side can bring the action back - there is no stored activation to re-run.
+So a notification with actions is left open when its popup goes away, and its
+centre row carries the real buttons. A held id is one the sender can still
+replace and memory at both ends, so only what has actions is held, only while
+a row still points at it, and never more than `holdLimit` of them.
+
+**`unread` is per row, not a counter.** A notification that was clicked,
+dismissed or actioned is not something to catch up on, so every popup gesture
+marks its row read; a timeout, which nobody looked at, does not. Opening the
+centre still marks everything read.
+
+**`ignoredNotifs` drops a notification outright**, popup and centre alike, for
+things that announce what the user just did - niri's `Screenshot captured`,
+sent right after its own screenshot UI was on screen. It is matched on app
+name and summary, because niri's config-error notifications are worth keeping.
 
 **Popups live on the Top layer**, never Overlay: hyprlock is an overlay
 surface, and a popup above it would read message bodies out to the room. That
@@ -296,6 +315,23 @@ still allocated a pixel in GTK) has no counterpart.
   `-A` (it waits for the action, then gives up). A popup that vanishes a moment
   after it appears is the test client, not the shell; send with `gdbus call …
   org.freedesktop.Notifications.Notify` instead.
+- **`Notification.expireTimeout` is milliseconds**, whatever quickshell's docs
+  say ("time in seconds"): `updateProperties` stores the spec's `expire_timeout`
+  as it arrives on the wire. Multiplying it by 1000 turned a client's 5s
+  request into 83 minutes on screen.
+- **`Notification.tracked` defaults to false**, and the server deletes anything
+  still untracked the moment `onNotification` returns. Keeping a notification
+  is an opt-in, not the default, and `tracked = false` is `dismiss()`.
+- **A notification is not in `trackedNotifications` during `onNotification`** —
+  the server inserts it once the handler returns. Anything that reasons about
+  the model (the sweep that closes ids nothing points at) has to be deferred
+  with `Qt.callLater`, or it sees the arrival as an id with nothing behind it
+  and closes it.
+- **`onNotification` does not fire for a replaced notification.** A client
+  reusing an id updates the existing object in place, so the only signal a
+  replacement gives is `summaryChanged`/`bodyChanged` on the object itself; an
+  `Instantiator` over `trackedNotifications` watches for it. That matters more
+  the longer ids are held open.
 
 ## Testing
 
@@ -346,3 +382,27 @@ dbus-run-session -- sh -c 'qs -p $SHELL_DIR/shell.qml & sleep 5; gdbus call \
   --method org.freedesktop.Notifications.Notify \
   app 0 "" "summary" "body" "[]" "{}" 30000'
 ```
+
+**What a notification nobody touched does is only visible on the bus.** The
+popup expiring looks the same whether the notification was closed or held open
+for the centre, so the test is what the server tells its clients:
+
+```bash
+gdbus monitor --session --dest org.freedesktop.Notifications   # leave running
+
+gdbus call --session --dest org.freedesktop.Notifications \
+  --object-path /org/freedesktop/Notifications \
+  --method org.freedesktop.Notifications.Notify \
+  -- test 0 "" "Held open?" "ignore me" "['default','Open']" "{}" -1
+```
+
+Ignore the popup. **Silence when it expires is the pass** — a held notification
+is never closed; a `NotificationClosed(id, 1)` means it expired instead.
+`Mod+N` and clicking the row then gives `ActionInvoked(id, "default")` followed
+by `NotificationClosed(id, 2)`. Without clicking, `CloseNotification(id)` is a
+liveness probe: `NotificationClosed(id, 3)` if it was still held, silence if it
+was already gone. Reasons are 1 expired, 2 dismissed, 3 close requested.
+
+The same monitor is how a real application's behaviour is judged: a
+`NotificationClosed(id, 3)` nobody asked for is the sender closing its own
+notification, and its centre row loses its buttons there and then.
