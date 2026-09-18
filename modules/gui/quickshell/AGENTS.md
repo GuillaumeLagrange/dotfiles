@@ -115,7 +115,9 @@ do-not-disturb belonged to both panels, so quick settings and the notification
 centre are one `ClickPanel` behind one pill. Notifications sit above the
 toggles because the panel grows upwards from the pill - the controls then stay
 put whatever the list does - and the list is capped against the window's own
-height, which is the output's, rather than a guessed constant.
+height, which is the output's, rather than a guessed constant. Past the cap it
+scrolls, so the scrollbar is shown exactly while the cap is doing something and
+the rows give up its width rather than have the handle over their border.
 
 **The tray is an inline drawer, not a panel** (`bar/Tray.qml`): three dots that
 widen into the applet icons while the pointer is on the pill. The icons live in
@@ -334,6 +336,10 @@ still allocated a pixel in GTK) has no counterpart.
   replacement gives is `summaryChanged`/`bodyChanged` on the object itself; an
   `Instantiator` over `trackedNotifications` watches for it. That matters more
   the longer ids are held open.
+- **A newline in a body is whitespace to `StyledText`**, which collapses it to a
+  space the way HTML does, so a Slack digest arrived as one run of bullets.
+  Senders mean their newlines as breaks: `NotifCard` replaces them with `<br/>`,
+  which keeps the markup the server advertises.
 
 ## Testing
 

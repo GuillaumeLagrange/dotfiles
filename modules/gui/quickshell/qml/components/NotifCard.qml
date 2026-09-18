@@ -130,9 +130,11 @@ Rectangle {
                     Text {
                         Layout.fillWidth: true
                         visible: root.body !== ""
-                        text: root.body
                         // The server advertises markup, so bodies arrive as the
-                        // spec's HTML subset.
+                        // spec's HTML subset - in which a newline is whitespace,
+                        // not a break. Senders mean them as breaks: a Slack
+                        // digest is one bullet per line.
+                        text: root.body.replace(/\n/g, "<br/>")
                         textFormat: Text.StyledText
                         wrapMode: Text.Wrap
                         maximumLineCount: 4
