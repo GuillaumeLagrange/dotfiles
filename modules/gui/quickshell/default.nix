@@ -67,6 +67,8 @@
         ram = glyph "F061A";
         claude = glyph "F0721";
         gear = glyph "F0493";
+        # Sliders, not a gear: the pill opens a dashboard of toggles.
+        controls = glyph "F1542";
         # FontAwesome rather than the md- speakers: at 13px the md- bodies are
         # hairlines and their "low" state is a bare triangle with no waves, so
         # it reads as a broken glyph rather than a quiet speaker.

@@ -1,6 +1,8 @@
-// The system pill: unread count, the toggles that are on, and the control
-// centre behind a click. A bell rather than a gear - it is the only glyph here
-// that carries state, and the panel is mostly notifications.
+// The system pill: the control centre behind a click, and beside it whatever
+// state is worth carrying. The sliders are the pill's identity and always
+// there - idle inhibit and notifications are added next to them, never in
+// their place. Do-not-disturb is the one substitution: it is what the bell
+// became, so it takes the bell's slot and keeps the count.
 //
 // Mod+N reaches every bar through the notifs IPC handler, so the pill answers
 // only on the focused output.
@@ -22,11 +24,12 @@ Pill {
     // state, the count is news.
     color: root.alerting ? Theme.yellow : Quick.gearColor
     text: {
-        const badges = [];
+        const badges = [Config.glyph.controls];
         if (Quick.idleInhibit)
             badges.push(Config.glyph.idle);
         const bell = Notifs.dnd ? Config.glyph.dnd : Config.glyph.bell;
-        badges.push(Notifs.unread > 0 ? bell + " " + Notifs.unread : bell);
+        if (Notifs.dnd || Notifs.unread > 0)
+            badges.push(Notifs.unread > 0 ? bell + " " + Notifs.unread : bell);
         return badges.join(" ");
     }
     tooltip: Notifs.dnd ? "Do not disturb" : (Notifs.unread > 0 ? Notifs.unread + " new" : "Notifications and settings")
