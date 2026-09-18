@@ -30,6 +30,7 @@ mod strip;
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
+use std::time::{Duration, Instant};
 
 use crate::emit::snapshot;
 use crate::icons::Icons;
@@ -60,10 +61,41 @@ fn outputs(socket: &str) -> BTreeMap<String, f64> {
         .collect()
 }
 
+/// niri's event stream carries no output event: a monitor plugged in, or a mode
+/// or scale change, never reaches the model. The strip's scale is one screenful
+/// per `SCREEN_PX`, so a stale width draws a full-width column as overflowing
+/// the frame - a 2560-wide screen measured as 1920 puts a quarter of a
+/// maximised window outside its own screen.
+///
+/// An unknown output is answered at once; otherwise the query is throttled,
+/// since the only way to notice a resolution change is to ask.
+const OUTPUT_REFRESH: Duration = Duration::from_secs(2);
+
+fn refresh_outputs(state: &mut State, socket: &str, last: &mut Instant) {
+    let unknown = state.workspaces.values().any(|ws| {
+        ws.active
+            && ws
+                .output
+                .as_deref()
+                .is_some_and(|name| !state.outputs.contains_key(name))
+    });
+    if !unknown && last.elapsed() < OUTPUT_REFRESH {
+        return;
+    }
+    *last = Instant::now();
+    // A failed query keeps the widths already known: they are stale at worst,
+    // while an empty map is the 1920 fallback for every output.
+    let next = outputs(socket);
+    if !next.is_empty() {
+        state.outputs = next;
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let socket = std::env::var("NIRI_SOCKET")
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "NIRI_SOCKET is not set"))?;
 
+    let mut refreshed = Instant::now();
     let mut state = State {
         outputs: outputs(&socket),
         icons: Icons::from_env(),
@@ -94,6 +126,7 @@ fn main() -> std::io::Result<()> {
             continue;
         }
         dirty = false;
+        refresh_outputs(&mut state, &socket, &mut refreshed);
         let next = snapshot(&mut state);
         if next != last {
             let mut handle = stdout.lock();

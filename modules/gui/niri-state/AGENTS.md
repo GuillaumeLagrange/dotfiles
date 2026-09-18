@@ -46,6 +46,22 @@ and is cropped around the frame past that. A column that straddles the frame
 edge stays one block with `dim_left`/`dim_right` pixels for the bar to shade -
 splitting it into two boxes would read as a cut.
 
+**The scale is the output's logical width, and niri has no output event.**
+`SCREEN_PX / view_w` is what makes a block proportional, so the width has to be
+right on the output the workspace is on - a 2560-wide screen measured as 1920
+draws a maximised window 63px wide against a 32px frame and shades the third of
+it that "does not fit", which is the whole point of the frame. The event stream
+carries nothing about outputs (no variant for hotplug, mode or scale), so
+`Outputs` is re-queried: at once when an active workspace sits on an output
+that is not in the map, which is a monitor that appeared after startup, and
+otherwise throttled to `OUTPUT_REFRESH`, because asking is the only way to
+notice a resolution or scale change. Idle costs nothing: the query only happens
+when a snapshot is being emitted anyway.
+
+**Only widths are modelled.** A column's tiles split the band equally; no tile
+height and no output height is carried, so the strip says nothing about how a
+column is split vertically.
+
 **One process, blocked on a socket read.** The model is kept in memory and
 updated from event deltas, snapshots are printed only when they differ, and a
 burst of events (the startup dump, a drag moving every column) folds into one

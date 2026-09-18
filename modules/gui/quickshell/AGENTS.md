@@ -76,7 +76,9 @@ installed but not running: `NotificationServer` takes the
 whole config came along as six lines of QML - a 10s default timeout, `Slack`
 and do-not-disturb dropping the popup - and `makoctl` left with it: dnd is a
 bool, and `makoctl restore` / `dismiss -a` are `qs -c bar ipc call notifs
-center|dismiss`, bound to Mod+N and Mod+Shift+N.
+center|dismiss`. The binds are Mod+N for the centre, Mod+Shift+N for dnd and
+Mod+Ctrl+N to clear the screen: muting is the one worth reaching for without
+looking, and the pill's right click already dismisses.
 
 **The centre is snapshots, the popup stack is a set of ids.** An application
 closes its own notification whenever it likes, which destroys the object, so
