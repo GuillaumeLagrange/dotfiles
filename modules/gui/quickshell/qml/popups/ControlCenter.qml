@@ -11,6 +11,7 @@
 // notification behind it: the service holds an actionable one open past its
 // popup, and the row carries its buttons for as long as that lasts.
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Services.UPower
 import qs
@@ -243,12 +244,29 @@ ClickPanel {
             spacing: 6
             model: Notifs.history
 
+            // Shown only while the list is capped - which is the only time it
+            // scrolls - and the rows give up its width, so the handle never
+            // sits on a card's border.
+            ScrollBar.vertical: ScrollBar {
+                id: vbar
+
+                policy: list.contentHeight > list.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                implicitWidth: 8
+                padding: 2
+                background: null
+
+                contentItem: Rectangle {
+                    radius: width / 2
+                    color: Theme.alpha(Theme.fg, vbar.pressed ? 0.5 : vbar.hovered ? 0.35 : 0.2)
+                }
+            }
+
             delegate: NotifCard {
                 id: card
 
                 required property var modelData
 
-                width: list.width
+                width: list.width - (vbar.visible ? vbar.implicitWidth + 2 : 0)
                 appName: card.modelData.appName
                 summary: card.modelData.summary
                 body: card.modelData.body
