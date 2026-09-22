@@ -90,3 +90,20 @@ vim.o.autoread = true
 vim.o.winborder = 'rounded'
 
 vim.o.exrc = true
+
+-- exrc trust is keyed on the exact file path, so every new `wt` worktree asks
+-- again for the same project config. Pre-trust the paths matching these globs.
+local trusted_exrc = {
+  '~/codspeed/*/.nvim.lua',
+  '~/codspeed/sessions/*/*/.nvim.lua',
+}
+
+local exrc = vim.fs.normalize(vim.fn.getcwd() .. '/.nvim.lua')
+if vim.uv.fs_stat(exrc) then
+  for _, glob in ipairs(trusted_exrc) do
+    if vim.glob.to_lpeg(vim.fs.normalize(glob)):match(exrc) then
+      vim.secure.trust({ action = 'allow', path = exrc })
+      break
+    end
+  end
+end
