@@ -3,6 +3,7 @@ pragma Singleton
 // devices, and their batteries.
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Bluetooth
 import qs
 
@@ -16,11 +17,14 @@ Singleton {
 
     // Connected first, then remembered, then whatever the scan turned up; each
     // group by name so the list does not reshuffle as signal strengths move.
+    // A scan hit with no advertised name (BlueZ then aliases it to its address)
+    // is one of the anonymous LE beacons around and is left out.
     readonly property var devices: {
         if (!root.present)
             return [];
-        const rank = dev => dev.connected ? 0 : (dev.paired || dev.bonded ? 1 : 2);
-        return root.adapter.devices.values.slice().sort((a, b) => {
+        const known = dev => dev.paired || dev.bonded;
+        const rank = dev => dev.connected ? 0 : (known(dev) ? 1 : 2);
+        return root.adapter.devices.values.filter(dev => known(dev) || dev.connected || dev.deviceName !== "").sort((a, b) => {
             if (rank(a) !== rank(b))
                 return rank(a) - rank(b);
             return (a.name || a.address).localeCompare(b.name || b.address);
@@ -29,9 +33,35 @@ Singleton {
 
     readonly property var connectedDevices: root.devices.filter(dev => dev.connected)
 
+    // Pairing runs `bt-pair` rather than the device's pair(): see bt-pair.py.
+    property var pairingDevice: null
+    property string pairError: ""
+
+    function pair(dev) {
+        root.pairError = "";
+        root.pairingDevice = dev;
+        pairer.command = [Config.btPair, dev.dbusPath];
+        pairer.running = true;
+    }
+
+    function cancelPair() {
+        pairer.running = false;
+    }
+
+    Process {
+        id: pairer
+
+        stderr: StdioCollector {
+            onStreamFinished: if (text.trim() !== "")
+                root.pairError = text.trim().split("\n").pop()
+        }
+
+        onExited: root.pairingDevice = null
+    }
+
     // BlueZ reports a freedesktop icon name; the bar draws nerd-font glyphs.
     function deviceGlyph(dev): string {
-        const icon = dev.icon ?? "";
+        const icon = dev?.icon ?? "";
         if (icon.includes("headset") || icon.includes("headphone"))
             return Config.glyph.headphones;
         if (icon.includes("audio") || icon.includes("speaker"))
@@ -52,7 +82,7 @@ Singleton {
     }
 
     function batteryOf(dev): string {
-        return dev.batteryAvailable ? `${Math.round(dev.battery * 100)}%` : "";
+        return dev?.batteryAvailable ? `${Math.round(dev.battery * 100)}%` : "";
     }
 
     readonly property string glyph: {

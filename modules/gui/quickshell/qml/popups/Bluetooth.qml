@@ -2,6 +2,7 @@
 // pair / forget actions.
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Bluetooth
 import qs
 import qs.components
@@ -20,6 +21,7 @@ ClickPanel {
     onHidden: {
         Bt.scanning = false;
         root.selected = null;
+        Bt.pairError = "";
     }
 
     component Btn: Rectangle {
@@ -62,9 +64,13 @@ ClickPanel {
         id: row
 
         required property var modelData
+        // Null once BlueZ drops a scan hit, while the row is still on its way
+        // out of the list.
         readonly property var dev: row.modelData
         readonly property bool open: root.selected === row.dev
-        readonly property bool known: row.dev.paired || row.dev.bonded
+        readonly property bool known: !!(row.dev?.paired || row.dev?.bonded)
+        readonly property bool connected: row.dev?.connected ?? false
+        readonly property bool pairing: Bt.pairingDevice !== null && Bt.pairingDevice === row.dev
 
         width: ListView.view.width
         implicitHeight: lines.implicitHeight + 8
@@ -94,19 +100,19 @@ ClickPanel {
 
                 Text {
                     text: Bt.deviceGlyph(row.dev)
-                    color: row.dev.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
+                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
                     font.family: Theme.icon
                     font.pixelSize: 14
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    text: row.dev.name || row.dev.address
+                    text: row.dev?.name || row.dev?.address || ""
                     elide: Text.ElideRight
                     color: Theme.fg
                     font.family: Theme.ui
                     font.pixelSize: 12
-                    font.bold: row.dev.connected
+                    font.bold: row.connected
                 }
 
                 Text {
@@ -117,8 +123,8 @@ ClickPanel {
                 }
 
                 Text {
-                    text: row.dev.pairing ? "pairing" : (row.dev.state === BluetoothDeviceState.Connecting ? "connecting" : (row.dev.connected ? "connected" : (row.known ? "paired" : "")))
-                    color: row.dev.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
+                    text: row.pairing ? "pairing" : (row.dev?.state === BluetoothDeviceState.Connecting ? "connecting" : (row.connected ? "connected" : (row.known ? "paired" : "")))
+                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
                     font.family: Theme.ui
                     font.pixelSize: 10
                 }
@@ -130,29 +136,29 @@ ClickPanel {
                 spacing: 6
 
                 Btn {
-                    visible: row.known && !row.dev.connected
+                    visible: row.known && !row.connected
                     label: "Connect"
                     tint: Theme.alpha(Theme.blue, 0.35)
                     onActivated: row.dev.connect()
                 }
 
                 Btn {
-                    visible: row.dev.connected
+                    visible: row.connected
                     label: "Disconnect"
                     onActivated: row.dev.disconnect()
                 }
 
                 Btn {
-                    visible: !row.known && !row.dev.pairing
+                    visible: !row.known && !row.pairing && Bt.pairingDevice === null
                     label: "Pair"
                     tint: Theme.alpha(Theme.blue, 0.35)
-                    onActivated: row.dev.pair()
+                    onActivated: Bt.pair(row.dev)
                 }
 
                 Btn {
-                    visible: row.dev.pairing
+                    visible: row.pairing
                     label: "Cancel"
-                    onActivated: row.dev.cancelPair()
+                    onActivated: Bt.cancelPair()
                 }
 
                 Item {
@@ -184,7 +190,7 @@ ClickPanel {
                 }
 
                 Switch {
-                    on: row.dev.trusted
+                    on: row.dev?.trusted ?? false
                     onToggled: row.dev.trusted = !row.dev.trusted
                 }
             }
@@ -192,7 +198,7 @@ ClickPanel {
             Text {
                 Layout.fillWidth: true
                 visible: row.open
-                text: row.dev.address
+                text: row.dev?.address ?? ""
                 color: Theme.alpha(Theme.fg, 0.4)
                 font.family: Theme.mono
                 font.pixelSize: 10
@@ -252,8 +258,23 @@ ClickPanel {
             implicitHeight: Math.min(contentHeight, 300)
             clip: true
             spacing: 2
-            model: Bt.devices
+            // Diffed, not reassigned: a scan changes the list several times a
+            // second, and a plain array model rebuilds every row each time,
+            // dropping a click on Pair between its press and its release.
+            model: ScriptModel {
+                values: Bt.devices
+            }
             delegate: DeviceRow {}
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: Bt.pairError !== ""
+            text: Bt.pairError
+            wrapMode: Text.Wrap
+            color: Theme.red
+            font.family: Theme.ui
+            font.pixelSize: 10
         }
     }
 }

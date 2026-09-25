@@ -31,6 +31,13 @@
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
       '';
 
+      # Pairing needs an agent to answer BlueZ's prompts, and QML cannot export
+      # one. See bt-pair.py.
+      btPair = pkgs.writers.writePython3Bin "bt-pair" {
+        libraries = [ pkgs.python3Packages.dbus-fast ];
+        flakeIgnore = [ "E501" "F722" "F821" ];
+      } (builtins.readFile ./bt-pair.py);
+
       # Qt's `TextMetrics.tightBoundingRect` clamps a glyph's ink box to the
       # baseline, so a glyph drawn entirely above it (the tray's three dots)
       # reports a box that is too tall and centres too high. The real outline
@@ -139,6 +146,7 @@
             readonly property string niriState: "${niriState}/bin/niri-state"
             readonly property string niri: "${pkgs.niri}/bin/niri"
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
+            readonly property string btPair: "${btPair}/bin/bt-pair"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"

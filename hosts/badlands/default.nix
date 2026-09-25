@@ -124,6 +124,12 @@
       hardware.bluetooth = {
         enable = true;
         settings = {
+          # No default pairing agent runs (the quickshell bar pairs through
+          # bt-pair's own agent), and without one BlueZ leaves the adapter
+          # non-bondable, so a pairing would not store its keys.
+          General = {
+            AlwaysPairable = true;
+          };
           Policy = {
             ReconnectAttempts = 0;
           };

@@ -37,7 +37,6 @@
       ];
 
       home.packages = with pkgs; [
-        blueman
         btop
         calibre
         d-spy

@@ -169,7 +169,7 @@ feedback sound that way so it stops flashing a row of its own.
 
 **`Bluetooth` replaced blueman-applet** (`services/Bt.qml`,
 `popups/Bluetooth.qml`): `Bluetooth.defaultAdapter` carries the radio switch and
-`discovering`, its `devices` carry `connect()` / `pair()` / `forget()`, the
+`discovering`, its `devices` carry `connect()` / `forget()`, the
 `trusted` flag (which is what "connect automatically" means to BlueZ) and a
 battery percentage when the device publishes one. BlueZ's freedesktop icon name
 picks the row's glyph. Discovery is a button, not a side effect of opening the
@@ -186,6 +186,27 @@ and a row's `triggered()` is the activation.
 bar window's bottom-left corner. A window sized to the menu cannot be dismissed
 by clicking the bar — see the grab gotcha — while this one gets every click,
 and the ones that miss the menu close it.
+**Pairing goes through `bt-pair`** (`bt-pair.py`, `Config.btPair`), not the
+device's `pair()`. BlueZ puts a pairing's prompts (confirm the passkey,
+authorise) to the agent of whoever called `Pair()`, falling back to the default
+agent; quickshell cannot be an agent (that means exporting a D-Bus object, which
+QML cannot do) and none runs, so every `pair()` ended in `No agent available for
+request type 2` / "Authentication Failed". `bt-pair` registers its own
+NoInputNoOutput agent, calls `Pair()` on the same connection so the prompts
+come to it, accepts them, then trusts and connects the device: nobody answers
+`AuthorizeService` for a device reconnecting on its own unless it is trusted.
+Its agent is not the default one, so an unsolicited pairing from elsewhere still
+finds nobody to accept it. The adapter also needs
+`hardware.bluetooth.settings.General.AlwaysPairable` (both hosts): with no
+default agent BlueZ leaves it non-bondable, so a pairing would not store keys.
+
+Scan hits without an advertised name (BlueZ aliases them to their address) are
+hidden. The device list, and the wifi one, are `ScriptModel`s: a scan changes
+the list several times a second, and a plain array model rebuilt every row each
+time, dropping a click between press and release and a half-typed passphrase
+with its focus. Wifi rows sort by signal bar rather than raw strength, so they
+do not reshuffle under the pointer.
+
 
 **Submenus are pushed onto a `StackView`** of `TrayMenuPanel`s, replacing the
 level on screen, which is the shape `caelestia-dots/shell` and
