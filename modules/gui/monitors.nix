@@ -24,6 +24,10 @@
               type = lib.types.nullOr lib.types.int;
               default = defaultRefreshRate;
             };
+            scale = lib.mkOption {
+              type = lib.types.nullOr lib.types.float;
+              default = null;
+            };
             position = {
               x = lib.mkOption {
                 type = lib.types.int;

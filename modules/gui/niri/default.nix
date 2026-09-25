@@ -33,6 +33,7 @@
                   lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}.000"
                 }"
                 position x=${toString monitor.position.x} y=${toString monitor.position.y}
+                ${lib.optionalString (monitor.scale != null) "scale ${toString monitor.scale}"}
             }
           '';
         in

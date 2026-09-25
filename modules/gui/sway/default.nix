@@ -156,7 +156,9 @@
               mkOutputConfig = name: monitor: ''
                 ${name} mode ${monitor.resolution}${
                   lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}HZ"
-                } position ${toString monitor.position.x} ${toString monitor.position.y}
+                } position ${toString monitor.position.x} ${toString monitor.position.y}${
+                  lib.optionalString (monitor.scale != null) " scale ${toString monitor.scale}"
+                }
               '';
             in
             builtins.readFile ./sway.config
