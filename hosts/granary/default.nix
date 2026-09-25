@@ -84,6 +84,9 @@
       services.logind.settings.Login = {
         HandleLidSwitch = "suspend-then-hibernate";
         HandlePowerKey = "suspend-then-hibernate";
+        # Stop the user manager (and niri.service) on logout; the default 10s delay
+        # leaves niri running, so an immediate GDM re-login fails.
+        UserStopDelaySec = 0;
       };
       systemd.sleep.settings.Sleep.HibernateDelaySec = "24h";
 
