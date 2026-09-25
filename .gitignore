@@ -2,3 +2,6 @@ result
 __pycache__
 ai/claude/settings.local.json
 node_modules
+# Separate private repo of work-specific rules, cloned in place; linked in by
+# modules/headless/ai.nix.
+ai/private/

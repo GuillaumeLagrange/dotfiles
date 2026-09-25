@@ -6,6 +6,7 @@
       aiDir = "${config.home.homeDirectory}/dotfiles/ai";
       claudeHome = "${config.home.homeDirectory}/.claude";
       ompAgentDir = "${config.home.homeDirectory}/.omp/agent";
+      agentUserDir = "${config.home.homeDirectory}/.agent";
     in
     {
       # Plain `ln -sf` rather than home.file/mkOutOfStoreSymlink: the latter
@@ -19,6 +20,10 @@
       #
       # settings.local.json holds machine-local claude overrides and is
       # gitignored, so it may be absent on a fresh checkout and appear later.
+      # ai/private is a separate, gitignored private repo of rules too
+      # work-specific to publish, and may not be cloned. ~/.omp/agent/rules
+      # points into this tracked repo, so its rules go to ~/.agent/rules, which
+      # omp also reads.
       home.activation.aiLinks = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         run mkdir -p "${claudeHome}" "${ompAgentDir}"
 
@@ -47,6 +52,14 @@
           run rm -rf "${ompAgentDir}/skills"
         fi
         run ln -sfn "${aiDir}/skills" "${ompAgentDir}/skills"
+
+        # Not ~/.agents: on some machines it is a symlink into a work checkout.
+        # Skip ~/.agent too if it is a symlink, so nothing lands in a directory
+        # this config does not own.
+        if [ -d "${aiDir}/private/rules" ] && [ ! -L "${agentUserDir}" ]; then
+          run mkdir -p "${agentUserDir}"
+          run ln -sfn "${aiDir}/private/rules" "${agentUserDir}/rules"
+        fi
       '';
     };
 }
