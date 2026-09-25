@@ -31,6 +31,7 @@
           just
           nh
           pkgs.unstable.prek
+          python3
           ripgrep
           rustup
           sccache
