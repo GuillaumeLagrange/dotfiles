@@ -36,14 +36,19 @@ Singleton {
     readonly property bool wifiEnabled: Networking.wifiEnabled
     readonly property bool wifiBlocked: !Networking.wifiHardwareEnabled
 
-    // Connected first, then strongest. The pill and the panel read the same list.
+    // Connected first, then by signal bar, then by name. The bar rather than
+    // the raw strength, which moves on every scan and would reshuffle the rows
+    // under a passphrase being typed. The pill and the panel read the same list.
     readonly property var networks: {
         if (root.wifi === null)
             return [];
+        const bars = net => Math.min(3, Math.floor(net.signalStrength * 4));
         return root.wifi.networks.values.slice().sort((a, b) => {
             if (a.connected !== b.connected)
                 return a.connected ? -1 : 1;
-            return b.signalStrength - a.signalStrength;
+            if (bars(a) !== bars(b))
+                return bars(b) - bars(a);
+            return a.name.localeCompare(b.name);
         });
     }
 

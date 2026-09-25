@@ -101,16 +101,19 @@ ClickPanel {
         id: row
 
         required property var modelData
+        // Null once NM drops the network, while the row is still on its way
+        // out of the list.
         readonly property var net: row.modelData
         readonly property bool open: root.selected === row.net
-        // A network the bar has to ask a passphrase for. Kept on the panel
-        // rather than the row: the list is rebuilt on every scan and the view
-        // hands a delegate the next network, so row-local state would follow
-        // the wrong one.
+        // A network the bar has to ask a passphrase for. Kept on the panel, which
+        // is where a failed connect (below) reopens the prompt from.
         readonly property bool askPsk: root.pskFor === row.net
+        readonly property bool connected: row.net?.connected ?? false
+        readonly property bool known: row.net?.known ?? false
+        readonly property bool secured: row.net !== null && Net.secured(row.net)
         readonly property var address: Net.addressOf(Net.wifi !== null ? Net.wifi.name : "")
         readonly property var rate: Net.rateOf(Net.wifi !== null ? Net.wifi.name : "")
-        readonly property var profile: Net.profiles[row.net.name] ?? null
+        readonly property var profile: Net.profiles[row.net?.name ?? ""] ?? null
 
         // Never carry a typed passphrase over to another network.
         onNetChanged: psk.text = ""
@@ -152,24 +155,24 @@ ClickPanel {
                 }
 
                 Text {
-                    text: Net.strengthGlyph(row.net.signalStrength)
-                    color: row.net.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
+                    text: Net.strengthGlyph(row.net?.signalStrength ?? 0)
+                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
                     font.family: Theme.icon
                     font.pixelSize: 14
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    text: row.net.name
+                    text: row.net?.name ?? ""
                     elide: Text.ElideRight
                     color: Theme.fg
                     font.family: Theme.ui
                     font.pixelSize: 12
-                    font.bold: row.net.connected
+                    font.bold: row.connected
                 }
 
                 Text {
-                    visible: Net.secured(row.net)
+                    visible: row.secured
                     text: Config.glyph.lock
                     color: Theme.alpha(Theme.fg, 0.4)
                     font.family: Theme.icon
@@ -177,8 +180,8 @@ ClickPanel {
                 }
 
                 Text {
-                    text: row.net.state === ConnectionState.Connecting ? "connecting" : (row.net.connected ? Net.formatRate(row.rate.rx) + " " + Config.glyph.down : (row.net.known ? "saved" : ""))
-                    color: row.net.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
+                    text: row.net?.state === ConnectionState.Connecting ? "connecting" : (row.connected ? Net.formatRate(row.rate.rx) + " " + Config.glyph.down : (row.known ? "saved" : ""))
+                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
                     font.family: Theme.ui
                     font.pixelSize: 10
                 }
@@ -212,7 +215,7 @@ ClickPanel {
                 }
 
                 Btn {
-                    visible: !row.net.connected
+                    visible: !row.connected
                     label: row.askPsk ? "Join" : "Connect"
                     tint: Theme.alpha(Theme.blue, 0.35)
                     onActivated: {
@@ -225,13 +228,13 @@ ClickPanel {
                 }
 
                 Btn {
-                    visible: row.net.connected
+                    visible: row.connected
                     label: "Disconnect"
                     onActivated: row.net.disconnect()
                 }
 
                 Btn {
-                    visible: row.net.known
+                    visible: row.known
                     label: "Forget"
                     tint: Theme.alpha(Theme.red, 0.3)
                     onActivated: {
@@ -245,7 +248,7 @@ ClickPanel {
             // open a network panel at all.
             ColumnLayout {
                 Layout.fillWidth: true
-                visible: row.open && row.net.connected
+                visible: row.open && row.connected
                 spacing: 2
 
                 Detail {
@@ -459,7 +462,12 @@ ClickPanel {
             implicitHeight: Math.min(contentHeight, 260)
             clip: true
             spacing: 2
-            model: Net.networks
+            // Diffed, not reassigned: every scan moves some signal strength,
+            // and a plain array model rebuilds every row each time, taking a
+            // half-typed passphrase and its focus with it.
+            model: ScriptModel {
+                values: Net.networks
+            }
             delegate: NetRow {}
         }
 
