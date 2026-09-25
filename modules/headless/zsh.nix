@@ -150,8 +150,14 @@
               print -r -- "''${WORKSPACE_ROOT:-$HOME}"
             }
 
+            # Rename the zellij tab after the repo. Only `cdr` does this: a chpwd
+            # hook that renamed on every `cd` clobbered hand-set tab names and was
+            # removed (e7ce169).
             cdr() {
-              cd "$(workspace_root)/$@"
+              cd "$(workspace_root)/$@" || return
+              if [[ -n "$ZELLIJ" ]] && (( $+commands[mux-name] )); then
+                zellij action rename-tab "$(mux-name "$PWD")"
+              fi
             }
             compdef '_files -W "$(workspace_root)" -/' cdr
 
@@ -201,13 +207,6 @@
               return 1
             }
 
-
-            eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --version-file-strategy recursive --shell zsh)"
-          ''
-
-          # `fnm env` gives this shell its own multishell directory and prepends it
-          # to PATH. direnv's precmd hook then restores the PATH it captured when it
-          # first loaded the directory — in a nested shell, one built around the
             # `git steal` is a `!shell` alias, which zsh's git completion cannot
             # look through, so it offers files. `_git` dispatches to `_git-<name>`
             # when such a function exists, and this is that: the argument is only
@@ -226,6 +225,13 @@
               command git steal "$branch"
             }
 
+
+            eval "$(${pkgs.fnm}/bin/fnm env --use-on-cd --version-file-strategy recursive --shell zsh)"
+          ''
+
+          # `fnm env` gives this shell its own multishell directory and prepends it
+          # to PATH. direnv's precmd hook then restores the PATH it captured when it
+          # first loaded the directory — in a nested shell, one built around the
           # *parent's* multishell directory — so this shell's node vanishes and
           # `node -v` disagrees with `fnm current`. fnm only re-prepends on chpwd,
           # so nothing fixes it until you cd somewhere.
