@@ -113,8 +113,8 @@
               Mod+Ctrl+W { spawn "${config.browsers.chromium}"; }
 
               Mod+N { spawn ${quoteArgs "${config.quickshellIpc} notifs center"}; }
-              Mod+Shift+N { spawn ${quoteArgs "${config.quickshellIpc} notifs dnd"}; }
-              Mod+Ctrl+N { spawn ${quoteArgs "${config.quickshellIpc} notifs dismiss"}; }
+              Mod+Shift+N { spawn ${quoteArgs "${config.quickshellIpc} notifs clear"}; }
+              Mod+Ctrl+N { spawn ${quoteArgs "${config.quickshellIpc} notifs dnd"}; }
 
               XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }
               XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.down}"; }

@@ -210,10 +210,7 @@ ClickPanel {
                 }
 
                 TapHandler {
-                    onSingleTapped: {
-                        Notifs.dismissAll();
-                        Notifs.clearHistory();
-                    }
+                    onSingleTapped: Notifs.clearAll()
                 }
             }
         }

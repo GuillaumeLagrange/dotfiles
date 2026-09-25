@@ -46,9 +46,6 @@
         gnome-tweaks
         libnotify
         libreoffice
-        # Not running: quickshell owns org.freedesktop.Notifications. Kept for
-        # the eww fallback bar, which is started by hand the same way.
-        mako
         pavucontrol
         playerctl
         pomodoro-gtk

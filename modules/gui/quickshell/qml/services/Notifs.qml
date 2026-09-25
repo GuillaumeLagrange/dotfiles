@@ -5,7 +5,7 @@ pragma Singleton
 //
 // Two lists, because they have different lifetimes: the popup stack is a set of
 // ids the bar is currently drawing, and the centre holds snapshots taken on
-// arrival, which survive the sending application closing its notification.
+// arrival, which outlive the objects the server destroys.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -27,11 +27,6 @@ Singleton {
     // mako's default-timeout, for clients that send -1 (server decides).
     readonly property int defaultTimeout: 10000
     readonly property int historyLimit: 100
-    // How many notifications are held open past their popup. An action is a
-    // live D-Bus call to the sender, so holding one open is the only thing that
-    // keeps a centre row clickable - but a held id is one the sender can still
-    // replace, so the set is kept small and only covers what has actions.
-    readonly property int holdLimit: 16
 
     property bool dnd: false
     // Snapshots, newest first. `read` is per row: a notification interacted
@@ -84,32 +79,36 @@ Singleton {
 
     function dismiss(notification): void {
         root.markRead(notification.id);
-        root.release(notification, true);
+        root.release(notification);
     }
 
     function expire(notification): void {
-        root.release(notification, false);
+        root.release(notification);
     }
 
     // Clears the screen. What it leaves behind is a centre row, still carrying
     // whatever the notification offers.
     function dismissAll(): void {
         for (const notification of root.popups)
-            root.release(notification, true);
+            root.release(notification);
     }
 
-    // Takes a notification off the popup stack. It stays open if the centre can
-    // still do something with it; otherwise the sender is told it is gone.
-    function release(notification, byUser: bool): void {
+    // Takes a notification off the popup stack. It stays open while a centre row
+    // points at it, which is what keeps the row's buttons live and leaves the
+    // sender something to withdraw.
+    function release(notification): void {
         root.popupIds = root.popupIds.filter(id => id !== notification.id);
-        if (notification.actions.length === 0) {
-            if (byUser)
-                notification.dismiss();
-            else
-                notification.expire();
-            return;
-        }
         root.sweep();
+    }
+
+    // The sender closed its own notification: it was dealt with somewhere else,
+    // so the row goes rather than sitting there as a dead snapshot.
+    function withdraw(notifId: int): void {
+        root.popupIds = root.popupIds.filter(id => id !== notifId);
+        root.history = root.history.filter(entry => entry.notifId !== notifId);
+        // Deferred: the server is mid-removal, and a sweep here still sees the
+        // closing notification in its model.
+        Qt.callLater(root.sweep);
     }
 
     // Centre rows are snapshots, so they act through the notification behind
@@ -131,7 +130,10 @@ Singleton {
         root.sweep();
     }
 
-    function clearHistory(): void {
+    // Empties the screen and the centre. With both lists empty, the sweep finds
+    // nothing pointing at a held notification and closes them all.
+    function clearAll(): void {
+        root.popupIds = [];
         root.history = [];
         root.sweep();
     }
@@ -148,23 +150,16 @@ Singleton {
         }));
     }
 
-    // A held notification is a live id the sender can still replace, and memory
-    // at both ends: nothing on screen and no row to click it from means nothing
-    // to hold.
+    // Keeps a notification open while a popup or a centre row points at it, and
+    // closes it once nothing does. While open, its actions stay callable and its
+    // sender can still withdraw it. historyLimit bounds how many are held.
     function sweep(): void {
         const live = root.liveNotifs;
         root.popupIds = root.popupIds.filter(id => live.some(notification => notification.id === id));
 
-        const held = live.filter(notification => !root.popupIds.includes(notification.id));
-        const keep = held.filter(notification => notification.actions.length > 0 && root.history.some(entry => entry.notifId === notification.id));
-
-        for (const notification of held)
-            if (!keep.includes(notification))
+        for (const notification of live)
+            if (!root.popupIds.includes(notification.id) && !root.history.some(entry => entry.notifId === notification.id))
                 notification.expire();
-
-        // Oldest first, so the tail is what was held most recently.
-        for (const notification of keep.slice(0, Math.max(0, keep.length - root.holdLimit)))
-            notification.expire();
     }
 
     function isIgnored(notification): bool {
@@ -180,9 +175,9 @@ Singleton {
         }
 
         const popup = !root.dnd && !root.silentApps.includes(notification.appName);
-        // Something with actions is worth holding for the centre even when it
-        // never pops up; anything else is finished the moment it arrives.
-        notification.tracked = popup || notification.actions.length > 0;
+        // Held while its row lives, whether it popped up or not: that is what
+        // keeps an action callable and a withdrawal observable.
+        notification.tracked = true;
 
         if (popup && !root.popupIds.includes(notification.id))
             root.popupIds = [...root.popupIds, notification.id];
@@ -253,10 +248,9 @@ Singleton {
         onNotification: notification => root.arrive(notification)
     }
 
-    // onNotification only fires for notifications the server has not seen: a
-    // client reusing an id updates the object in place. Holding ids past the
-    // popup widens that window, so a live notification whose text changes is
-    // treated as a fresh arrival.
+    // Everything a live notification says about itself, since onNotification
+    // only fires for ones the server has not seen: a client reusing an id
+    // updates the object in place, and a client closing one is only heard here.
     Instantiator {
         model: server.trackedNotifications
 
@@ -264,8 +258,11 @@ Singleton {
             id: watcher
 
             required property var modelData
+            // Read up front: the close handler runs while the server is taking
+            // the object apart.
+            readonly property int notifId: watcher.modelData.id
 
-            readonly property Connections replaced: Connections {
+            readonly property Connections tracker: Connections {
                 target: watcher.modelData
 
                 function onSummaryChanged(): void {
@@ -274,6 +271,13 @@ Singleton {
 
                 function onBodyChanged(): void {
                     root.arrive(watcher.modelData);
+                }
+
+                // Only the sender's own close says something this shell does not
+                // already know: every other reason is a close it just asked for.
+                function onClosed(reason): void {
+                    if (reason === NotificationCloseReason.CloseRequested)
+                        root.withdraw(watcher.notifId);
                 }
             }
         }
@@ -286,8 +290,8 @@ Singleton {
             root.centerToggleRequested();
         }
 
-        function dismiss(): void {
-            root.dismissAll();
+        function clear(): void {
+            root.clearAll();
         }
 
         function dnd(): void {

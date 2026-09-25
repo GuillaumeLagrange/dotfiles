@@ -1,5 +1,5 @@
-// The popup stack: one layer surface per output, above the bar, showing the
-// notifications the server is tracking.
+// The popup stack: one layer surface per output, in the top-right corner,
+// showing the notifications the server is tracking.
 //
 // Top layer, never Overlay: hyprlock is an overlay surface, and a popup drawn
 // over the lock screen would read out message bodies to anyone walking past.
@@ -18,8 +18,8 @@ PanelWindow {
 
     readonly property int cardWidth: 380
     readonly property int pad: 8
-    // Newest last, nearest the bar, and only the tail of a burst is on screen.
-    readonly property var shown: Notifs.popups.slice(-5)
+    // Newest first, nearest the corner, and only the tail of a burst is on screen.
+    readonly property var shown: Notifs.popups.slice(-5).reverse()
 
     screen: modelData
     // Notifications follow the focus, the way mako's default output does.
@@ -35,11 +35,9 @@ PanelWindow {
     implicitHeight: stack.implicitHeight + root.pad * 2
 
     anchors {
-        bottom: true
+        top: true
         right: true
     }
-
-    margins.bottom: Theme.windowHeight
 
     Column {
         id: stack

@@ -76,25 +76,35 @@ installed but not running: `NotificationServer` takes the
 whole config came along as six lines of QML - a 10s default timeout, `Slack`
 and do-not-disturb dropping the popup - and `makoctl` left with it: dnd is a
 bool, and `makoctl restore` / `dismiss -a` are `qs -c bar ipc call notifs
-center|dismiss`. The binds are Mod+N for the centre, Mod+Shift+N for dnd and
-Mod+Ctrl+N to clear the screen: muting is the one worth reaching for without
-looking, and the pill's right click already dismisses.
+center|clear`. The binds are Mod+N for the centre, Mod+Shift+N to clear and
+Mod+Ctrl+N for dnd. `clear` is `clearAll()`, the panel's "Clear all" button:
+screen and centre together, because a bind that left the rows behind is not what
+"clear my notifications" means. Dismissing popups alone stays a gesture - the
+pill's right click.
 
-**The centre is snapshots, the popup stack is a set of ids.** An application
-closes its own notification whenever it likes, which destroys the object, so
-`arrive()` records a plain JS copy and the popup stack is just the ids the bar
-is currently drawing. A popup timing out therefore does not have to close
-anything, which is what makes a centre row actionable.
+**The centre is snapshots, the popup stack is a set of ids.** The server
+destroys a notification the moment it is closed, so `arrive()` records a plain
+JS copy and the popup stack is just the ids the bar is currently drawing. A
+popup timing out therefore does not have to close anything, which is what makes
+a centre row actionable.
 
-**An action is a live D-Bus call, so an actionable notification is held open**
-(`sweep()`). `NotificationAction.invoke()` sends `ActionInvoked(id, key)` to
-the sender and refuses to run on a closed notification; once the server has
-sent `NotificationClosed` the client has dropped its handler, and nothing on
-this side can bring the action back - there is no stored activation to re-run.
-So a notification with actions is left open when its popup goes away, and its
-centre row carries the real buttons. A held id is one the sender can still
-replace and memory at both ends, so only what has actions is held, only while
-a row still points at it, and never more than `holdLimit` of them.
+**A notification is held open for as long as its centre row lives** (`sweep()`),
+which is what the history limit bounds. Two things need it. An action is a live
+D-Bus call: `NotificationAction.invoke()` sends `ActionInvoked(id, key)` to the
+sender and refuses to run on a closed notification, and once the server has sent
+`NotificationClosed` the client has dropped its handler, so nothing on this side
+can bring the action back. And a closed notification is one its sender can no
+longer withdraw, which is the other half of the story below.
+
+**A sender closing its own notification clears the row** (`withdraw()`): a
+`CloseNotification` means the thing was dealt with somewhere else, so the row is
+not something to catch up on either. Every other close reason is one this shell
+just asked for, so `CloseRequested` is the only one the watcher acts on. Whether
+that ever happens is the sender's business, and they differ: a Firefox web
+notification is withdrawn the moment the page calls `notification.close()`,
+while Slack's desktop app hands Electron a notification and forgets it -
+`main.bundle.cjs` closes one only when its list passes ten thousand - so its
+rows only ever go when they are dismissed here.
 
 **`unread` is per row, not a counter.** A notification that was clicked,
 dismissed or actioned is not something to catch up on, so every popup gesture
@@ -176,16 +186,6 @@ picks the row's glyph. Discovery is a button, not a side effect of opening the
 panel: it is a radio duty cycle, it stutters A2DP, and the devices worth
 connecting to are the paired ones, which are listed either way.
 
-**Tray menus are drawn in QML** rather than handed to `QsMenuAnchor`, which
-renders them as a `QMenu` and therefore needs `//@ pragma UseQApplication` — see
-the gotcha below for why that is not an option here. `QsMenuOpener.children`
-gives the entries (text, icon, enabled, separator, check state, `hasChildren`),
-and a row's `triggered()` is the activation.
-
-**The menu is one window covering the screen** (`TrayMenu.qml`), anchored to the
-bar window's bottom-left corner. A window sized to the menu cannot be dismissed
-by clicking the bar — see the grab gotcha — while this one gets every click,
-and the ones that miss the menu close it.
 **Pairing goes through `bt-pair`** (`bt-pair.py`, `Config.btPair`), not the
 device's `pair()`. BlueZ puts a pairing's prompts (confirm the passkey,
 authorise) to the agent of whoever called `Pair()`, falling back to the default
@@ -207,6 +207,16 @@ time, dropping a click between press and release and a half-typed passphrase
 with its focus. Wifi rows sort by signal bar rather than raw strength, so they
 do not reshuffle under the pointer.
 
+**Tray menus are drawn in QML** rather than handed to `QsMenuAnchor`, which
+renders them as a `QMenu` and therefore needs `//@ pragma UseQApplication` — see
+the gotcha below for why that is not an option here. `QsMenuOpener.children`
+gives the entries (text, icon, enabled, separator, check state, `hasChildren`),
+and a row's `triggered()` is the activation.
+
+**The menu is one window covering the screen** (`TrayMenu.qml`), anchored to the
+bar window's bottom-left corner. A window sized to the menu cannot be dismissed
+by clicking the bar — see the grab gotcha — while this one gets every click,
+and the ones that miss the menu close it.
 
 **Submenus are pushed onto a `StackView`** of `TrayMenuPanel`s, replacing the
 level on screen, which is the shape `caelestia-dots/shell` and
@@ -374,10 +384,15 @@ env -u WAYLAND_DISPLAY -u NIRI_SOCKET WLR_BACKENDS=headless \
 ```
 
 The nested niri must **not** get `--session` (it would import its environment
-into the session's systemd manager — see the repo `AGENTS.md`), and it only
-exports `NIRI_SOCKET` to what it spawns itself, so the bar has to be launched
-from inside it with `NIRI_SOCKET` pointed at `/run/user/…/niri.$WAYLAND_DISPLAY.*.sock`.
-Screenshot with `grim` from inside that session.
+into the session's systemd manager — see the repo `AGENTS.md`), and **nothing
+may be launched with `spawn-at-startup`**: niri starts those through the systemd
+user manager, which lives on the real session bus, so they come up with the
+session's `DBUS_SESSION_BUS_ADDRESS` whatever the compositor was launched with —
+a scenario written as a startup script sent its test notifications to the real
+bar. Drive it from the host shell instead, pointing every command at the nested
+session by hand: niri only exports `NIRI_SOCKET` to what it spawns itself, so it
+has to be read off `/run/user/…/niri.$WAYLAND_DISPLAY.*.sock`. Screenshots are
+`grim` with `WAYLAND_DISPLAY` set the same way.
 
 The nested niri exposes `zwlr_virtual_pointer_v1`, so hover and click paths are
 exercised for real. **`wlrctl pointer move` is relative**, so every hop has to
@@ -399,18 +414,25 @@ a panel are checked. Verify a control by its effect, not only by the pixels:
 the idle-inhibit toggle really spawns `systemd-inhibit`, so `pgrep -af
 systemd-inhibit` proves the click landed.
 
-**The notification server needs a bus of its own to test.** mako — or the real
-shell — already owns `org.freedesktop.Notifications` on the session bus, so the
-test instance runs under `dbus-run-session`, and the notifications are sent
-from inside the same one:
+**The notification server needs a bus of its own to test.** The real shell
+already owns `org.freedesktop.Notifications` on the session bus, so the test
+instance gets a private one. `dbus-run-session -- sh -c '…'` covers a one-liner;
+a scenario driven step by step needs an address it can export:
 
 ```bash
-dbus-run-session -- sh -c 'qs -p $SHELL_DIR/shell.qml & sleep 5; gdbus call \
-  --session --dest org.freedesktop.Notifications \
+dbus-daemon --session --print-address --fork      # keeps running
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/dbus-XXXXXX,guid=…
+export WAYLAND_DISPLAY=wayland-N NIRI_SOCKET=/run/user/1000/niri.wayland-N.PID.sock
+qs -p $SHELL_DIR/shell.qml &
+gdbus call --session --dest org.freedesktop.Notifications \
   --object-path /org/freedesktop/Notifications \
   --method org.freedesktop.Notifications.Notify \
-  app 0 "" "summary" "body" "[]" "{}" 30000'
+  -- app 0 "" "summary" "body" "[]" "{}" -1
 ```
+
+`GetNameOwner org.freedesktop.Notifications` on that bus is the check that the
+test instance and not the real bar is the one answering. `$SHELL_DIR` is
+`nix build --print-out-paths '.#nixosConfigurations.badlands.config.home-manager.users.guillaume.xdg.configFile."quickshell/bar".source'`.
 
 **What a notification nobody touched does is only visible on the bus.** The
 popup expiring looks the same whether the notification was closed or held open
@@ -432,6 +454,27 @@ by `NotificationClosed(id, 2)`. Without clicking, `CloseNotification(id)` is a
 liveness probe: `NotificationClosed(id, 3)` if it was still held, silence if it
 was already gone. Reasons are 1 expired, 2 dismissed, 3 close requested.
 
+**The centre's state is read out of the shell, not off the screen.** A
+screenshot says what is drawn; a scenario about rows adds a throwaway `state()`
+to the `notifs` `IpcHandler` in a writable copy of the shell dir and asserts on
+its JSON:
+
+```bash
+qs -p /tmp/copy/shell.qml ipc call notifs state
+{"popups":[],"live":[1],"rows":[{"id":1,"app":"TestApp",…}]}
+```
+
+That is how withdrawal was checked: `CloseNotification` on a row's id empties
+both lists. Parse the id out of `gdbus`'s `(uint32 N,)` reply with `sed`, not
+`tr -dc '0-9'` — that yields `32N` and closes nothing.
+
+A real sender is checked the same way, in a **nested Firefox pointed at the real
+session bus** (a private bus has no portal, and Firefox then falls back to its
+in-content alert and emits nothing at all): a page that calls
+`notification.close()` produces `CloseNotification` and the row goes. Firefox
+sends `app_name` "Firefox" with a `desktop-entry` hint of `firefox` and nothing
+about the tab, so browser rows can only ever be attributed to the browser.
+
 The same monitor is how a real application's behaviour is judged: a
 `NotificationClosed(id, 3)` nobody asked for is the sender closing its own
-notification, and its centre row loses its buttons there and then.
+notification, and the centre row goes with it.
