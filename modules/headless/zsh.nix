@@ -208,6 +208,24 @@
           # `fnm env` gives this shell its own multishell directory and prepends it
           # to PATH. direnv's precmd hook then restores the PATH it captured when it
           # first loaded the directory — in a nested shell, one built around the
+            # `git steal` is a `!shell` alias, which zsh's git completion cannot
+            # look through, so it offers files. `_git` dispatches to `_git-<name>`
+            # when such a function exists, and this is that: the argument is only
+            # ever a branch.
+            _git-steal() {
+              _arguments ':branch:__git_branch_names'
+            }
+
+            # oh-my-zsh's `gcm` is `git checkout $(git_main_branch)`, which dies in
+            # a worktree whenever another one holds the branch; `git steal` detaches
+            # the holder first.
+            unalias gcm 2> /dev/null
+            gcm () {
+              local branch
+              branch=$(git_main_branch) || return
+              command git steal "$branch"
+            }
+
           # *parent's* multishell directory — so this shell's node vanishes and
           # `node -v` disagrees with `fnm current`. fnm only re-prepends on chpwd,
           # so nothing fixes it until you cd somewhere.
