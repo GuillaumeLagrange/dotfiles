@@ -4,13 +4,12 @@
     { pkgs, lib, ... }:
     let
       quickshell = inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      # Push recording state into the bars. The state is explicit at each call
+      # Push recording state into the bar. The state is explicit at each call
       # site because the start push happens before wl-screenrec is up, so probing
       # for the process would still read "off".
       barRecording =
         state: text:
         ''
-          ${pkgs.eww}/bin/eww update 'screenrecord={"recording":${state},"text":"${text}"}' 2>/dev/null || true
           ${quickshell}/bin/qs -c bar ipc call recorder set ${state} ${lib.escapeShellArg text} 2>/dev/null || true
         '';
       # nf-fa-circle rather than U+23FA: the plain Unicode symbol sits low

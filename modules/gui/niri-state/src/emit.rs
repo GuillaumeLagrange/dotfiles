@@ -1,4 +1,4 @@
-//! Serialisation of one bar snapshot: the line eww's `deflisten` reads.
+//! Serialisation of one bar snapshot: the line the bar's `SplitParser` reads.
 
 use crate::json::push_str_escaped;
 use crate::model::{State, Workspace};

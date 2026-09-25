@@ -8,7 +8,7 @@ This is a comprehensive NixOS/Home Manager configuration repository for Guillaum
 
 ## IMPORTANT: Testing scripts that run under systemd / a daemon
 
-Many things here (eww bar, services) launch scripts from a **systemd unit** or a
+Many things here (the quickshell bar, services) launch scripts from a **systemd unit** or a
 long-running **daemon**, which run with a **minimal, locked-down `PATH`** — only the
 binaries the module explicitly put there. Your interactive shell has a huge `PATH`, so a
 script that works when you run it by hand can still fail in production with
@@ -37,44 +37,38 @@ actually launches it:
    ```
 
 2. **Test a daemon by launching a throwaway instance with the config's env**, not your
-   shell's. For eww specifically, extract the exact `Environment=PATH` the unit uses and run
-   the daemon under it — don't add anything to it:
+   shell's. For the bar, stop the unit and run the installed binary in the foreground with
+   only the session variables it needs:
 
    ```bash
-   EWW=$(nix build --no-link --print-out-paths '.#...eww')/bin/eww
-   PATH_LINE=$(nix eval --raw \
-     '.#nixosConfigurations.badlands.config.home-manager.users.guillaume.systemd.user.services.eww.Service.Environment' \
-     --apply 'x: builtins.elemAt x 0')   # "PATH=/nix/store/...:..."
+   systemctl --user stop quickshell
    env -i HOME="$HOME" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
-     NIRI_SOCKET="$NIRI_SOCKET" "$PATH_LINE" \
-     "$EWW" --config "$CFG" daemon --no-daemonize
+     NIRI_SOCKET="$NIRI_SOCKET" PATH=/run/current-system/sw/bin \
+     "$HP/bin/qs" -c bar
    ```
 
 3. **Always read the daemon's own logs after a change** — the failure surfaces there, not in
    your test:
 
    ```bash
-   journalctl --user -u eww -e        # unit stdout/stderr (script-not-found, crashes)
-   eww logs                           # eww widget/deflisten errors
+   journalctl --user -u quickshell -e   # QML errors, script-not-found, crashes
    ```
 
-   `stderr of \`<var>\`: ... command not found`is the tell-tale of a missing`PATH` entry.
-
-4. **Rule of thumb:** any new external command used in a bar/service script MUST be added to
-   that module's runtime `PATH` (e.g. eww's `runtimePath` in `modules/gui/eww/default.nix`).
-   If you add a `sed`/`jq`/`awk`/etc. call, add the package in the same change.
+4. **Rule of thumb:** any new external command used in a bar/service script MUST be reached
+   by absolute store path or added to that script wrapper's `PATH` (e.g. the `claudeUsage`
+   wrapper in `modules/gui/quickshell/default.nix`). If you add a `sed`/`jq`/`awk`/etc. call,
+   add the package in the same change.
 
 5. **A nested compositor hijacks the session's systemd environment.** Running a headless
    `sway`/`wayland` instance to render a widget is fine, but sway imports its own
    `WAYLAND_DISPLAY` into the systemd user manager on start. Once it exits, every user
-   service that restarts — `eww` among them — dies with `Failed to initialize GTK`,
-   because the display it is told to use no longer exists. Put the session's values back
-   afterwards:
+   service that restarts — `quickshell` among them — dies, because the display it is told
+   to use no longer exists. Put the session's values back afterwards:
 
    ```bash
    systemctl --user set-environment WAYLAND_DISPLAY=wayland-1 DISPLAY=:0
    dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY
-   systemctl --user restart eww
+   systemctl --user restart quickshell
    ```
 
    Recover the right values from a process the real compositor spawned
@@ -117,9 +111,7 @@ Shared configuration modules:
 Desktop environment configuration:
 
 - Niri (primary) / Sway window manager setup
-- eww status bar (`modules/gui/eww/`) — see `modules/gui/eww/AGENTS.md`.
-- quickshell bar (`modules/gui/quickshell/`), a port of the eww bar kept beside
-  it for comparison — see `modules/gui/quickshell/AGENTS.md`.
+- quickshell status bar (`modules/gui/quickshell/`) — see `modules/gui/quickshell/AGENTS.md`.
 - Firefox browser config
 - Wallpapers collection
 - Screen locking configuration

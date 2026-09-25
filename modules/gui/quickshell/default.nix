@@ -21,7 +21,7 @@
         else
           builtins.fromJSON ''"\u${hex4 (55296 + c / 1024)}\u${hex4 (56320 + lib.mod c 1024)}"'';
 
-      # The one compiled component, shared with the eww bar: a niri IPC tap that
+      # The one compiled component: a niri IPC tap that
       # keeps the layout model in memory and prints a snapshot line only when it
       # changes. See ../niri-state/AGENTS.md.
       niriState = pkgs.callPackage ../niri-state/_package.nix { };

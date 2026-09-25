@@ -20,7 +20,7 @@ pub const MIN_COL_PX: i64 = 3;
 /// visible colour.
 pub const MAX_TILES: usize = 3;
 /// Icons are square and drawn inside the block, so a narrow column gets a smaller
-/// one. `ICON_MAX_PX` is the band's height in eww.scss; below `ICON_MIN_PX` the
+/// one. `ICON_MAX_PX` is the strip's band height; below `ICON_MIN_PX` the
 /// icon is dropped rather than drawn as a smudge.
 pub const ICON_MAX_PX: i64 = 16;
 pub const ICON_MIN_PX: i64 = 8;
@@ -224,7 +224,7 @@ pub fn build_strip(
 
     // After the carve, so the size is chosen against the drawn width. The icon
     // stays inside its block, which is what keeps it from spilling over a
-    // neighbour: the widget draws it as an overlay and GTK does not clip those.
+    // neighbour: the widget draws it as an unclipped overlay.
     for block in &mut blocks {
         block.icon_px = ICON_MAX_PX.min(block.w - 2);
         if block.icon_px < ICON_MIN_PX {
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn icons_are_sized_to_their_block_and_dropped_when_it_is_a_sliver() {
-        // Drawn as an overlay, which GTK does not clip, so an icon wider than its
+        // Drawn as an unclipped overlay, so an icon wider than its
         // block would spill over the neighbouring one.
         let strip = build(
             &[
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn pads_reconstruct_positions() {
-        // The yuck lays blocks out by padding alone, so pad must be the gap to the
+        // The bar lays blocks out by padding alone, so pad must be the gap to the
         // previous block, not to the strip origin.
         let strip = build(&row(4), 2);
         let mut cursor = 0;

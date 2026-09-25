@@ -5,10 +5,9 @@ window title per output, the focused output itself, and the strip - a scale
 model of the active workspace's scrolling layout. Emits one JSON line per
 change on stdout.
 
-Both bars read it: `modules/gui/eww/` through a `deflisten`, and
-`modules/gui/quickshell/` through a `SplitParser`. It lives beside them rather
-than inside either, and both `callPackage ../niri-state/_package.nix`, so there
-is one derivation and one build.
+The quickshell bar (`modules/gui/quickshell/`) reads it through a
+`SplitParser`. It lives beside the bar as its own package, built by
+`callPackage ../niri-state/_package.nix`.
 
 ```
 src/json.rs   minimal JSON reader/writer for niri's shapes

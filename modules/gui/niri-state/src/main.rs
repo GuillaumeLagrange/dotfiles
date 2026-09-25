@@ -6,12 +6,12 @@
 //! The strip is a scale model of the active workspace's scrolling layout: one
 //! block per column, width proportional to the column's real width, plus a frame
 //! marking the part of the workspace that is on screen. Geometry is emitted in
-//! final pixels, so the yuck does no arithmetic and the invariants that matter
+//! final pixels, so the QML does no arithmetic and the invariants that matter
 //! hold in one place.
 //!
 //! It talks to $NIRI_SOCKET directly and keeps the model in memory, so no process
 //! is forked and nothing is re-queried; snapshots are printed only when they
-//! differ, since the cost downstream is eww re-laying out its widget tree. Idle
+//! differ, since the cost downstream is the bar re-laying out its items. Idle
 //! cost is one process blocked on a socket read.
 //!
 //! niri does not report the scroll position: `tile_pos_in_workspace_view` is set

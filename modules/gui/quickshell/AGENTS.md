@@ -1,8 +1,7 @@
 # quickshell bar
 
 The session's status bar for niri, built on [quickshell](https://quickshell.org).
-It started as a port of the eww bar (`modules/gui/eww/`), which is still
-installed as a fallback but no longer autostarts.
+It started as a port of an eww bar, since removed.
 
 ## Layout
 
@@ -29,7 +28,7 @@ qml/
                 Bluetooth, Volume.
 ```
 
-`niri-state` is shared with the eww bar and lives beside both
+`niri-state` lives beside the bar
 (`../niri-state`, its own AGENTS.md): `default.nix` builds it and the QML reads
 its snapshot lines with a `SplitParser`.
 
@@ -38,8 +37,7 @@ its snapshot lines with a `SplitParser`.
 `quickshell.service` is wanted by `graphical-session.target`. It needs no
 companion units: the power profile comes live from `Services.UPower`, dnd is
 the shell's own state now that it serves notifications, and the idle lock is a
-held `Process`, so eww's `settings-watch` and `idle-reset` units have no
-counterpart here.
+held `Process`.
 
 ```bash
 systemctl --user restart quickshell
@@ -240,9 +238,7 @@ because GTK fires hover-lost on every child widget the pointer crosses.
 
 **The strip is drawn as siblings, not overlays.** The off-screen part of a
 column is a scrim `Rectangle` with per-corner radii over the tile, rather than
-eww's per-column CSS gradient; the rails are two 1px rectangles. Zero-width
-spacers are free here — the `spacer` widget eww needed (a `:width 0` box is
-still allocated a pixel in GTK) has no counterpart.
+eww's per-column CSS gradient; the rails are two 1px rectangles.
 
 ## Gotchas
 
