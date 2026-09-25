@@ -10,6 +10,12 @@ use crate::{git, util};
 /// answers "which session is this?" with no registry lookup and no environment.
 pub const MARKER: &str = ".wt/session.json";
 
+/// Left by `wt recreate` for whoever attaches next: the zellij session is to be
+/// deleted and built again rather than resurrected. It is a file rather than a
+/// message because the process that asks is inside the session being rebuilt, and
+/// does not outlive it.
+pub const RECREATE: &str = ".wt/recreate";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Marker {
     pub id: String,
@@ -122,6 +128,23 @@ impl Session {
 
     pub fn member_names(&self) -> Result<Vec<String>> {
         Ok(self.members()?.into_iter().map(|m| m.repo).collect())
+    }
+
+    /// Ask for the zellij session to be rebuilt from nothing before the next
+    /// client reaches it.
+    pub fn request_recreate(&self) -> Result<()> {
+        let file = self.path.join(RECREATE);
+        let dir = file.parent().expect("marker path has a parent");
+        std::fs::create_dir_all(dir)
+            .with_context(|| format!("failed to create {}", dir.display()))?;
+        std::fs::write(&file, "")
+            .with_context(|| format!("failed to write {}", file.display()))
+    }
+
+    /// Whether a rebuild was asked for, clearing the request: acting on it twice
+    /// would throw away a session nobody asked to lose.
+    pub fn take_recreate(&self) -> bool {
+        std::fs::remove_file(self.path.join(RECREATE)).is_ok()
     }
 }
 

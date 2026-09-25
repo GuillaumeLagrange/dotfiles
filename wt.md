@@ -368,8 +368,15 @@ wt <id>
 - `zsm` stays for zellij sessions that are not wt sessions, and keeps its own
   `wt path --exact` lookup so that attaching by name that way sets the root too.
 - The chpwd auto-rename hook is gone already (`e7ce169`): it would clobber the tab names.
-  Renaming is manual, on `Ctrl+b → n` (`zellij-rename-current`), which is where the
-  decorated names come from.
+  Renaming is `Ctrl+b → n` (`zellij-rename-current`), which is where the decorated names
+  come from, and `cdr`, which is deliberate and rare enough not to clobber anything.
+- **`wt recreate` is the only way an edited layout reaches a session**, because zellij
+  restores a session as it was rather than as the config now says. It is `zsk` —
+  `delete-session --force` — plus the ordinary attach. From inside, that kills the
+  process asking, so the request goes to `<session>/.wt/recreate` first: the `wt` that
+  handed the terminal over is between two clients at that point and rebuilds it there.
+  The request exists because a client that quit, detached or was deleted all look the
+  same from outside, and guessing wrong either traps the terminal or rebuilds nothing.
 
 ---
 

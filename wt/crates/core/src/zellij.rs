@@ -112,6 +112,23 @@ pub fn start_detached(name: &str, root: &Path) -> Result<()> {
     Err(anyhow!("`{name}` did not come up"))
 }
 
+/// Kill a session's server and delete its saved state (`delete-session --force`).
+///
+/// Zellij restores a session's saved layout on the next start, so deleting it is
+/// the only way an edited layout reaches an existing session.
+///
+/// It is also the only way to get a client off a session: `action detach` is a
+/// keybind the client acts on, and does nothing when it arrives over the CLI
+/// (checked on 0.45). Every client drops back to the terminal it came from.
+pub fn delete(name: &str) -> Result<()> {
+    let out = run(&["delete-session", "--force", name], None)?;
+    // Nothing to delete is the state being asked for, not a failure.
+    if !out.ok() && !out.stderr.contains("not found") {
+        return Err(anyhow!("could not delete `{name}`: {}", out.stderr.trim()));
+    }
+    Ok(())
+}
+
 pub fn tabs(name: &str) -> Result<Vec<Tab>> {
     let out = run(&["--session", name, "action", "list-tabs", "--json"], None)?;
     if !out.ok() {

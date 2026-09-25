@@ -14,6 +14,7 @@ wt <id>            the same, by name or unique prefix; a running session keeps t
 wt new <name>      pick members, mirror the workspace, check them out detached
 wt add <repo>      turn a mirror symlink into a worktree, and open a tab for it
 wt promote <repo>  the swap backwards: the main checkout takes the branch
+wt recreate [<id>] throw the zellij session away and come back to a new one
 wt rm [<id>]       guarded teardown (dirty tree / unpushed / stashes; --force)
 wt ls [--json]     sessions, members, branches
 wt path [<id>]     a session root, for shell use; --exact, for a name from elsewhere
@@ -110,12 +111,34 @@ A pane attached some other way (the session-manager plugin, the welcome screen,
 plain `zellij attach`) gets no value; a shell repairs that itself from
 `$ZELLIJ_SESSION_NAME`, which is the registry key, with the same call.
 
+## Rebuilding a session
+
+A zellij session outlives its server: what it had is saved and restored on the next
+start, layout included. So an edited layout never reaches a session that already
+exists, and `wt recreate` is the way out. It is one `delete-session --force` — what
+`zsk` does — followed by the ordinary attach, so the session comes up exactly as a
+first `wt <id>` would build it.
+
+The one thing that cannot be done in a straight line is doing this **from inside the
+session**, because the process asking is a pane of what it is deleting, and the
+terminal belongs to whoever started the client. It goes: write `<session>/.wt/recreate`,
+delete, die with the panes. The terminal falls back to the `wt` that handed it over,
+which is sitting between two clients; it takes the request and attaches again, into a
+session that no longer exists and is therefore built fresh.
+
+The request on disk is what a client exiting cannot say by itself: quitting,
+detaching and being deleted all look the same from out here, so without it `wt` would
+either trap the terminal in a session it can never leave or never rebuild anything.
+A terminal that reached the session some other way (`zsm`, plain `zellij attach`)
+lands back at its shell, and the next `wt <id>` honours the request.
+
 ## State
 
 | what             | where                               |
 | ---------------- | ----------------------------------- |
 | session registry | `$XDG_STATE_HOME/wt/sessions.json` |
 | session marker   | `<session>/.wt/session.json`       |
+| rebuild request  | `<session>/.wt/recreate`           |
 
 The registry stores only what nothing else knows: path, title, extra ticket keys.
 Members and branches are read from the filesystem and git on every call, so they

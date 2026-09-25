@@ -61,6 +61,13 @@ enum Command {
         session: Option<String>,
     },
 
+    /// Throw the session's zellij session away and attach to a new one, so a
+    /// changed layout takes effect.
+    Recreate {
+        #[arg(add = ArgValueCandidates::new(complete::sessions))]
+        id: Option<String>,
+    },
+
     /// Tear a session down, refusing while it still holds work.
     Rm {
         #[arg(add = ArgValueCandidates::new(complete::sessions))]
@@ -135,6 +142,7 @@ fn run() -> Result<()> {
         Some(Command::Promote { repo, session }) => {
             cmd::promote::run(&cfg, &repo, session.as_deref())
         }
+        Some(Command::Recreate { id }) => cmd::recreate::run(&cfg, id.as_deref()),
         Some(Command::Rm { id, force }) => cmd::remove::run(&cfg, id.as_deref(), force),
         Some(Command::Ls { json }) => cmd::ls::run(&cfg, json),
         Some(Command::Sync { id, fix, all }) => cmd::sync::run(&cfg, id.as_deref(), fix, all),

@@ -38,6 +38,14 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         "zellij is not installed; `wt path {id}` prints the root instead"
     );
 
+    // A session `wt recreate` flagged is rebuilt rather than resurrected — except
+    // from inside it, where the flag is still waiting for this client to leave.
+    let here = zellij::current();
+    let inside = here.as_deref() == Some(id.as_str());
+    if !inside && session.take_recreate() {
+        zellij::delete(&id)?;
+    }
+
     // Started here even when we are inside another session and only going to
     // switch: the server has to inherit the root from this process, and zellij's
     // own server could not give it one.
@@ -52,8 +60,8 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
     //
     // This runs on every attach, not just the one that started the server: a
     // session keeps the tabs it has, and a member without one gets it here.
-    match zellij::current() {
-        Some(current) if current == id => {
+    match here {
+        Some(_) if inside => {
             for repo in zellij::ensure_tabs(&session)? {
                 println!("{id}: opened a tab for {repo}");
             }
@@ -65,12 +73,19 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
             tabs_behind_the_client(&session);
             Ok(())
         }
-        None => {
+        // This process owns the terminal, so it is the one that can rebuild the
+        // session: `wt recreate` from inside deletes it and leaves the flag, the
+        // client exits, and the loop starts the session again and reattaches.
+        None => loop {
             let mut child = zellij::attach_child(&id, &session.path)?;
             tabs_behind_the_client(&session);
             let status = child.wait().context("waiting for zellij to exit")?;
-            std::process::exit(status.code().unwrap_or(1))
-        }
+            if !session.take_recreate() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+            zellij::delete(&id)?;
+            zellij::start_detached(&id, &session.path)?;
+        },
     }
 }
 

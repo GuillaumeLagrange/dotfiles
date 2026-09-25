@@ -4,6 +4,7 @@ pub mod ls;
 pub mod new;
 pub mod path;
 pub mod promote;
+pub mod recreate;
 pub mod remove;
 pub mod sync;
 
