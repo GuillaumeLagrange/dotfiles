@@ -12,8 +12,11 @@
       # Plain `ln -sf` rather than home.file/mkOutOfStoreSymlink: the latter
       # puts the symlink node itself under /nix/store, so an atomic write
       # (temp file next to the target, then rename) lands in the store and
-      # fails with EROFS. Claude Code rewrites settings.json that way, omp
-      # rewrites config.yml that way.
+      # fails with EROFS. Claude Code rewrites settings.json that way.
+      #
+      # omp's config.yml is not linked: it is loaded read-only through
+      # PI_CONFIG_FILES (below), and omp writes its own changes to
+      # ~/.omp/agent/config.yml, which stays local.
       #
       # Only declarative files are linked; the rest of ~/.omp/agent is state
       # (auth, history, models, blobs, sessions) and stays untracked.
@@ -38,7 +41,12 @@
           run ln -sf "${aiDir}/claude/settings.local.json" "${claudeHome}/settings.local.json"
         fi
 
-        run ln -sfn "${aiDir}/omp/config.yml" "${ompAgentDir}/config.yml"
+        # Write a real file over the symlink rather than just deleting it: if
+        # config.yml is missing, omp rebuilds it from legacy agent.db settings.
+        if [ -L "${ompAgentDir}/config.yml" ]; then
+          run rm "${ompAgentDir}/config.yml"
+          run sh -c 'echo "hideThinkingBlock: true" > "$1"' _ "${ompAgentDir}/config.yml"
+        fi
         run ln -sfn "${aiDir}/omp/mcp.json" "${ompAgentDir}/mcp.json"
         if [ -d "${ompAgentDir}/rules" ] && [ ! -L "${ompAgentDir}/rules" ]; then
           run rm -rf "${ompAgentDir}/rules"
@@ -61,5 +69,7 @@
           run ln -sfn "${aiDir}/private/rules" "${agentUserDir}/rules"
         fi
       '';
+
+      home.sessionVariables.PI_CONFIG_FILES = "${aiDir}/omp/config.yml";
     };
 }
