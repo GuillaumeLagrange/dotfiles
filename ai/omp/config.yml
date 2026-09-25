@@ -1,6 +1,6 @@
 setupVersion: 2
 modelRoles:
-  default: anthropic/claude-opus-5:high
+  default: anthropic/claude-opus-5-5
   advisor: anthropic/claude-sonnet-5:medium
   task: anthropic/claude-sonnet-5:high
   slow: anthropic/claude-fable-5-1:medium
@@ -23,6 +23,8 @@ startup:
   checkUpdate: true
 composer:
   shape: claude
+display:
+  showTokenUsage: true
+  cacheMissMarker: true
 disabledProviders:
   - claude-plugins
-
