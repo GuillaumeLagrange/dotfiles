@@ -147,7 +147,7 @@
         spotify = glyph "F04C7";
         "org.telegram.desktop" = glyph "F2C6";
         signal = glyph "F0FCD";
-        obsidian = glyph "F01C8";
+        "md.obsidian.obsidian" = glyph "F01C8";
         "org.gnome.nautilus" = glyph "F024B";
         vlc = glyph "F057C";
         calibre-gui = glyph "F14F7";
