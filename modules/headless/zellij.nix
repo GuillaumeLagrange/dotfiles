@@ -32,12 +32,14 @@
           - When called with an argument, attaches to the specified session if it exists,
             or creates a new session with the given name.
           - When called without an argument, prompts the user to select an existing session.
+            Enter switches to the window where the session is already open, or opens
+            it here if there is none; Alt+Enter opens it here even when it is open elsewhere.
 
         Parameters:
           SESSION_NAME  (optional) The name of the zellij session to create or attach to.
 
         Examples:
-          zsm             # Select and attach to an existing session using fuzzy finder.
+          zsm             # Pick a session: switch to its window, or open it here.
           zsm mysession   # Attach to 'mysession' or create a new session with this name.
         EOF
           exit 0
@@ -49,7 +51,21 @@
         fi
 
         if [[ -z "$1" ]]; then
-          session=$(${zellijFzfGetSession}/bin/zellij-fzf-get-session)
+          sessions=$(${config.programs.zellij.package}/bin/zellij list-sessions --short 2>/dev/null)
+          picked=$(echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10 \
+            --expect=alt-enter --header $'enter      go to session\nalt-enter  duplicate here')
+          { read -r key; read -r session; } <<< "$picked"
+
+          # zellij titles the terminal "<session> | <pane>", so a window showing the
+          # session is found by that prefix. niri is looked up on PATH: headless
+          # hosts have none and always attach.
+          if [[ -n "$session" && "$key" != alt-enter ]] && command -v niri > /dev/null; then
+            window=$(niri msg -j windows 2>/dev/null | ${pkgs.jq}/bin/jq -r --arg s "$session" \
+              'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
+            if [[ -n "$window" ]]; then
+              exec niri msg action focus-window --id "$window"
+            fi
+          fi
         else
           session="$1"
         fi
