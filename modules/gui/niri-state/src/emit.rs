@@ -92,9 +92,14 @@ pub fn snapshot(state: &mut State) -> String {
 
 pub fn push_strip(out: &mut String, strip: &Strip) {
     out.push_str(&format!(
-        "{{\"count\":{},\"w\":{},\"frame\":{{\"x\":{},\"w\":{}}},\"crop\":{{\"left\":{},\"right\":{}}},\"columns\":[",
-        strip.count, strip.w, strip.frame_x, strip.frame_w, strip.crop_left, strip.crop_right
+        "{{\"count\":{},\"w\":{},\"frame\":{{\"x\":{},\"w\":{}}},\"thumb\":",
+        strip.count, strip.w, strip.frame_x, strip.frame_w
     ));
+    match strip.thumb {
+        Some((x, w)) => out.push_str(&format!("{{\"x\":{x},\"w\":{w}}}")),
+        None => out.push_str("null"),
+    }
+    out.push_str(",\"columns\":[");
     for (i, block) in strip.columns.iter().enumerate() {
         if i > 0 {
             out.push(',');
@@ -110,10 +115,12 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
             out.push_str(&format!("{{\"active\":{active}}}"));
         }
         out.push_str(&format!(
-            "],\"dim\":{{\"left\":{},\"right\":{}}},\"tooltip\":",
-            block.dim_left, block.dim_right
+            "],\"dim\":{{\"left\":{},\"right\":{}}},\"cut\":{{\"left\":{},\"right\":{}}},\"tooltip\":",
+            block.dim_left, block.dim_right, block.cut_left, block.cut_right
         ));
         push_str_escaped(out, &block.tooltip);
+        out.push_str(",\"app_id\":");
+        push_str_escaped(out, &block.app_id);
         out.push_str(&format!(",\"icon_px\":{},\"icon\":", block.icon_px));
         push_str_escaped(out, &block.icon);
         out.push('}');

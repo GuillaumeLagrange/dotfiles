@@ -39,11 +39,23 @@ The offset is anchored to a window of the focused column, not to an absolute
 position, so columns opening, closing or resizing elsewhere do not drag the
 view.
 
-**Geometry is emitted in final pixels**, so neither bar does arithmetic: the
+**Geometry is emitted in final pixels**, so the bar does no arithmetic: the
 strip is `SCREEN_PX` per screenful, grows behind a fixed frame up to `MAX_PX`,
 and is cropped around the frame past that. A column that straddles the frame
 edge stays one block with `dim_left`/`dim_right` pixels for the bar to shade -
-splitting it into two boxes would read as a cut.
+splitting it into two boxes would read as a cut. A cropped strip also carries a
+`thumb`: the screen's place in the whole workspace, scaled onto the strip's
+width, which the bar draws as a minimap under it. Blocks cut by the crop are
+flagged `cut` and lose their icon.
+
+**The frame is snapped onto block edges.** Separation is carved out of the left
+block of each pair, so a frame edge that lands in that `SEP_PX` gap is pulled
+onto the block beside it; otherwise the rails run past the focused column.
+`frame_w` is therefore up to `SEP_PX` short of `SCREEN_PX`.
+
+**Icons are keyed twice.** Each block carries its lowercased `app_id`, which
+the bar looks up in its own glyph table, and the resolved icon file, which it
+falls back to (greyed) for apps the table does not know.
 
 **The scale is the output's logical width, and niri has no output event.**
 `SCREEN_PX / view_w` is what makes a block proportional, so the width has to be

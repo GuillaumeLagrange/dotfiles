@@ -35,6 +35,8 @@ pub struct Column {
     pub tiles: Vec<u64>,
     pub urgent: bool,
     pub apps: String,
+    /// Lowercased `app_id` of the app owning the column, for the bar's glyph table.
+    pub app_id: String,
     /// Icon file of the app owning the column; empty when it cannot be resolved.
     pub icon: String,
 }
@@ -52,10 +54,14 @@ pub struct Block {
     /// the strip is the `SEP_PX` gap between columns.
     pub dim_left: i64,
     pub dim_right: i64,
+    /// Ends cut by the crop rather than by the column's own edge; drawn square.
+    pub cut_left: bool,
+    pub cut_right: bool,
     pub tooltip: String,
-    /// Icon to draw on the block; empty when it is too narrow to carry one.
+    pub app_id: String,
     pub icon: String,
-    /// Side of the square the icon is drawn at.
+    /// Side of the square the icon is drawn at; 0 when the block is too narrow
+    /// to carry one or is cut by the crop.
     pub icon_px: i64,
 }
 
@@ -72,8 +78,9 @@ pub struct Strip {
     pub w: i64,
     pub frame_x: i64,
     pub frame_w: i64,
-    pub crop_left: bool,
-    pub crop_right: bool,
+    /// On-screen part of the whole workspace, scaled onto the strip's width, as
+    /// `(x, w)`; only when the strip is cropped and no longer shows it all.
+    pub thumb: Option<(i64, i64)>,
     pub columns: Vec<Block>,
     pub floating: Vec<Float>,
 }
@@ -207,7 +214,10 @@ pub fn build_strip(
             },
             dim_left: 0,
             dim_right: 0,
+            cut_left: false,
+            cut_right: false,
             tooltip: column.apps.clone(),
+            app_id: column.app_id.clone(),
             icon: column.icon.clone(),
             icon_px: 0,
         })
@@ -228,7 +238,7 @@ pub fn build_strip(
     for block in &mut blocks {
         block.icon_px = ICON_MAX_PX.min(block.w - 2);
         if block.icon_px < ICON_MIN_PX {
-            block.icon.clear();
+            block.icon_px = 0;
         }
     }
 
@@ -244,14 +254,14 @@ pub fn build_strip(
         .collect();
 
     // Crop around the frame, clipping whatever straddles the cut.
-    let mut crop_left = false;
-    let mut crop_right = false;
+    let mut thumb = None;
     let mut offset = 0;
     if strip_w > MAX_PX {
         let centred = frame_x as f64 + SCREEN_PX as f64 / 2.0 - MAX_PX as f64 / 2.0;
         offset = centred.round().clamp(0.0, (strip_w - MAX_PX) as f64) as i64;
-        crop_left = offset > 0;
-        crop_right = offset + MAX_PX < strip_w;
+        let shrink = |px: i64| (px as f64 * MAX_PX as f64 / strip_w as f64).round() as i64;
+        let w = shrink(SCREEN_PX).max(2);
+        thumb = Some((shrink(frame_x).clamp(0, MAX_PX - w), w));
         strip_w = MAX_PX;
     }
     frame_x -= offset;
@@ -266,12 +276,35 @@ pub fn build_strip(
         let Some((x, w)) = clip(block.x, block.w) else {
             return false;
         };
+        block.cut_left = x > block.x - offset;
+        block.cut_right = x + w < block.x - offset + block.w;
+        if block.cut_left || block.cut_right {
+            block.icon_px = 0;
+        }
         (block.x, block.w, block.pad) = (x, w, x - cursor);
         cursor = x + w;
-        // The frame's position is final only after cropping.
-        (block.dim_left, block.dim_right) = outside_frame(x, w, frame_x, frame_x + SCREEN_PX);
         true
     });
+
+    // A frame edge landing in the gap carved next to a block would run the rails
+    // past the block; pull it onto the block's edge instead.
+    let covered = |px: i64| blocks.iter().any(|b| b.x <= px && px < b.x + b.w);
+    let mut frame_end = frame_x + SCREEN_PX;
+    if !covered(frame_end - 1) {
+        let end = blocks.iter().map(|b| b.x + b.w).filter(|&e| e > frame_x && e < frame_end).max();
+        if let Some(end) = end.filter(|&e| frame_end - e <= SEP_PX) {
+            frame_end = end;
+        }
+    }
+    if !covered(frame_x) {
+        let start = blocks.iter().map(|b| b.x).filter(|&s| s > frame_x && s < frame_end).min();
+        if let Some(start) = start.filter(|&s| s - frame_x <= SEP_PX) {
+            frame_x = start;
+        }
+    }
+    for block in &mut blocks {
+        (block.dim_left, block.dim_right) = outside_frame(block.x, block.w, frame_x, frame_end);
+    }
 
     let mut cursor = 0;
     drawn_floats.retain_mut(|float| {
@@ -287,9 +320,8 @@ pub fn build_strip(
         count,
         w: strip_w,
         frame_x,
-        frame_w: SCREEN_PX,
-        crop_left,
-        crop_right,
+        frame_w: frame_end - frame_x,
+        thumb,
         columns: blocks,
         floating: drawn_floats,
     }
@@ -319,7 +351,8 @@ pub fn columns_of(state: &State, workspace_id: u64) -> Vec<Column> {
                     .map(|w| w.app_id.as_str())
                     .collect::<Vec<_>>()
                     .join(", "),
-                // A stack takes the icon of its topmost tile.
+                // A stack takes the app of its topmost tile.
+                app_id: tiles[0].app_id.to_lowercase(),
                 icon: tiles[0].icon.clone(),
                 tiles: tiles.iter().map(|w| w.id).collect(),
             }
@@ -342,6 +375,7 @@ mod tests {
             tiles: tiles.to_vec(),
             urgent: false,
             apps: "kitty".into(),
+            app_id: "kitty".into(),
             icon: "/icons/kitty.png".into(),
         }
     }
@@ -361,7 +395,7 @@ mod tests {
         let [wide, half, sliver] = [0, 1, 2].map(|i| &strip.columns[i]);
         assert_eq!(wide.icon_px, ICON_MAX_PX);
         assert!(half.icon_px < ICON_MAX_PX && half.icon_px <= half.w - 2);
-        assert_eq!(sliver.icon, "", "no icon rather than a smudge");
+        assert_eq!(sliver.icon_px, 0, "no icon rather than a smudge");
     }
 
     fn urgent(idx: u32, width: f64, tiles: &[u64]) -> Column {
@@ -417,16 +451,33 @@ mod tests {
     }
 
     #[test]
-    fn frame_is_always_one_screenful() {
+    fn frame_is_one_screenful_less_at_most_a_carved_gap() {
         for columns in [
             vec![column(1, 640.0, &[1])],
             vec![column(1, FULL, &[1])],
             row(7),
         ] {
             let strip = build(&columns, 1);
-            assert_eq!(strip.frame_w, SCREEN_PX);
+            assert!((SCREEN_PX - SEP_PX..=SCREEN_PX).contains(&strip.frame_w));
             assert!(strip.frame_x >= 0 && strip.frame_x + strip.frame_w <= strip.w);
         }
+    }
+
+    #[test]
+    fn frame_stops_at_the_block_rather_than_the_gap_beside_it() {
+        let columns = [column(1, FULL, &[1]), column(2, FULL, &[2])];
+        let left = build(&columns, 1);
+        let block = &left.columns[0];
+        assert_eq!(
+            (left.frame_x, left.frame_x + left.frame_w),
+            (block.x, block.x + block.w)
+        );
+        let right = build(&columns, 2);
+        let block = &right.columns[1];
+        assert_eq!(
+            (right.frame_x, right.frame_x + right.frame_w),
+            (block.x, block.x + block.w)
+        );
     }
 
     #[test]
@@ -593,7 +644,6 @@ mod tests {
     fn cropping_keeps_the_frame_and_clips_the_edges() {
         let strip = build(&row(12), 6);
         assert_eq!(strip.w, MAX_PX);
-        assert!(strip.crop_left && strip.crop_right);
         assert!(strip.frame_x >= 0 && strip.frame_x + strip.frame_w <= strip.w);
         assert!(
             strip.columns.len() < 12,
@@ -603,12 +653,26 @@ mod tests {
     }
 
     #[test]
-    fn crop_flags_follow_the_focused_column() {
+    fn blocks_cut_by_the_crop_are_flagged_and_lose_their_icon() {
+        let strip = build(&row(12), 6);
+        let (first, last) = (&strip.columns[0], strip.columns.last().unwrap());
+        assert!(first.cut_left && !first.cut_right && first.icon_px == 0);
+        assert!(last.cut_right && !last.cut_left && last.icon_px == 0);
+        let inner = &strip.columns[1..strip.columns.len() - 1];
+        assert!(inner.iter().all(|b| !b.cut_left && !b.cut_right && b.icon_px > 0));
+    }
+
+    #[test]
+    fn thumb_places_the_screen_within_the_whole_workspace() {
+        assert_eq!(build(&row(2), 1).thumb, None, "an uncropped strip is the whole workspace");
         let columns = row(12);
-        let left = build(&columns, 1);
-        assert!(!left.crop_left && left.crop_right);
-        let right = build(&columns, 12);
-        assert!(right.crop_left && !right.crop_right);
+        let (x, w) = build(&columns, 1).thumb.unwrap();
+        assert_eq!(x, 0);
+        assert!(w >= 2 && w < MAX_PX);
+        let (x, w) = build(&columns, 12).thumb.unwrap();
+        assert_eq!(x + w, MAX_PX);
+        let (mid, _) = build(&columns, 6).thumb.unwrap();
+        assert!(0 < mid && mid < x, "moves with the view");
     }
 
     #[test]

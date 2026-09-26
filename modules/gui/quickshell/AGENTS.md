@@ -238,7 +238,19 @@ because GTK fires hover-lost on every child widget the pointer crosses.
 
 **The strip is drawn as siblings, not overlays.** The off-screen part of a
 column is a scrim `Rectangle` with per-corner radii over the tile, rather than
-eww's per-column CSS gradient; the rails are two 1px rectangles.
+eww's per-column CSS gradient; the rails are two hairline rectangles.
+
+**Strip marks are monochrome.** A column shows a nerd-font glyph in `Theme.ink`
+from `Config.appGlyph` (keyed by lowercased `app_id`, in `default.nix`), and
+only an app missing from that table falls back to its own icon file,
+desaturated with `MultiEffect`. Add an entry there when a new app shows up
+grey.
+
+**Rails are one physical pixel and antialiased.** At a fractional scale the
+blocks' rounded, antialiased edges land on half pixels; a crisp rail snaps to
+the grid and ends up to a pixel past the block beneath it. The bottom rail
+turns into a minimap (dim track, bright thumb) when niri-state sends a `thumb`,
+i.e. when the strip is cropped.
 
 ## Gotchas
 
