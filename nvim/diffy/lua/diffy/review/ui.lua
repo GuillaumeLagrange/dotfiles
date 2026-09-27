@@ -316,6 +316,10 @@ function M.compose(session, mode)
   if not side then
     return
   end
+  if not session.current_path or not vim.w[win].diffy_path then
+    vim.notify('diffy: no file on this side to comment on', vim.log.levels.WARN)
+    return
+  end
   local review = M.ensure(session)
   if not review then
     vim.notify('diffy: review is only available in :Diffy, :Diffy branch and :Diffy pr', vim.log.levels.WARN)
