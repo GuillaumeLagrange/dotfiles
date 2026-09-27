@@ -123,7 +123,7 @@ of the comment). The other side gets matching blank lines so the diff stays alig
 | `<leader>dt` | hide / show comments inline |
 | `gP` | PR description and conversation (`:Diffy pr`) |
 
-Threads open as a card over the other diff window. Each comment gets a header strip: avatar, author (on
+Threads open as a framed card over the other diff window. Each comment gets a header strip: avatar, author (on
 GitHub; "You" in a local review), age, and its state when it isn't published yet: `draft` (only in
 diffy), `pending` (in your unsubmitted GitHub review), `sent` (exported to the agent). The first header
 also says `outdated` or `✓ resolved`. Bodies render as markdown; suggestion blocks are labelled, empty
@@ -178,6 +178,7 @@ All set with `default = true`, so a colorscheme or your config can override any 
 | `DiffyThreadSummary` / `DiffyThreadRelevant` / `DiffyThreadCurrent` | `Comment` / `Special` / `PmenuSel` | comment summaries: others / on the cursor line / open |
 | `DiffyThreadRange` | `PmenuSel` | line numbers of the open thread's lines |
 | `DiffyThread` / `DiffyThreadHeader` | background of `CursorLine` / `Pmenu` | comment cards / their header strips |
+| `DiffyThreadBorder` | `WinSeparator`'s colour on the card background | card frames |
 | `DiffyThreadAuthor`, `DiffyThreadAuthor1`…`5` | bold, `Identifier` `DiagnosticHint` `Constant` `Title` `Function` | author names, a colour per login |
 | `DiffyThreadTime` | `Comment` | comment age |
 | `DiffyThreadDraft` / `DiffyThreadPending` / `DiffyThreadSent` | `DiagnosticWarn` / `DiagnosticInfo` / `Comment` | comment states |

@@ -179,11 +179,11 @@ with the real config and `--listen`, screenshotted with `grim`:
 - `string.find(s, p, 1, true)` takes `p` literally, `%` escapes included.
 - `FugitiveFind(object, dir)` wants the `.git` dir (`FugitiveExtractGitDir(root)`), not the worktree root.
 - `nvim_win_get_height` counts the winbar; `getwininfo(win)[1].height` is the text rows only.
-- A float's `title`/`footer` chunks whose group has no background are drawn on the float's `NormalFloat`
-  background, the rest of that border row on `FloatBorder`: give both the same background, or pad the
-  chunk to the full width.
-- A float's border can be one edge only (`{ '', '', '', '', '', ' ', '', '' }` is a bottom row): a place
-  for a title or footer without a frame.
+- A float's `title`/`footer` chunks are drawn with their own highlight only: without a background they show
+  the terminal's default, not `FloatBorder`'s or `NormalFloat`'s. Chunk highlights can be lists, so stack a
+  background group in (`{ 'DiffyThread', 'DiffyThreadKey' }`).
+- The user's kitty has `background_opacity 0.95` over a wallpaper: backgrounds that are close in value
+  (a tinted float on `Normal`) barely separate on their screen. A frame line does.
 - Markdown treesitter highlighting conceals fence lines entirely (`conceal_lines`) at `conceallevel=2`, so
   a label for a fenced block has to hang off the line before the fence.
 - `nvim_ui_send(data)` writes raw bytes to the TUI's terminal (the server's own stdout isn't the tty);

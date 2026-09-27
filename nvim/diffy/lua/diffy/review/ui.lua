@@ -386,25 +386,26 @@ end
 local CARD_WIDTH = 100
 local CARD_HL = table.concat({
   'NormalFloat:DiffyThread',
-  'FloatBorder:DiffyThread',
+  'FloatBorder:DiffyThreadBorder',
   'FloatTitle:DiffyThreadHeader',
-  'FloatFooter:DiffyThread',
+  'FloatFooter:DiffyThreadBorder',
   'FoldColumn:DiffyThread',
   'EndOfBuffer:DiffyThread',
 }, ',')
 
---- A card title: a header strip across the whole top edge.
+--- A card title, set in the top border like a tab.
 local function card_title(text, width)
-  text = highlight.truncate(text, width - 2)
-  return { { ' ' .. text .. (' '):rep(width - 1 - vim.fn.strdisplaywidth(text)), 'DiffyThreadHeader' } }
+  return { { ' ' .. highlight.truncate(text, width - 4) .. ' ', 'DiffyThreadHeader' } }
 end
 
---- A float drawn as a card: its own background, wrapped text, no frame.
+--- A float drawn as a card: its own background inside a thin frame, wrapped text.
 local function card_window(win)
   vim.wo[win].winhighlight = CARD_HL
   vim.wo[win].wrap = true
   vim.wo[win].linebreak = true
   vim.wo[win].breakindent = true
+  -- a cut preview ends mid-paragraph: no `@@@` marker there
+  vim.wo[win].fillchars = 'eob: ,lastline: '
 end
 
 --- Seconds since the epoch of a comment's `created_at`: `os.time()` for
@@ -689,10 +690,11 @@ local function key_hints(keys, width)
     end
     table.remove(shown, worst)
   end
+  -- title/footer chunks don't take the border's background: stack it in
   local chunks = { { ' ', 'DiffyThread' } }
   for i, k in ipairs(shown) do
-    table.insert(chunks, { k[1], 'DiffyThreadKey' })
-    table.insert(chunks, { ' ' .. k[2] .. (i < #shown and '   ' or ' '), 'DiffyThreadHint' })
+    table.insert(chunks, { k[1], { 'DiffyThread', 'DiffyThreadKey' } })
+    table.insert(chunks, { ' ' .. k[2] .. (i < #shown and '   ' or ' '), { 'DiffyThread', 'DiffyThreadHint' } })
   end
   return chunks
 end
@@ -722,8 +724,7 @@ function M.open_compose(session, anchor_win, anchor_line, on_save, opts)
   local cfg = beside(session, anchor_win, anchor_line, 8, 2)
   cfg.width = math.min(cfg.width, CARD_WIDTH)
   cfg.style = 'minimal'
-  -- top and bottom edges only: title and key hints, no frame
-  cfg.border = { '', ' ', '', '', '', ' ', '', '' }
+  cfg.border = 'rounded'
   cfg.zindex = 200
   cfg.title = card_title(opts.title or 'New comment', cfg.width)
   local keys = { { '<C-s>', 'save' }, { 'q', 'cancel' } }
@@ -1018,7 +1019,7 @@ function M.show_thread(session, thread, opts)
       idx = i
     end
   end
-  local edges = opts.focus and 1 or 0
+  local edges = 2
   local cfg = beside(session, src, place.start_line, vim.api.nvim_buf_line_count(buf), edges)
   cfg.width = math.min(cfg.width, CARD_WIDTH)
   cfg.style = 'minimal'
@@ -1040,12 +1041,9 @@ function M.show_thread(session, thread, opts)
       table.insert(keys, { ']t [t', ('%d/%d'):format(idx, #order), drop = 1 })
     end
     table.insert(keys, { 'q', 'close' })
-    -- a bottom edge only, to carry the key hints
-    cfg.border = { '', '', '', '', '', ' ', '', '' }
     cfg.footer = key_hints(keys, cfg.width)
-  else
-    cfg.border = 'none'
   end
+  cfg.border = 'rounded'
   local fwin = vim.api.nvim_open_win(buf, opts.focus or false, cfg)
   card_window(fwin)
   vim.wo[fwin].conceallevel = 2
@@ -1058,10 +1056,8 @@ function M.show_thread(session, thread, opts)
     local room = cfg.win and vim.fn.getwininfo(cfg.win)[1].height or vim.o.lines
     local cap = math.max(6, math.floor(room / 2))
     if rows > cap then
-      edges = 1
-      fit_cfg.border = { '', '', '', '', '', ' ', '', '' }
-      fit_cfg.footer = key_hints({ { 'K', ('%d more lines'):format(rows - cap + 1) } }, cfg.width)
-      rows = cap - 1
+      fit_cfg.footer = key_hints({ { 'K', ('%d more lines'):format(rows - cap) } }, cfg.width)
+      rows = cap
     end
   end
   local fit = beside(session, src, place.start_line, rows, edges)
@@ -1287,7 +1283,7 @@ function M.open_pr_description(session)
     width = width,
     height = 1,
     style = 'minimal',
-    border = { '', ' ', '', '', '', ' ', '', '' },
+    border = 'rounded',
     title = card_title(('#%d %s'):format(pr.number, pr.title or ''), width),
     footer = key_hints({ { 'q', 'close' } }, width),
     zindex = 200,
@@ -1342,7 +1338,7 @@ function M.open_submit_body(session, on_save, title)
     width = width,
     height = height,
     style = 'minimal',
-    border = { '', ' ', '', '', '', ' ', '', '' },
+    border = 'rounded',
     title = card_title(title or 'Submit review', width),
     footer = key_hints({ { '<C-s>', 'submit' }, { 'q', 'cancel' } }, width),
     zindex = 200,

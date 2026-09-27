@@ -50,12 +50,12 @@ M.STATUS = {
   U = 'DiffyConflict',
 }
 
---- First background colour among `groups`.
-local function bg_of(...)
+--- First `key` ('fg'/'bg') colour among `groups`.
+local function color_of(key, ...)
   for _, g in ipairs({ ... }) do
     local h = vim.api.nvim_get_hl(0, { name = g, link = false })
-    if h.bg then
-      return h.bg
+    if h[key] then
+      return h[key]
     end
   end
 end
@@ -67,8 +67,12 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'DiffyCurrentFileName', { bold = true, default = true })
   -- background only: Normal/NormalFloat are often transparent, and linking
   -- to CursorLine or Pmenu would drag in their underline/foreground
-  vim.api.nvim_set_hl(0, 'DiffyThread', { bg = bg_of('CursorLine', 'StatusLine', 'Pmenu'), default = true })
-  vim.api.nvim_set_hl(0, 'DiffyThreadHeader', { bg = bg_of('Pmenu', 'Visual', 'StatusLine'), default = true })
+  local card = color_of('bg', 'CursorLine', 'StatusLine', 'Pmenu')
+  vim.api.nvim_set_hl(0, 'DiffyThread', { bg = card, default = true })
+  vim.api.nvim_set_hl(0, 'DiffyThreadHeader', { bg = color_of('bg', 'Pmenu', 'Visual', 'StatusLine'), default = true })
+  -- a separator-coloured line on the card's own background, so the frame
+  -- belongs to the card and titles/footers sit on it without patches
+  vim.api.nvim_set_hl(0, 'DiffyThreadBorder', { fg = color_of('fg', 'WinSeparator', 'FloatBorder', 'Comment'), bg = card, default = true })
   vim.api.nvim_set_hl(0, 'DiffyThreadAuthor', { bold = true, default = true })
 end
 
