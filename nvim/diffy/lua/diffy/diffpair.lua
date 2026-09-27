@@ -13,7 +13,11 @@ local function short(rev)
   elseif rev == 'HEAD' then
     return 'HEAD'
   end
-  return rev:sub(1, 7)
+  local sha, rest = rev:match('^(%x+)(.*)$')
+  if sha and #sha > 7 then
+    return sha:sub(1, 7) .. rest
+  end
+  return rev
 end
 
 local function fugitive_object(rev, path)

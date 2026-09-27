@@ -50,6 +50,10 @@ T['§3: selecting Base..M2 shows f.txt with left = base content and right = M2 c
   -- M2: line 90 holds the second edit made on main
   MiniTest.expect.equality(right_lines[1], '1')
   MiniTest.expect.equality(right_lines[90], 'main: line 90 v2')
+  -- the left winbar names a rev that resolves to the base commit
+  local left_bar = child.lua_get('vim.wo[' .. w.left .. '].winbar')
+  local shown_rev = left_bar:match('^(%S+)%s+f%.txt$')
+  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', shown_rev }), repo.sha.Base)
 
   child.cmd('Diffy close')
 end
