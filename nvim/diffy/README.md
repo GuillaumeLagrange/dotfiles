@@ -12,6 +12,8 @@ side-by-side diff in native diff mode. Closing the tab in any way (`:tabclose`, 
 - Neovim ≥ 0.12, git ≥ 2.36
 - [vim-fugitive](https://github.com/tpope/vim-fugitive): blob and index buffers
 - [`gh`](https://cli.github.com), authenticated: `:Diffy pr`, and base-branch detection for `:Diffy branch`
+- Optional, for GitHub avatars: a terminal with the kitty graphics protocol (kitty, ghostty, WezTerm; also
+  inside zellij ≥ 0.45, not tmux), `curl` and ImageMagick
 
 ## Install
 
@@ -26,6 +28,7 @@ require('diffy').setup({
   },
   -- copied to `+` by `:Diffy review export`; %s is the absolute path of review.md
   review_prompt = 'Read %s and address each review comment. Reply per comment id with what you changed.',
+  avatars = true,                 -- GitHub avatars in comment headers, when the terminal can draw them
 })
 ```
 
@@ -120,9 +123,19 @@ of the comment). The other side gets matching blank lines so the diff stays alig
 | `<leader>dt` | hide / show comments inline |
 | `gP` | PR description and conversation (`:Diffy pr`) |
 
-In the thread float: `r` reply, `e` edit your draft, `dd` delete your draft, `x` resolve/unresolve, `]t`/`[t`
-switch thread, `q` close. In the compose float, `<C-g>s` inserts a GitHub suggestion block with the
-commented lines.
+Threads open as a card over the other diff window. Each comment gets a header strip: avatar, author (on
+GitHub; "You" in a local review), age, and its state when it isn't published yet: `draft` (only in
+diffy), `pending` (in your unsubmitted GitHub review), `sent` (exported to the agent). The first header
+also says `outdated` or `✓ resolved`. Bodies render as markdown; suggestion blocks are labelled, empty
+ones as "remove these lines". A preview taller than half the window is cut, with a hint to press `K`.
+
+In the thread float, the footer lists the keys that apply: `r` reply, `e` edit your draft, `dd` delete
+your draft, `x` resolve/unresolve, `]t`/`[t` switch thread, `q` close. In the compose float, `<C-g>s`
+inserts a GitHub suggestion block with the commented lines. `gP` shows the PR description and its
+conversation the same way.
+
+Avatars need a terminal with the kitty graphics protocol, `curl` and ImageMagick. They're downloaded once
+and cached in `stdpath('cache')/diffy/avatars`; without them the headers are text only.
 
 Local comments follow the code: after edits they're found again by their text within ±20 lines. When they
 can't be, they're listed in `:Diffy threads` as detached.
@@ -154,7 +167,7 @@ on GitHub and the tree is clean.
 
 ## Highlights
 
-All linked with `default = true`, override any of them:
+All set with `default = true`, so a colorscheme or your config can override any of them:
 
 | Group | Default | |
 |---|---|---|
@@ -164,6 +177,13 @@ All linked with `default = true`, override any of them:
 | `DiffyCurrentFile`, `DiffyCurrentFileName` | `Visual`, bold | the file shown in the diff |
 | `DiffyThreadSummary` / `DiffyThreadRelevant` / `DiffyThreadCurrent` | `Comment` / `Special` / `PmenuSel` | comment summaries: others / on the cursor line / open |
 | `DiffyThreadRange` | `PmenuSel` | line numbers of the open thread's lines |
+| `DiffyThread` / `DiffyThreadHeader` | background of `CursorLine` / `Pmenu` | comment cards / their header strips |
+| `DiffyThreadAuthor`, `DiffyThreadAuthor1`…`5` | bold, `Identifier` `DiagnosticHint` `Constant` `Title` `Function` | author names, a colour per login |
+| `DiffyThreadTime` | `Comment` | comment age |
+| `DiffyThreadDraft` / `DiffyThreadPending` / `DiffyThreadSent` | `DiagnosticWarn` / `DiagnosticInfo` / `Comment` | comment states |
+| `DiffyThreadResolved` / `DiffyThreadOutdated` | `DiagnosticOk` / `DiagnosticWarn` | thread states |
+| `DiffyThreadCodeBar` / `DiffyThreadSuggestion` | `Comment` / `Added` | code block bar / suggestion bar and label |
+| `DiffyThreadKey` / `DiffyThreadHint` | `Special` / `Comment` | footer keys / their labels |
 
 ## Tests
 

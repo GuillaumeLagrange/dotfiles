@@ -471,6 +471,44 @@ T['pull restores a pending comment (eagerly remapped for display) at its origina
   child.cmd('Diffy close')
 end
 
+T['the thread float names each author and marks drafts and resolved threads'] = function()
+  setup_pending()
+  open_pr()
+  open_file('f.txt')
+  local right = wins().right
+  child.api.nvim_set_current_win(right)
+  child.fn.win_execute(right, 'call cursor(30, 1)')
+  child.type_keys('K')
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  wait_ready_raw()
+  child.type_keys('a reply', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  wait_ready_raw()
+
+  child.fn.win_execute(right, 'call cursor(30, 1)')
+  child.type_keys('K')
+  local text = ui.thread_float(child).text
+  -- D1 is published: its header carries no state
+  MiniTest.expect.equality(text[1]:find('^GuillaumeLagrange  ') ~= nil, true)
+  MiniTest.expect.equality({ text[1]:find('draft', 1, true), text[1]:find('pending', 1, true) }, {})
+  MiniTest.expect.equality(text[2]:find('^D1 published thread') ~= nil, true)
+  if not live.enabled then
+    -- the recorded PR has E4, a reply in the viewer's pending review
+    MiniTest.expect.equality(text[3]:find('  pending$') ~= nil, true)
+  end
+  MiniTest.expect.equality({ text[#text - 1]:find('  draft$') ~= nil, text[#text] }, { true, 'a reply' })
+  child.type_keys('q')
+
+  child.fn.win_execute(right, 'call cursor(20, 1)')
+  child.type_keys('K')
+  MiniTest.expect.equality(ui.thread_float(child).text[1]:match('  ✓ resolved$') ~= nil, true)
+  child.type_keys('q')
+
+  child.cmd('Diffy close')
+end
+
 T['reply, resolve/unresolve and submit'] = function()
   setup_pending()
   open_pr()

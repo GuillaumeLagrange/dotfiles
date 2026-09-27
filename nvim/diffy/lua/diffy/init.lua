@@ -11,6 +11,9 @@ M.config = {
   },
   -- copied to `+` by `:Diffy review export`; %s is the absolute path of review.md
   review_prompt = 'Read %s and address each review comment. Reply per comment id with what you changed.',
+  -- GitHub avatars in comment headers, on terminals with the kitty graphics
+  -- protocol (needs curl and ImageMagick)
+  avatars = true,
 }
 
 function M.setup(opts)
@@ -111,7 +114,7 @@ function M.dispatch.review(args)
         end
         require('diffy.git.run').ready({ session = s.id, event = 'review' })
       end)
-    end)
+    end, ({ COMMENT = 'Submit review', APPROVE = 'Approve', REQUEST_CHANGES = 'Request changes' })[event])
   else
     vim.notify(('diffy: `review %s` is not implemented yet'):format(sub or ''), vim.log.levels.WARN)
   end

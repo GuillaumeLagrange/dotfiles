@@ -32,9 +32,10 @@ lua/diffy/
   checkout.lua          X full checkout, .git/diffy/checkout.json, restore
   conflict.lua          :Diffy conflicts and the 4-window conflict view
   prompt.lua            key-driven yes/no float (vim.fn.confirm can't be driven in tests)
-  highlight.lua         highlight groups (default links) and width-fitting helpers
+  highlight.lua         highlight groups (default links, card backgrounds) and width-fitting helpers
+  avatar.lua            GitHub avatars over the terminal (kitty graphics): detect, fetch, place, clear
   review/model.lua      thread data, excerpt relocation, line tracking, GitHub anchor validity/position
-  review/ui.lua         signs, summaries, thread float, compose float, :Diffy threads
+  review/ui.lua         signs, summaries, comment cards (thread float, gP), compose float, :Diffy threads
   review/store.lua      JSON in .git/diffy/<branch>/
   review/local.lua      local backend + review.md export
   review/github.lua     GitHub backend: gh transport, read, placement, push/pull/submit
@@ -119,6 +120,21 @@ vim.fn.expand('~/.config/nvim/init.lua') })`, then `set termguicolors` and a `No
 raises E420 without one). `child.get_screenshot()` errors with their colorscheme; read the screen with
 `vim.fn.screenstring(row, col)` and highlights with `vim.fn.screenattr`. Throwaway scripts go in `/tmp`.
 
+Seeing what the user sees (colours, avatars, floats): a headless compositor running kitty › zellij › nvim
+with the real config and `--listen`, screenshotted with `grim`:
+
+- `WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 setsid -f sway -c conf`, where `conf` holds
+  `output HEADLESS-1 resolution 1500x800` and `exec kitty -o background_opacity=1 zellij --config
+  z.kdl -s NAME -n layout.kdl`. `z.kdl` is the user's zellij config plus `show_startup_tips false` (the tip
+  popup covers the pane); the layout's pane runs `nvim --listen SOCK`. Unset `ZELLIJ*` first, or zellij
+  treats it as a nested session.
+- The user's config restores a session on start: `:cd` to the repo and `:%bwipe!` before `:Diffy`.
+- Drive it with `nvim --server SOCK --remote-send '…'` / `--remote-expr`, shoot with
+  `WAYLAND_DISPLAY=wayland-N grim shot.png`.
+- Afterwards: kill sway, `zellij kill-session`/`delete-session NAME`, and restore the session environment
+  (`systemctl --user set-environment WAYLAND_DISPLAY=wayland-1 DISPLAY=:0`, the same through
+  `dbus-update-activation-environment --systemd`).
+
 ## The user's config
 
 - diffchar.vim is active (their `diffopt` has no `inline:`). Its `BufWinEnter`/`OptionSet diff` handlers
@@ -131,9 +147,12 @@ raises E420 without one). `child.get_screenshot()` errors with their colorscheme
 - `<leader>` is space and `<leader>bb`/`bd`/`bo` exist, so a buffer-local `<leader>b` would wait for
   `timeoutlen`; the panel toggle is `<leader>e`.
 - `nvim/ftplugin/rust.lua` refuses rust-analyzer on `fugitive://` buffers: blob sides never get LSP.
-- Terminal: kitty 0.48 inside zellij 0.45. Kitty image placeholders (e.g. GitHub avatars) render in plain
-  kitty but zellij drops them (confirmed on screen; zellij rejects `U=1`, fix pending in
-  zellij-org/zellij#5531). snacks.nvim disables images under zellij for the same reason.
+- Terminal: kitty 0.48 inside zellij 0.45.1. Kitty graphics *direct placements* (`a=p` at the cursor,
+  `C=1`) work in both, follow nvim redraws, and are moved/deleted by id; zellij also answers the `a=q`
+  support query. *Unicode placeholders* (`U=1`) don't work in zellij (zellij-org/zellij#5531), which is
+  why snacks.nvim disables images there and why `avatar.lua` places images at screen cells instead.
+- The colorscheme (gruvbox-material) leaves `Normal`/`NormalFloat` without a background: a float needs a
+  background taken from another group (`CursorLine`, `Pmenu`) to stand out.
 
 ## nvim facts (0.12.5)
 
@@ -159,6 +178,16 @@ raises E420 without one). `child.get_screenshot()` errors with their colorscheme
 - `vim.fn.writefile` turns a `\n` inside one list item into a NUL byte; split lines first.
 - `string.find(s, p, 1, true)` takes `p` literally, `%` escapes included.
 - `FugitiveFind(object, dir)` wants the `.git` dir (`FugitiveExtractGitDir(root)`), not the worktree root.
+- `nvim_win_get_height` counts the winbar; `getwininfo(win)[1].height` is the text rows only.
+- A float's `title`/`footer` chunks whose group has no background are drawn on the float's `NormalFloat`
+  background, the rest of that border row on `FloatBorder`: give both the same background, or pad the
+  chunk to the full width.
+- A float's border can be one edge only (`{ '', '', '', '', '', ' ', '', '' }` is a bottom row): a place
+  for a title or footer without a frame.
+- Markdown treesitter highlighting conceals fence lines entirely (`conceal_lines`) at `conceallevel=2`, so
+  a label for a fenced block has to hang off the line before the fence.
+- `nvim_ui_send(data)` writes raw bytes to the TUI's terminal (the server's own stdout isn't the tty);
+  `TermResponse` delivers APC replies, e.g. kitty graphics queries.
 
 ## git facts
 
@@ -216,6 +245,10 @@ Where comments point:
 
 API: `gh api graphql --input -` with `{query, variables}` on stdin avoids quoting multi-line bodies. An
 introspection query may use the same introspection field at most twice.
+
+Avatars: `avatarUrl(size: 64)` works on any `Actor` (bots too); the viewer's comes from `viewer { … }` in the
+read query. Uploaded photos are served as JPEG, and kitty's protocol only takes PNG (`f=100`), hence
+ImageMagick. The recorded fixtures have no `avatarUrl`, so tests never draw images (no TTY UI anyway).
 
 ## Sandbox
 

@@ -10,8 +10,8 @@ local repo = require('diffy.git.repo')
 local M = {}
 
 M.name = 'local'
--- Suggestion blocks are a GitHub-only feature.
-M.capabilities = { resolve = true, suggestions = false }
+-- Suggestion blocks are a GitHub-only feature; every comment is the user's.
+M.capabilities = { resolve = true, suggestions = false, people = false }
 
 --- Current branch name, read from `<gitdir>/HEAD` without a subprocess
 --- (`session.gitdir` already resolves worktrees whose `.git` is a file).

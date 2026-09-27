@@ -19,7 +19,25 @@ local LINKS = {
   DiffyThreadCurrent = 'PmenuSel',
   -- drawn on the number column, so it needs a strong background
   DiffyThreadRange = 'PmenuSel',
+  DiffyThreadTime = 'Comment',
+  DiffyThreadKey = 'Special',
+  DiffyThreadHint = 'Comment',
+  DiffyThreadDraft = 'DiagnosticWarn',
+  DiffyThreadPending = 'DiagnosticInfo',
+  DiffyThreadSent = 'Comment',
+  DiffyThreadResolved = 'DiagnosticOk',
+  DiffyThreadOutdated = 'DiagnosticWarn',
+  DiffyThreadCodeBar = 'Comment',
+  DiffyThreadSuggestion = 'Added',
+  DiffyThreadAuthor1 = 'Identifier',
+  DiffyThreadAuthor2 = 'DiagnosticHint',
+  DiffyThreadAuthor3 = 'Constant',
+  DiffyThreadAuthor4 = 'Title',
+  DiffyThreadAuthor5 = 'Function',
 }
+
+-- author name colours, picked by login
+M.AUTHOR_COLORS = 5
 
 --- Status letter -> highlight group.
 M.STATUS = {
@@ -32,11 +50,26 @@ M.STATUS = {
   U = 'DiffyConflict',
 }
 
+--- First background colour among `groups`.
+local function bg_of(...)
+  for _, g in ipairs({ ... }) do
+    local h = vim.api.nvim_get_hl(0, { name = g, link = false })
+    if h.bg then
+      return h.bg
+    end
+  end
+end
+
 function M.setup()
   for name, target in pairs(LINKS) do
     vim.api.nvim_set_hl(0, name, { link = target, default = true })
   end
   vim.api.nvim_set_hl(0, 'DiffyCurrentFileName', { bold = true, default = true })
+  -- background only: Normal/NormalFloat are often transparent, and linking
+  -- to CursorLine or Pmenu would drag in their underline/foreground
+  vim.api.nvim_set_hl(0, 'DiffyThread', { bg = bg_of('CursorLine', 'StatusLine', 'Pmenu'), default = true })
+  vim.api.nvim_set_hl(0, 'DiffyThreadHeader', { bg = bg_of('Pmenu', 'Visual', 'StatusLine'), default = true })
+  vim.api.nvim_set_hl(0, 'DiffyThreadAuthor', { bold = true, default = true })
 end
 
 --- Truncate `s` to at most `width` display cells, ending in '…' if cut.

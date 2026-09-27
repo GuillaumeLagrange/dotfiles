@@ -12,7 +12,7 @@ local prompt = require('diffy.prompt')
 local M = {}
 
 M.name = 'github'
-M.capabilities = { resolve = true, suggestions = true }
+M.capabilities = { resolve = true, suggestions = true, people = true }
 
 --- Opaque persistence label (`pr-<number>`). The draft file itself lives
 --- under the checked-out git branch, see `pr_json_path`.
@@ -21,7 +21,10 @@ function M.branch(session)
 end
 
 local cached_author
---- Viewer's GitHub login, cached for the process lifetime.
+local avatars = {} -- login -> avatar URL, from every read
+
+--- Viewer's GitHub login, cached for the process lifetime (the read query
+--- fills it too).
 function M.author(_root)
   if cached_author then
     return cached_author
@@ -29,6 +32,16 @@ function M.author(_root)
   local res = vim.system({ 'gh', 'api', 'user', '-q', '.login' }, { text = true }):wait()
   cached_author = vim.trim((res.code == 0 and res.stdout) or 'unknown')
   return cached_author
+end
+
+function M.avatar_url(login)
+  return avatars[login]
+end
+
+local function remember_avatar(actor)
+  if actor and actor.login and actor.avatarUrl then
+    avatars[actor.login] = actor.avatarUrl
+  end
 end
 
 -- ---------------------------------------------------------------------
@@ -245,17 +258,19 @@ end
 
 local READ_QUERY = [[
 query($o: String!, $r: String!, $n: Int!, $cursor: String) {
+  viewer { login avatarUrl(size: 64) }
   repository(owner: $o, name: $r) {
     pullRequest(number: $n) {
       id
       number
       title
       body
+      createdAt
       baseRefName
       headRefOid
-      author { login }
+      author { login avatarUrl(size: 64) }
       comments(first: 100) {
-        nodes { author { login } body createdAt }
+        nodes { author { login avatarUrl(size: 64) } body createdAt }
       }
       reviews(first: 100) {
         nodes { id author { login } state body submittedAt commit { oid } }
@@ -281,7 +296,7 @@ query($o: String!, $r: String!, $n: Int!, $cursor: String) {
           comments(first: 50) {
             nodes {
               id
-              author { login }
+              author { login avatarUrl(size: 64) }
               body
               createdAt
               diffHunk
@@ -315,11 +330,18 @@ local function paginate_threads(owner, name, number, cb)
         cb(nil, nil, ('PR #%d not found'):format(number))
         return
       end
+      if data.viewer and data.viewer.login then
+        cached_author = data.viewer.login
+        remember_avatar(data.viewer)
+      end
       if not meta then
+        remember_avatar(pr.author)
         meta = {
           number = pr.number,
           title = pr.title,
           body = pr.body,
+          author = pr.author and pr.author.login,
+          created_at = pr.createdAt,
           base = pr.baseRefName,
           head_sha = pr.headRefOid,
           conversation = {},
@@ -328,6 +350,7 @@ local function paginate_threads(owner, name, number, cb)
           id = pr.id,
         }
         for _, c in ipairs(pr.comments.nodes) do
+          remember_avatar(c.author)
           table.insert(meta.conversation, { author = c.author and c.author.login, body = c.body, created_at = c.createdAt })
         end
         for _, rv in ipairs(pr.reviews.nodes) do
@@ -341,6 +364,11 @@ local function paginate_threads(owner, name, number, cb)
           })
         end
         meta.pending = pr.pendingReviews.nodes[1]
+      end
+      for _, t in ipairs(pr.reviewThreads.nodes) do
+        for _, c in ipairs(t.comments.nodes) do
+          remember_avatar(c.author)
+        end
       end
       vim.list_extend(acc, pr.reviewThreads.nodes)
       if pr.reviewThreads.pageInfo.hasNextPage then

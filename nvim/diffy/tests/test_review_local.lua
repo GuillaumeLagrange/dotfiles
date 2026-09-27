@@ -174,6 +174,50 @@ T['hovering a commented line previews it over the other diff window with its ran
   child.cmd('Diffy close')
 end
 
+T['each comment in the thread float is headed by who wrote it, when, and its state; only applicable keys are offered'] = function()
+  child.o.columns = 160
+  open_default()
+  local w = ui.wins(child)
+  write_comment(w.right, 5, 'first point')
+  child.api.nvim_set_current_win(w.right)
+  child.fn.win_execute(w.right, 'call cursor(5, 1)')
+  child.type_keys('K')
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  ui.wait_ready_raw(child)
+  child.type_keys('drop them<CR><CR>```suggestion<CR>```', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  ui.wait_ready_raw(child)
+
+  child.fn.win_execute(w.right, 'call cursor(5, 1)')
+  child.type_keys('K')
+  local float = ui.thread_float(child)
+  local text = table.concat(float.text, '\n')
+  MiniTest.expect.equality(float.text[1], 'You  just now  draft')
+  MiniTest.expect.equality(float.text[2], 'first point')
+  MiniTest.expect.equality(float.text[3], 'You  just now  draft')
+  -- an empty suggestion block would render as nothing at all
+  MiniTest.expect.equality(text:find('Suggested change: remove these lines', 1, true) ~= nil, true)
+  MiniTest.expect.equality(float.footer:find('e edit', 1, true) ~= nil, true)
+  MiniTest.expect.equality(float.footer:find('dd delete', 1, true) ~= nil, true)
+  child.type_keys('q')
+
+  ui.arm_ready(child, 'review')
+  child.cmd('Diffy review export')
+  ui.wait_ready(child)
+  child.fn.win_execute(w.right, 'call cursor(5, 1)')
+  child.type_keys('K')
+  float = ui.thread_float(child)
+  MiniTest.expect.equality({ float.text[1], float.text[3] }, { 'You  just now  sent', 'You  just now  sent' })
+  -- a sent comment can't be edited or deleted any more
+  MiniTest.expect.equality(float.footer:find('e edit', 1, true), nil)
+  MiniTest.expect.equality(float.footer:find('r reply', 1, true) ~= nil, true)
+  child.type_keys('q')
+
+  child.cmd('Diffy close')
+end
+
 T['drafts survive restarting nvim'] = function()
   open_default()
   local w = ui.wins(child)

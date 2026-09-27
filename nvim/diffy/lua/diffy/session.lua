@@ -382,6 +382,10 @@ function M.teardown(session)
   end
 
   pcall(vim.api.nvim_del_augroup_by_id, session.augroup)
+  -- images are drawn on the terminal, outside any window
+  if package.loaded['diffy.avatar'] then
+    require('diffy.avatar').clear(session.id)
+  end
 
   for _, km in ipairs(session.keymaps) do
     if km.buf and vim.api.nvim_buf_is_valid(km.buf) then
