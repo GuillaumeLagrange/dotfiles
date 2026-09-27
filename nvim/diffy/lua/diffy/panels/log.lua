@@ -51,7 +51,7 @@ local function commit_entries(root, args, cb, session)
 end
 
 local function worktree_prefix(spec)
-  if spec.kind == 'range' or spec.kind == 'file' then
+  if spec.kind == 'range' or spec.kind == 'file' or spec.kind == 'pr' then
     return {}
   end
   return {
@@ -94,6 +94,24 @@ function M.build_entries(root, spec, cb, session)
           vim.list_extend(out, commits)
           cb(out, nil)
         end, session)
+      end, session)
+    end, session)
+  elseif spec.kind == 'pr' then
+    -- `:Diffy pr` (§4/§9.4): `spec.base` is already resolved (the PR's
+    -- `baseRefName`, from `github.find_pr`) - no `resolve_base` call, and
+    -- no Unstaged/Staged prefix (the readiness check already guarantees a
+    -- clean tree at the PR head).
+    repo.merge_base(root, spec.base, 'HEAD', function(mb, err2)
+      if not mb then
+        cb(nil, err2)
+        return
+      end
+      commit_entries(root, log_args(mb .. '..HEAD'), function(commits, err3)
+        if not commits then
+          cb(nil, err3)
+          return
+        end
+        cb(commits, nil)
       end, session)
     end, session)
   elseif spec.kind == 'file' then

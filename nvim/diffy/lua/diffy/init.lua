@@ -16,7 +16,7 @@ end
 --- conflicts/restore/review/threads here; for now they just say so.
 M.dispatch = {}
 
-local NOT_YET = { 'pr' }
+local NOT_YET = {}
 for _, name in ipairs(NOT_YET) do
   M.dispatch[name] = function()
     vim.notify(('diffy: `%s` is not implemented yet'):format(name), vim.log.levels.WARN)
@@ -117,10 +117,21 @@ function M.build(s)
           require('diffy.navigation').setup(s)
           s.setup_done = true
         end
-        log_panel.render(s)
-        tree_panel.render(s, function()
-          run.ready({ session = s.id, event = 'render' })
-        end)
+        local function finish()
+          log_panel.render(s)
+          tree_panel.render(s, function()
+            run.ready({ session = s.id, event = 'render' })
+          end)
+        end
+        -- §9.4: threads/reviews/description cached per session, refreshed
+        -- with `R` (which re-runs the whole of `M.build`) - fetched here,
+        -- before the final render, so `review/ui.lua`'s decorate (called
+        -- from that render) finds `s.review` already populated.
+        if s.range.kind == 'pr' then
+          require('diffy.review.github').refresh(s, finish)
+        else
+          finish()
+        end
       end, s)
     end, s)
   end, s)
@@ -176,6 +187,42 @@ end
 
 function M.dispatch.branch(args)
   M.start({ kind = 'branch', base = args[1] })
+end
+
+--- `:Diffy pr` (§4, §9.4): only on the checked-out branch, only when local
+--- HEAD equals the PR head on GitHub and the tree is clean. Log = PR
+--- commits (`merge-base(base)..HEAD`); default selection all (no
+--- Unstaged/Staged - the readiness check already guarantees none exist).
+function M.dispatch.pr(_args)
+  local repo = require('diffy.git.repo')
+  local run = require('diffy.git.run')
+  local github = require('diffy.review.github')
+  repo.root(vim.fn.getcwd(), function(root, err)
+    if not root then
+      vim.notify('diffy: not a git repository (' .. tostring(err) .. ')', vim.log.levels.ERROR)
+      run.ready({ event = 'pr' })
+      return
+    end
+    github.find_pr(root, function(pr, ferr)
+      if not pr then
+        vim.notify('diffy: `:Diffy pr` refused - ' .. tostring(ferr), vim.log.levels.WARN)
+        run.ready({ event = 'pr' })
+        return
+      end
+      repo.head_sha(root, function(head_sha)
+        repo.is_clean(root, nil, function(clean)
+          github.pr_readiness(root, head_sha, pr.headRefOid, clean, function(ok, reason)
+            if not ok then
+              vim.notify('diffy: `:Diffy pr` refused - ' .. reason, vim.log.levels.WARN)
+              run.ready({ event = 'pr' })
+              return
+            end
+            M.start({ kind = 'pr', base = pr.baseRefName, pr_number = pr.number })
+          end)
+        end)
+      end)
+    end)
+  end)
 end
 
 function M.dispatch.restore(args)

@@ -163,4 +163,125 @@ function M.find_hunk(hunks, side, start_line, end_line)
   return nil
 end
 
+-- ---------------------------------------------------------------------
+-- GitHub backend (contract §9.4): pure line-tracking/placement helpers.
+-- `review/github.lua` supplies the actual diff text (subprocess); these
+-- only interpret it, so they're testable with plain strings/tables.
+
+--- Split a multi-file unified diff (`git diff [-M] X Y`, any context width,
+--- incl. `-U0`) into one record per file: `{ old_path, new_path, hunks }[]`
+--- (`hunks` via `M.parse_hunks`). A rename's `diff --git a/old b/new`
+--- header carries both names; every other file has `old_path == new_path`.
+function M.parse_diff_files(diff_text)
+  local files = {}
+  local cur_lines
+  for _, line in ipairs(vim.split(diff_text or '', '\n', { plain = true })) do
+    local a, b = line:match('^diff %-%-git a/(.-) b/(.*)$')
+    if a then
+      cur_lines = {}
+      table.insert(files, { old_path = a, new_path = b, lines = cur_lines })
+    elseif cur_lines then
+      table.insert(cur_lines, line)
+    end
+  end
+  for _, f in ipairs(files) do
+    f.hunks = M.parse_hunks(table.concat(f.lines, '\n'))
+    f.lines = nil
+  end
+  return files
+end
+
+--- The hunks for `old_path` in `files` (from `M.parse_diff_files`), and the
+--- path it maps to on the other side (renamed, or unchanged). `nil` if
+--- `old_path` isn't the *old* side of any record (file didn't exist there,
+--- or is unrelated to this diff - i.e. unchanged): callers treat "no
+--- record" as "unchanged, same name" by using `old_path` itself with `{}`
+--- (no hunks), which is exactly what this returns for that case too.
+function M.diff_file_hunks(files, old_path)
+  for _, f in ipairs(files) do
+    if f.old_path == old_path then
+      return f.new_path, f.hunks
+    end
+  end
+  return old_path, {}
+end
+
+--- Map one line from the diff's old side to its new side, `nil` if `line`
+--- falls inside a changed hunk (unmappable). `hunks` sorted ascending by
+--- `old_start` (git's own diff order). A zero-count hunk (`@@ -N,0 …@@`,
+--- pure insertion after old line N) doesn't cover line `N` itself - only
+--- lines strictly after it get this hunk's offset.
+function M.map_line(hunks, line)
+  local offset = 0
+  for _, h in ipairs(hunks) do
+    local old_end = h.old_start + h.old_count - 1
+    local before_cutoff = h.old_count == 0 and h.old_start or (h.old_start - 1)
+    if line <= before_cutoff then
+      return line + offset
+    elseif h.old_count > 0 and line <= old_end then
+      return nil
+    else
+      offset = offset + (h.new_count - h.old_count)
+    end
+  end
+  return line + offset
+end
+
+--- Map a range `[start_line, end_line]` the same way: both endpoints must
+--- map (lines *inside* the range may still have changed, contract §9.4).
+function M.map_range(hunks, start_line, end_line)
+  local s = M.map_line(hunks, start_line)
+  local e = M.map_line(hunks, end_line)
+  if not s or not e then
+    return nil
+  end
+  return s, e
+end
+
+--- Whether `[start_line, end_line]` on `side` ('old'/'new') is a changed
+--- line or within 3 context lines of one, in `hunks` from a `-U3` (or
+--- wider) diff of the `merge-base...C` range (contract §9.4 anchor
+--- validity, used by the GitHub backend's push - `review/github.lua`).
+--- `nil` `side` (file-level comment) is always valid.
+function M.anchor_valid(hunks, side, start_line, end_line)
+  if not side then
+    return true
+  end
+  for _, h in ipairs(hunks) do
+    local s = (side == 'old') and h.old_start or h.new_start
+    local c = (side == 'old') and h.old_count or h.new_count
+    local lo, hi = s - 3, s + math.max(c, 1) - 1 + 3
+    if start_line <= hi and end_line >= lo then
+      return true
+    end
+  end
+  return false
+end
+
+--- GitHub's `position` for `addPullRequestReviewComment` (contract §9.4
+--- step 3): the 1-based index of the diff line for `new_line` below the
+--- file's first `@@` header in a unified diff (`diff_lines`, the raw text
+--- lines of one file's section, starting at or before its first hunk
+--- header - later `@@` headers count as lines too). `nil` if `new_line`
+--- isn't a line of the diff's new side at all (outside every hunk).
+function M.diff_position(diff_lines, new_line)
+  local pos, nl = nil, nil
+  for _, line in ipairs(diff_lines) do
+    local new_start = line:match('^@@ %-%d+,?%d* %+(%d+)')
+    if new_start then
+      pos = pos and (pos + 1) or 0
+      nl = tonumber(new_start) - 1
+    elseif pos then
+      pos = pos + 1
+      if line:sub(1, 1) ~= '-' then
+        nl = nl + 1
+        if nl == new_line then
+          return pos
+        end
+      end
+    end
+  end
+  return nil
+end
+
 return M

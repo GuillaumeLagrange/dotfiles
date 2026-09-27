@@ -1,19 +1,29 @@
 -- Review UI (contract §9.2, shared by every backend): signs + mirrored
 -- virt_lines summaries, the thread float (`K`/`<CR>`), the compose float
--- (`gc`), `]t`/`[t`, `<leader>dt`, and `:Diffy threads`'s quickfix list.
+-- (`gc`), `]t`/`[t`, `<leader>dt`, `gP` (GitHub PR description), and
+-- `:Diffy threads`'s quickfix list.
 --
 -- `session.review` (nil until `M.ensure` runs, `false` if this session's
 -- range kind doesn't support review, else a table):
---   backend   the backend module (`review/local.lua`; a `review/github.lua`
---             would be selected the same way for a later phase)
---   branch    backend-resolved branch/scope name
---   threads   Thread[] (see review/model.lua), backend's own persisted list
+--   backend   the backend module (`review/local.lua` for `:Diffy`/`:Diffy
+--             branch`, `review/github.lua` for `:Diffy pr`)
+--   branch    backend-resolved persistence scope key
+--   threads   Thread[] (see review/model.lua)
 --   inline    whether decorations are currently drawn (`<leader>dt`)
+--   pr        GitHub only: `{number, title, body, base, head_sha,
+--             conversation, reviews, pending}` (`review/github.lua`'s
+--             `M.refresh`) - `gP`'s source.
+--   merge_base, _diff_cache  GitHub only: placement plumbing, not for UI use.
 -- A backend module exposes: `name`, `capabilities = {resolve, suggestions}`,
--- `branch(session)`, `author(root)`, `load(session, branch)`,
--- `save(session, branch, threads)`, `clear(session, branch)`,
--- `export(session, cb)` (local-only today; a github backend would add
--- push/pull/submit alongside the same shape).
+-- `branch(session)`, `author(root)`,
+-- `place(session, thread) -> nil | {win='left'|'right', start_line,
+--   end_line}` (contract §9.4 placement/§9.3 relocation - the *only*
+--   backend-specific step of decorate(), everything else in this file is
+--   shared). A backend that also supports authoring (`review/local.lua`
+--   today; `review/github.lua` gains this in phase 7B) additionally
+--   exposes `load(session, branch) -> Thread[]`, `save(session, branch,
+--   threads)`, `clear(session, branch)`, `export(session, cb)` - `gc`/`r`/
+--   `x` etc. are no-ops (with a notice) while a backend lacks `save`.
 local session_mod = require('diffy.session')
 local model = require('diffy.review.model')
 local run = require('diffy.git.run')
@@ -22,12 +32,18 @@ local M = {}
 
 local function review_available(session)
   local kind = session.range and session.range.kind
-  return kind == 'default' or kind == 'branch'
+  return kind == 'default' or kind == 'branch' or kind == 'pr'
 end
 
 --- Lazily resolve the backend, branch and persisted threads for `session`.
 --- Returns the `session.review` table, or nil if review isn't available for
---- this session's range kind (contract §9.3: `:Diffy`/`:Diffy branch` only).
+--- this session's range kind (contract §9.3/§9.4: `:Diffy`/`:Diffy branch`/
+--- `:Diffy pr`). For `kind='pr'`, `init.lua`'s `M.build` has already
+--- populated `session.review` via `review/github.lua`'s async `M.refresh`
+--- before any render runs, so the lazy-init branch below only matters as a
+--- safety net (e.g. a test driving `review/ui.lua` directly without going
+--- through `:Diffy pr`) - it seeds an empty thread list rather than
+--- attempting a synchronous fetch.
 function M.ensure(session)
   if session.review ~= nil then
     return session.review or nil
@@ -35,6 +51,11 @@ function M.ensure(session)
   if not review_available(session) then
     session.review = false
     return nil
+  end
+  if session.range.kind == 'pr' then
+    local backend = require('diffy.review.github')
+    session.review = { backend = backend, branch = backend.branch(session), threads = {}, inline = true }
+    return session.review
   end
   local backend = require('diffy.review.local')
   local branch = backend.branch(session)
@@ -83,11 +104,28 @@ local function counterpart_line(win, lnum, other_win)
   return nil
 end
 
+--- Open any closed fold covering `lnum` in `win` (contract §9.4: a thread
+--- placed on a line unchanged in the current view - inside a diff fold -
+--- gets its fold opened, as github.com adds a context hunk for it). `!`
+--- opens every nested level; diff folds are flat, but this is harmless
+--- either way.
+local function open_fold_if_closed(win, lnum)
+  vim.api.nvim_win_call(win, function()
+    if vim.fn.foldclosed(lnum) ~= -1 then
+      vim.cmd(('%dfoldopen!'):format(lnum))
+    end
+  end)
+end
+
 --- Redraw every thread's sign + summary for the current file/pair (call
 --- after `diffpair.show`), and the counterpart blank lines that keep the
 --- two windows aligned (§9.2). No-op when review isn't available for this
---- session. Also runs excerpt relocation (§9.1) and marks threads that
---- can't be found `_detached` (session-only bookkeeping, not persisted).
+--- session. Placement is entirely `review.backend.place`'s job (local:
+--- excerpt relocation within the exact view it was written in, §9.1/§9.3;
+--- GitHub: line tracking across commits, §9.4) - this function only draws
+--- whatever it returns, caching it on `thread._place` (session-only, not
+--- persisted) so `M.thread_at`/`M.next_thread`/`M.quickfix` don't need to
+--- recompute placement themselves.
 function M.decorate(session)
   local review = M.ensure(session)
   if not review then
@@ -111,6 +149,9 @@ function M.decorate(session)
   end
 
   if not review.inline then
+    for _, t in ipairs(review.threads) do
+      t._place = nil
+    end
     run.ready({ session = session.id, event = 'review' })
     return
   end
@@ -118,17 +159,13 @@ function M.decorate(session)
   local placed = { left = {}, right = {} }
   for _, thread in ipairs(review.threads) do
     thread._detached = nil
+    thread._place = nil
     if thread.anchor.path == session.current_path then
-      local side = model.pair_side(session.pair, session.head_sha, thread.anchor)
-      local win = side and wins[side]
+      local place = review.backend.place(session, thread)
+      local win = place and wins[place.win]
       if win and vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        if model.relocate(thread.anchor, lines) then
-          table.insert(placed[side], thread)
-        else
-          thread._detached = true
-        end
+        thread._place = place
+        table.insert(placed[place.win], thread)
       end
     end
   end
@@ -139,16 +176,18 @@ function M.decorate(session)
       local buf = vim.api.nvim_win_get_buf(win)
       local by_end = {}
       for _, t in ipairs(placed[name]) do
-        vim.api.nvim_buf_set_extmark(buf, ns, t.anchor.start_line - 1, 0, {
+        vim.api.nvim_buf_set_extmark(buf, ns, t._place.start_line - 1, 0, {
           sign_text = '\240\159\146\172',
           sign_hl_group = 'Comment',
         })
-        by_end[t.anchor.end_line] = by_end[t.anchor.end_line] or {}
-        table.insert(by_end[t.anchor.end_line], t)
+        open_fold_if_closed(win, t._place.start_line)
+        by_end[t._place.end_line] = by_end[t._place.end_line] or {}
+        table.insert(by_end[t._place.end_line], t)
       end
       local other_name = name == 'left' and 'right' or 'left'
       local other_win = wins[other_name]
       for end_line, threads_here in pairs(by_end) do
+        open_fold_if_closed(win, end_line)
         local vlines = {}
         for _, t in ipairs(threads_here) do
           table.insert(vlines, { { model.summary_text(t), 'Comment' } })
@@ -157,6 +196,7 @@ function M.decorate(session)
         if other_win and vim.api.nvim_win_is_valid(other_win) then
           local co = counterpart_line(win, end_line, other_win)
           if co then
+            open_fold_if_closed(other_win, co)
             local blanks = {}
             for _ = 1, #vlines do
               table.insert(blanks, { { '', 'Normal' } })
@@ -267,7 +307,11 @@ function M.compose(session, mode)
   end
   local review = M.ensure(session)
   if not review then
-    vim.notify('diffy: review is only available in :Diffy and :Diffy branch', vim.log.levels.WARN)
+    vim.notify('diffy: review is only available in :Diffy, :Diffy branch and :Diffy pr', vim.log.levels.WARN)
+    return
+  end
+  if type(review.backend.save) ~= 'function' then
+    vim.notify(('diffy: composing comments isn\'t implemented yet for %s'):format(review.backend.name), vim.log.levels.WARN)
     return
   end
 
@@ -324,6 +368,10 @@ end
 --- Reply to an existing `thread`: appends a new comment on save.
 function M.reply(session, thread)
   local review = session.review
+  if type(review.backend.save) ~= 'function' then
+    vim.notify(('diffy: replying isn\'t implemented yet for %s'):format(review.backend.name), vim.log.levels.WARN)
+    return
+  end
   local backend = review.backend
   local side = model.pair_side(session.pair, session.head_sha, thread.anchor)
   local win = (side and session.wins[side]) or vim.api.nvim_get_current_win()
@@ -368,11 +416,8 @@ function M.thread_at(session, win, lnum)
     return nil
   end
   for _, t in ipairs(review.threads) do
-    if not t._detached and t.anchor.path == session.current_path then
-      local side = model.pair_side(session.pair, session.head_sha, t.anchor)
-      if side and session.wins[side] == win and lnum >= t.anchor.start_line and lnum <= t.anchor.end_line then
-        return t
-      end
+    if t._place and session.wins[t._place.win] == win and lnum >= t._place.start_line and lnum <= t._place.end_line then
+      return t
     end
   end
   return nil
@@ -455,7 +500,7 @@ local function render_thread_float(session, thread)
     M.decorate(session)
     close()
   end, { buffer = buf, desc = 'delete draft' })
-  if backend.capabilities.resolve then
+  if backend.capabilities.resolve and type(backend.save) == 'function' then
     session_mod.map(session, 'n', 'x', function()
       thread.resolved = not thread.resolved
       backend.save(session, review.branch, review.threads)
@@ -489,37 +534,35 @@ function M.next_thread(session, delta)
   end
   local candidates = {}
   for _, t in ipairs(review.threads) do
-    if not t._detached and t.anchor.path == session.current_path then
-      if model.pair_side(session.pair, session.head_sha, t.anchor) == side then
-        table.insert(candidates, t)
-      end
+    if t._place and t._place.win == side then
+      table.insert(candidates, t)
     end
   end
   if #candidates == 0 then
     return
   end
   table.sort(candidates, function(a, b)
-    return a.anchor.start_line < b.anchor.start_line
+    return a._place.start_line < b._place.start_line
   end)
   local lnum = vim.api.nvim_win_get_cursor(win)[1]
   local target
   if delta > 0 then
     for _, t in ipairs(candidates) do
-      if t.anchor.start_line > lnum then
+      if t._place.start_line > lnum then
         target = t
         break
       end
     end
   else
     for i = #candidates, 1, -1 do
-      if candidates[i].anchor.start_line < lnum then
+      if candidates[i]._place.start_line < lnum then
         target = candidates[i]
         break
       end
     end
   end
   if target then
-    vim.api.nvim_win_set_cursor(win, { target.anchor.start_line, 0 })
+    vim.api.nvim_win_set_cursor(win, { target._place.start_line, 0 })
   end
 end
 
@@ -549,18 +592,76 @@ function M.setup_diff_keymaps(session, buf)
   map(session, 'n', '<leader>dt', function()
     M.toggle_inline(session)
   end, { buffer = buf, desc = 'review: toggle inline threads' })
+  map(session, 'n', 'gP', function()
+    M.open_pr_description(session)
+  end, { buffer = buf, desc = 'review: PR description' })
+end
+
+-- ---------------------------------------------------------------------
+-- `gP`: GitHub PR description + conversation comments (contract §9.4)
+
+--- `gP`: read-only markdown float with the PR's description and
+--- conversation comments (`review.pr`, populated by `review/github.lua`'s
+--- `M.refresh`). Only available for a `:Diffy pr` session.
+function M.open_pr_description(session)
+  local review = session.review
+  if not review or review.backend.name ~= 'github' or not review.pr then
+    vim.notify('diffy: `gP` is only available in :Diffy pr', vim.log.levels.WARN)
+    return
+  end
+  local pr = review.pr
+  local lines = { ('# #%d %s'):format(pr.number, pr.title or ''), '' }
+  vim.list_extend(lines, vim.split(pr.body or '', '\n', { plain = true }))
+  if #pr.conversation > 0 then
+    vim.list_extend(lines, { '', '---', '' })
+    for _, c in ipairs(pr.conversation) do
+      table.insert(lines, ('**%s**:'):format(c.author or 'unknown'))
+      vim.list_extend(lines, vim.split(c.body or '', '\n', { plain = true }))
+      table.insert(lines, '')
+    end
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  session._review_buf_seq = (session._review_buf_seq or 0) + 1
+  vim.api.nvim_buf_set_name(buf, ('diffy://%d/pr/%d'):format(session.id, session._review_buf_seq))
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'markdown'
+  vim.bo[buf].swapfile = false
+  session_mod.register_buffer(session, 'pr_' .. session._review_buf_seq, buf)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+
+  local width = math.max(40, math.min(100, vim.o.columns - 4))
+  local height = math.max(1, math.min(#lines, vim.o.lines - 6))
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = 'editor',
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    width = width,
+    height = height,
+    style = 'minimal',
+    border = 'rounded',
+    zindex = 200,
+  })
+  session_mod.map(session, 'n', 'q', function()
+    if vim.api.nvim_win_is_valid(win) then
+      pcall(vim.api.nvim_win_close, win, true)
+    end
+  end, { buffer = buf, desc = 'close PR description' })
 end
 
 -- ---------------------------------------------------------------------
 -- `:Diffy threads`
 
---- `:Diffy threads [author=<name>] [state=<open|resolved|detached>]
+--- `:Diffy threads [author=<name>] [state=<open|resolved|outdated|detached>]
 --- [review=<id>]`: quickfix list of every thread in the session (incl.
---- detached ones - §9.2), optionally filtered.
+--- detached/outdated ones - §9.2/§9.4), optionally filtered. For GitHub,
+--- appends which commits (contract §9.4: "with the commits each thread is
+--- visible in") each thread currently shows in.
 function M.quickfix(session, args)
   local review = M.ensure(session)
   if not review then
-    vim.notify('diffy: review is only available in :Diffy and :Diffy branch', vim.log.levels.WARN)
+    vim.notify('diffy: review is only available in :Diffy, :Diffy branch and :Diffy pr', vim.log.levels.WARN)
     return
   end
   local filters = {}
@@ -574,7 +675,7 @@ function M.quickfix(session, args)
   local items = {}
   for _, t in ipairs(review.threads) do
     local author = t.comments[1] and t.comments[1].author or ''
-    local state = t.resolved and 'resolved' or (t._detached and 'detached' or 'open')
+    local state = t.resolved and 'resolved' or (t.outdated and 'outdated') or (t._detached and 'detached' or 'open')
     local include = true
     if filters.author and filters.author ~= author then
       include = false
@@ -582,14 +683,19 @@ function M.quickfix(session, args)
     if filters.state and filters.state ~= state then
       include = false
     end
-    if filters.review then
-      include = false -- local threads have no review id to match
+    if filters.review and filters.review ~= (t.review_id or '') then
+      include = false
     end
     if include then
+      local text = ('%s [%s] %s'):format(t.id, state, model.summary_text(t))
+      if review.backend.visible_in then
+        local visible = review.backend.visible_in(session, t)
+        text = text .. (' (%s)'):format(#visible > 0 and table.concat(visible, ', ') or 'nowhere inline')
+      end
       table.insert(items, {
         filename = session.root .. '/' .. t.anchor.path,
-        lnum = math.max(1, t.anchor.start_line),
-        text = ('%s [%s] %s'):format(t.id, state, model.summary_text(t)),
+        lnum = math.max(1, t.anchor.start_line or 1),
+        text = text,
       })
     end
   end

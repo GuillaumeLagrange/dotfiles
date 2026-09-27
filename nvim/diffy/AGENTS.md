@@ -68,6 +68,26 @@ it goes in the contract, not here.
   **does** fire `VimLeavePre`/`VimLeave` - it is not a stand-in for a hard kill. To
   simulate nvim being killed (no graceful shutdown autocmds at all), send `SIGKILL` to
   the real OS pid (`vim.fn.getpid()` inside the target process) instead.
+- `vim.json.decode(str)` turns a JSON `null` into the `vim.NIL` userdata sentinel, not
+  Lua `nil` - `field == nil` on it is `false`, and an arithmetic/comparison op on it
+  raises "attempt to compare userdata with number" *inside* a `vim.schedule` callback
+  (invisible: no `vim.notify`, no test failure, the async chain just silently never
+  reaches its `cb()` - only `:messages` shows the traceback). Pass `{luanil = {object =
+  true, array = true}}` to convert JSON `null` to real Lua `nil` recursively instead.
+  Matters for any GraphQL field that can legitimately be null (a comment's `line` once
+  GitHub can no longer track it, `originalStartLine` on a single-line comment, etc).
+- A worktree cannot check out a branch another worktree of the same repo already has
+  checked out (`git worktree add <path> <branch>` fails: "already used by worktree at
+  ..."). To add a worktree for a branch the *primary* clone currently has checked out,
+  detach the primary clone first (`git checkout --detach`), add the worktree at that
+  branch name, do the work, then restore the primary clone's branch afterward.
+- `git bundle create <file> <refs>...` only carries exactly the refs named (and their
+  reachable objects) - a bundle of `refs/remotes/origin/X` does *not* give you a local
+  branch `X` on unbundling. Reconstruct one with `git init` + `git fetch <bundle>
+  refs/remotes/origin/X:refs/heads/X` (one refspec per branch needed), then `git
+  checkout X` - fully offline, no working `origin` remote required for this step (only
+  for anything that later reads the remote URL, e.g. `git remote get-url origin`, which
+  still needs a `git remote add origin <url>` even though it's never fetched from).
 
 ## git facts
 
@@ -122,8 +142,21 @@ Where comments point:
 - On the next push GitHub remaps everything: trackable comments get `commit` = new head and a shifted `line`
   (`originalLine` kept); untrackable ones get `line = null`, `isOutdated = true`, `commit` unchanged. Force-pushes
   behave the same.
+- **Correction to the contract's own §9.4 wording**: `diffSide`/`startDiffSide` are
+  **thread**-level GraphQL fields (`PullRequestReviewThread`), not comment-level -
+  `PullRequestReviewComment` has no `side`/`diffSide` field at all (confirmed via
+  schema introspection). `line`/`originalLine`/`startLine`/`originalStartLine`/
+  `commit`/`originalCommit`/`diffHunk`/`pullRequestReview` *are* comment-level, as the
+  contract says. Since every comment in one thread shares one side, read `diffSide`
+  once from the thread node and pair it with the *comment*-level line fields.
 - Thread-level `startLine` is already tracked to head while thread `line` is not (e.g. thread `15..12`).
   Comment-level fields are consistent. Use comment-level fields only.
+- An old-side (`LEFT`) comment's `line`/`originalLine` value is already merge-base-
+  relative, independent of whichever `commit`/`originalCommit` won the "exists locally"
+  fallback - confirmed on the sandbox: an old-side comment written directly against
+  head (`commit == originalCommit == head`, no remap needed) still reports the *merge-
+  base* file's own line number, not an offset relative to head's parent. Tracking an
+  old-side anchor therefore always starts from merge-base, never from `commit`.
 - github.com computes placement live, as contract §9.4 describes: both range endpoints are tracked (lines inside
   may change), in both directions of history, the old side of a commit view is the commit's parent, and lines
   outside the viewed hunks get a context-only hunk.
@@ -193,6 +226,17 @@ Follow the global browser rule. Specific to GitHub's new "Changes" UI:
   guard checks `is_blocked()` up front); reimplement the same `DiffyReady` wait with
   raw `child.api.*` calls (no guard) instead of `ui.wait_ready` right after such a
   keystroke - see `tests/test_review_local.lua`'s `wait_ready_raw`.
+- The same `blocking=true` transient (previous bullet) also follows a keystroke whose
+  handler synchronously kicks off a `vim.system`/`run.git` subprocess (no float
+  involved at all) - observed reliably right when the handler also closes a floating
+  window first (`conflict.lua`'s confirm-prompt accept path), and, less predictably (a
+  timing race against the RPC round-trip), even with no window in play. Unlike the
+  `startinsert`-float case, this one *does* clear on its own once the subprocess's own
+  callback has run - but a guard check performed immediately after `child.type_keys()`
+  returns can still land before that happens. Use the same raw-`child.api` `wait_ready`
+  reimplementation defensively right after any keystroke you know spawns a subprocess
+  synchronously, not only after a float-opening one - see `tests/test_conflicts.lua`'s
+  `wait_ready_raw`.
 - An uncaught Lua error thrown inside a `vim.schedule`-scheduled callback sets
   `vim.v.errmsg` inside that same nvim process (verified: `child.lua_get('vim.v.errmsg')`
   picks it up); it does **not** reliably land in `:messages`' own history in headless

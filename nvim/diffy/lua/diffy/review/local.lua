@@ -79,6 +79,26 @@ function M.clear(session, branch)
   store.delete(local_json_path(session, branch))
 end
 
+--- `review/ui.lua`'s backend placement hook (architecture.md, phase 6/7):
+--- the local backend does no cross-commit tracking (§9.3) - a thread only
+--- shows in the *exact* view it was written in. Re-locates the excerpt
+--- (§9.1) against that view's current lines, mutating `thread.anchor` in
+--- place on success (persisted on the next `save`); marks the thread
+--- `_detached` (session-only, §9.2) on failure.
+function M.place(session, thread)
+  local side = model.pair_side(session.pair, session.head_sha, thread.anchor)
+  local win = side and session.wins[side]
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return nil
+  end
+  local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, -1, false)
+  if not model.relocate(thread.anchor, lines) then
+    thread._detached = true
+    return nil
+  end
+  return { win = side, start_line = thread.anchor.start_line, end_line = thread.anchor.end_line }
+end
+
 -- ---------------------------------------------------------------------
 -- export
 
