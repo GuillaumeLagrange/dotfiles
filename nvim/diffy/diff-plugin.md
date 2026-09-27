@@ -378,9 +378,14 @@ deletes offenders before the phase is marked done.
   force-push, merge, rename, delete, outdated, resolved), #3 content (multi-line bodies, code blocks,
   suggestions, reply chains, resolved threads, conversation comments), #4 pending (an unsubmitted review
   with threads on three commits and a pending reply). These PRs are the reference for what github.com shows.
-- `make test-gh` runs the same GitHub scenarios against the real sandbox repo `GuillaumeLagrange/diffy-tests`.
-  Each run pushes the standard history to a fresh branch and opens a new PR (submitted reviews can't be
-  deleted), then closes it. It exists to catch the fake drifting from GitHub; run before closing phase 7 and
+- `make test-gh` runs the same GitHub test files with `DIFFY_TESTGH=1`: the real `gh` transport against
+  `GuillaumeLagrange/diffy-tests`, same keys and assertions. Each case pushes its fixture history to fresh
+  uniquely-named branches and opens a new PR (submitted reviews can't be deleted), creates any pre-existing
+  state (published/resolved threads, a pending review on several commits) through real API calls, and closes
+  the PR and deletes the branches afterwards, even on failure. All write scenarios run live; of the read
+  scenarios only the `:Diffy pr` refusals do, since placement depends on PR #2's between-pushes state, which
+  can't be recreated cheaply — placement is covered by the responses recorded from the sandbox. It exists
+  to catch the fake drifting from GitHub; run before closing phase 7 and
   whenever GitHub behaviour is in doubt. Where the fake and GitHub disagree, the fake is fixed.
 
 ## 12. Implementation phases

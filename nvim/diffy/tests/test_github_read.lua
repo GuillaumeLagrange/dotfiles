@@ -14,7 +14,9 @@
 -- history, not a hand-rolled approximation of it. The GitHub *transport*
 -- (`review/github.lua`'s `M.transport`) is the only thing faked
 -- (`tests/helpers/fake_github.lua`, contract §11.4) - git and nvim are real.
+-- `make test-gh`: only the refusal cases run live (fresh PR per case).
 local leak = require('tests.helpers.leak')
+local live = require('tests.helpers.github_live')
 local ui = require('tests.helpers.ui')
 
 local child = MiniTest.new_child_neovim()
@@ -72,9 +74,16 @@ local T = MiniTest.new_set({
       snapshot = leak.snapshot(child)
       dir = clone_placement()
       child.fn.chdir(dir)
-      install_fake(child)
+      if live.enabled then
+        live.open_pr(dir, git(dir, { 'rev-parse', BASE }), HEAD_SHA)
+      else
+        install_fake(child)
+      end
     end,
     post_case = function()
+      if live.enabled then
+        live.close()
+      end
       leak.check(child, snapshot)
       if dir then
         vim.fn.delete(dir, 'rf')
@@ -124,6 +133,10 @@ local function lines_with_signs(side)
 end
 
 T['§9.4: placement tracks a thread across commits (shown at head/its own view) and hides+outdates one whose line later changed'] = function()
+  -- Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
+  if live.enabled then
+    MiniTest.skip('placement: recorded-fixture only')
+  end
   open_pr()
   open_file('f.txt')
 
@@ -185,6 +198,10 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
 end
 
 T['§9.4: a thread placed on a line unchanged in the viewed commit opens the fold around it'] = function()
+  -- Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
+  if live.enabled then
+    MiniTest.skip('placement: recorded-fixture only')
+  end
   -- A hand-built synthetic thread (not the recorded PR #2 ones): a comment
   -- far from every change, guaranteed to fall inside a closed diff fold at
   -- nvim's default foldlevel - the recorded PR #2 threads all sit close
@@ -223,7 +240,7 @@ T[':Diffy pr refuses when local HEAD differs from the PR head on GitHub'] = func
   git(dir, { 'commit', '--amend', '-q', '--allow-empty', '-m', 'local-only amend' })
   child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
   child.cmd('Diffy pr')
-  vim.wait(2000, function()
+  vim.wait(live.timeout, function()
     return child.lua_get('_G.__notif') ~= vim.NIL
   end)
   local msg = child.lua_get('_G.__notif')
@@ -235,7 +252,7 @@ T[':Diffy pr refuses when the tree is dirty'] = function()
   vim.fn.writefile({ 'dirty' }, dir .. '/f.txt')
   child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
   child.cmd('Diffy pr')
-  vim.wait(2000, function()
+  vim.wait(live.timeout, function()
     return child.lua_get('_G.__notif') ~= vim.NIL
   end)
   local msg = child.lua_get('_G.__notif')

@@ -2,11 +2,12 @@
 -- push (client-side validation before any API call, primary-commit/
 -- other-commit routing, multi-line tracking to HEAD), pull (restoring
 -- drafts to their original commit/line from a pending review), reply,
--- resolve/unresolve, submit. Same strategy as `tests/test_github_read.lua`
--- (contract §11.4): a real git bundle of the sandbox's `pending` PR history
--- (exact shas the recorded fixture refers to) plus a fake `gh` transport -
--- only `gh` is faked, git and nvim are real.
+-- resolve/unresolve, submit (contract §11.4). A real git bundle of the
+-- sandbox's `pending` PR history (exact shas) in both modes. Default: fake
+-- `gh` transport. `make test-gh` (DIFFY_TESTGH=1): the real transport against
+-- a fresh PR per case, pre-existing state created through the real API.
 local leak = require('tests.helpers.leak')
+local live = require('tests.helpers.github_live')
 local ui = require('tests.helpers.ui')
 
 local child = MiniTest.new_child_neovim()
@@ -47,26 +48,68 @@ local function clone_pending()
   return d
 end
 
---- Swap in the fake with the *real* recorded PR #4 fixture (has published
---- threads D1/D2 and the owner's real pending review E1-E4) - for the
---- pull/reply/resolve/submit scenarios.
-local function install_fake_pr4(c, d)
-  c.lua(([[
-    local fake = require('tests.helpers.fake_github')
-    local state = fake.load_fixture(%q, 4)
-    state.repo_dir = %q
-    state.merge_base = %q
-    state.viewer = 'GuillaumeLagrange'
-    state.find_pr = { ['sandbox/pending'] = { number = 4, baseRefName = %q, headRefOid = %q } }
-    require('diffy.review.github').transport = fake.new(state).transport
-  ]]):format(PR4_FIXTURE, d, MERGE_BASE, BASE, HEAD_SHA))
+local function pr_number()
+  return live.enabled and live.current.number or 4
 end
 
---- A synthetic, empty PR (no pre-existing threads/pending review) - for the
---- push scenarios, so pushed drafts are the *only* content and their
---- outcome is unambiguous.
-local function install_fake_empty(c, d)
-  c.lua(([[
+--- The recorded PR #4 state in the fake; live, the same shapes created on
+--- the fresh PR: D1 (published, head R30), D2 (published, resolved, head
+--- R20), and a pending review with E1 on Q1 R5-7 and E3 written through the
+--- legacy position API on Q2 R20.
+local function setup_pending()
+  if not live.enabled then
+    child.lua(([[
+      local fake = require('tests.helpers.fake_github')
+      local state = fake.load_fixture(%q, 4)
+      state.repo_dir = %q
+      state.merge_base = %q
+      state.viewer = 'GuillaumeLagrange'
+      state.find_pr = { ['sandbox/pending'] = { number = 4, baseRefName = %q, headRefOid = %q } }
+      require('diffy.review.github').transport = fake.new(state).transport
+    ]]):format(PR4_FIXTURE, dir, MERGE_BASE, BASE, HEAD_SHA))
+    return
+  end
+  local pr = live.current
+  local add_review = [[mutation($pr:ID!,$c:GitObjectID!,$t:[DraftPullRequestReviewThread],$e:PullRequestReviewEvent){
+    addPullRequestReview(input:{pullRequestId:$pr,commitOID:$c,threads:$t,event:$e}){pullRequestReview{id}}}]]
+  live.graphql(add_review, {
+    pr = pr.id,
+    c = HEAD_SHA,
+    e = 'COMMENT',
+    t = {
+      { path = 'f.txt', line = 30, side = 'RIGHT', body = 'D1 published thread' },
+      { path = 'f.txt', line = 20, side = 'RIGHT', body = 'D2 published thread, resolved' },
+    },
+  })
+  local owner, name = live.REPO:match('(.+)/(.+)')
+  local threads = live.graphql(
+    'query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:10){nodes{id comments(first:1){nodes{body}}}}}}}',
+    { o = owner, r = name, n = pr.number }
+  ).repository.pullRequest.reviewThreads.nodes
+  for _, t in ipairs(threads) do
+    if t.comments.nodes[1].body:find('^D2') then
+      live.graphql('mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{id}}}', { t = t.id })
+    end
+  end
+  local review = live.graphql(add_review, {
+    pr = pr.id,
+    c = Q1,
+    t = { { path = 'f.txt', startLine = 5, line = 7, side = 'RIGHT', startSide = 'RIGHT', body = 'E1 pending on Q1 R5-7' } },
+  }).addPullRequestReview.pullRequestReview.id
+  live.graphql(
+    [[mutation($r:ID!,$c:GitObjectID!,$p:Int!,$b:String!){
+      addPullRequestReviewComment(input:{pullRequestReviewId:$r,commitOID:$c,path:"f.txt",position:$p,body:$b}){comment{id}}}]],
+    { r = review, c = Q2, p = live.position(dir, MERGE_BASE, Q2, 'f.txt', 20), b = 'E3 pending on Q2 R20 (legacy position)' }
+  )
+end
+
+--- An empty PR (no threads, no pending review) - for the push scenarios,
+--- so pushed drafts are the *only* content. Live: the fresh PR as is.
+local function setup_empty()
+  if live.enabled then
+    return
+  end
+  child.lua(([[
     local fake = require('tests.helpers.fake_github')
     local state = {
       repo_dir = %q,
@@ -81,7 +124,7 @@ local function install_fake_empty(c, d)
       find_pr = { ['sandbox/pending'] = { number = 4, baseRefName = %q, headRefOid = %q } },
     }
     require('diffy.review.github').transport = fake.new(state).transport
-  ]]):format(d, MERGE_BASE, BASE, HEAD_SHA, BASE, HEAD_SHA))
+  ]]):format(dir, MERGE_BASE, BASE, HEAD_SHA, BASE, HEAD_SHA))
 end
 
 local T = MiniTest.new_set({
@@ -90,9 +133,15 @@ local T = MiniTest.new_set({
       child.restart({ '-u', 'tests/minimal_init.lua' })
       snapshot = leak.snapshot(child)
       dir = clone_pending()
+      if live.enabled then
+        live.open_pr(dir, MERGE_BASE, HEAD_SHA)
+      end
       child.fn.chdir(dir)
     end,
     post_case = function()
+      if live.enabled then
+        live.close()
+      end
       leak.check(child, snapshot)
       if dir then
         vim.fn.delete(dir, 'rf')
@@ -108,7 +157,7 @@ end
 local function open_pr()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy pr')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 end
 
 local function open_file(path)
@@ -117,7 +166,7 @@ local function open_file(path)
     local s = require('diffy.session').current()
     require('diffy.panels.tree').open_path(s, %q)
   ]]):format(path))
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 end
 
 --- Select log entry `idx` (1-based, newest first) as a single commit.
@@ -127,7 +176,7 @@ local function select_commit(idx)
   ui.arm_ready(child, 'select')
   child.fn.win_execute(w.log, ('call cursor(%d, 1)'):format(idx))
   child.type_keys('<CR>')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 end
 
 local function select_all()
@@ -136,7 +185,7 @@ local function select_all()
   ui.arm_ready(child, 'select')
   child.fn.win_execute(w.log, 'call cursor(1, 1)')
   child.type_keys('a')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 end
 
 -- Opening a float (`gc`/`K`+`r`) leaves the child transiently
@@ -160,7 +209,7 @@ end
 
 local function wait_ready_raw(timeout)
   local start = vim.loop.now()
-  while vim.loop.now() - start < (timeout or 5000) do
+  while vim.loop.now() - start < (timeout or live.timeout) do
     if child.api.nvim_exec_lua('return _G.__diffy_ready', {}) then
       break
     end
@@ -197,7 +246,7 @@ end
 local function push()
   ui.arm_ready(child, 'review')
   child.cmd('Diffy review push')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 end
 
 local function lines_with_signs(side)
@@ -228,7 +277,7 @@ local function quickfix_at(lnum)
 end
 
 T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kept local with a warning), and pushes the rest'] = function()
-  install_fake_empty(child, dir)
+  setup_empty()
   open_pr()
   open_file('f.txt')
 
@@ -247,7 +296,7 @@ T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kep
 
   -- the invalid one stayed local: persisted to disk, still `draft`
   local branch = ui.git(dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
-  local path = dir .. '/.git/diffy/' .. branch .. '/pr-4.json'
+  local path = dir .. '/.git/diffy/' .. branch .. '/pr-' .. pr_number() .. '.json'
   MiniTest.expect.equality(vim.fn.filereadable(path), 1)
   local data = vim.json.decode(table.concat(vim.fn.readfile(path), '\n'))
   local found
@@ -265,7 +314,7 @@ T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kep
 end
 
 T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a multi-line draft on the second is tracked to HEAD'] = function()
-  install_fake_empty(child, dir)
+  setup_empty()
   open_pr()
   open_file('f.txt')
 
@@ -302,7 +351,7 @@ T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a
   -- whether the push actually succeeded, so the two checks above alone
   -- don't prove it): nothing left in the local drafts file
   local branch = ui.git(dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
-  local draft_path = dir .. '/.git/diffy/' .. branch .. '/pr-4.json'
+  local draft_path = dir .. '/.git/diffy/' .. branch .. '/pr-' .. pr_number() .. '.json'
   if vim.fn.filereadable(draft_path) == 1 then
     local text = table.concat(vim.fn.readfile(draft_path), '\n')
     MiniTest.expect.equality(text:find('multi-line 18-22', 1, true), nil)
@@ -320,7 +369,7 @@ T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a
 end
 
 T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on push'] = function()
-  install_fake_empty(child, dir)
+  setup_empty()
   open_pr()
   open_file('f.txt')
 
@@ -349,7 +398,7 @@ T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on pus
   MiniTest.expect.equality(#at_30, 1)
   MiniTest.expect.equality(at_30[1]:find('+1', 1, true) ~= nil, true)
   local branch = ui.git(dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
-  local draft_path = dir .. '/.git/diffy/' .. branch .. '/pr-4.json'
+  local draft_path = dir .. '/.git/diffy/' .. branch .. '/pr-' .. pr_number() .. '.json'
   if vim.fn.filereadable(draft_path) == 1 then
     local text = table.concat(vim.fn.readfile(draft_path), '\n')
     MiniTest.expect.equality(text:find('follow-up', 1, true), nil)
@@ -359,16 +408,16 @@ T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on pus
 end
 
 T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) at its original commit and line'] = function()
-  install_fake_pr4(child, dir)
+  setup_pending()
   open_pr()
   open_file('f.txt')
 
   ui.arm_ready(child, 'review')
   child.cmd('Diffy review pull')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 
   local branch = ui.git(dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
-  local path = dir .. '/.git/diffy/' .. branch .. '/pr-4.json'
+  local path = dir .. '/.git/diffy/' .. branch .. '/pr-' .. pr_number() .. '.json'
   MiniTest.expect.equality(vim.fn.filereadable(path), 1)
   local data = vim.json.decode(table.concat(vim.fn.readfile(path), '\n'))
 
@@ -392,7 +441,7 @@ T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) 
 end
 
 T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
-  install_fake_pr4(child, dir)
+  setup_pending()
   open_pr()
   open_file('f.txt')
 
@@ -400,7 +449,7 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
   -- on push/submit must not silently drop the pre-existing E1/E2/E3/E4
   ui.arm_ready(child, 'review')
   child.cmd('Diffy review pull')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
 
   local right = wins().right
   -- D1 (published, head R30) and D2 (published, resolved, head R20)
@@ -446,7 +495,7 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
   -- first `review` event alone would catch push's, not submit's; poll the
   -- actual outcome (no pending review left) instead.
   local start = vim.loop.now()
-  while vim.loop.now() - start < 5000 do
+  while vim.loop.now() - start < live.timeout do
     if child.api.nvim_exec_lua('return require("diffy.session").current().review.pr.pending == nil', {}) then
       break
     end
@@ -457,7 +506,7 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
   child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
   ui.arm_ready(child, 'review')
   child.cmd('Diffy review pull')
-  ui.wait_ready(child)
+  ui.wait_ready(child, live.timeout)
   local msg = child.lua_get('_G.__notif')
   MiniTest.expect.equality(msg ~= vim.NIL, true)
   MiniTest.expect.equality(msg:find('no pending review', 1, true) ~= nil, true)

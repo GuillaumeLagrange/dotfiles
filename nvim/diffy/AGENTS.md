@@ -149,6 +149,10 @@ Pending reviews:
   works exactly per the sandbox facts above; `resolveReviewThread`/
   `unresolveReviewThread` and `submitPullRequestReview` behave as
   documented; `:Diffy review pull`'s import round-trips cleanly.
+- `make test-gh` (PRs #14-#21) runs tests/test_github_write.lua and the `:Diffy pr` refusals of
+  test_github_read.lua live, one fresh PR per case (`tests/helpers/github_live.lua`): all green with the
+  fake's assertions unchanged, so no fake/GitHub disagreement found. Legacy `addPullRequestReviewComment`
+  on Q2 at the position computed from `git diff -U3 merge-base Q2` lands on R20, as expected.
 - `model.anchor_valid` (the client-side validity check) must be fed hunks
   from a `-U0` diff, not `-U3`: it adds the ±3 context window itself, so a
   wider diff double-counts context and lets through lines GitHub actually
