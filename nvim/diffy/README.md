@@ -43,7 +43,7 @@ require('diffy').setup({
 | `:Diffy file [path]` | commits touching the file (default: current buffer), across renames | newest |
 | `:Diffy conflicts` | conflicted files, in the conflict view | first file |
 | `:Diffy panel` | hide/show the panel column | |
-| `:Diffy threads [author=… state=… review=…]` | quickfix list of every review thread (`state`: open, resolved, outdated, detached) | |
+| `:Diffy threads [file] [author=… state=… review=…]` | every review thread, or `file`: the file in the diff (`state`: open, resolved, outdated, detached). See Review | |
 | `:Diffy review export\|clear` | local review, see below | |
 | `:Diffy review push\|pull\|submit [comment\|approve\|request_changes]` | GitHub review, see below | |
 | `:Diffy restore` | go back to your branch after an interrupted full checkout | |
@@ -126,6 +126,7 @@ the oldest one still open.
 | `<leader>ds` | hide / show the summaries, keeping the signs (hover still previews) |
 | `<leader>dr` | hide / show resolved threads |
 | `<leader>dt` | hide / show comments inline altogether |
+| `<leader>dc` / `<leader>df` | every thread of the review / of this file (`:Diffy threads`, `:Diffy threads file`) |
 | `gP` | PR description and conversation (`:Diffy pr`) |
 
 Threads open as a framed card over the other diff window. Each comment gets a header strip: avatar, author (on
@@ -139,6 +140,12 @@ your draft, `x` resolve/unresolve, `]t`/`[t` switch thread, `q` close. A reply i
 the thread, which stays in view; saving or cancelling goes back into the thread. In the compose float,
 `<C-g>s` inserts a GitHub suggestion block with the commented lines. `gP` shows the PR description and
 its conversation the same way.
+
+The thread lists use [snacks.nvim](https://github.com/folke/snacks.nvim)'s picker when it's installed:
+fuzzy search over every comment, the thread previewed as a card, `<CR>` opens its file, moves to it and
+enters it (showing resolved threads again if they were hidden); snacks' `<C-q>` still sends the list to
+the quickfix. Without snacks the list goes to the quickfix; for GitHub each entry says which commits show
+the thread.
 
 Avatars need a terminal with the kitty graphics protocol, `curl` and ImageMagick. They're downloaded once
 and cached in `stdpath('cache')/diffy/avatars`; without them the headers are text only.

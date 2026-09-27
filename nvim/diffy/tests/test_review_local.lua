@@ -351,6 +351,34 @@ T['resolved threads read ✓ inline, <leader>dr hides them and <leader>ds keeps 
   child.cmd('Diffy close')
 end
 
+T[':Diffy threads lists the whole review, `file` only the file in the diff'] = function()
+  vim.fn.writefile(Repo.lines(10), repo.dir .. '/g.txt')
+  open_default()
+  local w = ui.wins(child)
+  write_comment(w.right, 5, 'about f')
+  child.api.nvim_set_current_win(w.tree)
+  for i, row in ipairs(ui.panel(child, 'tree')) do
+    if row.text:find('g.txt', 1, true) then
+      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
+    end
+  end
+  ui.arm_ready(child, 'review')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+  write_comment(w.right, 3, 'about g')
+
+  local function listed(cmd)
+    child.cmd(cmd)
+    local out = child.lua_get([[vim.tbl_map(function(e) return vim.fn.fnamemodify(vim.fn.bufname(e.bufnr), ':t') .. ':' .. e.lnum end, vim.fn.getqflist())]])
+    child.cmd('cclose')
+    return out
+  end
+  MiniTest.expect.equality(listed('Diffy threads'), { 'f.txt:5', 'g.txt:3' })
+  MiniTest.expect.equality(listed('Diffy threads file'), { 'g.txt:3' })
+
+  child.cmd('Diffy close')
+end
+
 T['drafts survive restarting nvim'] = function()
   open_default()
   local w = ui.wins(child)

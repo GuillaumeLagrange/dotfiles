@@ -23,15 +23,15 @@ end
 --- subcommand name -> function(args: string[])
 M.dispatch = {}
 
---- `:Diffy threads [author=<name>] [state=<open|resolved|detached>]
---- [review=<id>]`: quickfix list of every thread in the session.
+--- `:Diffy threads [file] [author=<name>] [state=…] [review=<id>]`: every
+--- thread in the session, or the shown file's, in a picker or the quickfix.
 function M.dispatch.threads(args)
   local s = session.current()
   if not s then
     vim.notify('diffy: no session in the current tab', vim.log.levels.WARN)
     return
   end
-  require('diffy.review.ui').quickfix(s, args)
+  require('diffy.review.threads').open(s, args)
 end
 
 --- `:Diffy review export|clear` (local backend) and

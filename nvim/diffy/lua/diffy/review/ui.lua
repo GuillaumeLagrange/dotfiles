@@ -1,7 +1,7 @@
 -- Review UI shared by every backend: signs + mirrored virt_lines summaries,
--- the thread float (`K`/`<CR>`), the compose float (`gc`), `]t`/`[t`,
--- `<leader>dt`, `gP` (GitHub PR description), and `:Diffy threads`'s
--- quickfix list.
+-- the thread float (`K`/`<CR>`), the compose float (`gc`), `]t`/`[t`, the
+-- display toggles (`<leader>dt`/`ds`/`dr`), `gP` (GitHub PR description),
+-- and the jump used by `:Diffy threads` (review/threads.lua).
 --
 -- `session.review` (nil until `M.ensure` runs, `false` if this session's
 -- range kind doesn't support review, else a table):
@@ -294,8 +294,8 @@ end
 --- Redraw every thread's sign + summary for the current file/pair (call
 --- after `diffpair.show`), and the counterpart blank lines that keep the
 --- two windows aligned. Placement comes from `review.backend.place`, cached
---- on `thread._place` (session-only, not persisted) for `M.thread_at`,
---- `M.next_thread` and `M.quickfix`.
+--- on `thread._place` (session-only, not persisted) for `M.threads_at`,
+--- `M.next_thread` and `M.goto_thread`.
 function M.decorate(session)
   local review = M.ensure(session)
   if not review then
@@ -523,14 +523,6 @@ local function ago(t)
   return os.date('%Y', e) == os.date('%Y') and day or ('%s, %s'):format(day, os.date('%Y', e))
 end
 
-local function author_hl(name)
-  local sum = 0
-  for i = 1, #name do
-    sum = sum + name:byte(i)
-  end
-  return 'DiffyThreadAuthor' .. (sum % highlight.AUTHOR_COLORS + 1)
-end
-
 --- A body as github.com shows it: without HTML comments, the web UI's CRs
 --- or surrounding blank lines.
 local function body_lines(body)
@@ -565,7 +557,7 @@ local function paint_header(session, buf, head)
     table.insert(left, { '   ', H })
     head.slot = true
   end
-  table.insert(left, { head.name, { H, author_hl(head.name), 'DiffyThreadAuthor' } })
+  table.insert(left, { head.name, { H, highlight.author(head.name), 'DiffyThreadAuthor' } })
   local when = ago(head.comment.created_at)
   if when ~= '' then
     table.insert(left, { '  ' .. when, { H, 'DiffyThreadTime' } })
@@ -670,6 +662,9 @@ local function draw_avatars(session)
     avatar.clear(session.id)
     return
   end
+  -- a float anchored to a buffer line only moves when its window scrolls on
+  -- redraw: measure after it
+  vim.cmd('redraw')
   local items = {}
   for _, h in ipairs(cards.heads) do
     if h.slot then
@@ -1080,6 +1075,25 @@ local function side_threads(session, win)
   return out
 end
 
+--- Fill `buf` with `thread` as comment cards (as in the thread float), for
+--- any window showing it. `opts.avatars` reserves room for the avatars.
+--- Returns the headers.
+function M.render_thread(session, buf, thread, opts)
+  local backend = session.review.backend
+  local badges = {}
+  if thread.outdated then
+    table.insert(badges, { 'outdated', 'DiffyThreadOutdated' })
+  end
+  if thread.resolved then
+    table.insert(badges, { '✓ resolved', 'DiffyThreadResolved' })
+  end
+  return fill_cards(session, buf, thread.comments, {
+    people = backend.capabilities.people,
+    badges = badges,
+    avatar_url = opts and opts.avatars and backend.avatar_url or nil,
+  })
+end
+
 --- Show `thread` alone in the thread float: over the other diff
 --- window, level with the thread, with its code range highlighted in its
 --- own window. `opts.focus` moves the cursor into it (`K`); otherwise it's
@@ -1102,15 +1116,7 @@ function M.show_thread(session, thread, opts)
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].swapfile = false
   session_mod.register_buffer(session, 'thread_' .. seq, buf)
-  local people = backend.capabilities.people
-  local badges = {}
-  if thread.outdated then
-    table.insert(badges, { 'outdated', 'DiffyThreadOutdated' })
-  end
-  if thread.resolved then
-    table.insert(badges, { '✓ resolved', 'DiffyThreadResolved' })
-  end
-  local heads = fill_cards(session, buf, thread.comments, { people = people, badges = badges, avatar_url = backend.avatar_url })
+  local heads = M.render_thread(session, buf, thread, { avatars = true })
 
   local order = side_threads(session, src)
   local idx = 1
@@ -1171,7 +1177,7 @@ function M.show_thread(session, thread, opts)
     height = fit.height,
   }))
   review._open = { thread = thread, src = src, float = fwin, buf = buf }
-  if people then
+  if backend.capabilities.people then
     show_avatars(session, fwin, buf, heads)
   end
 
@@ -1269,6 +1275,45 @@ function M.open_thread(session)
   M.show_thread(session, thread, { focus = true })
 end
 
+--- Jump to `thread` from anywhere in the session: open its file in the
+--- diff, put the cursor on it and enter it. Shows what it takes to see it
+--- (resolved threads, inline comments) and says why when it can't be
+--- shown in the current selection.
+function M.goto_thread(session, thread)
+  local review = session.review
+  local redraw = false
+  if not review.inline then
+    review.inline, redraw = true, true
+  end
+  if thread.resolved and review.hide_resolved then
+    review.hide_resolved, redraw = false, true
+  end
+  if session.current_path ~= thread.anchor.path then
+    if not require('diffy.panels.tree').open_path(session, thread.anchor.path) then
+      vim.notify(('diffy: %s has no changes in this selection'):format(thread.anchor.path), vim.log.levels.WARN)
+      return
+    end
+  elseif redraw then
+    M.decorate(session)
+  end
+  local place = thread._place
+  local win = place and session.wins[place.win]
+  if not (win and vim.api.nvim_win_is_valid(win)) then
+    local where = ''
+    if review.backend.visible_in then
+      local visible = review.backend.visible_in(session, thread)
+      where = #visible > 0 and (' (it is in: %s)'):format(table.concat(visible, ', ')) or ''
+    elseif thread._detached then
+      where = ': its lines were changed or deleted'
+    end
+    vim.notify(('diffy: this thread isn\'t in the current view%s'):format(where), vim.log.levels.WARN)
+    return
+  end
+  vim.api.nvim_set_current_win(win)
+  vim.api.nvim_win_set_cursor(win, { place.start_line, 0 })
+  M.show_thread(session, thread, { focus = true })
+end
+
 --- `]t`/`[t` (from a diff window or the thread float): open the next or
 --- previous thread of that window, one at a time, stacked threads included,
 --- moving the diff cursor to it. No-op past the first/last one.
@@ -1318,8 +1363,9 @@ function M.next_thread(session, delta)
 end
 
 --- One-time keymap setup for a diff-window buffer (on every left/right
---- swap): `gc`, `K`/`<CR>`, `]t`/`[t`, `<leader>dt`, `gP`. These apply on
---- any diff buffer, real file or blob alike.
+--- swap): `gc`, `K`/`<CR>`, `]t`/`[t`, the display toggles, the thread
+--- lists (`<leader>dc`/`df`), `gP`. These apply on any diff buffer, real
+--- file or blob alike.
 function M.setup_diff_keymaps(session, buf)
   local map = session_mod.map
   map(session, 'n', 'gc', function()
@@ -1349,6 +1395,12 @@ function M.setup_diff_keymaps(session, buf)
   map(session, 'n', '<leader>dr', function()
     M.toggle_resolved(session)
   end, { buffer = buf, desc = 'review: toggle resolved threads' })
+  map(session, 'n', '<leader>dc', function()
+    require('diffy.review.threads').open(session, {})
+  end, { buffer = buf, desc = 'review: every thread of the review' })
+  map(session, 'n', '<leader>df', function()
+    require('diffy.review.threads').open(session, { 'file' })
+  end, { buffer = buf, desc = 'review: threads of this file' })
   map(session, 'n', 'gP', function()
     M.open_pr_description(session)
   end, { buffer = buf, desc = 'review: PR description' })
@@ -1479,63 +1531,6 @@ function M.open_submit_body(session, on_save, title)
 
   vim.cmd('startinsert')
   run.ready({ session = session.id, event = 'compose' })
-end
-
--- ---------------------------------------------------------------------
--- `:Diffy threads`
-
---- `:Diffy threads [author=<name>] [state=<open|resolved|outdated|detached>]
---- [review=<id>]`: quickfix list of every thread in the session (incl.
---- detached/outdated ones), optionally filtered. For GitHub, appends the
---- commits each thread is visible in.
-function M.quickfix(session, args)
-  local review = M.ensure(session)
-  if not review then
-    vim.notify('diffy: review is only available in :Diffy, :Diffy branch and :Diffy pr', vim.log.levels.WARN)
-    return
-  end
-  local filters = {}
-  for _, a in ipairs(args or {}) do
-    local k, v = a:match('^(%a+)=(.*)$')
-    if k then
-      filters[k] = v
-    end
-  end
-
-  local items = {}
-  for _, t in ipairs(review.threads) do
-    local author = t.comments[1] and t.comments[1].author or ''
-    local state = t.resolved and 'resolved' or (t.outdated and 'outdated') or (t._detached and 'detached' or 'open')
-    local include = true
-    if filters.author and filters.author ~= author then
-      include = false
-    end
-    if filters.state and filters.state ~= state then
-      include = false
-    end
-    if filters.review and filters.review ~= (t.review_id or '') then
-      include = false
-    end
-    if include then
-      -- first line of the first comment: node ids (PRRT_…) mean nothing to the reader
-      local first = t.comments[1] and vim.split(t.comments[1].body or '', '\n', { plain = true })[1] or ''
-      if vim.fn.strchars(first) > 60 then
-        first = vim.fn.strcharpart(first, 0, 59) .. '…'
-      end
-      local text = ('[%s] %s: %s'):format(state, model.summary_text(t), first)
-      if review.backend.visible_in then
-        local visible = review.backend.visible_in(session, t)
-        text = text .. (' (%s)'):format(#visible > 0 and table.concat(visible, ', ') or 'nowhere inline')
-      end
-      table.insert(items, {
-        filename = session.root .. '/' .. t.anchor.path,
-        lnum = math.max(1, t.anchor.start_line or 1),
-        text = text,
-      })
-    end
-  end
-  vim.fn.setqflist({}, ' ', { title = 'diffy threads', items = items })
-  vim.cmd('copen')
 end
 
 return M

@@ -40,6 +40,15 @@ local LINKS = {
 -- author name colours, picked by login
 M.AUTHOR_COLORS = 5
 
+--- The colour group of an author's name, the same one everywhere.
+function M.author(name)
+  local sum = 0
+  for i = 1, #name do
+    sum = sum + name:byte(i)
+  end
+  return 'DiffyThreadAuthor' .. (sum % M.AUTHOR_COLORS + 1)
+end
+
 --- Status letter -> highlight group.
 M.STATUS = {
   A = 'DiffyAdded',
