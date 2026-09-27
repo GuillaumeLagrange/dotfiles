@@ -102,6 +102,17 @@ end
 --- into native diff mode with scrollbind/cursorbind (§2, §3). Either spec
 --- may be `nil` (added/deleted file: the other side is empty).
 function M.show(session, left_spec, right_spec)
+  -- Swap buffers with diff off: a window still in diff mode diffs the new
+  -- buffer against the old pair mid-swap, and diff plugins' BufWinEnter
+  -- handlers (diffchar.vim) error on the half-updated state.
+  for _, name in ipairs({ 'left', 'right' }) do
+    local win = session.wins[name]
+    if win and vim.api.nvim_win_is_valid(win) and vim.wo[win].diff then
+      vim.api.nvim_win_call(win, function()
+        vim.cmd('diffoff')
+      end)
+    end
+  end
   open_side(session, 'left', left_spec)
   open_side(session, 'right', right_spec)
 
