@@ -211,13 +211,13 @@ function M.open(opts)
     closed = false,
   }
 
-  vim.cmd('tabnew')
+  -- open the tab on a diffy buffer so tabnew's listed [No Name] never exists
+  local left_buf = M.scratch_buf(session, 'left')
+  vim.api.nvim_buf_set_lines(left_buf, 0, -1, false, { 'diffy: nothing loaded yet' })
+  vim.cmd(('tab sbuffer %d'):format(left_buf))
   session.tab = vim.api.nvim_get_current_tabpage()
 
   local left_win = vim.api.nvim_get_current_win()
-  local left_buf = M.scratch_buf(session, 'left')
-  vim.api.nvim_buf_set_lines(left_buf, 0, -1, false, { 'diffy: nothing loaded yet' })
-  vim.api.nvim_win_set_buf(left_win, left_buf)
   M.register_buffer(session, 'left', left_buf)
   M.register_window(session, 'left', left_win)
 

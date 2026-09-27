@@ -15,8 +15,11 @@ it goes in the contract, not here.
 
 ## Existing config diffy touches
 
-- fugitive, rhubarb, gitsigns and diffview are installed (`nvim/plugin/git.lua`, `nvim/plugin/diffview.lua`).
-  octo is not installed but still referenced.
+- fugitive, rhubarb and gitsigns are installed (`nvim/plugin/git.lua`); diffview was removed in phase 8.
+- diffchar.vim is installed (`nvim/init.lua`) and active because the user's `diffopt` has no `inline:`. Its
+  `BufWinEnter`/`OptionSet diff` handlers keep per-tab state (`t:DChar`) and crash with `E716 Key not present`
+  when a buffer is swapped into a window that is still in diff mode. Reproduced only with the real config on
+  multi-hunk files; diffpair.lua turns diff off before every swap. The test harness doesn't load it.
 - `nvim/ftplugin/rust.lua` refuses to attach rust-analyzer to `fugitive://` and `octo://` buffers, so blob
   sides never get LSP. That is expected (contract §3, real-file rule).
 - `nvim/lua/session.lua` (`close_ephemeral_buffers`) and `nvim/lua/utils/init.lua` (`close_octo_buffers`) list
@@ -24,6 +27,12 @@ it goes in the contract, not here.
 
 ## nvim facts (verified on 0.12.5)
 
+- `:tabnew` creates a listed `[No Name]` buffer that outlives the tab once its window is repointed. Open the tab
+  directly on a scratch buffer with `:tab sbuffer N` instead.
+- Reproducing bugs under the user's real config in a child: `child.restart({ '--cmd', 'set rtp^=~/.config/nvim
+  packpath^=~/.local/share/nvim/site', '-u', '~/.config/nvim/init.lua' })`, then `set termguicolors` and give
+  `Normal` a bg (diffchar raises E420 otherwise). `child.get_screenshot()` errors with that colorscheme; read the
+  screen with `vim.fn.screenstring(row, col)`.
 - `nvim_win_add_ns` does not exist. `vim.api.nvim__ns_set(ns, { wins = { win } })` (not `vim.fn.nvim__ns_set` -
   that raises "Tried to call API function with vim.fn") works: extmarks, virt_lines and signs in that
   namespace render only in the listed windows. Experimental API (`nvim__` prefix).

@@ -15,7 +15,7 @@
 -- doesn't mask a real leak), then fails the case (via `error`) if any
 -- diffy augroup, `diffy://` buffer, buffer-local keymap tagged `diffy: `,
 -- extmark in a `diffy/...` namespace, or extra tab/window/window-option
--- change remains.
+-- change, or listed [No Name]/fugitive buffer remains.
 local M = {}
 
 --- Window count/options and tab count before a test's session(s) open, to
@@ -33,7 +33,13 @@ function M.snapshot(child)
         wrap = vim.wo[w].wrap,
       }
     end
-    return { tabs = #vim.api.nvim_list_tabpages(), wins = wins, opts = opts }
+    local listed = {}
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.bo[b].buflisted then
+        listed[tostring(b)] = true
+      end
+    end
+    return { tabs = #vim.api.nvim_list_tabpages(), wins = wins, opts = opts, listed = listed }
   ]])
 end
 
@@ -97,6 +103,22 @@ function M.check(child, snapshot)
   if snapshot then
     if after.tabs ~= snapshot.tabs then
       table.insert(bad, ('tabs: %d -> %d'):format(snapshot.tabs, after.tabs))
+    end
+    -- buffers the user never opened must not show up in their buffer list
+    local stray = child.lua([[
+      local out = {}
+      for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        local name = vim.api.nvim_buf_get_name(b)
+        if vim.bo[b].buflisted and ((name == '' and vim.bo[b].buftype == '') or name:find('^fugitive://')) then
+          out[#out + 1] = tostring(b) .. ' ' .. (name == '' and '[No Name]' or name)
+        end
+      end
+      return out
+    ]])
+    for _, entry in ipairs(stray) do
+      if not snapshot.listed[entry:match('^%d+')] then
+        table.insert(bad, 'listed buffer: ' .. entry)
+      end
     end
     if #after.wins ~= #snapshot.wins then
       table.insert(bad, ('windows: %d -> %d'):format(#snapshot.wins, #after.wins))
