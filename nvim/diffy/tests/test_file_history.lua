@@ -39,26 +39,12 @@ local function file_history_repo()
   return r
 end
 
-
-local function subject(text)
-  return (text:gsub('^\226\150\140', ''):gsub('^%s*', ''):gsub('^%x%x%x%x%x%x%x ', ''))
-end
-
 local function subjects(texts)
-  local out = {}
-  for i, t in ipairs(texts or ui.layout(child).log) do
-    out[i] = subject(t)
-  end
-  return out
+  return ui.log_subjects(child, texts)
 end
 
 local function select_row(row)
-  local w = ui.wins(child)
-  child.api.nvim_set_current_win(w.log)
-  child.api.nvim_win_set_cursor(w.log, { row, 0 })
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
+  ui.select_log_row(child, row)
 end
 
 T[':Diffy file follows a file across its rename'] = function()

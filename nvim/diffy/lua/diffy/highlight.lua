@@ -136,4 +136,13 @@ function M.text_width(win)
   return info.width - info.textoff
 end
 
+--- Width to render a side panel at: `win`'s text width minus one spare
+--- column, or `cached` (else `config.panel_width`) when `win` is gone.
+function M.panel_width(win, cached)
+  if win and vim.api.nvim_win_is_valid(win) then
+    return M.text_width(win) - 1
+  end
+  return cached or require('diffy').config.panel_width
+end
+
 return M

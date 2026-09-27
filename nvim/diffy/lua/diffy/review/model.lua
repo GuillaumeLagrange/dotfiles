@@ -1,7 +1,7 @@
 -- Pure review data model: Thread/Comment/Anchor shapes, excerpt relocation,
 -- rev<->commit-field mapping, placement in the current pair, unified-diff
--- hunk parsing and line tracking. No vim.api or subprocesses, so it's
--- testable with plain tables.
+-- hunk parsing and line tracking. Uses only vim.* table/string helpers (no
+-- vim.api, no subprocesses), so it's testable with plain tables.
 --
 --   Thread  { id, backend, anchor, comments = {}, resolved, outdated }
 --   Comment { id, author, body, created_at, state = draft|pending|published|sent }
@@ -11,6 +11,14 @@
 -- `side` when the comment was written. `excerpt` is the array of lines that
 -- were anchored, used by `M.relocate` to re-find the anchor after edits.
 local M = {}
+
+M.COMMENT_ICON = '\240\159\146\172'
+
+--- Unified-diff `@@ -os[,oc] +ns[,nc] @@` header: the four numbers as
+--- strings (counts '' when omitted), or nil if `line` isn't a header.
+local function hunk_header(line)
+  return line:match('^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@')
+end
 
 --- `session.pair`'s rev sentinels ('WORKTREE'/'INDEX'/'HEAD'/sha) -> an
 --- Anchor's `commit` value ('worktree'/'index'/sha). `HEAD` resolves to the
@@ -61,19 +69,20 @@ function M.relocate(anchor, lines)
     end
     return true
   end
-  if matches(anchor.start_line) then
-    anchor.end_line = anchor.start_line + n - 1
+  local function try(start)
+    if not matches(start) then
+      return false
+    end
+    anchor.start_line = start
+    anchor.end_line = start + n - 1
+    return true
+  end
+  local origin = anchor.start_line
+  if try(origin) then
     return true
   end
   for d = 1, 20 do
-    if matches(anchor.start_line - d) then
-      anchor.start_line = anchor.start_line - d
-      anchor.end_line = anchor.start_line + n - 1
-      return true
-    end
-    if matches(anchor.start_line + d) then
-      anchor.start_line = anchor.start_line + d
-      anchor.end_line = anchor.start_line + n - 1
+    if try(origin - d) or try(origin + d) then
       return true
     end
   end
@@ -114,7 +123,7 @@ end
 --- N being the number of comments beyond the first.
 function M.summary_text(thread)
   local first = thread.comments[1]
-  local text = '\240\159\146\172 ' .. (first and first.author or 'unknown')
+  local text = M.COMMENT_ICON .. ' ' .. (first and first.author or 'unknown')
   local extra = #thread.comments - 1
   if extra > 0 then
     text = text .. (' +%d'):format(extra)
@@ -168,9 +177,9 @@ function M.snippet(thread, max)
   elseif raw and type(raw.diffHunk) == 'string' then
     local hunk, o, n = {}, nil, nil
     for _, l in ipairs(vim.split(raw.diffHunk, '\n', { plain = true })) do
-      local os, ns = l:match('^@@ %-(%d+),?%d* %+(%d+),?%d* @@')
-      if os then
-        o, n = tonumber(os), tonumber(ns)
+      local old_s, _, new_s = hunk_header(l)
+      if old_s then
+        o, n = tonumber(old_s), tonumber(new_s)
       elseif o then
         local c, text = l:sub(1, 1), l:sub(2)
         if c == '+' then
@@ -222,12 +231,12 @@ function M.parse_hunks(diff_text)
   local hunks = {}
   local cur
   for _, line in ipairs(vim.split(diff_text or '', '\n', { plain = true })) do
-    local os_, oc, ns_, nc = line:match('^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@')
-    if os_ then
+    local old_s, oc, new_s, nc = hunk_header(line)
+    if old_s then
       cur = {
-        old_start = tonumber(os_),
+        old_start = tonumber(old_s),
         old_count = (oc ~= '' and tonumber(oc)) or 1,
-        new_start = tonumber(ns_),
+        new_start = tonumber(new_s),
         new_count = (nc ~= '' and tonumber(nc)) or 1,
         lines = { line },
       }
@@ -239,12 +248,19 @@ function M.parse_hunks(diff_text)
   return hunks
 end
 
+--- A hunk's `start, count` on `side` ('old'/'new').
+local function side_range(h, side)
+  if side == 'old' then
+    return h.old_start, h.old_count
+  end
+  return h.new_start, h.new_count
+end
+
 --- The hunk (from `M.parse_hunks`) whose `side` ('old'/'new') range
 --- overlaps `[start_line, end_line]`, or nil.
 function M.find_hunk(hunks, side, start_line, end_line)
   for _, h in ipairs(hunks) do
-    local s = (side == 'old') and h.old_start or h.new_start
-    local c = (side == 'old') and h.old_count or h.new_count
+    local s, c = side_range(h, side)
     if start_line <= s + c - 1 and end_line >= s then
       return h
     end
@@ -333,8 +349,7 @@ function M.anchor_valid(hunks, side, start_line, end_line)
     return true
   end
   for _, h in ipairs(hunks) do
-    local s = (side == 'old') and h.old_start or h.new_start
-    local c = (side == 'old') and h.old_count or h.new_count
+    local s, c = side_range(h, side)
     local lo, hi = s - 3, s + math.max(c, 1) - 1 + 3
     if start_line <= hi and end_line >= lo then
       return true

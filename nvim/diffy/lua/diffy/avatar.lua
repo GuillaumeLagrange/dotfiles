@@ -50,7 +50,7 @@ end
 
 --- `cb(supported)`, once the terminal answered the graphics query (or
 --- didn't within a second). Asked once per process.
-function M.detect(cb)
+local function detect(cb)
   if support ~= nil then
     return cb(support)
   end
@@ -143,7 +143,7 @@ function M.request(urls, cb)
   if #urls == 0 then
     return
   end
-  M.detect(function(ok)
+  detect(function(ok)
     if not ok then
       return
     end

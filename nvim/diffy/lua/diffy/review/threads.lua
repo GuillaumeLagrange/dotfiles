@@ -11,6 +11,8 @@ local M = {}
 
 -- rows of code in a preview; the middle of a longer range is cut
 local SNIPPET_ROWS = 14
+-- quickfix text keeps this many chars of a thread's first line
+local QF_FIRST_LINE_MAX = 60
 
 local function state_of(t)
   return t.resolved and 'resolved' or (t.outdated and 'outdated') or (t._detached and 'detached') or 'open'
@@ -66,8 +68,8 @@ local function to_quickfix(session, entries, title)
   for _, e in ipairs(entries) do
     local t = e.thread
     local first = first_line(t)
-    if vim.fn.strchars(first) > 60 then
-      first = vim.fn.strcharpart(first, 0, 59) .. '…'
+    if vim.fn.strchars(first) > QF_FIRST_LINE_MAX then
+      first = vim.fn.strcharpart(first, 0, QF_FIRST_LINE_MAX - 1) .. '…'
     end
     local text = ('[%s] %s: %s'):format(state_of(t), model.summary_text(t), first)
     if review.backend.visible_in then
@@ -86,7 +88,7 @@ end
 
 -- two cells each, so the columns after them line up
 local ICONS = {
-  open = { '\240\159\146\172', 'DiffyThreadSummary' },
+  open = { model.COMMENT_ICON, 'DiffyThreadSummary' },
   resolved = { '✓ ', 'DiffyThreadResolved' },
   outdated = { '◌ ', 'DiffyThreadOutdated' },
   detached = { '✗ ', 'DiffyThreadOutdated' },
@@ -130,6 +132,15 @@ local function width_of(chunks)
   return n
 end
 
+-- badges are space-separated
+local function badges_width(badges)
+  local n = 0
+  for j, badge in ipairs(badges) do
+    n = n + #badge[1] + (j > 1 and 1 or 0)
+  end
+  return n
+end
+
 --- Picker rows with every column padded to its widest cell, so the first
 --- lines start at the same column.
 local function rows(session, entries, with_path)
@@ -139,11 +150,7 @@ local function rows(session, entries, with_path)
     cols[i] = c
     w.loc = math.max(w.loc, width_of(c.loc))
     w.who = math.max(w.who, vim.fn.strdisplaywidth(c.author .. c.replies))
-    local b = 0
-    for j, badge in ipairs(c.badges) do
-      b = b + #badge[1] + (j > 1 and 1 or 0)
-    end
-    w.badges = math.max(w.badges, b)
+    w.badges = math.max(w.badges, badges_width(c.badges))
   end
   local out = {}
   for i, c in ipairs(cols) do
@@ -154,12 +161,10 @@ local function rows(session, entries, with_path)
     table.insert(chunks, { c.replies, 'DiffyThreadTime' })
     table.insert(chunks, { (' '):rep(w.who - vim.fn.strdisplaywidth(c.author .. c.replies) + 2) })
     if w.badges > 0 then
-      local b = 0
       for j, badge in ipairs(c.badges) do
         table.insert(chunks, { (j > 1 and ' ' or '') .. badge[1], badge[2] })
-        b = b + #badge[1] + (j > 1 and 1 or 0)
       end
-      table.insert(chunks, { (' '):rep(w.badges - b + 2) })
+      table.insert(chunks, { (' '):rep(w.badges - badges_width(c.badges) + 2) })
     end
     table.insert(chunks, { c.text, c.state == 'open' and 'Normal' or 'DiffyThreadSummaryResolved' })
     out[i] = chunks
@@ -202,6 +207,7 @@ local function preview(session, ctx)
   local t = ctx.item.thread
   ctx.preview:reset()
   ctx.preview:minimal()
+  -- '%5s' line number + 2 spaces, see the virt_text below
   local gutter = 7
   local lines, at = code_block(t, math.max(20, vim.api.nvim_win_get_width(ctx.win) - gutter - 1))
   ui.render_thread(session, ctx.buf, t, { preamble = lines })

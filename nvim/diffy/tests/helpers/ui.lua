@@ -119,6 +119,43 @@ function M.diffy_buffers(child)
   end)()]])
 end
 
+--- Commit subjects of log rows `texts` (default: every drawn log row),
+--- stripped of the current-row marker, padding and 7-char sha;
+--- 'Unstaged'/'Staged' pass through.
+function M.log_subjects(child, texts)
+  local out = {}
+  for i, t in ipairs(texts or M.layout(child).log) do
+    out[i] = (t:gsub('^\226\150\140', ''):gsub('^%s*', ''):gsub('^%x%x%x%x%x%x%x ', ''))
+  end
+  return out
+end
+
+--- Put the log cursor on `row` and press `<CR>`, waiting for the `select` render.
+function M.select_log_row(child, row)
+  local w = M.wins(child)
+  child.api.nvim_set_current_win(w.log)
+  child.api.nvim_win_set_cursor(w.log, { row, 0 })
+  M.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  M.wait_ready(child)
+end
+
+--- Focus the tree, put the cursor on `path`'s row, press `key` and wait (up
+--- to `timeout` ms) for the `event` DiffyReady it triggers.
+function M.open_tree_row(child, path, key, event, timeout)
+  local w = M.wins(child)
+  child.api.nvim_set_current_win(w.tree)
+  for i, row in ipairs(M.panel(child, 'tree')) do
+    if row.text:find(path, 1, true) then
+      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
+      break
+    end
+  end
+  M.arm_ready(child, event)
+  child.type_keys(key)
+  M.wait_ready(child, timeout)
+end
+
 --- Runs `git <args>` in fixture repo `dir`, for asserting HEAD/index/branch/
 --- files on disk. Returns trimmed stdout; raises on nonzero exit.
 function M.git(dir, args)
@@ -173,6 +210,15 @@ function M.threads_visible(child, side)
     table.sort(out, function(a, b) return a.line < b.line end)
     return out
   ]]):format(side))
+end
+
+--- Set of lines in `side`'s window with a thread drawn: `{ [15] = true, … }`.
+function M.thread_lines(child, side)
+  local out = {}
+  for _, t in ipairs(M.threads_visible(child, side)) do
+    out[t.line] = true
+  end
+  return out
 end
 
 --- Review signs in `side`'s window: `{ ['5'] = '💬' | '✓', … }`, the one
@@ -283,15 +329,9 @@ function M.aligned(child)
   ]])
 end
 
---- Arm a one-shot listener for `User DiffyReady` in `child`, optionally
---- filtered to `data.event == event` (e.g. `'render'`, `'select'`,
---- `'open_row'`, see the modules that call `git/run.lua`'s `M.ready`). Call
---- this right before the action expected to trigger a render; pair with
---- `M.wait_ready` right after. This is the only synchronization point
---- tests use - never a sleep.
-function M.arm_ready(child, event)
+local function ready_listener(event)
   local filter = event and ('%q'):format(event) or 'nil'
-  child.lua(([[
+  return ([[
     _G.__diffy_ready = false
     _G.__diffy_ready_au = vim.api.nvim_create_autocmd('User', {
       pattern = 'DiffyReady',
@@ -301,7 +341,24 @@ function M.arm_ready(child, event)
         end
       end,
     })
-  ]]):format(filter, filter))
+  ]]):format(filter, filter)
+end
+
+--- Arm a one-shot listener for `User DiffyReady` in `child`, optionally
+--- filtered to `data.event == event` (e.g. `'render'`, `'select'`,
+--- `'open_row'`, see the modules that call `git/run.lua`'s `M.ready`). Call
+--- this right before the action expected to trigger a render; pair with
+--- `M.wait_ready` right after. This is the only synchronization point
+--- tests use - never a sleep.
+function M.arm_ready(child, event)
+  child.lua(ready_listener(event))
+end
+
+--- `M.arm_ready` through raw `child.api` calls, for right before a keystroke
+--- that leaves the child transiently `blocking` (opening/closing a float);
+--- pair with `M.wait_ready_raw`.
+function M.arm_ready_raw(child, event)
+  child.api.nvim_exec_lua(ready_listener(event), {})
 end
 
 --- Block (up to `timeout` ms, default 5000) until the listener armed by

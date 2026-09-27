@@ -81,19 +81,31 @@ end
 -- already closed everything itself and teardown's window/tab steps are
 -- no-ops, while a lone `:q` still has its siblings open for teardown to
 -- close.
+local function schedule_teardown(session)
+  return function()
+    vim.schedule(function()
+      M.teardown(session)
+    end)
+  end
+end
+
 local function watch_close(session, win)
   local au_id = vim.api.nvim_create_autocmd('WinClosed', {
     group = session.augroup,
     pattern = tostring(win),
     once = true,
-    callback = function()
-      vim.schedule(function()
-        M.teardown(session)
-      end)
-    end,
+    callback = schedule_teardown(session),
   })
   session._win_watchers = session._win_watchers or {}
   session._win_watchers[win] = au_id
+end
+
+local function unwatch_close(session, win)
+  local au = session._win_watchers and session._win_watchers[win]
+  if au then
+    pcall(vim.api.nvim_del_autocmd, au)
+    session._win_watchers[win] = nil
+  end
 end
 
 local function watch_wipe(session, buf)
@@ -101,11 +113,7 @@ local function watch_wipe(session, buf)
     group = session.augroup,
     buffer = buf,
     once = true,
-    callback = function()
-      vim.schedule(function()
-        M.teardown(session)
-      end)
-    end,
+    callback = schedule_teardown(session),
   })
 end
 
@@ -122,9 +130,8 @@ end
 --- session, e.g. the conflict layout reverting to the 2-window pair.
 function M.unregister_window(session, name)
   local win = session.wins[name]
-  if win and session._win_watchers and session._win_watchers[win] then
-    pcall(vim.api.nvim_del_autocmd, session._win_watchers[win])
-    session._win_watchers[win] = nil
+  if win then
+    unwatch_close(session, win)
   end
   session.wins[name] = nil
 end
@@ -183,6 +190,15 @@ local function valid_win(win)
   return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
 
+local PLACEHOLDER = { 'diffy: nothing loaded yet' }
+
+--- Split the tree/log column off the left edge of the tab; returns both windows.
+local function open_panel_column(tree_buf, log_buf)
+  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = -1, split = 'left', width = panel_width() })
+  local log_win = vim.api.nvim_open_win(log_buf, false, { win = tree_win, split = 'below', height = 10 })
+  return tree_win, log_win
+end
+
 --- Reset window sizes: fixed-width panel column (log = min(#entries,
 --- 40% of the column), tree the rest), diff area split evenly over what's
 --- left (the full width while the panel column is hidden). Called on open,
@@ -221,7 +237,7 @@ end
 --- Hide the panel column without ending the session: the
 --- windows' teardown watchers are dropped first and the panel buffers kept
 --- (`bufhidden=hide`) so they come back unchanged.
-function M.hide_panels(session)
+local function hide_panels(session)
   if session.panel_hidden then
     return
   end
@@ -231,11 +247,7 @@ function M.hide_panels(session)
     local win = session.wins[name]
     if valid_win(win) then
       session._panel_cursor[name] = vim.api.nvim_win_get_cursor(win)
-      local au = session._win_watchers and session._win_watchers[win]
-      if au then
-        pcall(vim.api.nvim_del_autocmd, au)
-        session._win_watchers[win] = nil
-      end
+      unwatch_close(session, win)
       vim.bo[session.bufs[name]].bufhidden = 'hide'
       table.insert(to_close, win)
     end
@@ -248,13 +260,12 @@ function M.hide_panels(session)
 end
 
 --- Re-open the panel column with the same tree/log buffers and cursors.
-function M.show_panels(session)
+local function show_panels(session)
   if not session.panel_hidden then
     return
   end
   session._nav_guard = (session._nav_guard or 0) + 1
-  local tree_win = vim.api.nvim_open_win(session.bufs.tree, false, { win = -1, split = 'left', width = panel_width() })
-  local log_win = vim.api.nvim_open_win(session.bufs.log, false, { win = tree_win, split = 'below', height = 10 })
+  local tree_win, log_win = open_panel_column(session.bufs.tree, session.bufs.log)
   session._nav_guard = session._nav_guard - 1
   for name, win in pairs({ tree = tree_win, log = log_win }) do
     vim.bo[session.bufs[name]].bufhidden = 'wipe'
@@ -277,15 +288,15 @@ end
 
 function M.toggle_panels(session)
   if session.panel_hidden then
-    M.show_panels(session)
+    show_panels(session)
   else
-    M.hide_panels(session)
+    hide_panels(session)
   end
 end
 
 --- Show the panel column if hidden, then put the cursor in the file tree.
-function M.focus_panels(session)
-  M.show_panels(session)
+local function focus_panels(session)
+  show_panels(session)
   if valid_win(session.wins.tree) then
     vim.api.nvim_set_current_win(session.wins.tree)
   end
@@ -302,7 +313,7 @@ function M.map_toggle(session, buf)
   end
   if keys.focus_panel and keys.focus_panel ~= '' then
     M.map(session, 'n', keys.focus_panel, function()
-      M.focus_panels(session)
+      focus_panels(session)
     end, { buffer = buf, nowait = true, desc = 'focus the file tree' })
   end
 end
@@ -334,7 +345,7 @@ function M.open(opts)
 
   -- open the tab on a diffy buffer so tabnew's listed [No Name] never exists
   local left_buf = M.scratch_buf(session, 'left')
-  vim.api.nvim_buf_set_lines(left_buf, 0, -1, false, { 'diffy: nothing loaded yet' })
+  vim.api.nvim_buf_set_lines(left_buf, 0, -1, false, PLACEHOLDER)
   vim.cmd(('tab sbuffer %d'):format(left_buf))
   session.tab = vim.api.nvim_get_current_tabpage()
 
@@ -343,18 +354,16 @@ function M.open(opts)
   M.register_window(session, 'left', left_win)
 
   local right_buf = M.scratch_buf(session, 'right')
-  vim.api.nvim_buf_set_lines(right_buf, 0, -1, false, { 'diffy: nothing loaded yet' })
+  vim.api.nvim_buf_set_lines(right_buf, 0, -1, false, PLACEHOLDER)
   local right_win = vim.api.nvim_open_win(right_buf, false, { win = left_win, split = 'right' })
   M.register_buffer(session, 'right', right_buf)
   M.register_window(session, 'right', right_win)
 
   local tree_buf = M.scratch_buf(session, 'tree')
-  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = -1, split = 'left', width = panel_width() })
+  local log_buf = M.scratch_buf(session, 'log')
+  local tree_win, log_win = open_panel_column(tree_buf, log_buf)
   M.register_buffer(session, 'tree', tree_buf, { panel = true })
   M.register_window(session, 'tree', tree_win)
-
-  local log_buf = M.scratch_buf(session, 'log')
-  local log_win = vim.api.nvim_open_win(log_buf, false, { win = tree_win, split = 'below', height = 10 })
   M.register_buffer(session, 'log', log_buf, { panel = true })
   M.register_window(session, 'log', log_win)
 

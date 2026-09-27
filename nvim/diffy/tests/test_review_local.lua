@@ -40,21 +40,8 @@ local function open_default()
   ui.wait_ready(child)
 end
 
--- Opening/closing `gc`'s compose float leaves the child transiently
--- `blocking`, so arm DiffyReady through raw
--- `child.api` calls; pair with `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
-  child.api.nvim_exec_lua(([[
-    _G.__diffy_ready = false
-    _G.__diffy_ready_au = vim.api.nvim_create_autocmd('User', {
-      pattern = 'DiffyReady',
-      callback = function(a)
-        if a.data and a.data.event == %q then
-          _G.__diffy_ready = true
-        end
-      end,
-    })
-  ]]):format(event), {})
+  ui.arm_ready_raw(child, event)
 end
 
 --- `gc` on line `lnum` of `win`, type `body`, then `<C-s>` to save the draft.
@@ -540,6 +527,30 @@ T['review export writes review.md for worktree, index and commit views, marks se
   MiniTest.expect.equality(again:find('worktree comment', 1, true), nil)
 
   child.cmd('Diffy close')
+end
+
+T['review export quotes a bracketed path from its own file, not a loaded file its name pattern-matches'] = function()
+  -- `a[b].txt` read as a file pattern matches `ab.txt`
+  repo:commit('brackets', { ['a[b].txt'] = Repo.lines(10), ['ab.txt'] = Repo.lines(10) })
+  vim.fn.writefile(Repo.edit(5, 'bracket edit')(Repo.lines(10)), repo.dir .. '/a[b].txt')
+  child.lua('local b = vim.fn.bufadd(...); vim.fn.bufload(b); vim.api.nvim_buf_set_lines(b, 0, -1, false, { "WRONG FILE" })',
+    { repo.dir .. '/ab.txt' })
+  open_default()
+  local w = ui.wins(child)
+  MiniTest.expect.equality(child.api.nvim_buf_get_name(child.api.nvim_win_get_buf(w.right)), repo.dir .. '/a[b].txt')
+  write_comment(w.right, 5, 'bracket comment')
+
+  local branch = ui.git(repo.dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
+  ui.arm_ready(child, 'review')
+  child.cmd('Diffy review export')
+  ui.wait_ready(child)
+  local text = table.concat(vim.fn.readfile(repo.dir .. '/.git/diffy/' .. branch .. '/review.md'), '\n')
+  MiniTest.expect.equality(text:find('bracket comment', 1, true) ~= nil, true)
+  -- the quoted excerpt (above the diff hunk) is the commented file's own line
+  local excerpt = text:match('```text\n([^`]*)```') or ''
+  MiniTest.expect.equality(excerpt:find('bracket edit', 1, true) ~= nil, true)
+  child.cmd('Diffy close')
+  child.cmd('bwipeout! ' .. vim.fn.fnameescape(repo.dir .. '/ab.txt'))
 end
 
 T["comment decorations don't show in a window outside the session showing the same file"] = function()

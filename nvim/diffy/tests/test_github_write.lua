@@ -22,30 +22,8 @@ local Q1 = '624697d43fdafc6e982d28e5cc504dc58ffd78f3' -- f.txt L5-7
 local Q2 = '555868b2a02f69191ea2a6f02ce7365285b02ce6' -- f.txt L20
 local HEAD_SHA = '5a5dae9a718551dcddd9ecd66fb85ef6c43c6b28' -- Q3, sandbox/pending's tip, f.txt L30
 
-local function git(cwd, args)
-  local res = vim.system(vim.list_extend({ 'git' }, args), { cwd = cwd, text = true }):wait()
-  assert(res.code == 0, table.concat(args, ' ') .. '\n' .. (res.stderr or ''))
-  return vim.trim(res.stdout or '')
-end
-
---- A fresh clone of the sandbox's real `pending` PR history (exact shas,
---- offline, read-only fetch from the bundle - never pushed to).
 local function clone_pending()
-  local d = vim.fn.tempname()
-  vim.fn.mkdir(d, 'p')
-  git(d, { 'init', '-q', '-b', 'main' })
-  git(d, { 'config', 'user.name', 'diffy' })
-  git(d, { 'config', 'user.email', 'diffy@example.com' })
-  git(d, { 'remote', 'add', 'origin', 'https://github.com/GuillaumeLagrange/diffy-tests.git' })
-  git(d, {
-    'fetch',
-    '-q',
-    PENDING_BUNDLE,
-    'refs/remotes/origin/base/pending:refs/heads/base/pending',
-    'refs/remotes/origin/sandbox/pending:refs/heads/sandbox/pending',
-  })
-  git(d, { 'checkout', '-q', 'sandbox/pending' })
-  return d
+  return live.clone_sandbox(PENDING_BUNDLE, 'pending')
 end
 
 local function pr_number()
@@ -162,19 +140,8 @@ local function open_pr()
   ui.wait_ready(child, live.timeout)
 end
 
---- Focus the tree, put the cursor on `path`'s row and press `<CR>`.
 local function open_file(path)
-  local w = wins()
-  child.api.nvim_set_current_win(w.tree)
-  for i, row in ipairs(ui.panel(child, 'tree')) do
-    if row.text:find(path, 1, true) then
-      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
-      break
-    end
-  end
-  ui.arm_ready(child, 'review')
-  child.type_keys('<CR>')
-  ui.wait_ready(child, live.timeout)
+  ui.open_tree_row(child, path, '<CR>', 'review', live.timeout)
 end
 
 --- Select log entry `idx` (1-based, newest first) as a single commit.
@@ -196,20 +163,8 @@ local function select_all()
   ui.wait_ready(child, live.timeout)
 end
 
--- Opening a float (`gc`/`K`+`r`) leaves the child transiently `blocking`
--- arm/wait through raw `child.api` calls there.
 local function arm_ready_raw(event)
-  child.api.nvim_exec_lua(([[
-    _G.__diffy_ready = false
-    _G.__diffy_ready_au = vim.api.nvim_create_autocmd('User', {
-      pattern = 'DiffyReady',
-      callback = function(a)
-        if a.data and a.data.event == %q then
-          _G.__diffy_ready = true
-        end
-      end,
-    })
-  ]]):format(event), {})
+  ui.arm_ready_raw(child, event)
 end
 
 local function wait_ready_raw()
@@ -281,11 +236,7 @@ local function push()
 end
 
 local function lines_with_signs(side)
-  local out = {}
-  for _, t in ipairs(ui.threads_visible(child, side)) do
-    out[t.line] = true
-  end
-  return out
+  return ui.thread_lines(child, side)
 end
 
 local function quickfix_entries()
@@ -462,6 +413,37 @@ T['a reply drafted on a not-yet-pushed thread lands in that thread on push'] = f
     local text = table.concat(vim.fn.readfile(draft_path), '\n')
     MiniTest.expect.equality(text:find('follow-up', 1, true), nil)
   end
+
+  child.cmd('Diffy close')
+end
+
+T['a reply drafted on one of two new same-file threads with the same body lands in its own thread'] = function()
+  setup_empty()
+  open_pr()
+  open_file('f.txt')
+
+  local right = wins().right
+  compose_draft(right, 20, 'nit')
+  child.api.nvim_set_current_win(right)
+  child.fn.win_execute(right, 'call cursor(20, 1)')
+  child.type_keys('K')
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  wait_ready_raw()
+  child.type_keys('follow-up', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  wait_ready_raw()
+  compose_draft(right, 30, 'nit')
+
+  push()
+
+  local by_line = {}
+  for _, e in ipairs(quickfix_entries()) do
+    by_line[e.lnum] = (by_line[e.lnum] or '') .. e.text
+  end
+  MiniTest.expect.equality(by_line[20]:find('+1', 1, true) ~= nil, true)
+  MiniTest.expect.equality(by_line[30]:find('+1', 1, true), nil)
 
   child.cmd('Diffy close')
 end

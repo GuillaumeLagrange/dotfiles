@@ -1,5 +1,9 @@
 local session = require('diffy.session')
 
+local function notify_not_repo(err)
+  vim.notify('diffy: not a git repository (' .. tostring(err) .. ')', vim.log.levels.ERROR)
+end
+
 local M = {}
 
 M.config = {
@@ -25,23 +29,99 @@ end
 --- subcommand name -> function(args: string[])
 M.dispatch = {}
 
+local function current_session(where)
+  local s = session.current()
+  if not s then
+    vim.notify(('diffy: no session in %s'):format(where or 'the current tab'), vim.log.levels.WARN)
+  end
+  return s
+end
+
+local function review_ready(s)
+  require('diffy.git.run').ready({ session = s.id, event = 'review' })
+end
+
+local function backend_supports(review, sub)
+  if type(review.backend[sub]) == 'function' then
+    return true
+  end
+  vim.notify(('diffy: `review %s` isn\'t available for %s'):format(sub, review.backend.name), vim.log.levels.WARN)
+  return false
+end
+
+--- Callback for GitHub backend calls answering `(ok, warnings)`.
+local function report_remote(s, done_msg)
+  return function(ok, warnings)
+    for _, w in ipairs(warnings or {}) do
+      vim.notify('diffy: ' .. w, vim.log.levels.WARN)
+    end
+    if ok then
+      vim.notify(done_msg)
+    end
+    review_ready(s)
+  end
+end
+
+local SUBMIT_EVENTS = { comment = 'COMMENT', approve = 'APPROVE', request_changes = 'REQUEST_CHANGES' }
+local SUBMIT_TITLES = { COMMENT = 'Submit review', APPROVE = 'Approve', REQUEST_CHANGES = 'Request changes' }
+
 --- `:Diffy threads [file] [author=<name>] [state=…] [review=<id>]`: every
 --- thread in the session, or the shown file's, in a picker or the quickfix.
 function M.dispatch.threads(args)
-  local s = session.current()
+  local s = current_session()
   if not s then
-    vim.notify('diffy: no session in the current tab', vim.log.levels.WARN)
     return
   end
   require('diffy.review.threads').open(s, args)
 end
 
+local review_subcommands = {}
+
+function review_subcommands.export(s, review)
+  review.backend.export(s, function(ok, result)
+    if ok then
+      vim.notify('diffy: exported review to ' .. result)
+    else
+      vim.notify('diffy: ' .. result, vim.log.levels.WARN)
+    end
+    review_ready(s)
+  end)
+end
+
+function review_subcommands.clear(s, review, ui)
+  review.backend.clear(s, review.branch)
+  review.threads = {}
+  ui.decorate(s)
+  vim.notify('diffy: review cleared')
+  review_ready(s)
+end
+
+function review_subcommands.push(s, review)
+  review.backend.push(s, report_remote(s, 'diffy: pushed'))
+end
+
+function review_subcommands.pull(s, review)
+  review.backend.pull(s, function()
+    review_ready(s)
+  end)
+end
+
+function review_subcommands.submit(s, review, ui, args)
+  local event = SUBMIT_EVENTS[args[2] or 'comment']
+  if not event then
+    vim.notify('diffy: `review submit` expects comment|approve|request_changes', vim.log.levels.WARN)
+    return
+  end
+  ui.open_submit_body(s, function(body)
+    review.backend.submit(s, event, body, report_remote(s, 'diffy: submitted'))
+  end, SUBMIT_TITLES[event])
+end
+
 --- `:Diffy review export|clear` (local backend) and
 --- `push|pull|submit` (GitHub backend).
 function M.dispatch.review(args)
-  local s = session.current()
+  local s = current_session()
   if not s then
-    vim.notify('diffy: no session in the current tab', vim.log.levels.WARN)
     return
   end
   local ui = require('diffy.review.ui')
@@ -51,81 +131,19 @@ function M.dispatch.review(args)
     return
   end
   local sub = args[1]
-  if sub == 'export' then
-    if type(review.backend.export) ~= 'function' then
-      vim.notify(('diffy: `review export` isn\'t available for %s'):format(review.backend.name), vim.log.levels.WARN)
-      return
-    end
-    review.backend.export(s, function(ok, result)
-      if ok then
-        vim.notify('diffy: exported review to ' .. result)
-      else
-        vim.notify('diffy: ' .. result, vim.log.levels.WARN)
-      end
-      require('diffy.git.run').ready({ session = s.id, event = 'review' })
-    end)
-  elseif sub == 'clear' then
-    if type(review.backend.clear) ~= 'function' then
-      vim.notify(('diffy: `review clear` isn\'t available for %s'):format(review.backend.name), vim.log.levels.WARN)
-      return
-    end
-    review.backend.clear(s, review.branch)
-    review.threads = {}
-    ui.decorate(s)
-    vim.notify('diffy: review cleared')
-    require('diffy.git.run').ready({ session = s.id, event = 'review' })
-  elseif sub == 'push' then
-    if type(review.backend.push) ~= 'function' then
-      vim.notify(('diffy: `review push` isn\'t available for %s'):format(review.backend.name), vim.log.levels.WARN)
-      return
-    end
-    review.backend.push(s, function(ok, warnings)
-      for _, w in ipairs(warnings or {}) do
-        vim.notify('diffy: ' .. w, vim.log.levels.WARN)
-      end
-      if ok then
-        vim.notify('diffy: pushed')
-      end
-      require('diffy.git.run').ready({ session = s.id, event = 'review' })
-    end)
-  elseif sub == 'pull' then
-    if type(review.backend.pull) ~= 'function' then
-      vim.notify(('diffy: `review pull` isn\'t available for %s'):format(review.backend.name), vim.log.levels.WARN)
-      return
-    end
-    review.backend.pull(s, function()
-      require('diffy.git.run').ready({ session = s.id, event = 'review' })
-    end)
-  elseif sub == 'submit' then
-    if type(review.backend.submit) ~= 'function' then
-      vim.notify(('diffy: `review submit` isn\'t available for %s'):format(review.backend.name), vim.log.levels.WARN)
-      return
-    end
-    local event = ({ comment = 'COMMENT', approve = 'APPROVE', request_changes = 'REQUEST_CHANGES' })[args[2] or 'comment']
-    if not event then
-      vim.notify('diffy: `review submit` expects comment|approve|request_changes', vim.log.levels.WARN)
-      return
-    end
-    ui.open_submit_body(s, function(body)
-      review.backend.submit(s, event, body, function(ok, warnings)
-        for _, w in ipairs(warnings or {}) do
-          vim.notify('diffy: ' .. w, vim.log.levels.WARN)
-        end
-        if ok then
-          vim.notify('diffy: submitted')
-        end
-        require('diffy.git.run').ready({ session = s.id, event = 'review' })
-      end)
-    end, ({ COMMENT = 'Submit review', APPROVE = 'Approve', REQUEST_CHANGES = 'Request changes' })[event])
-  else
+  local handler = sub and review_subcommands[sub]
+  if not handler then
     vim.notify(('diffy: `review %s` is not implemented yet'):format(sub or ''), vim.log.levels.WARN)
+    return
+  end
+  if backend_supports(review, sub) then
+    handler(s, review, ui, args)
   end
 end
 
 function M.dispatch.close()
-  local s = session.for_tab(vim.api.nvim_get_current_tabpage())
+  local s = current_session()
   if not s then
-    vim.notify('diffy: no session in the current tab', vim.log.levels.WARN)
     return
   end
   require('diffy.checkout').leave(s, function(ok)
@@ -138,9 +156,8 @@ end
 
 --- `:Diffy panel`: hide/show the tree/log column.
 function M.dispatch.panel()
-  local s = session.current()
+  local s = current_session('this tab')
   if not s then
-    vim.notify('diffy: no session in this tab', vim.log.levels.WARN)
     return
   end
   session.toggle_panels(s)
@@ -223,6 +240,14 @@ function M.build(s)
   end, s)
 end
 
+--- `abspath` relative to `root` when inside it, else unchanged.
+local function relative_to(root, abspath)
+  if abspath:sub(1, #root + 1) == root .. '/' then
+    return abspath:sub(#root + 2)
+  end
+  return abspath
+end
+
 --- Open a new session for `spec` (`{kind='default'|'branch'|'range', ...}`,
 --- see panels/log.lua). The tab skeleton is created synchronously so
 --- teardown works immediately; the repo root and panels follow async.
@@ -249,18 +274,14 @@ function M.start(spec)
 
   repo.root(vim.fn.getcwd(), function(root, err)
     if not root then
-      vim.notify('diffy: not a git repository (' .. tostring(err) .. ')', vim.log.levels.ERROR)
+      notify_not_repo(err)
       session.teardown(s)
       return
     end
     s.root = root
     s.gitdir = vim.fn.FugitiveExtractGitDir(root)
     if spec.abspath then
-      local rel = spec.abspath
-      if rel:sub(1, #root + 1) == root .. '/' then
-        rel = rel:sub(#root + 2)
-      end
-      spec.path = rel
+      spec.path = relative_to(root, spec.abspath)
     end
     if require('diffy.checkout').pending(s.gitdir) then
       vim.notify('diffy: an interrupted full checkout is pending here — run `:Diffy restore`', vim.log.levels.WARN)
@@ -280,24 +301,26 @@ function M.dispatch.pr(_args)
   local repo = require('diffy.git.repo')
   local run = require('diffy.git.run')
   local github = require('diffy.review.github')
+  local function refuse(reason)
+    vim.notify('diffy: `:Diffy pr` refused - ' .. tostring(reason), vim.log.levels.WARN)
+    run.ready({ event = 'pr' })
+  end
   repo.root(vim.fn.getcwd(), function(root, err)
     if not root then
-      vim.notify('diffy: not a git repository (' .. tostring(err) .. ')', vim.log.levels.ERROR)
+      notify_not_repo(err)
       run.ready({ event = 'pr' })
       return
     end
     github.find_pr(root, function(pr, ferr)
       if not pr then
-        vim.notify('diffy: `:Diffy pr` refused - ' .. tostring(ferr), vim.log.levels.WARN)
-        run.ready({ event = 'pr' })
+        refuse(ferr)
         return
       end
       repo.head_sha(root, function(head_sha)
         repo.is_clean(root, nil, function(clean)
           github.pr_readiness(root, head_sha, pr.headRefOid, clean, function(ok, reason)
             if not ok then
-              vim.notify('diffy: `:Diffy pr` refused - ' .. reason, vim.log.levels.WARN)
-              run.ready({ event = 'pr' })
+              refuse(reason)
               return
             end
             M.start({ kind = 'pr', base = pr.baseRefName, pr_number = pr.number })

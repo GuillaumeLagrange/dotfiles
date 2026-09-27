@@ -12,7 +12,26 @@ local parse = require('diffy.git.parse')
 local M = {}
 
 local STAGE_LABEL = { [1] = 'base :1', [2] = 'ours :2', [3] = 'theirs :3' }
-local MARKER_PAT = [[^\(<\{7}\|=\{7}\|>\{7}\)]]
+-- Vim regex for ]x/[x: git's exact markers, incl. diff3's `||||||| base`.
+local MARKER_PAT = [[^\(<\{7} \||\{7} \|=\{7}$\|>\{7} \)]]
+local OPEN_PAT = '^<<<<<<< '
+local CLOSE_PAT = '^>>>>>>> '
+
+local function index_of(list, value)
+  for i, v in ipairs(list) do
+    if v == value then
+      return i
+    end
+  end
+end
+
+local function open_pane(session, key, win, split)
+  local buf = session_mod.scratch_buf(session, key)
+  local new_win = vim.api.nvim_open_win(buf, false, { win = win, split = split })
+  session_mod.register_buffer(session, key, buf)
+  session_mod.register_window(session, key, new_win)
+  return new_win
+end
 
 --- One-time window restructuring: close the normal pair's right window,
 --- reuse its left window as the "ours" pane (its `WinClosed` watcher does
@@ -29,20 +48,9 @@ local function enter_layout(session)
   end
   session.wins.left = nil
 
-  local result_buf = session_mod.scratch_buf(session, 'result')
-  local result_win = vim.api.nvim_open_win(result_buf, false, { win = ours_win, split = 'below' })
-  session_mod.register_buffer(session, 'result', result_buf)
-  session_mod.register_window(session, 'result', result_win)
-
-  local base_buf = session_mod.scratch_buf(session, 'base')
-  local base_win = vim.api.nvim_open_win(base_buf, false, { win = ours_win, split = 'right' })
-  session_mod.register_buffer(session, 'base', base_buf)
-  session_mod.register_window(session, 'base', base_win)
-
-  local theirs_buf = session_mod.scratch_buf(session, 'theirs')
-  local theirs_win = vim.api.nvim_open_win(theirs_buf, false, { win = base_win, split = 'right' })
-  session_mod.register_buffer(session, 'theirs', theirs_buf)
-  session_mod.register_window(session, 'theirs', theirs_win)
+  open_pane(session, 'result', ours_win, 'below')
+  local base_win = open_pane(session, 'base', ours_win, 'right')
+  open_pane(session, 'theirs', base_win, 'right')
 
   session.wins.ours = ours_win
   session.conflict_active = true
@@ -63,10 +71,11 @@ function M.leave(session)
       pcall(vim.api.nvim_win_close, win, true)
     end
   end
-  if session.real_bufs and session.real_bufs.result and vim.api.nvim_buf_is_valid(session.real_bufs.result) then
-    session_mod.unmap_buffer(session, session.real_bufs.result)
-  end
   if session.real_bufs then
+    local real = session.real_bufs.result
+    if real and vim.api.nvim_buf_is_valid(real) then
+      session_mod.unmap_buffer(session, real)
+    end
     session.real_bufs.result = nil
   end
   session.conflict_bufs = nil
@@ -116,10 +125,10 @@ local function marker_block()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local start
   for i = lnum, 1, -1 do
-    if lines[i]:match('^>>>>>>> ') and i ~= lnum then
+    if lines[i]:match(CLOSE_PAT) and i ~= lnum then
       return nil
     end
-    if lines[i]:match('^<<<<<<< ') then
+    if lines[i]:match(OPEN_PAT) then
       start = i
       break
     end
@@ -128,14 +137,22 @@ local function marker_block()
     return nil
   end
   for i = math.max(lnum, start + 1), #lines do
-    if lines[i]:match('^<<<<<<< ') then
+    if lines[i]:match(OPEN_PAT) then
       return nil
     end
-    if lines[i]:match('^>>>>>>> ') then
+    if lines[i]:match(CLOSE_PAT) then
       return start, i
     end
   end
   return nil
+end
+
+local function map_rebuild(session, buf)
+  session_mod.map(session, 'n', 'R', function()
+    if session.refresh then
+      session.refresh(session)
+    end
+  end, { buffer = buf, desc = 'rebuild' })
 end
 
 local function set_result_keymaps(session, buf)
@@ -165,11 +182,7 @@ local function set_result_keymaps(session, buf)
   map(session, 'n', '[x', function()
     vim.fn.search(MARKER_PAT, 'b')
   end, { buffer = buf, desc = 'previous conflict marker' })
-  map(session, 'n', 'R', function()
-    if session.refresh then
-      session.refresh(session)
-    end
-  end, { buffer = buf, desc = 'rebuild' })
+  map_rebuild(session, buf)
   session_mod.map_toggle(session, buf)
 end
 
@@ -238,7 +251,7 @@ local function still_conflicted(abspath)
     return false
   end
   for _, line in ipairs(vim.fn.readfile(abspath)) do
-    if line:match('^<<<<<<< ') or line == '=======' or line:match('^>>>>>>> ') then
+    if line:match(OPEN_PAT) or line == '=======' or line:match(CLOSE_PAT) then
       return true
     end
   end
@@ -247,9 +260,9 @@ end
 
 --- `s` on a conflicted row (dedicated conflicts tree, or a `U` row in a
 --- normal session, via `panels/tree.lua`'s `M.stage`): `git add` the file,
---- warning and asking for confirmation first (via `lua/diffy/prompt.lua`)
---- if markers remain. `cb(staged)` is optional and always called exactly
---- once: `true` once `git add` succeeds, `false` on decline or failure.
+--- asking for confirmation first if markers remain. `cb(staged)` is optional
+--- and always called exactly once: `true` once `git add` succeeds, `false` on
+--- decline or failure.
 function M.resolve(session, path, cb)
   local abspath = session.root .. '/' .. path
   local function do_add()
@@ -282,7 +295,6 @@ function M.resolve(session, path, cb)
 end
 
 -- `:Diffy conflicts`'s own tree (no log entries, only unmerged files).
-
 local function render_tree(session)
   local buf = session.bufs.tree
   local lines = {}
@@ -304,18 +316,12 @@ end
 
 --- `]f`/`[f` in the dedicated conflicts tree: move to and open the
 --- next/previous conflicted file.
-function M.move(session, delta)
+local function move(session, delta)
   local paths = session.conflict_paths or {}
   if #paths == 0 then
     return
   end
-  local cur
-  for i, p in ipairs(paths) do
-    if p == session.conflict_path then
-      cur = i
-      break
-    end
-  end
+  local cur = index_of(paths, session.conflict_path)
   local nxt = cur and (cur + delta) or (delta > 0 and 1 or #paths)
   if nxt < 1 or nxt > #paths then
     return
@@ -348,10 +354,10 @@ local function setup_conflicts_tree(session)
     end
   end, { buffer = buf, desc = 'mark resolved' })
   map(session, 'n', ']f', function()
-    M.move(session, 1)
+    move(session, 1)
   end, { buffer = buf, desc = 'next conflict' })
   map(session, 'n', '[f', function()
-    M.move(session, -1)
+    move(session, -1)
   end, { buffer = buf, desc = 'previous conflict' })
   map(session, 'n', 'gf', function()
     local p = path_at_cursor(session)
@@ -366,17 +372,13 @@ local function setup_conflicts_tree(session)
     end
     vim.cmd('edit ' .. vim.fn.fnameescape(abspath))
   end, { buffer = buf, desc = 'open real file' })
-  map(session, 'n', 'R', function()
-    if session.refresh then
-      session.refresh(session)
-    end
-  end, { buffer = buf, desc = 'rebuild' })
+  map_rebuild(session, buf)
   session_mod.map_toggle(session, buf)
 end
 
 --- Rebuild the conflicted-file list and open the current (or first) one.
 --- `session.refresh` for a `:Diffy conflicts` session.
-function M.refresh_list(session)
+local function refresh_list(session)
   run.git({ 'ls-files', '-u', '-z' }, {
     cwd = session.root,
     session = session,
@@ -396,13 +398,7 @@ function M.refresh_list(session)
       end
 
       local target = session.conflict_path
-      local found = false
-      for _, p in ipairs(paths) do
-        if p == target then
-          found = true
-        end
-      end
-      if not found then
+      if not index_of(paths, target) then
         target = paths[1]
       end
 
@@ -424,7 +420,7 @@ function M.start()
   local repo = require('diffy.git.repo')
   local s = session_mod.open({ range = { kind = 'conflicts' } })
   s.refresh = function(sess)
-    M.refresh_list(sess)
+    refresh_list(sess)
   end
 
   repo.root(vim.fn.getcwd(), function(root, err)
@@ -438,7 +434,7 @@ function M.start()
     vim.bo[s.bufs.log].modifiable = true
     vim.api.nvim_buf_set_lines(s.bufs.log, 0, -1, false, { '(:Diffy conflicts - no log)' })
     vim.bo[s.bufs.log].modifiable = false
-    M.refresh_list(s)
+    refresh_list(s)
   end, s)
 end
 

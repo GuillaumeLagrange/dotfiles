@@ -10,19 +10,24 @@ local parse = require('diffy.git.parse')
 
 local M = {}
 
+--- Adapts `on_exit(value, err)` to a run callback yielding trimmed stdout.
+local function trimmed_stdout(on_exit)
+  return function(res)
+    if res.code ~= 0 then
+      on_exit(nil, vim.trim(res.stderr or ''))
+    else
+      on_exit(vim.trim(res.stdout or ''), nil)
+    end
+  end
+end
+
 --- `git rev-parse --show-toplevel` for `cwd`. `on_exit(root, err)`.
 function M.root(cwd, on_exit, session)
   run.git({ 'rev-parse', '--show-toplevel' }, {
     cwd = cwd,
     session = session,
     notify_on_error = false,
-    on_exit = function(res)
-      if res.code ~= 0 then
-        on_exit(nil, vim.trim(res.stderr or ''))
-      else
-        on_exit(vim.trim(res.stdout or ''), nil)
-      end
-    end,
+    on_exit = trimmed_stdout(on_exit),
   })
 end
 
@@ -32,13 +37,7 @@ function M.head_sha(root, on_exit, session)
     cwd = root,
     session = session,
     notify_on_error = false,
-    on_exit = function(res)
-      if res.code ~= 0 then
-        on_exit(nil, vim.trim(res.stderr or ''))
-      else
-        on_exit(vim.trim(res.stdout or ''), nil)
-      end
-    end,
+    on_exit = trimmed_stdout(on_exit),
   })
 end
 
@@ -48,13 +47,7 @@ function M.merge_base(root, a, b, on_exit, session)
     cwd = root,
     session = session,
     notify_on_error = false,
-    on_exit = function(res)
-      if res.code ~= 0 then
-        on_exit(nil, vim.trim(res.stderr or ''))
-      else
-        on_exit(vim.trim(res.stdout or ''), nil)
-      end
-    end,
+    on_exit = trimmed_stdout(on_exit),
   })
 end
 

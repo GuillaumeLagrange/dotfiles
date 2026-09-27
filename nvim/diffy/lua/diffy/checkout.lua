@@ -1,7 +1,7 @@
 -- Full checkout of a single log commit onto the real worktree, so its right
--- side gets a real, LSP-navigable buffer. Writes a recovery
--- state file before touching HEAD and restores the original branch when the
--- user leaves it (selecting elsewhere, `X` again, closing the tab, exit).
+-- side gets a real, LSP-navigable buffer. Writes a recovery state file before
+-- touching HEAD and restores the original branch when the user leaves it
+-- (selecting elsewhere, `X` again, closing the tab, exit).
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
 local parse = require('diffy.git.parse')
@@ -13,7 +13,7 @@ local M = {}
 -- `session.sessions` (which `session.teardown` may already have emptied by
 -- the time `VimLeavePre` runs) so the exit handler below never depends on
 -- autocmd registration order between this module and session.lua's reaper.
-M.active = {}
+local active = {}
 
 local function state_path(gitdir)
   return gitdir .. '/diffy/checkout.json'
@@ -40,6 +40,23 @@ local function delete_state(gitdir)
   vim.fn.delete(state_path(gitdir))
 end
 
+-- Check out `branch` and delete the state file on success; `cb(ok)` is optional.
+local function checkout_branch(root, gitdir, branch, session, cb)
+  run.git({ 'checkout', '--quiet', branch }, {
+    cwd = root,
+    session = session,
+    on_exit = function(res)
+      local ok = res.code == 0
+      if ok then
+        delete_state(gitdir)
+      end
+      if cb then
+        cb(ok)
+      end
+    end,
+  })
+end
+
 --- Whether an interrupted full checkout's state file exists for `gitdir`.
 function M.pending(gitdir)
   return read_state(gitdir) ~= nil
@@ -56,6 +73,12 @@ local function current_branch(root, cb, session)
   })
 end
 
+local function render_tree(session)
+  require('diffy.panels.tree').render(session, function()
+    run.ready({ session = session.id, event = 'checkout' })
+  end)
+end
+
 --- `X` on the single selected commit: check out its tree onto the real
 --- worktree so its right side becomes a real file. Refuses if the
 --- tree has tracked changes; HEAD is left untouched in that case.
@@ -67,9 +90,10 @@ function M.enter(session)
     return
   end
 
-  repo.is_clean(session.root, nil, function(clean)
+  repo.is_clean(session.root, nil, function(clean, err)
     if not clean then
-      vim.notify('diffy: cannot check out — commit or stash tracked changes first', vim.log.levels.ERROR)
+      local why = clean == nil and ('git status failed: ' .. err) or 'commit or stash tracked changes first'
+      vim.notify('diffy: cannot check out — ' .. why, vim.log.levels.ERROR)
       run.ready({ session = session.id, event = 'checkout' })
       return
     end
@@ -87,10 +111,8 @@ function M.enter(session)
           end
           session.checkout = { branch = state.branch, head = state.head, commit = state.commit, sel_idx = sel.top }
           session.checkout_sha = entry.sha
-          M.active[session.id] = { root = session.root, gitdir = session.gitdir, branch = state.branch }
-          require('diffy.panels.tree').render(session, function()
-            run.ready({ session = session.id, event = 'checkout' })
-          end)
+          active[session.id] = { root = session.root, gitdir = session.gitdir, branch = state.branch }
+          render_tree(session)
         end,
       })
     end, session)
@@ -106,30 +128,24 @@ function M.leave(session, cb)
     cb(true)
     return
   end
-  repo.is_clean(session.root, nil, function(clean)
+  repo.is_clean(session.root, nil, function(clean, err)
     if not clean then
-      vim.notify(
-        'diffy: cannot leave the checked-out commit — tracked changes present, commit or stash them first',
-        vim.log.levels.ERROR
-      )
+      local why = clean == nil and ('git status failed: ' .. err)
+        or 'tracked changes present, commit or stash them first'
+      vim.notify('diffy: cannot leave the checked-out commit — ' .. why, vim.log.levels.ERROR)
       cb(false)
       return
     end
-    run.git({ 'checkout', '--quiet', session.checkout.branch }, {
-      cwd = session.root,
-      session = session,
-      on_exit = function(res)
-        if res.code ~= 0 then
-          cb(false)
-          return
-        end
-        delete_state(session.gitdir)
-        session.checkout = nil
-        session.checkout_sha = nil
-        M.active[session.id] = nil
-        cb(true)
-      end,
-    })
+    checkout_branch(session.root, session.gitdir, session.checkout.branch, session, function(ok)
+      if not ok then
+        cb(false)
+        return
+      end
+      session.checkout = nil
+      session.checkout_sha = nil
+      active[session.id] = nil
+      cb(true)
+    end)
   end, session)
 end
 
@@ -138,9 +154,7 @@ function M.toggle(session)
   if session.checkout then
     M.leave(session, function(ok)
       if ok then
-        require('diffy.panels.tree').render(session, function()
-          run.ready({ session = session.id, event = 'checkout' })
-        end)
+        render_tree(session)
       end
     end)
   else
@@ -186,26 +200,18 @@ function M.leave_on_teardown(session)
     return
   end
   local root, gitdir, co = session.root, session.gitdir, session.checkout
-  repo.is_clean(root, nil, function(clean)
+  repo.is_clean(root, nil, function(clean, err)
     if not clean then
+      local why = clean == nil and ('git status failed: ' .. err) or 'tracked changes present'
       vim.notify(
-        ('diffy: left commit %s checked out (tracked changes present) — clean the tree and run `:Diffy restore`'):format(
-          co.commit:sub(1, 7)
-        ),
+        ('diffy: left commit %s checked out (%s) — clean the tree and run `:Diffy restore`'):format(co.commit:sub(1, 7), why),
         vim.log.levels.WARN
       )
       return
     end
-    run.git({ 'checkout', '--quiet', co.branch }, {
-      cwd = root,
-      on_exit = function(res)
-        if res.code == 0 then
-          delete_state(gitdir)
-        end
-      end,
-    })
+    checkout_branch(root, gitdir, co.branch)
   end)
-  M.active[session.id] = nil
+  active[session.id] = nil
 end
 
 -- nvim is exiting: `VimLeavePre` handlers have no later event-loop turn to
@@ -223,14 +229,14 @@ local function restore_sync(info)
   end
   local checkout = vim.system({ 'git', 'checkout', '--quiet', info.branch }, { cwd = info.root }):wait()
   if checkout.code == 0 then
-    vim.fn.delete(state_path(info.gitdir))
+    delete_state(info.gitdir)
   end
 end
 
 vim.api.nvim_create_autocmd('VimLeavePre', {
   group = vim.api.nvim_create_augroup('diffy_checkout_reaper', { clear = true }),
   callback = function()
-    for _, info in pairs(M.active) do
+    for _, info in pairs(active) do
       restore_sync(info)
     end
   end,
@@ -254,16 +260,12 @@ function M.restore(_args)
       run.ready({ event = 'restore' })
       return
     end
-    run.git({ 'checkout', '--quiet', state.branch }, {
-      cwd = root,
-      on_exit = function(res)
-        if res.code == 0 then
-          delete_state(gitdir)
-          vim.notify('diffy: restored branch ' .. state.branch, vim.log.levels.INFO)
-        end
-        run.ready({ event = 'restore' })
-      end,
-    })
+    checkout_branch(root, gitdir, state.branch, nil, function(ok)
+      if ok then
+        vim.notify('diffy: restored branch ' .. state.branch, vim.log.levels.INFO)
+      end
+      run.ready({ event = 'restore' })
+    end)
   end)
 end
 

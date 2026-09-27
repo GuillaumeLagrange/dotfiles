@@ -20,6 +20,31 @@ function M.graphql(query, variables)
   return data.data
 end
 
+--- A fresh clone of the sandbox's `base/<name>` and `sandbox/<name>` history
+--- from git bundle `bundle` (exact shas, offline) with `sandbox/<name>`
+--- checked out. `origin` is never fetched from: only its URL is parsed, for
+--- `owner/repo` (live mode pushes to it).
+function M.clone_sandbox(bundle, name)
+  local d = vim.fn.tempname()
+  vim.fn.mkdir(d, 'p')
+  local function git(args)
+    run(vim.list_extend({ 'git' }, args), { cwd = d })
+  end
+  git({ 'init', '-q', '-b', 'main' })
+  git({ 'config', 'user.name', 'diffy' })
+  git({ 'config', 'user.email', 'diffy@example.com' })
+  git({ 'remote', 'add', 'origin', 'https://github.com/' .. M.REPO .. '.git' })
+  git({
+    'fetch',
+    '-q',
+    bundle,
+    ('refs/remotes/origin/base/%s:refs/heads/base/%s'):format(name, name),
+    ('refs/remotes/origin/sandbox/%s:refs/heads/sandbox/%s'):format(name, name),
+  })
+  git({ 'checkout', '-q', 'sandbox/' .. name })
+  return d
+end
+
 local counter = 0
 
 --- Push `base_sha`/`head_sha` of repo `dir` to fresh uniquely-named

@@ -34,6 +34,21 @@ local avatar = require('diffy.avatar')
 
 local M = {}
 
+--- A scratch buffer named `diffy://<id>/<kind>/<seq>`, registered with the session.
+local function scratch_buf(session, kind, buftype, filetype)
+  local buf = vim.api.nvim_create_buf(false, true)
+  session._review_buf_seq = (session._review_buf_seq or 0) + 1
+  local seq = session._review_buf_seq
+  vim.api.nvim_buf_set_name(buf, ('diffy://%d/%s/%d'):format(session.id, kind, seq))
+  vim.bo[buf].buftype = buftype
+  if filetype then
+    vim.bo[buf].filetype = filetype
+  end
+  vim.bo[buf].swapfile = false
+  session_mod.register_buffer(session, kind .. '_' .. seq, buf)
+  return buf
+end
+
 local function review_available(session)
   local kind = session.range and session.range.kind
   return kind == 'default' or kind == 'branch' or kind == 'pr'
@@ -52,17 +67,13 @@ function M.ensure(session)
     session.review = false
     return nil
   end
-  if session.range.kind == 'pr' then
-    local backend = require('diffy.review.github')
-    session.review = { backend = backend, branch = backend.branch(session), threads = {}, inline = true, summaries = true }
-    return session.review
-  end
-  local backend = require('diffy.review.local')
+  local pr = session.range.kind == 'pr'
+  local backend = require(pr and 'diffy.review.github' or 'diffy.review.local')
   local branch = backend.branch(session)
   session.review = {
     backend = backend,
     branch = branch,
-    threads = backend.load(session, branch),
+    threads = pr and {} or backend.load(session, branch),
     inline = true,
     summaries = true,
   }
@@ -100,7 +111,7 @@ local function summary_chunks(thread, width, hl)
   local first = thread.comments[1]
   local head = (first and first.author or 'unknown') .. (#thread.comments > 1 and (' +%d'):format(#thread.comments - 1) or '')
   -- both two cells wide, so resolved and open summaries line up
-  local icon = thread.resolved and '✓ ' or '\240\159\146\172'
+  local icon = thread.resolved and '✓ ' or model.COMMENT_ICON
   local text_hl = thread.resolved and 'DiffyThreadSummaryResolved' or 'DiffyThreadSummary'
   local chunks = {
     { icon .. ' ', hl or (thread.resolved and 'DiffyThreadResolved' or text_hl) },
@@ -122,7 +133,7 @@ local function relevant_threads(session)
   if open and win == open.float then
     win = open.src
   end
-  if win ~= session.wins.left and win ~= session.wins.right then
+  if not M.side_of(session, win) then
     return {}
   end
   return M.threads_at(session, win, vim.api.nvim_win_get_cursor(win)[1])
@@ -262,7 +273,7 @@ local function setup_hover(session)
         return
       end
       local win = vim.api.nvim_get_current_win()
-      if win ~= session.wins.left and win ~= session.wins.right then
+      if not M.side_of(session, win) then
         return
       end
       local threads = M.threads_at(session, win, vim.api.nvim_win_get_cursor(win)[1])
@@ -285,7 +296,7 @@ local function setup_hover(session)
     callback = function()
       local open = review._open
       local win = vim.api.nvim_get_current_win()
-      if open and win ~= open.float and win ~= review._reply_win and win ~= session.wins.left and win ~= session.wins.right then
+      if open and win ~= open.float and win ~= review._reply_win and not M.side_of(session, win) then
         M.close_thread(session)
       end
     end,
@@ -312,11 +323,8 @@ function M.decorate(session)
   end
   pcall(vim.api.nvim__ns_set, ns, { wins = live_wins })
 
-  for _, name in ipairs({ 'left', 'right' }) do
-    local win = wins[name]
-    if win and vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_buf_clear_namespace(vim.api.nvim_win_get_buf(win), ns, 0, -1)
-    end
+  for _, w in ipairs(live_wins) do
+    vim.api.nvim_buf_clear_namespace(vim.api.nvim_win_get_buf(w), ns, 0, -1)
   end
 
   if not review.inline then
@@ -355,7 +363,7 @@ function M.decorate(session)
       table.sort(placed[name], by_place)
       for _, t in ipairs(placed[name]) do
         vim.api.nvim_buf_set_extmark(buf, ns, t._place.start_line - 1, 0, {
-          sign_text = t.resolved and '✓' or '\240\159\146\172',
+          sign_text = t.resolved and '✓' or model.COMMENT_ICON,
           sign_hl_group = t.resolved and 'DiffyThreadResolved' or 'Comment',
           -- on a line shared with a resolved thread, the open one's sign shows
           priority = t.resolved and 4000 or 4096,
@@ -387,7 +395,7 @@ function M.decorate(session)
             line = line,
             n = n,
             threads = e and e.threads or {},
-            width = require('diffy.highlight').text_width(win),
+            width = highlight.text_width(win),
           })
         end
       end
@@ -782,14 +790,7 @@ end
 --- way. `opts.prefill` seeds the buffer (editing a draft).
 function M.open_compose(session, anchor_win, anchor_line, on_save, opts)
   opts = opts or {}
-  local buf = vim.api.nvim_create_buf(false, true)
-  session._review_buf_seq = (session._review_buf_seq or 0) + 1
-  local seq = session._review_buf_seq
-  vim.api.nvim_buf_set_name(buf, ('diffy://%d/compose/%d'):format(session.id, seq))
-  vim.bo[buf].buftype = 'acwrite'
-  vim.bo[buf].filetype = 'markdown'
-  vim.bo[buf].swapfile = false
-  session_mod.register_buffer(session, 'compose_' .. seq, buf)
+  local buf = scratch_buf(session, 'compose', 'acwrite', 'markdown')
   if opts.prefill then
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, opts.prefill)
     vim.bo[buf].modified = false
@@ -876,6 +877,17 @@ function M.open_compose(session, anchor_win, anchor_line, on_save, opts)
   run.ready({ session = session.id, event = 'compose' })
 end
 
+--- A new draft comment by the user with `body` (buffer lines).
+local function new_draft(session, review, body)
+  return {
+    id = model.next_comment_id(review.threads),
+    author = review.backend.author(session.root),
+    body = table.concat(body, '\n'),
+    created_at = os.time(),
+    state = 'draft',
+  }
+end
+
 --- `gc` (normal on a line, `mode='n'`; visual on a range, `mode='v'`):
 --- compose a brand-new thread anchored at the cursor line/marked range.
 function M.compose(session, mode)
@@ -935,15 +947,7 @@ function M.compose(session, mode)
       id = model.next_thread_id(review.threads),
       backend = backend.name,
       anchor = anchor,
-      comments = {
-        {
-          id = model.next_comment_id(review.threads),
-          author = backend.author(session.root),
-          body = table.concat(body, '\n'),
-          created_at = os.time(),
-          state = 'draft',
-        },
-      },
+      comments = { new_draft(session, review, body) },
       resolved = false,
       outdated = false,
       _has_source = true,
@@ -976,13 +980,7 @@ function M.reply(session, thread)
     if vim.trim(table.concat(body, '\n')) == '' then
       return
     end
-    table.insert(thread.comments, {
-      id = model.next_comment_id(review.threads),
-      author = backend.author(session.root),
-      body = table.concat(body, '\n'),
-      created_at = os.time(),
-      state = 'draft',
-    })
+    table.insert(thread.comments, new_draft(session, review, body))
     backend.save(session, review.branch, review.threads)
     M.decorate(session)
   end, {
@@ -1113,13 +1111,7 @@ function M.show_thread(session, thread, opts)
   end
   close_float(session)
 
-  local buf = vim.api.nvim_create_buf(false, true)
-  session._review_buf_seq = (session._review_buf_seq or 0) + 1
-  local seq = session._review_buf_seq
-  vim.api.nvim_buf_set_name(buf, ('diffy://%d/thread/%d'):format(session.id, seq))
-  vim.bo[buf].buftype = 'nofile'
-  vim.bo[buf].swapfile = false
-  session_mod.register_buffer(session, 'thread_' .. seq, buf)
+  local buf = scratch_buf(session, 'thread', 'nofile')
   local heads = M.render_thread(session, buf, thread, { avatars = true })
 
   local order = side_threads(session, src)
@@ -1222,19 +1214,24 @@ function M.show_thread(session, thread, opts)
   map(session, 'n', 'r', function()
     M.reply(session, thread)
   end, { buffer = buf, desc = 'reply' })
-  map(session, 'n', 'e', function()
+  local function last_draft(verb)
     local last = thread.comments[#thread.comments]
     if not last or last.state ~= 'draft' then
-      vim.notify('diffy: only a draft comment can be edited', vim.log.levels.WARN)
+      vim.notify(('diffy: only a draft comment can be %s'):format(verb), vim.log.levels.WARN)
+      return nil
+    end
+    return last
+  end
+  map(session, 'n', 'e', function()
+    local last = last_draft('edited')
+    if not last then
       return
     end
     M.close_thread(session)
     M.edit_comment(session, thread, last)
   end, { buffer = buf, desc = 'edit draft' })
   map(session, 'n', 'dd', function()
-    local last = thread.comments[#thread.comments]
-    if not last or last.state ~= 'draft' then
-      vim.notify('diffy: only a draft comment can be deleted', vim.log.levels.WARN)
+    if not last_draft('deleted') then
       return
     end
     M.close_thread(session)
@@ -1428,12 +1425,7 @@ function M.open_pr_description(session)
   }
   vim.list_extend(messages, pr.conversation)
 
-  local buf = vim.api.nvim_create_buf(false, true)
-  session._review_buf_seq = (session._review_buf_seq or 0) + 1
-  vim.api.nvim_buf_set_name(buf, ('diffy://%d/pr/%d'):format(session.id, session._review_buf_seq))
-  vim.bo[buf].buftype = 'nofile'
-  vim.bo[buf].swapfile = false
-  session_mod.register_buffer(session, 'pr_' .. session._review_buf_seq, buf)
+  local buf = scratch_buf(session, 'pr', 'nofile')
   local heads = fill_cards(session, buf, messages, { people = true, avatar_url = review.backend.avatar_url })
 
   local width = math.max(40, math.min(CARD_WIDTH, vim.o.columns - 4))
@@ -1481,14 +1473,7 @@ end
 --- string, blank if the buffer was left empty) and closes; `q` cancels
 --- (`on_save` never runs).
 function M.open_submit_body(session, on_save, title)
-  local buf = vim.api.nvim_create_buf(false, true)
-  session._review_buf_seq = (session._review_buf_seq or 0) + 1
-  local seq = session._review_buf_seq
-  vim.api.nvim_buf_set_name(buf, ('diffy://%d/submit/%d'):format(session.id, seq))
-  vim.bo[buf].buftype = 'acwrite'
-  vim.bo[buf].filetype = 'markdown'
-  vim.bo[buf].swapfile = false
-  session_mod.register_buffer(session, 'submit_' .. seq, buf)
+  local buf = scratch_buf(session, 'submit', 'acwrite', 'markdown')
 
   local width = math.max(40, math.min(80, vim.o.columns - 4))
   local height = 8

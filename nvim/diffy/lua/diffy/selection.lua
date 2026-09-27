@@ -40,12 +40,15 @@ function M.resolve(entries, top_idx, bottom_idx)
   return { left = left, right = right, top = top, bottom = bottom, top_idx = top_idx, bottom_idx = bottom_idx }
 end
 
---- Index of the first/last entry in `entries` that is selectable as a range
---- endpoint (commits that are merges are never selectable). Used for
---- `a` (select all) and to clamp a default selection.
+-- merge commits are never selectable as a range endpoint
+local function selectable(entry)
+  return not (entry.kind == 'commit' and entry.merge)
+end
+
+--- Index of the first/last selectable entry in `entries`, or nil.
 function M.first_selectable(entries)
   for i = 1, #entries do
-    if not (entries[i].kind == 'commit' and entries[i].merge) then
+    if selectable(entries[i]) then
       return i
     end
   end
@@ -54,7 +57,7 @@ end
 
 function M.last_selectable(entries)
   for i = #entries, 1, -1 do
-    if not (entries[i].kind == 'commit' and entries[i].merge) then
+    if selectable(entries[i]) then
       return i
     end
   end

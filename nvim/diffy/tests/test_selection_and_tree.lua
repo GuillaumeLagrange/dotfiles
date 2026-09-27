@@ -78,19 +78,8 @@ T['a rename shows as one entry whose sides are the old and new file'] = function
   child.cmd('Diffy close')
 end
 
---- Focus the tree, put the cursor on `path`'s row and press `key`.
 local function open_file(path, key)
-  local w = ui.wins(child)
-  child.api.nvim_set_current_win(w.tree)
-  for i, row in ipairs(ui.panel(child, 'tree')) do
-    if row.text:find(path, 1, true) then
-      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
-      break
-    end
-  end
-  ui.arm_ready(child, 'open_row')
-  child.type_keys(key or 'o')
-  ui.wait_ready(child)
+  ui.open_tree_row(child, path, key or 'o', 'open_row')
 end
 
 T['<CR> in the tree opens the pair and moves to the new side; o stays in the tree'] = function()

@@ -29,6 +29,8 @@ PanelWindow {
         color: Theme.barBg
 
         RowLayout {
+            id: leftRow
+
             anchors.left: parent.left
             anchors.leftMargin: 4
             anchors.verticalCenter: parent.verticalCenter
@@ -45,12 +47,19 @@ PanelWindow {
             }
 
             WindowTitle {
+                id: title
+
                 Layout.alignment: Qt.AlignVCenter
                 monitor: bar.monitor
+                // Whatever the right cluster leaves, so the title elides
+                // instead of running under it.
+                room: rightRow.x - leftRow.x - title.x - Theme.gap * 2
             }
         }
 
         RowLayout {
+            id: rightRow
+
             anchors.right: parent.right
             anchors.rightMargin: 4
             anchors.verticalCenter: parent.verticalCenter

@@ -27,6 +27,42 @@ local function fugitive_object(rev, path)
   return rev .. ':' .. path
 end
 
+local SIDES = { 'left', 'right' }
+
+local function other_side(name)
+  return name == 'left' and 'right' or 'left'
+end
+
+local function valid_win(win)
+  return win and vim.api.nvim_win_is_valid(win)
+end
+
+local function load_buf(name)
+  local buf = vim.fn.bufadd(name)
+  vim.fn.bufload(buf)
+  return buf
+end
+
+-- navigation.lua's BufWinEnter handler must ignore diffy's own buffer
+-- swaps; this counter lets it tell them apart from user navigation.
+local function nav_guarded(session, fn, ...)
+  session._nav_guard = (session._nav_guard or 0) + 1
+  local ret = fn(...)
+  session._nav_guard = session._nav_guard - 1
+  return ret
+end
+
+--- Stop managing the real worktree buffer shown in window `name`, if any.
+local function drop_real(session, name)
+  local real = session.real_bufs and session.real_bufs[name]
+  if real and vim.api.nvim_buf_is_valid(real) then
+    session_mod.unmap_buffer(session, real)
+  end
+  if session.real_bufs then
+    session.real_bufs[name] = nil
+  end
+end
+
 local function set_nav_keymaps(session, buf)
   local map = session_mod.map
   map(session, 'n', ']r', function()
@@ -63,14 +99,10 @@ local function open_side(session, name, spec)
     buf = session_mod.scratch_buf(session, name)
     is_real = false
   elseif spec.rev == 'WORKTREE' then
-    local abspath = session.root .. '/' .. spec.path
-    buf = vim.fn.bufadd(abspath)
-    vim.fn.bufload(buf)
+    buf = load_buf(session.root .. '/' .. spec.path)
     is_real = true
   else
-    local url = vim.fn.FugitiveFind(fugitive_object(spec.rev, spec.path), session.gitdir)
-    buf = vim.fn.bufadd(url)
-    vim.fn.bufload(buf)
+    buf = load_buf(vim.fn.FugitiveFind(fugitive_object(spec.rev, spec.path), session.gitdir))
     is_real = false
   end
 
@@ -78,11 +110,7 @@ local function open_side(session, name, spec)
     session_mod.unmap_buffer(session, prev_real)
   end
 
-  -- navigation.lua's BufWinEnter handler must ignore diffy's own buffer
-  -- swaps; this counter lets it tell them apart from user navigation.
-  session._nav_guard = (session._nav_guard or 0) + 1
-  vim.api.nvim_win_set_buf(win, buf)
-  session._nav_guard = session._nav_guard - 1
+  nav_guarded(session, vim.api.nvim_win_set_buf, win, buf)
 
   if is_real then
     session.real_bufs[name] = buf
@@ -103,14 +131,10 @@ end
 --- window would end the session.
 local function hide_side(session, name)
   local win = session.wins[name]
-  if not (win and vim.api.nvim_win_is_valid(win)) then
+  if not valid_win(win) then
     return
   end
-  local real = session.real_bufs and session.real_bufs[name]
-  if real and vim.api.nvim_buf_is_valid(real) then
-    session_mod.unmap_buffer(session, real)
-    session.real_bufs[name] = nil
-  end
+  drop_real(session, name)
   session_mod.unregister_window(session, name)
   session.hidden_side = name
   pcall(vim.api.nvim_win_close, win, true)
@@ -124,12 +148,10 @@ function M.restore(session)
     return
   end
   session.hidden_side = nil
-  local other = session.wins[name == 'left' and 'right' or 'left']
+  local other = session.wins[other_side(name)]
   local buf = session_mod.scratch_buf(session, name)
   session_mod.register_buffer(session, name, buf)
-  session._nav_guard = (session._nav_guard or 0) + 1
-  local win = vim.api.nvim_open_win(buf, false, { win = other, split = name })
-  session._nav_guard = session._nav_guard - 1
+  local win = nav_guarded(session, vim.api.nvim_open_win, buf, false, { win = other, split = name })
   session_mod.register_window(session, name, win)
   session_mod.relayout(session)
 end
@@ -160,9 +182,9 @@ function M.show(session, left_spec, right_spec)
   -- Swap buffers with diff off: a window still in diff mode diffs the new
   -- buffer against the old pair mid-swap, and diff plugins' BufWinEnter
   -- handlers (diffchar.vim) error on the half-updated state.
-  for _, name in ipairs({ 'left', 'right' }) do
+  for _, name in ipairs(SIDES) do
     local win = session.wins[name]
-    if win and vim.api.nvim_win_is_valid(win) and vim.wo[win].diff then
+    if valid_win(win) and vim.wo[win].diff then
       vim.api.nvim_win_call(win, function()
         vim.cmd('diffoff')
       end)
@@ -170,9 +192,9 @@ function M.show(session, left_spec, right_spec)
   end
   local ns = session.ns.one_sided
   if ns then
-    for _, name in ipairs({ 'left', 'right' }) do
+    for _, name in ipairs(SIDES) do
       local win = session.wins[name]
-      if win and vim.api.nvim_win_is_valid(win) then
+      if valid_win(win) then
         vim.api.nvim_buf_clear_namespace(vim.api.nvim_win_get_buf(win), ns, 0, -1)
       end
     end
@@ -180,7 +202,7 @@ function M.show(session, left_spec, right_spec)
 
   local one = (left_spec == nil) ~= (right_spec == nil) and (left_spec and 'left' or 'right') or nil
   if one then
-    local other = one == 'left' and 'right' or 'left'
+    local other = other_side(one)
     if session.hidden_side ~= other then
       M.restore(session)
       hide_side(session, other)
@@ -194,7 +216,7 @@ function M.show(session, left_spec, right_spec)
     M.restore(session)
     open_side(session, 'left', left_spec)
     open_side(session, 'right', right_spec)
-    for _, name in ipairs({ 'left', 'right' }) do
+    for _, name in ipairs(SIDES) do
       local win = session.wins[name]
       vim.wo[win].scrollbind = true
       vim.wo[win].cursorbind = true
@@ -219,8 +241,9 @@ end
 --- listed file again (`M.show`) restores the pair.
 function M.leave(session)
   local left, right = session.wins.left, session.wins.right
-  for _, win in ipairs({ left, right }) do
-    if win and vim.api.nvim_win_is_valid(win) then
+  for _, name in ipairs(SIDES) do
+    local win = session.wins[name]
+    if valid_win(win) then
       vim.wo[win].scrollbind = false
       vim.wo[win].cursorbind = false
       vim.api.nvim_win_call(win, function()
@@ -229,20 +252,14 @@ function M.leave(session)
     end
   end
 
-  if right and vim.api.nvim_win_is_valid(right) then
-    local prev_real = session.real_bufs and session.real_bufs.right
-    if prev_real and vim.api.nvim_buf_is_valid(prev_real) then
-      session_mod.unmap_buffer(session, prev_real)
-    end
-    if session.real_bufs then
-      session.real_bufs.right = nil
-    end
+  if valid_win(right) then
+    drop_real(session, 'right')
     vim.w[right].diffy_rev = nil
     vim.w[right].diffy_path = nil
     vim.wo[right].winbar = '(outside diff)'
   end
 
-  if left and vim.api.nvim_win_is_valid(left) then
+  if valid_win(left) then
     local buf = session_mod.scratch_buf(session, 'left')
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '(outside diff)' })
     session_mod.register_buffer(session, 'left', buf)

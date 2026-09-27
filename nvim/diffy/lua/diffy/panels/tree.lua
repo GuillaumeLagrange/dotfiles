@@ -1,28 +1,72 @@
--- The file tree panel: the diff between the current
--- selection's (left, right) as a nested directory tree (collapsible on
+-- The file tree panel: the diff between the current selection's
+-- (left, right) as a nested directory tree (collapsible on
 -- `za`, chains of single-child dirs flattened into one row), with rename
 -- pairs, +n/-m counts and the staging keys (`s`/`u`/`-`/`S`/`U`).
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
 local parse = require('diffy.git.parse')
 local selection = require('diffy.selection')
+local hl = require('diffy.highlight')
 
 local M = {}
+
+local function diff_cmd(session, format_flag)
+  local args = { 'diff', '-z', '-M', format_flag }
+  vim.list_extend(args, repo.diff_args(session.pair.left, session.pair.right))
+  if session.follow_pathspec then
+    table.insert(args, '--')
+    vim.list_extend(args, session.follow_pathspec)
+  end
+  return args
+end
+
+--- name-status entries annotated with their numstat +/- counts.
+local function merge_counts(ns_list, numstat)
+  local by_path = {}
+  for _, e in ipairs(numstat) do
+    by_path[e.path] = e
+  end
+  local entries = {}
+  for _, e in ipairs(ns_list) do
+    local n = by_path[e.path]
+    table.insert(entries, {
+      status = e.status,
+      path = e.path,
+      old_path = e.old_path,
+      added = n and n.added or nil,
+      removed = n and n.removed or nil,
+    })
+  end
+  return entries
+end
+
+-- An unmerged path's plain `git diff` (worktree vs index) reports it twice
+-- ('U', then a spurious 'M' from git's own auto-merge attempt): keep only
+-- the conflict status.
+local function drop_unmerged_duplicates(entries)
+  local unmerged_paths = {}
+  for _, e in ipairs(entries) do
+    if e.status == 'U' then
+      unmerged_paths[e.path] = true
+    end
+  end
+  if not next(unmerged_paths) then
+    return entries
+  end
+  local deduped = {}
+  for _, e in ipairs(entries) do
+    if e.status == 'U' or not unmerged_paths[e.path] then
+      table.insert(deduped, e)
+    end
+  end
+  return deduped
+end
 
 --- name-status + numstat for the current selection, merged by path, plus
 --- untracked files (only when the selection is exactly Unstaged).
 local function build_diff_entries(session, gen, cb)
-  local diff_args = repo.diff_args(session.pair.left, session.pair.right)
-  local ns_args = { 'diff', '-z', '-M', '--name-status' }
-  vim.list_extend(ns_args, diff_args)
-  local num_args = { 'diff', '-z', '-M', '--numstat' }
-  vim.list_extend(num_args, diff_args)
-  if session.follow_pathspec then
-    table.insert(ns_args, '--')
-    vim.list_extend(ns_args, session.follow_pathspec)
-    table.insert(num_args, '--')
-    vim.list_extend(num_args, session.follow_pathspec)
-  end
+  local ns_args = diff_cmd(session, '--name-status')
+  local num_args = diff_cmd(session, '--numstat')
 
   run.git(ns_args, {
     cwd = session.root,
@@ -43,21 +87,7 @@ local function build_diff_entries(session, gen, cb)
             cb(nil, vim.trim(res2.stderr or ''))
             return
           end
-          local by_path = {}
-          for _, e in ipairs(parse.numstat(res2.stdout or '')) do
-            by_path[e.path] = e
-          end
-          local entries = {}
-          for _, e in ipairs(ns_list) do
-            local n = by_path[e.path]
-            table.insert(entries, {
-              status = e.status,
-              path = e.path,
-              old_path = e.old_path,
-              added = n and n.added or nil,
-              removed = n and n.removed or nil,
-            })
-          end
+          local entries = merge_counts(ns_list, parse.numstat(res2.stdout or ''))
           if session.pair.left == 'INDEX' and session.pair.right == 'WORKTREE' then
             for _, s in ipairs(session.status_entries or {}) do
               if s.kind == 'untracked' then
@@ -65,24 +95,7 @@ local function build_diff_entries(session, gen, cb)
               end
             end
           end
-          -- an unmerged path's plain `git diff` (worktree vs index) reports
-          -- it twice ('U', then a spurious 'M' from git's own auto-merge
-          -- attempt) - keep only the conflict status.
-          local unmerged_paths = {}
-          for _, e in ipairs(entries) do
-            if e.status == 'U' then
-              unmerged_paths[e.path] = true
-            end
-          end
-          if next(unmerged_paths) then
-            local deduped = {}
-            for _, e in ipairs(entries) do
-              if e.status == 'U' or not unmerged_paths[e.path] then
-                table.insert(deduped, e)
-              end
-            end
-            entries = deduped
-          end
+          entries = drop_unmerged_duplicates(entries)
           table.sort(entries, function(a, b)
             return a.path < b.path
           end)
@@ -91,6 +104,10 @@ local function build_diff_entries(session, gen, cb)
       })
     end,
   })
+end
+
+local function basename(path)
+  return path:match('([^/]+)$') or path
 end
 
 --- Build a nested directory tree from a flat, path-sorted entry list:
@@ -116,7 +133,7 @@ end
 local function node_items(node)
   local items = {}
   for _, e in ipairs(node.files) do
-    table.insert(items, { key = e.path:match('([^/]+)$') or e.path, kind = 'file', entry = e })
+    table.insert(items, { key = basename(e.path), kind = 'file', entry = e })
   end
   for _, name in ipairs(node.dir_order) do
     table.insert(items, { key = name, kind = 'dir', name = name, node = node.dirs[name] })
@@ -125,6 +142,10 @@ local function node_items(node)
     return a.key < b.key
   end)
   return items
+end
+
+local function join(a, b)
+  return a == '' and b or (a .. '/' .. b)
 end
 
 --- Lay `node` (full path `path`) out into display rows: a directory whose
@@ -138,9 +159,6 @@ end
 --- `base` is the full path of the nearest enclosing header ('' at root):
 --- file rows display their path relative to it.
 local function layout(node, path, chain, base, depth, rows)
-  local function join(a, b)
-    return a == '' and b or (a .. '/' .. b)
-  end
   local items = node_items(node)
   if #items == 0 then
     return
@@ -175,8 +193,6 @@ local function group_rows(entries)
   return rows
 end
 
-local hl = require('diffy.highlight')
-
 local function relative(path, base)
   if base ~= '' and path:sub(1, #base + 1) == base .. '/' then
     return path:sub(#base + 2)
@@ -186,10 +202,6 @@ end
 
 local function dirname(path)
   return path:match('^(.*)/[^/]*$') or ''
-end
-
-local function basename(path)
-  return path:match('([^/]+)$') or path
 end
 
 --- One display row fitted to `width` cells: `text` plus highlight
@@ -282,20 +294,18 @@ local function row_paths(row)
   return { e.path }
 end
 
+--- The file row under the tree cursor and its line number, or nil.
 local function row_at_cursor(session)
   local lnum = vim.api.nvim_win_get_cursor(session.wins.tree)[1]
   local row = session.tree_rows[lnum]
   if row and row.kind == 'file' then
-    return row
+    return row, lnum
   end
   return nil
 end
 
---- Run `git <verb> -- <paths>` and refresh on success (which re-fires
---- `DiffyReady`).
-local function git_paths(session, verb, paths)
-  local args = { verb, '--' }
-  vim.list_extend(args, paths)
+--- Run `git <args>` and refresh on success (which re-fires `DiffyReady`).
+local function git_refresh(session, args)
   run.git(args, {
     cwd = session.root,
     session = session,
@@ -305,6 +315,12 @@ local function git_paths(session, verb, paths)
       end
     end,
   })
+end
+
+local function git_paths(session, verb, paths)
+  local args = { verb, '--' }
+  vim.list_extend(args, paths)
+  git_refresh(session, args)
 end
 
 --- `s`: stage the file (or both paths of a rename pair) at the cursor, or
@@ -354,15 +370,7 @@ function M.stage_all(session)
   if not require_staging_pane(session) then
     return
   end
-  run.git({ 'add', '-A' }, {
-    cwd = session.root,
-    session = session,
-    on_exit = function(res)
-      if res.code == 0 and session.refresh then
-        session.refresh(session)
-      end
-    end,
-  })
+  git_refresh(session, { 'add', '-A' })
 end
 
 --- `U`: unstage every staged change.
@@ -370,15 +378,7 @@ function M.unstage_all(session)
   if not require_staging_pane(session) then
     return
   end
-  run.git({ 'reset' }, {
-    cwd = session.root,
-    session = session,
-    on_exit = function(res)
-      if res.code == 0 and session.refresh then
-        session.refresh(session)
-      end
-    end,
-  })
+  git_refresh(session, { 'reset' })
 end
 
 --- Open the diff pair for tree row `row` (a `{kind='file', entry=...}`),
@@ -403,14 +403,10 @@ function M.open_row(session, row, opts)
   local ctx = clean_ctx(session)
 
   local left_spec, right_spec
-  if e.status == 'A' or e.status == '?' then
-    left_spec = nil
-  else
+  if e.status ~= 'A' and e.status ~= '?' then
     left_spec = { rev = session.pair.left, path = e.old_path or e.path }
   end
-  if e.status == 'D' then
-    right_spec = nil
-  else
+  if e.status ~= 'D' then
     local right_rev = session.pair.right
     if selection.right_is_real(session.pair, e.path, ctx) then
       right_rev = 'WORKTREE'
@@ -423,6 +419,12 @@ function M.open_row(session, row, opts)
   diffpair.show(session, left_spec, right_spec)
 end
 
+local function set_tree_cursor(session, lnum)
+  if vim.api.nvim_win_is_valid(session.wins.tree) then
+    pcall(vim.api.nvim_win_set_cursor, session.wins.tree, { lnum, 0 })
+  end
+end
+
 --- Locate the tree row for `path` and open its diff pair, updating the
 --- tracked current-file line and cursor position.
 --- Returns `true` if `path` is in the current file list, `false` otherwise.
@@ -430,9 +432,7 @@ function M.open_path(session, path)
   for i, row in ipairs(session.tree_rows or {}) do
     if row.kind == 'file' and row.entry.path == path then
       session.current_file_line = i
-      if vim.api.nvim_win_is_valid(session.wins.tree) then
-        pcall(vim.api.nvim_win_set_cursor, session.wins.tree, { i, 0 })
-      end
+      set_tree_cursor(session, i)
       M.open_row(session, row)
       return true
     end
@@ -461,11 +461,7 @@ function M.mark_current(session)
 end
 
 local function tree_width(session)
-  local win = session.wins.tree
-  if win and vim.api.nvim_win_is_valid(win) then
-    return hl.text_width(win) - 1
-  end
-  return session.tree_width or require('diffy').config.panel_width
+  return hl.panel_width(session.wins.tree, session.tree_width)
 end
 
 --- Re-render the current rows fitted to the tree window's width (no git).
@@ -503,8 +499,6 @@ function M.redraw(session)
   M.mark_current(session)
 end
 
-local render_buffer = M.redraw
-
 local function file_rows(session)
   local out = {}
   for i, row in ipairs(session.tree_rows or {}) do
@@ -532,17 +526,15 @@ function M.render(session, cb)
       return
     end
     session.tree_rows = group_rows(entries)
-    render_buffer(session)
+    M.redraw(session)
 
-    local target
-    for _, i in ipairs(file_rows(session)) do
+    local files = file_rows(session)
+    local target = files[1]
+    for _, i in ipairs(files) do
       if session.tree_rows[i].entry.path == session.current_path then
         target = i
         break
       end
-    end
-    if not target then
-      target = file_rows(session)[1]
     end
 
     if target then
@@ -563,18 +555,18 @@ end
 --- `opts.focus` to then move to the right diff window (the result window in
 --- the conflict view); `o` keeps the cursor in the tree.
 function M.select_at_cursor(session, opts)
-  local lnum = vim.api.nvim_win_get_cursor(session.wins.tree)[1]
-  local row = session.tree_rows[lnum]
-  if row and row.kind == 'file' then
-    session.current_file_line = lnum
-    M.open_row(session, row, opts)
-    -- an added or deleted file shows one side only
-    local diff_win = session.wins.right or session.wins.left
-    if opts and opts.focus and row.entry.status ~= 'U' and diff_win and vim.api.nvim_win_is_valid(diff_win) then
-      vim.api.nvim_set_current_win(diff_win)
-    end
-    require('diffy.git.run').ready({ session = session.id, event = 'open_row' })
+  local row, lnum = row_at_cursor(session)
+  if not row then
+    return
   end
+  session.current_file_line = lnum
+  M.open_row(session, row, opts)
+  -- an added or deleted file shows one side only
+  local diff_win = session.wins.right or session.wins.left
+  if opts and opts.focus and row.entry.status ~= 'U' and diff_win and vim.api.nvim_win_is_valid(diff_win) then
+    vim.api.nvim_set_current_win(diff_win)
+  end
+  run.ready({ session = session.id, event = 'open_row' })
 end
 
 --- `]f`/`[f` (also from the diff windows): move to and open the
@@ -584,46 +576,41 @@ function M.move_file(session, delta)
   if #files == 0 then
     return
   end
-  local cur = session.current_file_line
   local pos
   for i, lnum in ipairs(files) do
-    if lnum == cur then
+    if lnum == session.current_file_line then
       pos = i
       break
     end
   end
   local next_pos
-  if not pos then
-    next_pos = delta > 0 and 1 or #files
-  else
+  if pos then
     next_pos = pos + delta
+  else
+    next_pos = delta > 0 and 1 or #files
   end
   if next_pos < 1 or next_pos > #files then
     return
   end
   local lnum = files[next_pos]
   session.current_file_line = lnum
-  if vim.api.nvim_win_is_valid(session.wins.tree) then
-    pcall(vim.api.nvim_win_set_cursor, session.wins.tree, { lnum, 0 })
-  end
+  set_tree_cursor(session, lnum)
   M.open_row(session, session.tree_rows[lnum])
-  require('diffy.git.run').ready({ session = session.id, event = 'open_row' })
+  run.ready({ session = session.id, event = 'open_row' })
 end
 
 --- `gf`: open the real worktree file for the entry at the cursor in the
 --- tab that was active before the diffy tab was opened.
 function M.open_real_file(session)
-  local lnum = vim.api.nvim_win_get_cursor(session.wins.tree)[1]
-  local row = session.tree_rows[lnum]
-  if not row or row.kind ~= 'file' then
+  local row = row_at_cursor(session)
+  if not row then
     return
   end
-  local path = row.entry.path
   if row.entry.status == 'D' then
     vim.notify('diffy: no worktree file for a deleted path', vim.log.levels.WARN)
     return
   end
-  local abspath = session.root .. '/' .. path
+  local abspath = session.root .. '/' .. row.entry.path
   if session.prev_tab and vim.api.nvim_tabpage_is_valid(session.prev_tab) then
     vim.api.nvim_set_current_tabpage(session.prev_tab)
   else

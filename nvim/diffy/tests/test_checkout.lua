@@ -79,6 +79,34 @@ T['`X` then closing the tab returns to the original branch'] = function()
   MiniTest.expect.equality(#child.api.nvim_list_tabpages(), 1)
 end
 
+T['`X` to leave a checkout when git status fails shows the git error, staying checked out'] = function()
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy branch main')
+  ui.wait_ready(child)
+
+  child.api.nvim_set_current_win(ui.wins(child).log)
+  ui.arm_ready(child, 'checkout')
+  child.type_keys('X')
+  ui.wait_ready(child)
+
+  vim.fn.writefile({ 'garbage' }, repo.dir .. '/.git/index')
+  child.type_keys('X')
+  -- leaving emits no DiffyReady on refusal; wait on the notification itself
+  local shown = child.lua([[
+    return vim.wait(5000, function()
+      return vim.fn.execute('messages'):find('git status failed', 1, true) ~= nil
+    end, 10)
+  ]])
+  MiniTest.expect.equality(shown, true)
+  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', 'HEAD' }), repo.sha.C1)
+
+  vim.fn.delete(repo.dir .. '/.git/index')
+  ui.git(repo.dir, { 'reset', '--quiet' })
+  ui.arm_ready(child, 'close')
+  child.cmd('Diffy close')
+  ui.wait_ready(child)
+end
+
 T['nvim killed during a checkout: the next :Diffy warns, and :Diffy restore returns to the branch'] = function()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')

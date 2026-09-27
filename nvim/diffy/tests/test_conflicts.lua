@@ -47,22 +47,8 @@ local function is_diff(win)
   return child.lua_get(('vim.wo[%d].diff'):format(win))
 end
 
--- Closing the confirm float right before spawning `git add` leaves the
--- child transiently `blocking`, so arm the
--- DiffyReady listener through raw `child.api` calls; pair with
--- `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
-  child.api.nvim_exec_lua(([[
-    _G.__diffy_ready = false
-    _G.__diffy_ready_au = vim.api.nvim_create_autocmd('User', {
-      pattern = 'DiffyReady',
-      callback = function(a)
-        if a.data and a.data.event == %q then
-          _G.__diffy_ready = true
-        end
-      end,
-    })
-  ]]):format(event), {})
+  ui.arm_ready_raw(child, event)
 end
 
 T[':Diffy conflicts opens the 4-window layout for the first conflicted file'] = function()
@@ -130,6 +116,31 @@ T['gho/ght take hunks and s on the last conflict resolves it and leaves no confl
   for _, bar in ipairs(ui.layout(child).bars) do
     MiniTest.expect.equality(bar:find('^ours ') or bar:find('^theirs ') or bar:find('^base ') or bar:find('^result '), nil)
   end
+
+  child.cmd('Diffy close')
+end
+
+T[']x skips a markdown heading underline and stops on each real marker'] = function()
+  repo = Repo.new()
+  repo:commit('Base', { ['f.md'] = { 'Title', '==========', 'l2' } })
+  repo:branch('feature'):commit('Feature', { ['f.md'] = { 'Title', '==========', 'FEATURE' } })
+  repo:checkout('main'):commit('Main', { ['f.md'] = { 'Title', '==========', 'MAIN' } })
+  repo:merge_conflict('feature')
+  child.fn.chdir(repo.dir)
+
+  ui.arm_ready(child, 'conflict')
+  child.cmd('Diffy conflicts')
+  ui.wait_ready(child)
+  local w = ui.wins(child)
+
+  child.api.nvim_set_current_win(w.result)
+  child.fn.win_execute(w.result, 'call cursor(1, 1)')
+  local seen = {}
+  for _ = 1, 3 do
+    child.type_keys(']x')
+    table.insert(seen, child.api.nvim_get_current_line())
+  end
+  MiniTest.expect.equality(seen, { '<<<<<<< HEAD', '=======', '>>>>>>> feature' })
 
   child.cmd('Diffy close')
 end

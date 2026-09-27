@@ -28,31 +28,10 @@ local PR2_FIXTURE = vim.fn.getcwd() .. '/tests/fixtures/github/pr2.json'
 local HEAD_SHA = '865a58547f2547547f78345248fca0a6d03ebaf6' -- P7, sandbox/placement's tip
 local BASE = 'base/placement'
 
-local function git(cwd, args)
-  local res = vim.system(vim.list_extend({ 'git' }, args), { cwd = cwd, text = true }):wait()
-  assert(res.code == 0, table.concat(args, ' ') .. '\n' .. (res.stderr or ''))
-  return vim.trim(res.stdout or '')
-end
+local git = ui.git
 
---- A fresh clone of the sandbox's real placement history (exact shas,
---- offline) with a plausible `origin` remote (never fetched from - only its
---- URL is parsed, for `owner/repo`) and `sandbox/placement` checked out.
 local function clone_placement()
-  local d = vim.fn.tempname()
-  vim.fn.mkdir(d, 'p')
-  git(d, { 'init', '-q', '-b', 'main' })
-  git(d, { 'config', 'user.name', 'diffy' })
-  git(d, { 'config', 'user.email', 'diffy@example.com' })
-  git(d, { 'remote', 'add', 'origin', 'https://github.com/GuillaumeLagrange/diffy-tests.git' })
-  git(d, {
-    'fetch',
-    '-q',
-    BUNDLE,
-    'refs/remotes/origin/base/placement:refs/heads/base/placement',
-    'refs/remotes/origin/sandbox/placement:refs/heads/sandbox/placement',
-  })
-  git(d, { 'checkout', '-q', 'sandbox/placement' })
-  return d
+  return live.clone_sandbox(BUNDLE, 'placement')
 end
 
 --- Swap `review/github.lua`'s transport for the fake,
@@ -131,27 +110,12 @@ local function select_commit(idx)
   ui.wait_ready(child)
 end
 
---- Focus the tree, put the cursor on `path`'s row and press `<CR>`.
 local function open_file(path)
-  local w = wins()
-  child.api.nvim_set_current_win(w.tree)
-  for i, row in ipairs(ui.panel(child, 'tree')) do
-    if row.text:find(path, 1, true) then
-      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
-      break
-    end
-  end
-  ui.arm_ready(child, 'review')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
+  ui.open_tree_row(child, path, '<CR>', 'review')
 end
 
 local function lines_with_signs(side)
-  local out = {}
-  for _, t in ipairs(ui.threads_visible(child, side)) do
-    out[t.line] = true
-  end
-  return out
+  return ui.thread_lines(child, side)
 end
 
 T['placement tracks a thread across commits (shown at head/its own view) and hides+outdates one whose line later changed'] = function()

@@ -14,9 +14,8 @@ function M.log(stdout)
   if stdout == nil or stdout == '' then
     return {}
   end
-  local records = vim.split(stdout, '\0', { plain = true })
   local out = {}
-  for _, rec in ipairs(records) do
+  for _, rec in ipairs(split_z(stdout)) do
     if rec ~= '' then
       local fields = vim.split(rec, '\31', { plain = true })
       local sha, parents_str, subject = fields[1], fields[2] or '', fields[3] or ''
@@ -127,9 +126,8 @@ end
 --- `git ls-files -u -z` (conflict stages during merge/rebase/cherry-pick).
 --- @return table<string, table<number, {mode: string, sha: string}>>
 function M.ls_files_unmerged(stdout)
-  local lines = split_z(stdout)
   local out = {}
-  for _, line in ipairs(lines) do
+  for _, line in ipairs(split_z(stdout)) do
     if line ~= '' then
       local mode, sha, stage, path = line:match('^(%S+) (%S+) (%d)\t(.*)$')
       if path then
@@ -142,10 +140,8 @@ function M.ls_files_unmerged(stdout)
 end
 
 --- `git log --follow -z --name-status --pretty=format:%H -- <path>`.
---- Each commit's own `\n`-joined "sha\nfirst-status-token"
---- opens a new record (log's `-z` only separates *commits*, so a NUL
---- token straddles the pretty-format sha and the first name-status line);
---- everything else follows `M.name_status`'s per-line shape.
+--- `-z` only NUL-separates commits, so each commit's first token is
+--- "sha\nstatus"; the remaining tokens are regular name-status fields.
 --- @return { sha: string, status: string, path: string, old_path?: string }[]
 function M.log_name_status(stdout)
   local tokens = split_z(stdout)
@@ -157,9 +153,7 @@ function M.log_name_status(stdout)
       i = i + 1
     else
       local sha, status = tok:match('^(.-)\n(.*)$')
-      if not sha then
-        i = i + 1
-      elseif status == '' then
+      if not sha or status == '' then
         i = i + 1
       else
         local letter = status:sub(1, 1)

@@ -31,7 +31,7 @@ end
 --- React to the right window's buffer becoming `buf`: swap in the matching
 --- pair if its path is in the current file list, otherwise leave diff mode
 --- with an "outside diff" placeholder.
-function M.handle(session, buf)
+local function handle(session, buf)
   local path = relative_path(session, buf)
   if path and find_row(session, path) then
     require('diffy.panels.tree').open_path(session, path)
@@ -50,13 +50,10 @@ function M.setup(session)
         return
       end
       local right = session.wins.right
-      if not (right and vim.api.nvim_win_is_valid(right)) then
+      if not (right and vim.api.nvim_win_is_valid(right)) or vim.api.nvim_get_current_win() ~= right then
         return
       end
-      if vim.api.nvim_get_current_win() ~= right then
-        return
-      end
-      M.handle(session, args.buf)
+      handle(session, args.buf)
     end,
   })
 end

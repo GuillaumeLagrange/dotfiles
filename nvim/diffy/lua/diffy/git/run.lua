@@ -7,7 +7,6 @@ local M = {}
 --- @param opts { cwd: string, on_exit?: fun(res: vim.SystemCompleted), notify_on_error?: boolean, session?: table, gen?: integer }
 --- @return vim.SystemObj
 function M.git(args, opts)
-  opts = opts or {}
   return M.run({ 'git', unpack(args) }, opts)
 end
 
