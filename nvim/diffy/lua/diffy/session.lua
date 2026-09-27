@@ -244,7 +244,6 @@ function M.open(opts)
   vim.api.nvim_set_current_win(left_win)
 
   M.sessions[session.id] = session
-  require('diffy.git.run').ready({ session = session.id, event = 'open' })
   return session
 end
 
