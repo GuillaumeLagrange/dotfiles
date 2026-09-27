@@ -211,12 +211,17 @@ local function summary_line(session)
     end
   end
   local top, bottom = session.entries[sel.top], session.entries[sel.bottom]
-  local left_label = bottom.kind == 'unstaged' and 'worktree'
-    or bottom.kind == 'staged' and 'index'
+  -- §3: bottom Unstaged → left is the index; bottom Staged → left is HEAD
+  local left_label = bottom.kind == 'unstaged' and 'index'
+    or bottom.kind == 'staged' and 'HEAD'
     or short(bottom.sha) .. '^'
   local right_label = top.kind == 'unstaged' and 'worktree' or top.kind == 'staged' and 'index' or short(top.sha)
   if n == 0 then
-    return ('%s..%s'):format(left_label, right_label)
+    local name = top.kind == 'unstaged' and 'Unstaged' or top.kind == 'staged' and 'Staged' or ''
+    if top ~= bottom then
+      name = 'Unstaged + Staged'
+    end
+    return ('%s %s..%s'):format(name, left_label, right_label)
   end
   return ('%d commit%s %s..%s'):format(n, n == 1 and '' or 's', left_label, right_label)
 end
