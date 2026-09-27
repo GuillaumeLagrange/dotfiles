@@ -176,14 +176,16 @@ Anchor  { path, side: old|new, start_line, end_line, commit, excerpt }
 ### 9.2 UI (shared by both backends)
 
 - A thread shows as a sign on its anchor line plus a one-line `virt_lines` summary under the range end
-  (`💬 alice +2 · resolved`). The same number of empty `virt_lines` goes on the counterpart line of the
-  other diff window so the side-by-side alignment holds. The counterpart line is taken from nvim's own diff
+  (`💬 alice +2 · resolved: first line of the first comment`, cut to the window width), so several threads on
+  one line can be told apart. At each aligned row both windows get the same number of `virt_lines`: a side's
+  own summaries, padded with empty lines up to the other side's count, so the side-by-side alignment holds
+  without stacking both sides' counts. The counterpart line is taken from nvim's own diff
   alignment: row(l) = l + Σ `diff_filler(k)` for k ≤ l in each window; lines with equal rows are counterparts.
 - Decorations use namespaces scoped to the diffy diff windows (`nvim__ns_set(ns, {wins=…})`). A worktree
   buffer also open in another tab shows no diffy marks there.
-- `K` / `<CR>` on an anchored line opens a float with the full thread (markdown, suggestion blocks rendered
-  as diffs). In the float: `r` reply, `e` edit own draft, `dd` delete own draft, `x` resolve/unresolve (GitHub),
-  `q` close.
+- `K` / `<CR>` on an anchored line opens a float with every thread covering that line, one after the other
+  (markdown, suggestion blocks rendered as diffs). In the float: `r` reply, `e` edit own draft, `dd` delete own
+  draft, `x` resolve/unresolve (GitHub), each acting on the thread under the cursor; `q` close.
 - `gc` (normal on a line, visual on a range) opens a floating markdown compose buffer anchored below the line.
   `<C-s>` or `:w` saves the draft, `q` cancels. In compose, `<C-g>s` inserts a ```` ```suggestion ```` block
   pre-filled with the anchored lines (GitHub only).

@@ -77,31 +77,31 @@ function M.side_of(session, win)
   return nil
 end
 
--- row(l) = l + (filler lines above l), per contract §9.2/AGENTS.md - the
--- same computation as `tests/helpers/ui.lua`'s `aligned()`, duplicated here
--- (production code can't require test helpers) rather than re-derived.
-local function screen_row(win, lnum)
+-- row(l) = l + Σ diff_filler(k) for k ≤ l (contract §9.2); equal rows in the
+-- two windows are counterpart lines. `win`'s line -> row and row -> line maps,
+-- in one pass over the buffer.
+local function row_map(win)
   return vim.api.nvim_win_call(win, function()
-    local filler = 0
-    for k = 1, lnum do
-      filler = filler + vim.fn.diff_filler(k)
+    local row, line, filler = {}, {}, 0
+    for l = 1, vim.api.nvim_buf_line_count(0) do
+      filler = filler + vim.fn.diff_filler(l)
+      row[l] = l + filler
+      line[l + filler] = l
     end
-    return lnum + filler
+    return { row = row, line = line }
   end)
 end
 
---- The line in `other_win` whose row equals `lnum`'s row in `win`, or nil
---- if none matches (e.g. `lnum` has no counterpart at all).
-local function counterpart_line(win, lnum, other_win)
-  local target = screen_row(win, lnum)
-  local other_buf = vim.api.nvim_win_get_buf(other_win)
-  local count = vim.api.nvim_buf_line_count(other_buf)
-  for l = 1, count do
-    if screen_row(other_win, l) == target then
-      return l
-    end
+--- One summary line: `💬 author +N · resolved: first line of the comment`,
+--- cut to `width` so threads on the same line can be told apart.
+local function summary_chunks(thread, width)
+  local head = model.summary_text(thread)
+  local first = thread.comments[1] and vim.split(thread.comments[1].body or '', '\n', { plain = true })[1] or ''
+  local room = width - vim.fn.strdisplaywidth(head) - 2
+  if first == '' or room < 8 then
+    return { { head, 'DiffyThreadSummary' } }
   end
-  return nil
+  return { { head, 'DiffyThreadSummary' }, { ': ' .. require('diffy.highlight').truncate(first, room), 'Comment' } }
 end
 
 --- Open any closed fold covering `lnum` in `win` (contract §9.4: a thread
@@ -170,39 +170,52 @@ function M.decorate(session)
     end
   end
 
+  -- Summaries per side, keyed by screen row so both windows get the same
+  -- number of virt_lines at each aligned row: a side's own summaries, padded
+  -- with blanks up to the other side's count (never the sum of both).
+  local rows = {}
   for _, name in ipairs({ 'left', 'right' }) do
     local win = wins[name]
-    if win and vim.api.nvim_win_is_valid(win) then
+    if win and vim.api.nvim_win_is_valid(win) and #placed[name] > 0 then
       local buf = vim.api.nvim_win_get_buf(win)
-      local by_end = {}
+      local width = require('diffy.highlight').text_width(win)
+      local line_rows = row_map(win)
+      table.sort(placed[name], function(a, b)
+        if a._place.start_line ~= b._place.start_line then
+          return a._place.start_line < b._place.start_line
+        end
+        return a._place.end_line < b._place.end_line
+      end)
       for _, t in ipairs(placed[name]) do
         vim.api.nvim_buf_set_extmark(buf, ns, t._place.start_line - 1, 0, {
           sign_text = '\240\159\146\172',
           sign_hl_group = 'Comment',
         })
         open_fold_if_closed(win, t._place.start_line)
-        by_end[t._place.end_line] = by_end[t._place.end_line] or {}
-        table.insert(by_end[t._place.end_line], t)
+        open_fold_if_closed(win, t._place.end_line)
+        local row = line_rows.row[t._place.end_line]
+        rows[row] = rows[row] or {}
+        rows[row][name] = rows[row][name] or { line = t._place.end_line, lines = {} }
+        table.insert(rows[row][name].lines, summary_chunks(t, width))
       end
-      local other_name = name == 'left' and 'right' or 'left'
-      local other_win = wins[other_name]
-      for end_line, threads_here in pairs(by_end) do
-        open_fold_if_closed(win, end_line)
-        local vlines = {}
-        for _, t in ipairs(threads_here) do
-          table.insert(vlines, { { model.summary_text(t), 'Comment' } })
-        end
-        vim.api.nvim_buf_set_extmark(buf, ns, end_line - 1, 0, { virt_lines = vlines })
-        if other_win and vim.api.nvim_win_is_valid(other_win) then
-          local co = counterpart_line(win, end_line, other_win)
-          if co then
-            open_fold_if_closed(other_win, co)
-            local blanks = {}
-            for _ = 1, #vlines do
-              table.insert(blanks, { { '', 'Normal' } })
-            end
-            vim.api.nvim_buf_set_extmark(vim.api.nvim_win_get_buf(other_win), ns, co - 1, 0, { virt_lines = blanks })
+    end
+  end
+  local maps = {}
+  for row, entry in pairs(rows) do
+    local n = math.max(entry.left and #entry.left.lines or 0, entry.right and #entry.right.lines or 0)
+    for _, name in ipairs({ 'left', 'right' }) do
+      local win = wins[name]
+      if win and vim.api.nvim_win_is_valid(win) then
+        maps[name] = maps[name] or row_map(win)
+        local e = entry[name]
+        local line = e and e.line or maps[name].line[row]
+        if line then
+          local vlines = e and vim.list_slice(e.lines) or {}
+          for _ = #vlines + 1, n do
+            table.insert(vlines, { { '', 'Normal' } })
           end
+          open_fold_if_closed(win, line)
+          vim.api.nvim_buf_set_extmark(vim.api.nvim_win_get_buf(win), ns, line - 1, 0, { virt_lines = vlines })
         end
       end
     end
@@ -431,34 +444,57 @@ end
 -- ---------------------------------------------------------------------
 -- thread float (`K`/`<CR>`)
 
---- Thread anchored on `lnum` of `win` (must be one of the session's diff
---- windows), or nil.
-function M.thread_at(session, win, lnum)
+--- Threads whose placed range covers `lnum` of `win` (one of the session's
+--- diff windows), in line order.
+function M.threads_at(session, win, lnum)
   local review = session.review
+  local out = {}
   if not review then
-    return nil
+    return out
   end
   for _, t in ipairs(review.threads) do
     if t._place and session.wins[t._place.win] == win and lnum >= t._place.start_line and lnum <= t._place.end_line then
-      return t
+      table.insert(out, t)
     end
   end
-  return nil
+  table.sort(out, function(a, b)
+    if a._place.start_line ~= b._place.start_line then
+      return a._place.start_line < b._place.start_line
+    end
+    return a._place.end_line < b._place.end_line
+  end)
+  return out
 end
 
-local function render_thread_float(session, thread)
+--- One float for every thread on the line. `r`/`e`/`dd`/`x` act on the
+--- thread under the float's cursor.
+local function render_thread_float(session, threads)
   local review = session.review
   local backend = review.backend
-  local lines = {}
-  if thread.resolved then
-    table.insert(lines, '_resolved_')
-    table.insert(lines, '')
+  local lines, owner = {}, {}
+  local function add(line, thread)
+    table.insert(lines, line)
+    owner[#lines] = thread
   end
-  for _, c in ipairs(thread.comments) do
-    local when = type(c.created_at) == 'number' and os.date('%Y-%m-%d %H:%M', c.created_at) or tostring(c.created_at)
-    table.insert(lines, ('**%s** _%s_ (%s):'):format(c.author, when, c.state))
-    vim.list_extend(lines, vim.split(c.body, '\n', { plain = true }))
-    table.insert(lines, '')
+  for i, thread in ipairs(threads) do
+    if i > 1 then
+      add('---', thread)
+    end
+    if #threads > 1 or thread.resolved then
+      local p = thread._place
+      local range = p.start_line == p.end_line and ('line %d'):format(p.start_line)
+        or ('lines %d-%d'):format(p.start_line, p.end_line)
+      add(('## %s%s'):format(range, thread.resolved and ' · resolved' or ''), thread)
+      add('', thread)
+    end
+    for _, c in ipairs(thread.comments) do
+      local when = type(c.created_at) == 'number' and os.date('%Y-%m-%d %H:%M', c.created_at) or tostring(c.created_at)
+      add(('**%s** _%s_ (%s):'):format(c.author, when, c.state), thread)
+      for _, l in ipairs(vim.split(c.body, '\n', { plain = true })) do
+        add(l, thread)
+      end
+      add('', thread)
+    end
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -490,13 +526,18 @@ local function render_thread_float(session, thread)
       pcall(vim.api.nvim_win_close, win, true)
     end
   end
+  local function current()
+    return owner[vim.api.nvim_win_get_cursor(win)[1]] or threads[1]
+  end
 
   session_mod.map(session, 'n', 'q', close, { buffer = buf, desc = 'close thread' })
   session_mod.map(session, 'n', 'r', function()
+    local thread = current()
     close()
     M.reply(session, thread)
   end, { buffer = buf, desc = 'reply' })
   session_mod.map(session, 'n', 'e', function()
+    local thread = current()
     local last = thread.comments[#thread.comments]
     if not last or last.state ~= 'draft' then
       vim.notify('diffy: only a draft comment can be edited', vim.log.levels.WARN)
@@ -506,6 +547,7 @@ local function render_thread_float(session, thread)
     M.edit_comment(session, thread, last)
   end, { buffer = buf, desc = 'edit draft' })
   session_mod.map(session, 'n', 'dd', function()
+    local thread = current()
     local last = thread.comments[#thread.comments]
     if not last or last.state ~= 'draft' then
       vim.notify('diffy: only a draft comment can be deleted', vim.log.levels.WARN)
@@ -526,6 +568,7 @@ local function render_thread_float(session, thread)
   end, { buffer = buf, desc = 'delete draft' })
   if backend.capabilities.resolve then
     session_mod.map(session, 'n', 'x', function()
+      local thread = current()
       if type(backend.resolve_thread) == 'function' then
         backend.resolve_thread(session, thread, not thread.resolved, function(ok)
           if ok then
@@ -542,15 +585,14 @@ local function render_thread_float(session, thread)
   end
 end
 
---- `K`/`<CR>`: open the float for the thread anchored at the cursor, if
---- any (no-op otherwise, so `K`'s usual keywordprg on a plain line isn't
---- missed for long - review threads are the exception, not everywhere).
+--- `K`/`<CR>`: open the float for every thread anchored at the cursor line,
+--- if any (no-op otherwise).
 function M.open_thread(session)
   local win = vim.api.nvim_get_current_win()
   local lnum = vim.api.nvim_win_get_cursor(win)[1]
-  local thread = M.thread_at(session, win, lnum)
-  if thread then
-    render_thread_float(session, thread)
+  local threads = M.threads_at(session, win, lnum)
+  if #threads > 0 then
+    render_thread_float(session, threads)
   end
 end
 

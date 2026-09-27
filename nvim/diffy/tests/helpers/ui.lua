@@ -127,7 +127,9 @@ end
 
 --- Threads currently rendered in `side`'s window ('left'|'right') of the
 --- session in `child`'s current tab, read from the extmarks actually drawn:
---- `{ { line = 15, summary = '💬 alice +1' }, … }`.
+--- `{ { line = 15, summary = '💬 alice +1: first line' }, … }`; several
+--- summaries under one line are joined with ' | '. `blanks` counts the
+--- padding lines drawn under that line.
 function M.threads_visible(child, side)
   return child.lua(([[
     local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
@@ -142,15 +144,21 @@ function M.threads_visible(child, side)
     for _, m in ipairs(marks) do
       local details = m[4]
       if details.virt_lines then
-        local parts = {}
+        local parts, blanks = {}, 0
         for _, vl in ipairs(details.virt_lines) do
-          local chunk = vl[1]
-          if chunk and chunk[1] ~= '' then
-            table.insert(parts, chunk[1])
+          local text = {}
+          for _, chunk in ipairs(vl) do
+            table.insert(text, chunk[1])
+          end
+          text = table.concat(text)
+          if text ~= '' then
+            table.insert(parts, text)
+          else
+            blanks = blanks + 1
           end
         end
         if #parts > 0 then
-          table.insert(out, { line = m[2] + 1, summary = table.concat(parts, ' | ') })
+          table.insert(out, { line = m[2] + 1, summary = table.concat(parts, ' | '), count = #parts, blanks = blanks })
         end
       end
     end

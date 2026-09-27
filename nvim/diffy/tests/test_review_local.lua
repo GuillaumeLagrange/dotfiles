@@ -72,6 +72,7 @@ local function write_comment(win, lnum, body)
 end
 
 T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the other side, staying aligned'] = function()
+  child.o.columns = 160
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 5, 'needs a null check')
@@ -80,14 +81,42 @@ T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the ot
   MiniTest.expect.equality(#visible, 1)
   MiniTest.expect.equality(visible[1].line, 5)
   MiniTest.expect.equality(visible[1].summary:find('\240\159\146\172', 1, true), 1)
-  -- the summary is author/count/resolved-state only, not the body text
-  MiniTest.expect.equality(visible[1].summary:find('null check', 1, true), nil)
+  -- the summary names the comment by its first line, so threads can be told apart
+  MiniTest.expect.equality(visible[1].summary:find('needs a null check', 1, true) ~= nil, true)
 
   -- the left window got a matching blank virt_lines block at the
   -- counterpart line, so cursorbind/scrollbind alignment still holds
   child.api.nvim_set_current_win(w.right)
   child.fn.win_execute(w.right, 'call cursor(10, 1)')
   MiniTest.expect.equality(ui.aligned(child), true)
+
+  child.cmd('Diffy close')
+end
+
+T['§9.2: threads on the same row pad both sides to the larger count, and K shows every thread on the line'] = function()
+  open_default()
+  local w = ui.wins(child)
+  write_comment(w.right, 5, 'right one')
+  write_comment(w.right, 5, 'right two')
+  write_comment(w.left, 5, 'left one')
+
+  -- two summary rows on each side at line 5: the left pads its one summary
+  -- with a blank, the right needs no padding
+  local right = ui.threads_visible(child, 'right')
+  local left = ui.threads_visible(child, 'left')
+  MiniTest.expect.equality({ right[1].line, right[1].count, right[1].blanks }, { 5, 2, 0 })
+  MiniTest.expect.equality({ left[1].line, left[1].count, left[1].blanks }, { 5, 1, 1 })
+  child.api.nvim_set_current_win(w.right)
+  child.fn.win_execute(w.right, 'call cursor(10, 1)')
+  MiniTest.expect.equality(ui.aligned(child), true)
+
+  child.fn.win_execute(w.right, 'call cursor(5, 1)')
+  child.type_keys('K')
+  local float = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  local text = table.concat(float, '\n')
+  MiniTest.expect.equality(text:find('right one', 1, true) ~= nil, true)
+  MiniTest.expect.equality(text:find('right two', 1, true) ~= nil, true)
+  child.api.nvim_input('q')
 
   child.cmd('Diffy close')
 end
