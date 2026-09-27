@@ -406,6 +406,7 @@ function M.refresh_list(session)
         M.enter(session, target)
       else
         M.leave(session)
+        require('diffy.diffpair').clear(session)
         run.ready({ session = session.id, event = 'render' })
       end
     end,

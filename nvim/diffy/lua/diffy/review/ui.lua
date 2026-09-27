@@ -773,7 +773,12 @@ function M.quickfix(session, args)
       include = false
     end
     if include then
-      local text = ('%s [%s] %s'):format(t.id, state, model.summary_text(t))
+      -- first line of the first comment: node ids (PRRT_…) mean nothing to the reader
+      local first = t.comments[1] and vim.split(t.comments[1].body or '', '\n', { plain = true })[1] or ''
+      if vim.fn.strchars(first) > 60 then
+        first = vim.fn.strcharpart(first, 0, 59) .. '…'
+      end
+      local text = ('[%s] %s: %s'):format(state, model.summary_text(t), first)
       if review.backend.visible_in then
         local visible = review.backend.visible_in(session, t)
         text = text .. (' (%s)'):format(#visible > 0 and table.concat(visible, ', ') or 'nowhere inline')
