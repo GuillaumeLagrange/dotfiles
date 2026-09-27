@@ -144,6 +144,8 @@ Standalone Neovim configuration with:
 - Lua-based configuration
 - AI integrations
 - Tmux integration
+- `nvim/diffy/`: diffy, the in-repo diff viewer and review plugin (replaces diffview). Usage in its
+  `README.md`, code/tests/gotchas in its `AGENTS.md`.
 
 ## Home Manager Configurations
 
