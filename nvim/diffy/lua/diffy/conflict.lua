@@ -216,7 +216,7 @@ end
 --- Open (or switch to) the 4-window conflict view for `path` (§8). Builds
 --- the layout on first entry; a later call while already active just
 --- swaps the four panes' content.
-function M.enter(session, path)
+function M.enter(session, path, opts)
   run.git({ 'ls-files', '-u', '-z', '--', path }, {
     cwd = session.root,
     session = session,
@@ -227,6 +227,9 @@ function M.enter(session, path)
         enter_layout(session)
       end
       render_panes(session, path, stages)
+      if opts and opts.focus and vim.api.nvim_win_is_valid(session.wins.result) then
+        vim.api.nvim_set_current_win(session.wins.result)
+      end
       run.ready({ session = session.id, event = 'conflict' })
     end,
   })
@@ -329,14 +332,18 @@ end
 local function setup_conflicts_tree(session)
   local map = session_mod.map
   local buf = session.bufs.tree
-  local function open_at_cursor()
+  local function open_at_cursor(focus)
     local p = path_at_cursor(session)
     if p then
-      M.enter(session, p)
+      M.enter(session, p, { focus = focus })
     end
   end
-  map(session, 'n', '<CR>', open_at_cursor, { buffer = buf, desc = 'open conflict' })
-  map(session, 'n', 'o', open_at_cursor, { buffer = buf, desc = 'open conflict' })
+  map(session, 'n', '<CR>', function()
+    open_at_cursor(true)
+  end, { buffer = buf, desc = 'open conflict and focus the result' })
+  map(session, 'n', 'o', function()
+    open_at_cursor(false)
+  end, { buffer = buf, desc = 'open conflict' })
   map(session, 'n', 's', function()
     local p = path_at_cursor(session)
     if p then

@@ -107,8 +107,11 @@ entry.
   file name, status and counts.
 - Renames come from git's detection (`-M`). An unstaged rename appears as `D` + `?` unless you `git add -N` the new
   path; diffy does not fake it.
-- Keys: `<CR>`/`o` open pair, `]f`/`[f` next/previous file (also from diff windows), `za` fold dir, `gf` open
-  the real file in the previous tab.
+- Keys: `<CR>` open pair and move to the right diff window (the result window for a conflict), `o` open pair and
+  stay in the tree, `]f`/`[f` next/previous file (also from diff windows), `za` fold dir, `gf` open the real file
+  in the previous tab.
+- The file shown in the diff has a full-line highlight in the tree (`DiffyCurrentFile`, linked to `Visual`, not
+  `CursorLine`, which the tree's own cursorline would hide).
 - **Staging** (only when the selection is exactly `Unstaged` or exactly `Staged`):
   - Tree: `s` stage, `u` unstage, `-` toggle, `S`/`U` all. On a rename pair both paths are staged/unstaged
     together.

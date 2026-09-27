@@ -226,7 +226,10 @@ T['§8: selecting a normal file after a U row restores the 2-window diff area'] 
   child.type_keys('<CR>')
   ui.wait_ready(child)
   MiniTest.expect.equality(vim.tbl_contains(ui.layout(child).bars, 'result  f.txt'), true)
+  -- <CR> moved to the result window, the one to edit
+  MiniTest.expect.equality(child.lua_get('vim.wo.winbar'), 'result  f.txt')
 
+  child.api.nvim_set_current_win(w.tree)
   child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(g_line))
   ui.arm_ready(child, 'open_row')
   child.type_keys('<CR>')

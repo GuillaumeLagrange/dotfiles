@@ -387,7 +387,7 @@ end
 
 --- Open the diff pair for tree row `row` (a `{kind='file', entry=...}`),
 --- or (§8) the 4-window conflict view for an unmerged ('U') row.
-function M.open_row(session, row)
+function M.open_row(session, row, opts)
   if not row or row.kind ~= 'file' then
     return
   end
@@ -395,7 +395,7 @@ function M.open_row(session, row)
   if e.status == 'U' then
     session.current_path = e.path
     M.mark_current(session)
-    require('diffy.conflict').enter(session, e.path)
+    require('diffy.conflict').enter(session, e.path, opts)
     return
   end
   if session.conflict_active then
@@ -561,13 +561,18 @@ function M.render(session, cb)
   end)
 end
 
---- `<CR>`/`o`: open the pair for the entry at the cursor.
-function M.select_at_cursor(session)
+--- `<CR>`/`o`: open the pair for the entry at the cursor. `<CR>` passes
+--- `opts.focus` to then move to the right diff window (the result window in
+--- the conflict view); `o` keeps the cursor in the tree.
+function M.select_at_cursor(session, opts)
   local lnum = vim.api.nvim_win_get_cursor(session.wins.tree)[1]
   local row = session.tree_rows[lnum]
   if row and row.kind == 'file' then
     session.current_file_line = lnum
-    M.open_row(session, row)
+    M.open_row(session, row, opts)
+    if opts and opts.focus and row.entry.status ~= 'U' and vim.api.nvim_win_is_valid(session.wins.right) then
+      vim.api.nvim_set_current_win(session.wins.right)
+    end
     require('diffy.git.run').ready({ session = session.id, event = 'open_row' })
   end
 end
@@ -632,8 +637,8 @@ function M.setup(session)
   local map = require('diffy.session').map
   local buf = session.bufs.tree
   map(session, 'n', '<CR>', function()
-    M.select_at_cursor(session)
-  end, { buffer = buf, desc = 'open pair' })
+    M.select_at_cursor(session, { focus = true })
+  end, { buffer = buf, desc = 'open pair and focus it' })
   map(session, 'n', 'o', function()
     M.select_at_cursor(session)
   end, { buffer = buf, desc = 'open pair' })

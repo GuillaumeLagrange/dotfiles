@@ -80,4 +80,25 @@ T['§5: a rename shows as one entry whose sides are the old and new file'] = fun
   child.cmd('Diffy close')
 end
 
+T['§5: <CR> in the tree opens the pair and moves to the new side; o stays in the tree'] = function()
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy branch main')
+  ui.wait_ready(child)
+  local w = ui.wins(child)
+
+  child.api.nvim_set_current_win(w.tree)
+  child.fn.win_execute(w.tree, 'call cursor(1, 1)')
+  ui.arm_ready(child, 'open_row')
+  child.type_keys('o')
+  ui.wait_ready(child)
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.tree)
+
+  ui.arm_ready(child, 'open_row')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.right)
+
+  child.cmd('Diffy close')
+end
+
 return T

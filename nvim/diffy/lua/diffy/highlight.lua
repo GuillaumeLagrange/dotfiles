@@ -12,7 +12,8 @@ local LINKS = {
   DiffyMerge = 'Comment',
   DiffyLabel = 'Title',
   DiffySelection = 'Visual',
-  DiffyCurrentFile = 'CursorLine',
+  -- not CursorLine: the panel's own cursorline would make it invisible
+  DiffyCurrentFile = 'Visual',
 }
 
 --- Status letter -> highlight group.
