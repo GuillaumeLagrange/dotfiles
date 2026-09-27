@@ -32,6 +32,25 @@ it goes in the contract, not here.
   `vim.text.diff(…, { result_type = 'indices' })` without `linematch` pairs lines differently from nvim's diff
   view; with `linematch = 40` it matches. Counterpart lines straight from nvim: in each window,
   `row(l) = l + Σ diff_filler(k)` for `k ≤ l`, and equal rows are counterparts. Prefer this; it can't drift.
+- `--noplugin` blocks automatic `plugin/**/*.{vim,lua}` sourcing for *every* rtp entry, even ones added to
+  `'runtimepath'` from inside the `-u` init file itself. A test init loaded under `--noplugin` must explicitly
+  `vim.cmd('runtime plugin/x.lua')` for anything that ships a `plugin/` file (fugitive, diffy's own).
+- `:bwipeout!` on an unlisted scratch buffer (`nvim_create_buf(false, true)`, `buftype=nofile`, no alternate)
+  closes its window too, firing `WinClosed` for it — it doesn't just leave the window showing an empty buffer.
+- A `WinClosed`/`BufWipeout` callback that synchronously force-closes *other* windows of the same tab can race
+  a still-in-progress native multi-window closer (`:tabclose`, `:qa`): nvim reports a spurious "E444: Cannot
+  close last window" as if it were operating on the wrong (now-renumbered) tab. Deferring the cleanup with
+  `vim.schedule` avoids it — by the time it runs, the native command has already finished.
+- `vim.system(cmd, { env = {...} })` *merges* `env` into the inherited environment; it does not replace it.
+- `nvim_set_current_win`/`nvim_win_set_buf` do not fire `WinEnter`/`BufEnter` (unlike `:wincmd`/mouse/real key
+  input, which do). Anything gating on focus (log collapse/expand) must be exercised in tests with real
+  key-driven window movement (`type_keys('<C-w>j')`), not the raw API, or the autocmd never runs.
+- `FugitiveFind(object, dir)`/`fugitive#Find` treat a *string* `dir` argument as the `.git` directory literally
+  (no path-to-gitdir resolution) - pass `vim.fn.FugitiveExtractGitDir(repo_root)`, not the worktree root itself.
+- `string.find(s, pat, init, true)` (`plain=true`) searches for `pat` as a literal substring - Lua-pattern
+  escapes like `%.` are *not* interpreted and become part of the literal string being searched for (so
+  `s:find('%.%.', 1, true)` looks for the four characters `%.%.`, never matches `..`). Use the plain
+  substring (`s:find('..', 1, true)`) or drop `plain`.
 
 ## git facts
 
@@ -40,6 +59,12 @@ it goes in the contract, not here.
 - Rename staged plus an extra unstaged edit: porcelain v2 `2 RM`; the unstaged diff shows only `M new`.
 - Stable shas for fixtures: pin `GIT_AUTHOR_{NAME,EMAIL,DATE}`, `GIT_COMMITTER_{NAME,EMAIL,DATE}` and set
   `GIT_CONFIG_GLOBAL=/dev/null`.
+- `git log -z --pretty=format:…` separates commit records with a bare NUL and does not add one before the
+  first or after the last record. `git diff -z --name-status`/`--numstat` instead NUL-*terminates* every
+  token (including the last), and a rename/copy record's path field is empty with the old/new paths as two
+  further NUL-terminated tokens - the two `-z` shapes need different splitting logic.
+  `--date-order` on `git log` guarantees a merge commit is listed before both its parents (plain reverse
+  chronological order happens to too, given monotonically increasing commit dates, but isn't guaranteed to).
 
 ## GitHub facts (measured on the sandbox; the fake GitHub must reproduce them)
 
@@ -105,6 +130,9 @@ table listing every comment id (the first word of each comment body) and where i
 Use these to record GraphQL fixtures and to check behaviour. `make test-gh` must create its own branch and PR
 per run (submitted reviews can't be deleted) and close it afterwards.
 
+A local clone lives at `~/projects/diffy-tests` (HTTPS remote, PR heads fetched as `origin/pr/N`) for manual smoke runs.
+Never push from it. `/tmp/diffy-sandbox` is `build.js`'s own working copy.
+
 ## Checking github.com
 
 Follow the global browser rule. Specific to GitHub's new "Changes" UI:
@@ -120,6 +148,11 @@ Follow the global browser rule. Specific to GitHub's new "Changes" UI:
   (`MiniTest.new_child_neovim`, `child.restart({ '-u', 'tests/minimal_init.lua' })`) support `type_keys`,
   `get_screenshot` and `lua_get` on 0.12.5.
 - Children must always start with `-u tests/minimal_init.lua` so the user's config never loads.
+- `MiniTest.config.collect.find_files` default globs `tests/**/test_*.lua`; test file names must match that.
+- `require('tests.helpers.x')` isn't found via the normal `rtp/lua/?.lua` convention (`tests/` isn't under
+  `lua/`); add the plugin root to `package.path` explicitly (`root .. '/?.lua;' .. package.path`) instead.
+- Buffer/window/tabpage handles round-trip as plain Lua numbers through `child.lua_get`/`child.lua` (msgpack-rpc
+  to a separate child process) — comparing/using them the same way as in-process is fine, no unwrapping needed.
 
 ## Open questions
 
