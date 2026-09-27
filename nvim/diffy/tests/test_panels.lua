@@ -82,6 +82,30 @@ T['the panel toggle hides the column (diff spans the width, ]f still works) and 
   MiniTest.expect.equality(ui.diffy_buffers(child), {})
 end
 
+T['<leader>E goes to the file tree from the diff, bringing the column back first when hidden'] = function()
+  repo = Repo.new():commit('Base', { ['a.txt'] = Repo.lines(5, 'a') })
+  vim.fn.writefile({ 'a1', 'changed' }, repo.dir .. '/a.txt')
+  child.fn.chdir(repo.dir)
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy')
+  ui.wait_ready(child)
+  local w = ui.wins(child)
+
+  child.api.nvim_set_current_win(w.right)
+  child.type_keys('\\E')
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.tree)
+
+  child.api.nvim_set_current_win(w.right)
+  child.type_keys('\\e')
+  MiniTest.expect.equality(ui.layout(child).tree, vim.NIL)
+  child.type_keys('\\E')
+  local shown = ui.layout(child)
+  MiniTest.expect.equality(shown.tree ~= vim.NIL, true)
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), ui.wins(child).tree)
+
+  child.cmd('Diffy close')
+end
+
 T['a long path under nested dirs renders as one row fitting the panel, status and counts visible'] = function()
   local long = 'nvim/diffy/lua/diffy/a_rather_long_directory_name/init_with_an_extremely_long_file_name.lua'
   repo = Repo.new():commit('Base', { [long] = Repo.lines(5), ['nvim/diffy/lua/diffy/other.lua'] = Repo.lines(5) })

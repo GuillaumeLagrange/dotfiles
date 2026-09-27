@@ -98,9 +98,64 @@ local function open_side(session, name, spec)
   vim.wo[win].winbar = (spec and spec.path) and (short(spec.rev) .. '  ' .. spec.path) or '(no file)'
 end
 
+--- Close diff window `name` for a one-sided file (added or deleted), until
+--- `M.restore` brings it back. Unregistered first: closing a managed
+--- window would end the session.
+local function hide_side(session, name)
+  local win = session.wins[name]
+  if not (win and vim.api.nvim_win_is_valid(win)) then
+    return
+  end
+  local real = session.real_bufs and session.real_bufs[name]
+  if real and vim.api.nvim_buf_is_valid(real) then
+    session_mod.unmap_buffer(session, real)
+    session.real_bufs[name] = nil
+  end
+  session_mod.unregister_window(session, name)
+  session.hidden_side = name
+  pcall(vim.api.nvim_win_close, win, true)
+end
+
+--- Bring back the diff window hidden for a one-sided file, beside the
+--- other one, and split the width evenly again.
+function M.restore(session)
+  local name = session.hidden_side
+  if not name then
+    return
+  end
+  session.hidden_side = nil
+  local other = session.wins[name == 'left' and 'right' or 'left']
+  local buf = session_mod.scratch_buf(session, name)
+  session_mod.register_buffer(session, name, buf)
+  session._nav_guard = (session._nav_guard or 0) + 1
+  local win = vim.api.nvim_open_win(buf, false, { win = other, split = name })
+  session._nav_guard = session._nav_guard - 1
+  session_mod.register_window(session, name, win)
+  session_mod.relayout(session)
+end
+
+--- The whole file on one side, coloured like its lines would be in a diff.
+local function paint_one_sided(session, name, group)
+  local win = session.wins[name]
+  local buf = vim.api.nvim_win_get_buf(win)
+  local ns = session_mod.namespace(session, 'one_sided')
+  -- a real file can be open elsewhere: only this window shows it
+  pcall(vim.api.nvim__ns_set, ns, { wins = { win } })
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
+    end_row = vim.api.nvim_buf_line_count(buf),
+    strict = false,
+    hl_group = group,
+    hl_eol = true,
+    -- under syntax: the background only
+    priority = 10,
+  })
+end
+
 --- Show `left_spec`/`right_spec` in the session's diff windows and put both
---- into native diff mode with scrollbind/cursorbind. Either spec may be
---- `nil` (added/deleted file: the other side is empty).
+--- into native diff mode with scrollbind/cursorbind. An added or deleted
+--- file (one spec `nil`) takes the whole diff area, coloured as added or
+--- deleted; both `nil` clears both sides.
 function M.show(session, left_spec, right_spec)
   -- Swap buffers with diff off: a window still in diff mode diffs the new
   -- buffer against the old pair mid-swap, and diff plugins' BufWinEnter
@@ -113,16 +168,40 @@ function M.show(session, left_spec, right_spec)
       end)
     end
   end
-  open_side(session, 'left', left_spec)
-  open_side(session, 'right', right_spec)
+  local ns = session.ns.one_sided
+  if ns then
+    for _, name in ipairs({ 'left', 'right' }) do
+      local win = session.wins[name]
+      if win and vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_buf_clear_namespace(vim.api.nvim_win_get_buf(win), ns, 0, -1)
+      end
+    end
+  end
 
-  for _, name in ipairs({ 'left', 'right' }) do
-    local win = session.wins[name]
-    vim.wo[win].scrollbind = true
-    vim.wo[win].cursorbind = true
-    vim.api.nvim_win_call(win, function()
-      vim.cmd('diffthis')
-    end)
+  local one = (left_spec == nil) ~= (right_spec == nil) and (left_spec and 'left' or 'right') or nil
+  if one then
+    local other = one == 'left' and 'right' or 'left'
+    if session.hidden_side ~= other then
+      M.restore(session)
+      hide_side(session, other)
+    end
+    open_side(session, one, one == 'left' and left_spec or right_spec)
+    local win = session.wins[one]
+    vim.wo[win].scrollbind = false
+    vim.wo[win].cursorbind = false
+    paint_one_sided(session, one, one == 'left' and 'DiffyFileDeleted' or 'DiffyFileAdded')
+  else
+    M.restore(session)
+    open_side(session, 'left', left_spec)
+    open_side(session, 'right', right_spec)
+    for _, name in ipairs({ 'left', 'right' }) do
+      local win = session.wins[name]
+      vim.wo[win].scrollbind = true
+      vim.wo[win].cursorbind = true
+      vim.api.nvim_win_call(win, function()
+        vim.cmd('diffthis')
+      end)
+    end
   end
 
   require('diffy.review.ui').decorate(session)

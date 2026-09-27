@@ -391,6 +391,8 @@ function M.open_row(session, row, opts)
   if e.status == 'U' then
     session.current_path = e.path
     M.mark_current(session)
+    -- the conflict layout is built from both diff windows
+    require('diffy.diffpair').restore(session)
     require('diffy.conflict').enter(session, e.path, opts)
     return
   end
@@ -566,8 +568,10 @@ function M.select_at_cursor(session, opts)
   if row and row.kind == 'file' then
     session.current_file_line = lnum
     M.open_row(session, row, opts)
-    if opts and opts.focus and row.entry.status ~= 'U' and vim.api.nvim_win_is_valid(session.wins.right) then
-      vim.api.nvim_set_current_win(session.wins.right)
+    -- an added or deleted file shows one side only
+    local diff_win = session.wins.right or session.wins.left
+    if opts and opts.focus and row.entry.status ~= 'U' and diff_win and vim.api.nvim_win_is_valid(diff_win) then
+      vim.api.nvim_set_current_win(diff_win)
     end
     require('diffy.git.run').ready({ session = session.id, event = 'open_row' })
   end

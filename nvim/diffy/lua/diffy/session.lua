@@ -283,13 +283,27 @@ function M.toggle_panels(session)
   end
 end
 
---- Buffer-local panel-toggle key (configurable) on `buf`.
+--- Show the panel column if hidden, then put the cursor in the file tree.
+function M.focus_panels(session)
+  M.show_panels(session)
+  if valid_win(session.wins.tree) then
+    vim.api.nvim_set_current_win(session.wins.tree)
+  end
+end
+
+--- Buffer-local panel keys (configurable) on `buf`: toggle the column, and
+--- focus the file tree (showing the column first when hidden).
 function M.map_toggle(session, buf)
-  local lhs = require('diffy').config.keymaps.toggle_panel
-  if lhs and lhs ~= '' then
-    M.map(session, 'n', lhs, function()
+  local keys = require('diffy').config.keymaps
+  if keys.toggle_panel and keys.toggle_panel ~= '' then
+    M.map(session, 'n', keys.toggle_panel, function()
       M.toggle_panels(session)
     end, { buffer = buf, nowait = true, desc = 'toggle panels' })
+  end
+  if keys.focus_panel and keys.focus_panel ~= '' then
+    M.map(session, 'n', keys.focus_panel, function()
+      M.focus_panels(session)
+    end, { buffer = buf, nowait = true, desc = 'focus the file tree' })
   end
 end
 

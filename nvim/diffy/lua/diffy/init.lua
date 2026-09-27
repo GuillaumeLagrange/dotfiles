@@ -8,6 +8,8 @@ M.config = {
   keymaps = {
     -- buffer-local in every diffy window: hide/show the panel column
     toggle_panel = '<leader>e',
+    -- … and go to the file tree, showing the column first if it's hidden
+    focus_panel = '<leader>E',
   },
   -- copied to `+` by `:Diffy review export`; %s is the absolute path of review.md
   review_prompt = 'Read %s and address each review comment. Reply per comment id with what you changed.',

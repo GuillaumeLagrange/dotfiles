@@ -78,23 +78,71 @@ T['a rename shows as one entry whose sides are the old and new file'] = function
   child.cmd('Diffy close')
 end
 
+--- Focus the tree, put the cursor on `path`'s row and press `key`.
+local function open_file(path, key)
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.tree)
+  for i, row in ipairs(ui.panel(child, 'tree')) do
+    if row.text:find(path, 1, true) then
+      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
+      break
+    end
+  end
+  ui.arm_ready(child, 'open_row')
+  child.type_keys(key or 'o')
+  ui.wait_ready(child)
+end
+
 T['<CR> in the tree opens the pair and moves to the new side; o stays in the tree'] = function()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
-  local w = ui.wins(child)
 
-  child.api.nvim_set_current_win(w.tree)
-  child.fn.win_execute(w.tree, 'call cursor(1, 1)')
-  ui.arm_ready(child, 'open_row')
-  child.type_keys('o')
-  ui.wait_ready(child)
-  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.tree)
+  open_file('f.txt', 'o')
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), ui.wins(child).tree)
+  open_file('f.txt', '<CR>')
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), ui.wins(child).right)
 
-  ui.arm_ready(child, 'open_row')
-  child.type_keys('<CR>')
+  child.cmd('Diffy close')
+end
+
+--- Highlight groups of the extmarks covering line `lnum` of the `side`
+--- diff window.
+local function colour(side, lnum)
+  return child.lua(([[
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    local buf = vim.api.nvim_win_get_buf(s.wins[%q])
+    local out = {}
+    for _, m in ipairs(vim.inspect_pos(buf, %d, 0).extmarks) do
+      table.insert(out, m.opts.hl_group)
+    end
+    return out
+  ]]):format(side, lnum - 1))
+end
+
+T['an added or deleted file fills the diff area, coloured as such; a modified one brings the pair back'] = function()
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy branch main')
   ui.wait_ready(child)
-  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.right)
+  local function shown()
+    local l = ui.layout(child)
+    local bars = vim.tbl_filter(function(b)
+      return b ~= ''
+    end, l.bars)
+    return { left = l.left ~= vim.NIL and l.left.path or false, right = l.right ~= vim.NIL and l.right.path or false, windows = #bars }
+  end
+
+  open_file('d.txt')
+  MiniTest.expect.equality(shown(), { left = 'd.txt', right = false, windows = 1 })
+  MiniTest.expect.equality({ colour('left', 1), colour('left', 10) }, { { 'DiffyFileDeleted' }, { 'DiffyFileDeleted' } })
+
+  open_file('new.txt')
+  MiniTest.expect.equality(shown(), { left = false, right = 'new.txt', windows = 1 })
+  MiniTest.expect.equality(colour('right', 20), { 'DiffyFileAdded' })
+
+  open_file('f.txt')
+  MiniTest.expect.equality(shown(), { left = 'f.txt', right = 'f.txt', windows = 2 })
+  MiniTest.expect.equality({ ui.layout(child).diff, colour('right', 1) }, { true, {} })
 
   child.cmd('Diffy close')
 end
