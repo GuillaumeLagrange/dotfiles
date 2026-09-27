@@ -111,13 +111,49 @@ local function set_stage_pane(session, key, stage, path, stages)
   vim.wo[win].winbar = STAGE_LABEL[stage] .. '  ' .. (info and path or '(missing)')
 end
 
+-- Lines of the `<<<<<<< … >>>>>>>` block around the cursor, or nil outside one.
+local function marker_block()
+  local lnum = vim.fn.line('.')
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local start
+  for i = lnum, 1, -1 do
+    if lines[i]:match('^>>>>>>> ') and i ~= lnum then
+      return nil
+    end
+    if lines[i]:match('^<<<<<<< ') then
+      start = i
+      break
+    end
+  end
+  if not start then
+    return nil
+  end
+  for i = math.max(lnum, start + 1), #lines do
+    if lines[i]:match('^<<<<<<< ') then
+      return nil
+    end
+    if lines[i]:match('^>>>>>>> ') then
+      return start, i
+    end
+  end
+  return nil
+end
+
 local function set_result_keymaps(session, buf)
   local map = session_mod.map
+  -- linematch splits a conflict into per-line hunks, so a bare :diffget would
+  -- only take the line under the cursor; take the whole marker block instead.
   local function take(key)
     return function()
       local b = session.conflict_bufs and session.conflict_bufs[key]
-      if b then
-        pcall(vim.cmd, 'diffget ' .. b)
+      if not b then
+        return
+      end
+      local s, e = marker_block()
+      local range = s and ('%d,%d'):format(s, e) or ''
+      local ok, err = pcall(vim.cmd, range .. 'diffget ' .. b)
+      if not ok then
+        vim.notify('diffy: ' .. tostring(err), vim.log.levels.WARN)
       end
     end
   end

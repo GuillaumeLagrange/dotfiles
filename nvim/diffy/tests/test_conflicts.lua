@@ -135,16 +135,12 @@ T['§8: gho/ght take hunks and s marks the file resolved'] = function()
   local w = wins()
 
   child.api.nvim_set_current_win(w.result)
-  child.fn.win_execute(w.result, 'call cursor(2, 1)')
-  child.type_keys('gho') -- take ours: drops the "<<<<<<< HEAD" marker line
   child.fn.win_execute(w.result, 'call cursor(1, 1)')
-  child.type_keys(']x') -- next marker: "======="
-  child.type_keys('ght') -- take theirs there
-  child.type_keys(']x') -- next marker: the trailing ">>>>>>> feature"
-  child.type_keys('ght') -- take theirs there too
+  child.type_keys(']x') -- lands on "<<<<<<<"
+  child.type_keys('ght') -- the whole conflict becomes theirs
   child.cmd('write')
 
-  MiniTest.expect.equality(buf_lines(w.result), { 'l1', 'MAIN', 'FEATURE', 'l3' })
+  MiniTest.expect.equality(buf_lines(w.result), { 'l1', 'FEATURE', 'l3' })
 
   ui.arm_ready(child, 'render')
   child.api.nvim_set_current_win(w.tree)
@@ -210,15 +206,10 @@ T['§8: the same flow works during a rebase conflict'] = function()
   MiniTest.expect.equality(buf_lines(w.theirs), { 'l1', 'FEATURE', 'l3' })
 
   child.api.nvim_set_current_win(w.result)
-  child.fn.win_execute(w.result, 'call cursor(2, 1)')
+  child.fn.win_execute(w.result, 'call cursor(4, 1)') -- inside the conflict, on "======="
   child.type_keys('gho')
-  child.fn.win_execute(w.result, 'call cursor(1, 1)')
-  child.type_keys(']x')
-  child.type_keys('ght')
-  child.type_keys(']x')
-  child.type_keys('ght')
   child.cmd('write')
-  MiniTest.expect.equality(buf_lines(w.result), { 'l1', 'MAIN', 'FEATURE', 'l3' })
+  MiniTest.expect.equality(buf_lines(w.result), { 'l1', 'MAIN', 'l3' })
 
   ui.arm_ready(child, 'render')
   child.api.nvim_set_current_win(w.tree)
