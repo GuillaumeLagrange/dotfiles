@@ -239,9 +239,11 @@ function M.map_range(hunks, start_line, end_line)
 end
 
 --- Whether `[start_line, end_line]` on `side` ('old'/'new') is a changed
---- line or within 3 context lines of one, in `hunks` from a `-U3` (or
---- wider) diff of the `merge-base...C` range (contract §9.4 anchor
---- validity, used by the GitHub backend's push - `review/github.lua`).
+--- line or within 3 context lines of one, in `hunks` from a `-U0` diff of
+--- the `merge-base...C` range (contract §9.4 anchor validity, used by the
+--- GitHub backend's push - `review/github.lua`). `hunks` must be bounded
+--- to exactly the changed lines - this function adds the ±3 window
+--- itself, so a wider (`-U3`+) diff would double-count context.
 --- `nil` `side` (file-level comment) is always valid.
 function M.anchor_valid(hunks, side, start_line, end_line)
   if not side then

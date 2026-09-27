@@ -292,6 +292,17 @@ function M.open_compose(session, anchor_win, anchor_line, on_save, opts)
     vim.cmd('write')
   end, { buffer = buf, desc = 'save comment' })
   session_mod.map(session, 'n', 'q', close, { buffer = buf, desc = 'cancel comment' })
+  session_mod.map(session, { 'n', 'i' }, '<C-g>s', function()
+    if not opts.suggestion then
+      return
+    end
+    local lnum = vim.api.nvim_win_get_cursor(0)[1]
+    local block = { '```suggestion' }
+    vim.list_extend(block, opts.suggestion)
+    table.insert(block, '```')
+    vim.api.nvim_buf_set_lines(buf, lnum, lnum, false, block)
+    vim.api.nvim_win_set_cursor(0, { lnum + #block, 0 })
+  end, { buffer = buf, desc = 'insert suggestion block' })
 
   vim.cmd('startinsert')
   run.ready({ session = session.id, event = 'compose' })
@@ -338,6 +349,7 @@ function M.compose(session, mode)
     excerpt = excerpt,
   }
 
+  local suggestion = review.backend.capabilities.suggestions and excerpt or nil
   M.open_compose(session, win, end_line, function(body)
     if vim.trim(table.concat(body, '\n')) == '' then
       return
@@ -358,11 +370,12 @@ function M.compose(session, mode)
       },
       resolved = false,
       outdated = false,
+      _has_source = true,
     }
     table.insert(review.threads, thread)
     backend.save(session, review.branch, review.threads)
     M.decorate(session)
-  end)
+  end, { suggestion = suggestion })
 end
 
 --- Reply to an existing `thread`: appends a new comment on save.
@@ -432,7 +445,8 @@ local function render_thread_float(session, thread)
     table.insert(lines, '')
   end
   for _, c in ipairs(thread.comments) do
-    table.insert(lines, ('**%s** _%s_ (%s):'):format(c.author, os.date('%Y-%m-%d %H:%M', c.created_at), c.state))
+    local when = type(c.created_at) == 'number' and os.date('%Y-%m-%d %H:%M', c.created_at) or tostring(c.created_at)
+    table.insert(lines, ('**%s** _%s_ (%s):'):format(c.author, when, c.state))
     vim.list_extend(lines, vim.split(c.body, '\n', { plain = true }))
     table.insert(lines, '')
   end
@@ -500,8 +514,16 @@ local function render_thread_float(session, thread)
     M.decorate(session)
     close()
   end, { buffer = buf, desc = 'delete draft' })
-  if backend.capabilities.resolve and type(backend.save) == 'function' then
+  if backend.capabilities.resolve then
     session_mod.map(session, 'n', 'x', function()
+      if type(backend.resolve_thread) == 'function' then
+        backend.resolve_thread(session, thread, not thread.resolved, function(ok)
+          if ok then
+            close()
+          end
+        end)
+        return
+      end
       thread.resolved = not thread.resolved
       backend.save(session, review.branch, review.threads)
       M.decorate(session)
@@ -648,6 +670,64 @@ function M.open_pr_description(session)
       pcall(vim.api.nvim_win_close, win, true)
     end
   end, { buffer = buf, desc = 'close PR description' })
+end
+
+--- `:Diffy review submit`'s body float (contract §9.4: "a body composed in
+--- a float") - centered, unlike `M.open_compose`'s floats, which anchor
+--- below a diff line: a review submission body isn't anchored to any one.
+--- `<C-s>`/`:w` calls `on_save(body)` (a single string, blank if the
+--- buffer was left empty) and closes; `q` cancels (`on_save` never runs).
+function M.open_submit_body(session, on_save)
+  local buf = vim.api.nvim_create_buf(false, true)
+  session._review_buf_seq = (session._review_buf_seq or 0) + 1
+  local seq = session._review_buf_seq
+  vim.api.nvim_buf_set_name(buf, ('diffy://%d/submit/%d'):format(session.id, seq))
+  vim.bo[buf].buftype = 'acwrite'
+  vim.bo[buf].filetype = 'markdown'
+  vim.bo[buf].swapfile = false
+  session_mod.register_buffer(session, 'submit_' .. seq, buf)
+
+  local width = math.max(40, math.min(80, vim.o.columns - 4))
+  local height = 8
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = 'editor',
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    width = width,
+    height = height,
+    style = 'minimal',
+    border = 'rounded',
+    zindex = 200,
+  })
+
+  local closed = false
+  local function close()
+    if closed then
+      return
+    end
+    closed = true
+    vim.cmd('stopinsert')
+    if vim.api.nvim_win_is_valid(win) then
+      pcall(vim.api.nvim_win_close, win, true)
+    end
+  end
+
+  vim.api.nvim_create_autocmd('BufWriteCmd', {
+    group = session.augroup,
+    buffer = buf,
+    callback = function()
+      vim.bo[buf].modified = false
+      on_save(table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), '\n'))
+      close()
+    end,
+  })
+  session_mod.map(session, { 'n', 'i' }, '<C-s>', function()
+    vim.cmd('write')
+  end, { buffer = buf, desc = 'submit review' })
+  session_mod.map(session, 'n', 'q', close, { buffer = buf, desc = 'cancel submit' })
+
+  vim.cmd('startinsert')
+  run.ready({ session = session.id, event = 'compose' })
 end
 
 -- ---------------------------------------------------------------------

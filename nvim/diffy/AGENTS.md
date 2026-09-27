@@ -135,6 +135,16 @@ Pending reviews:
   of any pending review.
 - A submitted review keeps `commit` = the `commitOID` it was created with.
 - You can't approve or request changes on your own PR, so those events can't be exercised on the sandbox.
+- Verified live (phase 7B, `make test-gh` PR #7-#12): pushing a single
+  new-side thread on the PR head via `addPullRequestReview(threads:[...])`
+  works exactly per the sandbox facts above; `resolveReviewThread`/
+  `unresolveReviewThread` and `submitPullRequestReview` behave as
+  documented; `:Diffy review pull`'s import round-trips cleanly.
+- `model.anchor_valid` (the client-side validity check) must be fed hunks
+  from a `-U0` diff, not `-U3`: it adds the ±3 context window itself, so a
+  wider diff double-counts context and lets through lines GitHub actually
+  rejects. `model.diff_position`, by contrast, needs the real `-U3` diff
+  (it walks GitHub's own rendered diff-line numbering).
 
 Where comments point:
 - Between pushes the API does not remap: comment `line == originalLine` and `commit` = the commit it was written

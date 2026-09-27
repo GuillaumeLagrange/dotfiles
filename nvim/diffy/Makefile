@@ -10,5 +10,4 @@ else
 endif
 
 test-gh:
-	@echo "diffy: test-gh (live GitHub scenarios) lands in phase 7" >&2
-	@exit 1
+	@bash tests/github_live.sh
