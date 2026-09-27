@@ -53,8 +53,12 @@ it goes in the contract, not here.
   `vim.schedule` avoids it — by the time it runs, the native command has already finished.
 - `vim.system(cmd, { env = {...} })` *merges* `env` into the inherited environment; it does not replace it.
 - `nvim_set_current_win`/`nvim_win_set_buf` do not fire `WinEnter`/`BufEnter` (unlike `:wincmd`/mouse/real key
-  input, which do). Anything gating on focus (log collapse/expand) must be exercised in tests with real
+  input, which do). Anything gating on focus must be exercised in tests with real
   key-driven window movement (`type_keys('<C-w>j')`), not the raw API, or the autocmd never runs.
+- User's real config: `<leader>` is space, and global `<leader>bb`/`<leader>bd`/`<leader>bo`/... exist, so a
+  buffer-local `<leader>b` without `nowait = true` waits `timeoutlen` (the child reads as "blocked"). lualine
+  (non-global statusline) rewrites every window's `statusline`, overriding a window-local label; mini.indentscope
+  draws `╎` guides in indented panel rows unless `vim.b.miniindentscope_disable = true`.
 - `FugitiveFind(object, dir)`/`fugitive#Find` treat a *string* `dir` argument as the `.git` directory literally
   (no path-to-gitdir resolution) - pass `vim.fn.FugitiveExtractGitDir(repo_root)`, not the worktree root itself.
 - `string.find(s, pat, init, true)` (`plain=true`) searches for `pat` as a literal substring - Lua-pattern

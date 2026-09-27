@@ -83,7 +83,8 @@ T['§4: :Diffy file follows a file across its rename'] = function()
   ui.wait_ready(child)
 
   MiniTest.expect.equality(#buf_lines(w.tree), 1)
-  MiniTest.expect.equality(buf_lines(w.tree)[1], 'R old.txt \226\134\146 new.txt  +0 -0')
+  -- one row, counts right-aligned to the 40-cell panel (§5)
+  MiniTest.expect.equality(buf_lines(w.tree)[1], 'R old.txt \226\134\146 new.txt' .. (' '):rep(15) .. '+0 -0')
   MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_path'), 'old.txt')
   MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'new.txt')
 
@@ -95,7 +96,7 @@ T['§4: :Diffy file follows a file across its rename'] = function()
   ui.wait_ready(child)
 
   MiniTest.expect.equality(#buf_lines(w.tree), 1)
-  MiniTest.expect.equality(buf_lines(w.tree)[1], 'A old.txt  +5 -0')
+  MiniTest.expect.equality(buf_lines(w.tree)[1], 'A old.txt' .. (' '):rep(25) .. '+5 -0')
   MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'old.txt')
 
   child.cmd('Diffy close')

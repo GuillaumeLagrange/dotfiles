@@ -1,5 +1,5 @@
--- §3, §4, §12.2 (phase 2): the log model for `:Diffy branch`, merge
--- dimming/navigation-skip, and the collapse-on-blur behaviour.
+-- §2, §3, §4, §12.2 (phase 2): the log model for `:Diffy branch`, merge
+-- dimming/navigation-skip, and the log's fixed full-list height.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
 local ui = require('tests.helpers.ui')
@@ -65,10 +65,7 @@ T['§3/§4: :Diffy branch lists Unstaged, Staged and the branch commits, merge d
   end)()]])
   MiniTest.expect.equality(merged, true)
 
-  -- rendered dimmed: focus the log so the full list (not the collapsed
-  -- summary) is on screen, then check the merge line's highlight group.
-  child.api.nvim_set_current_win(wins().tree)
-  child.type_keys('<C-w>j')
+  -- rendered dimmed: the merge line carries the merge highlight group
   local merge_hl = child.lua_get([[(function()
     local s = require('diffy.session').current()
     local merge_line
@@ -77,7 +74,7 @@ T['§3/§4: :Diffy branch lists Unstaged, Staged and the branch commits, merge d
     end
     local marks = vim.api.nvim_buf_get_extmarks(s.bufs.log, s.ns.log_render, {merge_line - 1, 0}, {merge_line - 1, -1}, {details = true})
     for _, m in ipairs(marks) do
-      if m[4].line_hl_group == 'Comment' then return true end
+      if m[4].line_hl_group == 'DiffyMerge' then return true end
     end
     return false
   end)()]])
@@ -118,26 +115,23 @@ T['§3: ]r from the commit before the merge lands on the commit after it, skippi
   child.cmd('Diffy close')
 end
 
-T['§2: the log collapses to a summary when unfocused and expands on focus'] = function()
+T['§2: the log always lists every entry, sized min(#entries, 40% of the column), focused or not'] = function()
+  child.o.lines = 40
   open_branch()
   local w = wins()
+  local function heights()
+    return child.lua_get(('{ vim.api.nvim_win_get_height(%d), vim.api.nvim_win_get_height(%d) }'):format(w.tree, w.log))
+  end
 
-  local collapsed_height = child.lua_get(('vim.api.nvim_win_get_height(%d)'):format(w.log))
-  local collapsed_lines = child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(w.log))
-  MiniTest.expect.equality(collapsed_height, 1)
-  MiniTest.expect.equality(#collapsed_lines, 1)
-  MiniTest.expect.equality(collapsed_lines[1]:find('commit', 1, true) ~= nil, true)
+  local h = heights()
+  MiniTest.expect.equality(h[2], math.min(#subjects(), math.floor((h[1] + h[2]) * 0.4)))
+  MiniTest.expect.equality(#buf_lines(w.log), #subjects())
 
   child.api.nvim_set_current_win(w.tree)
   child.type_keys('<C-w>j')
-  local expanded_height = child.lua_get(('vim.api.nvim_win_get_height(%d)'):format(w.log))
-  local expanded_lines = child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(w.log))
-  MiniTest.expect.equality(expanded_height > 1, true)
-  MiniTest.expect.equality(#expanded_lines, #subjects())
-
   child.type_keys('<C-w>k')
-  local reblurred_height = child.lua_get(('vim.api.nvim_win_get_height(%d)'):format(w.log))
-  MiniTest.expect.equality(reblurred_height, 1)
+  MiniTest.expect.equality(heights(), h)
+  MiniTest.expect.equality(#buf_lines(w.log), #subjects())
 
   child.cmd('Diffy close')
 end
@@ -189,7 +183,7 @@ T['§2/§3: rapid J J J ends up showing the last selection, even if an earlier o
     child.lua_get('require("diffy.session").current().entries[8].subject'),
     'C1'
   )
-  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt  +1 -1' })
+  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt' .. (' '):rep(27) .. '+1 -1' })
 
   -- now let the held-back (stale) render actually run and complete - it
   -- takes two rounds (name-status, then the numstat call it triggers on
@@ -207,7 +201,7 @@ T['§2/§3: rapid J J J ends up showing the last selection, even if an earlier o
     child.lua('vim.wait(300, function() return #_G.__deferred > 0 end)')
   end
 
-  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt  +1 -1' })
+  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt' .. (' '):rep(27) .. '+1 -1' })
   MiniTest.expect.equality(child.lua_get('require("diffy.session").current().sel'), { top = 8, bottom = 8 })
 
   child.cmd('Diffy close')

@@ -4,8 +4,12 @@ local session = require('diffy.session')
 local M = {}
 
 M.config = {
-  -- filled in progressively by later phases (staging, navigation, review, …).
-  keymaps = {},
+  -- width of the tree/log column (§2)
+  panel_width = 40,
+  keymaps = {
+    -- buffer-local in every diffy window: hide/show the panel column
+    toggle_panel = '<leader>e',
+  },
 }
 
 function M.setup(opts)
@@ -132,6 +136,16 @@ function M.dispatch.close()
       require('diffy.git.run').ready({ session = s.id, event = 'close' })
     end
   end)
+end
+
+--- `:Diffy panel` (§2): hide/show the tree/log column.
+function M.dispatch.panel()
+  local s = session.current()
+  if not s then
+    vim.notify('diffy: no session in this tab', vim.log.levels.WARN)
+    return
+  end
+  session.toggle_panels(s)
 end
 
 local function entry_key(e)

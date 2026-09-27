@@ -257,8 +257,10 @@ T['§5: nested directories group under collapsible headers, single-child chains 
   -- a/d holds a single file, so `d/` never gets a header row at all
   MiniTest.expect.equality(has('d/'), false)
 
-  local f1 = find_line(lines, 'a/b/c/file1.txt')
-  local f3 = find_line(lines, 'a/d/file3.txt')
+  -- rows under a header show the path relative to it (§5)
+  local f1 = find_line(lines, 'A file1.txt')
+  local f3 = find_line(lines, 'A d/file3.txt')
+  MiniTest.expect.equality(find_line(lines, 'a/b/c/file1.txt'), nil)
   MiniTest.expect.equality(lines[f1]:match('^(%s*)'), '    ')
   MiniTest.expect.equality(lines[f3]:match('^(%s*)'), '  ')
 
@@ -313,8 +315,9 @@ T['§5: a new untracked directory shows its files individually as ? rows, groupe
   -- (and so renders) both files individually instead
   MiniTest.expect.equality(has_exact('? newdir/'), false)
   MiniTest.expect.equality(has_exact('newdir/'), true)
-  local a_lnum = find_line(lines, '? newdir/a.txt')
-  local b_lnum = find_line(lines, '? newdir/b.txt')
+  local a_lnum = find_line(lines, '? a.txt')
+  local b_lnum = find_line(lines, '? b.txt')
+  MiniTest.expect.equality(find_line(lines, 'newdir/a.txt'), nil)
   MiniTest.expect.equality(a_lnum ~= nil, true)
   MiniTest.expect.equality(b_lnum ~= nil, true)
   -- grouped under the directory's own header row, indented one level in

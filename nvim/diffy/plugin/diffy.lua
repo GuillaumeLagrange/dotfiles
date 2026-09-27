@@ -3,7 +3,7 @@ local diffy = require('diffy')
 
 -- §4 subcommands plus review/threads (§9). Range args (`A..B`, `A...B`) and
 -- the bare command aren't completed here; they fall through to `diffy.open`.
-local SUBCOMMANDS = { 'branch', 'pr', 'file', 'conflicts', 'restore', 'review', 'threads', 'close' }
+local SUBCOMMANDS = { 'branch', 'pr', 'file', 'conflicts', 'restore', 'review', 'threads', 'panel', 'close' }
 
 local function complete(arg_lead)
   return vim.tbl_filter(function(name)

@@ -171,6 +171,7 @@ local function set_result_keymaps(session, buf)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  session_mod.map_toggle(session, buf)
 end
 
 --- The result pane: the real worktree file (still holding its conflict
@@ -366,6 +367,7 @@ local function setup_conflicts_tree(session)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  session_mod.map_toggle(session, buf)
 end
 
 --- Rebuild the conflicted-file list and open the current (or first) one.

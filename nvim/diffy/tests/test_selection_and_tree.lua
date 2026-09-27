@@ -71,7 +71,7 @@ T['§5: a rename shows as one entry whose sides are the old and new file'] = fun
       rename_lnum = i
     end
   end
-  MiniTest.expect.equality(tree_lines[rename_lnum], 'R h.txt \226\134\146 i.txt  +0 -0')
+  MiniTest.expect.equality(tree_lines[rename_lnum], 'R h.txt \226\134\146 i.txt' .. (' '):rep(19) .. '+0 -0')
 
   child.api.nvim_set_current_win(w.tree)
   child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(rename_lnum))

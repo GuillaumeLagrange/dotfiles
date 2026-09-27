@@ -32,10 +32,22 @@ Targets nvim ≥ 0.12, git ≥ 2.36, `gh` CLI (authenticated). Depends on vim-fu
 └──────────┴─────────────────────┴─────────────────────┘
 ```
 
-- Two panel buffers (`diffy://tree`, `diffy://log`) in one left column, fixed width.
-- **Log collapse:** when the log window is not focused it shrinks to one line summarising the current selection
-  (e.g. `3 commits a1b2c3..d4e5f6`). On focus it grows to `min(#entries, 40% of column)`. The tree gets the
-  rest.
+- Two panel buffers (`diffy://tree`, `diffy://log`) in one left column, width `panel_width` (default 40).
+- Panel windows show rows only: no line numbers, sign/fold/status columns, list chars, colorcolumn or spell;
+  no wrap; cursorline on. Their statusline is a short label (`Files`, `Commits`), not the buffer name.
+- The log always lists every entry; its height is `min(#entries, 40% of column)`, the tree gets the rest. Set on
+  open and on `R`.
+- **Panel toggle:** `:Diffy panel`, or `<leader>e` (config `keymaps.toggle_panel`) in any diffy window, hides
+  the column; the diff windows then split the full width evenly. Toggling again restores it at `panel_width`
+  with the same content and cursors. Hiding is not a close: the session stays alive and `]f`/`[f`, `]r`/`[r`
+  keep working from the diff windows.
+- Rows fit on one line: names too long for the width are truncated with `…`; status letter and counts always
+  stay visible. Rows re-fit when the window is resized.
+- Colors are highlight groups linked with `default` (a colorscheme can override them): status letters by kind
+  (`A`/`?` Added, `M`/`R`/`C` Changed, `D` Removed, `U` DiagnosticError), directory headers Directory,
+  `+n` Added, `-m` Removed, sha Identifier, merges Comment, `Unstaged`/`Staged` Title, selected log entries a
+  leading `▌` plus a Visual line (`DiffySelection`), and the file shown in the diff a `DiffyCurrentFile` line
+  with a bold name.
 - The two diff windows use native diff mode (`:diffthis`, `diffopt` linematch), with scrollbind/cursorbind
   managed per window. Winbars show the rev and path of each side.
 - `R` rebuilds the whole layout: window sizes, panels, diff pair, decorations.
@@ -72,6 +84,7 @@ entry.
 | `:Diffy file [path]`   | commits touching path (`--follow`)   | newest commit                |
 | `:Diffy conflicts`     | none; tree shows conflicted files    | first conflicted file        |
 | `:Diffy close`         | closes the current session's tab     |                              |
+| `:Diffy panel`         | hides/shows the tree/log column (§2) |                              |
 | `:Diffy restore`       | recovers from an interrupted full checkout (§7) |                   |
 
 - `branch` base resolution: explicit arg → PR base of the current branch (`gh pr view --json baseRefName`) →
@@ -84,7 +97,11 @@ entry.
 ## 5. File tree
 
 - Entries: status letter (`M A D R C U ?`), path grouped by directory (collapsible, single-child dirs
-  flattened), `+n -m` counts. Renames display `old → new` and diff as a rename pair.
+  flattened), `+n -m` counts right-aligned to the window width. A row under a directory header shows only the
+  path relative to that header (the basename for a direct child), indented. Renames within one directory show
+  `old → new` basenames; a rename across directories shows the new relative path (prefixed with `old →` only
+  if it fits). Renames diff as a rename pair. Too-long names are truncated from the left with `…`, keeping the
+  file name, status and counts.
 - Renames come from git's detection (`-M`). An unstaged rename appears as `D` + `?` unless you `git add -N` the new
   path; diffy does not fake it.
 - Keys: `<CR>`/`o` open pair, `]f`/`[f` next/previous file (also from diff windows), `za` fold dir, `gf` open
@@ -399,13 +416,16 @@ scenarios are the minimum; each one is a UI test unless marked *(logic)*.
      closing nvim) leaves no leak;
    - two sessions in two tabs: closing one leaves the other fully working;
    - the leak check itself fails when a deliberately leaked augroup/buffer/keymap/extmark is left behind.
-2. **Range viewer.** git layer, log panel (merges dimmed/skipped, collapse), tree panel, diff pair,
+2. **Range viewer.** git layer, log panel (merges dimmed/skipped), tree panel, diff pair, panel toggle,
    `:Diffy A..B`, `:Diffy branch`, contiguous selection, file/commit navigation, `R`.
    - `:Diffy branch` on the standard history: log lists branch commits, merge dimmed; `]r` from the commit before
      the merge lands on the commit after it;
    - selecting C1..C2 shows `f.txt` with left = base content and right = C2 content;
    - the rename shows as one `R h.txt → i.txt` entry whose sides are the old and new file;
-   - the log collapses to one summary line when unfocused and expands on focus;
+   - the panel toggle hides the column (diff windows span the full width, the session stays alive, `]f` still
+     moves files) and shows it again with the same content; teardown while hidden leaks nothing;
+   - a long path under nested directories renders as one row that fits the panel width, status and counts
+     visible;
    - base resolution: explicit arg, then PR base, then origin default branch *(logic)*;
    - screenshot: default layout.
 3. **Index & status.**

@@ -1,6 +1,5 @@
 -- The log panel (contract §2, §3, §4): builds the entry list (Unstaged,
--- Staged, commits), renders it (with collapse-on-blur), and owns the
--- contiguous-selection keys.
+-- Staged, commits), renders it, and owns the contiguous-selection keys.
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
 local parse = require('diffy.git.parse')
@@ -199,49 +198,45 @@ local function short(sha)
   return sha:sub(1, 7)
 end
 
-local function summary_line(session)
-  local sel = session.sel
-  if not sel then
-    return 'diffy: no selection'
+local hl = require('diffy.highlight')
+
+local MARK = '▌'
+
+--- One log row fitted to `width` cells: `text` plus highlight spans.
+local function entry_line(entry, selected, width)
+  local head = (selected and MARK or ' ') .. ' '
+  if entry.kind ~= 'commit' then
+    local label = entry.kind == 'unstaged' and 'Unstaged' or 'Staged'
+    local text = head .. hl.truncate(label, width - 2)
+    return text, { { #head, #text, 'DiffyLabel' } }
   end
-  local n = 0
-  for i = sel.top, sel.bottom do
-    if session.entries[i].kind == 'commit' then
-      n = n + 1
-    end
+  local sha = short(entry.sha)
+  local text = head .. sha .. ' ' .. hl.truncate(entry.subject, width - 2 - #sha - 1)
+  if entry.merge then
+    return text, {}
   end
-  local top, bottom = session.entries[sel.top], session.entries[sel.bottom]
-  -- §3: bottom Unstaged → left is the index; bottom Staged → left is HEAD
-  local left_label = bottom.kind == 'unstaged' and 'index'
-    or bottom.kind == 'staged' and 'HEAD'
-    or short(bottom.sha) .. '^'
-  local right_label = top.kind == 'unstaged' and 'worktree' or top.kind == 'staged' and 'index' or short(top.sha)
-  if n == 0 then
-    local name = top.kind == 'unstaged' and 'Unstaged' or top.kind == 'staged' and 'Staged' or ''
-    if top ~= bottom then
-      name = 'Unstaged + Staged'
-    end
-    return ('%s %s..%s'):format(name, left_label, right_label)
-  end
-  return ('%d commit%s %s..%s'):format(n, n == 1 and '' or 's', left_label, right_label)
+  return text, { { #head, #head + #sha, 'DiffySha' } }
 end
 
-local function entry_text(entry)
-  if entry.kind == 'unstaged' then
-    return 'Unstaged'
-  elseif entry.kind == 'staged' then
-    return 'Staged'
+local function log_width(session)
+  local win = session.wins.log
+  if win and vim.api.nvim_win_is_valid(win) then
+    return hl.text_width(win) - 1
   end
-  return short(entry.sha) .. ' ' .. entry.subject
+  return session.log_width or require('diffy').config.panel_width
 end
 
---- Full entry list into the log buffer, highlighting merges (dimmed) and
---- the active contiguous selection.
-local function render_full(session)
+--- (Re)render the full entry list (§2): merges dimmed, the active
+--- contiguous selection marked. Call after entries/selection change.
+function M.render(session)
   local buf = session.bufs.log
-  local lines = {}
-  for _, e in ipairs(session.entries) do
-    table.insert(lines, entry_text(e))
+  local width = log_width(session)
+  session.log_width = width
+  local sel = session.sel
+  local lines, all_spans = {}, {}
+  for i, e in ipairs(session.entries) do
+    local selected = sel ~= nil and i >= sel.top and i <= sel.bottom
+    lines[i], all_spans[i] = entry_line(e, selected, width)
   end
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -251,45 +246,14 @@ local function render_full(session)
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   for i, e in ipairs(session.entries) do
     if e.kind == 'commit' and e.merge then
-      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = 'Comment' })
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = 'DiffyMerge' })
     end
-    if session.sel and i >= session.sel.top and i <= session.sel.bottom then
-      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = 'Visual' })
+    if sel and i >= sel.top and i <= sel.bottom then
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = 'DiffySelection' })
     end
-  end
-end
-
-local function set_height(session, height)
-  if vim.api.nvim_win_is_valid(session.wins.log) then
-    vim.api.nvim_win_set_height(session.wins.log, height)
-  end
-end
-
---- Collapse the log window to its one-line summary (unfocused, §2).
-function M.collapse(session)
-  local buf = session.bufs.log
-  vim.bo[buf].modifiable = true
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { summary_line(session) })
-  vim.bo[buf].modifiable = false
-  set_height(session, 1)
-end
-
---- Expand the log window to its full entry list (focused, §2):
---- `min(#entries, 40% of the tree+log column)`.
-function M.expand(session)
-  render_full(session)
-  local height = math.max(1, math.min(#session.entries, math.floor(session.column_height * 0.4)))
-  set_height(session, height)
-end
-
---- (Re)render the log panel: full if focused, collapsed otherwise. Call
---- after entries/selection change.
-function M.render(session)
-  local focused = vim.api.nvim_get_current_win() == session.wins.log
-  if focused then
-    M.expand(session)
-  else
-    M.collapse(session)
+    for _, sp in ipairs(all_spans[i]) do
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, sp[1], { end_col = sp[2], hl_group = sp[3] })
+    end
   end
 end
 
@@ -359,33 +323,15 @@ function M.move_selection(session, delta)
   session.on_select(session)
 end
 
-local function move_cursor_to(session)
-  if session.sel and vim.api.nvim_win_is_valid(session.wins.log) then
-    local ok = pcall(vim.api.nvim_win_set_cursor, session.wins.log, { session.sel.top, 0 })
-    if not ok then
-      pcall(vim.api.nvim_win_set_cursor, session.wins.log, { 1, 0 })
-    end
-  end
-end
-
---- One-time setup: collapse/expand on focus change, and the panel's keys.
+--- One-time setup: the panel's keys and width-following re-render.
 function M.setup(session)
   session.ns.log_render = require('diffy.session').namespace(session, 'log_render')
-
-  vim.api.nvim_create_autocmd('WinEnter', {
+  vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
     group = session.augroup,
     callback = function()
-      if vim.api.nvim_get_current_win() == session.wins.log then
-        M.expand(session)
-        move_cursor_to(session)
-      end
-    end,
-  })
-  vim.api.nvim_create_autocmd('WinLeave', {
-    group = session.augroup,
-    callback = function()
-      if vim.api.nvim_get_current_win() == session.wins.log then
-        M.collapse(session)
+      local win = session.wins.log
+      if session.entries and win and vim.api.nvim_win_is_valid(win) and log_width(session) ~= session.log_width then
+        M.render(session)
       end
     end,
   })
@@ -415,6 +361,7 @@ function M.setup(session)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  require('diffy.session').map_toggle(session, buf)
 end
 
 return M

@@ -159,27 +159,140 @@ function M.scratch_buf(session, name)
   return buf
 end
 
-local PANEL_WIDTH = 30
+local function panel_width()
+  return require('diffy').config.panel_width
+end
 
---- Reset window sizes (§2): fixed-width panel column, diff area split evenly.
---- Called on open and on `R`.
+local PANEL_LABELS = { tree = ' Files', log = ' Commits' }
+
+--- Window-local look of a panel window (§2): nothing but the rows.
+local function setup_panel_window(win, name)
+  local wo = vim.wo[win]
+  wo.number = false
+  wo.relativenumber = false
+  wo.signcolumn = 'no'
+  wo.foldcolumn = '0'
+  wo.statuscolumn = ''
+  wo.wrap = false
+  wo.list = false
+  wo.colorcolumn = ''
+  wo.spell = false
+  wo.cursorline = true
+  wo.winfixwidth = true
+  wo.statusline = PANEL_LABELS[name]
+end
+
+local function valid_win(win)
+  return win ~= nil and vim.api.nvim_win_is_valid(win)
+end
+
+--- Reset window sizes (§2): fixed-width panel column (log = min(#entries,
+--- 40% of the column), tree the rest), diff area split evenly over what's
+--- left (the full width while the panel column is hidden). Called on open,
+--- on `R`, on `VimResized` and on panel toggle.
 function M.relayout(session)
   local w = session.wins
-  if not (w.tree and vim.api.nvim_win_is_valid(w.tree)) then
+  local shown = valid_win(w.tree)
+  if not shown and not session.panel_hidden then
     return
   end
-  vim.api.nvim_win_set_width(w.tree, PANEL_WIDTH)
+  local width = panel_width()
+  if shown then
+    vim.api.nvim_win_set_width(w.tree, width)
+  end
   local left, right = w.left, w.right
-  if left and right and vim.api.nvim_win_is_valid(left) and vim.api.nvim_win_is_valid(right) then
+  if valid_win(left) and valid_win(right) then
     -- only the side-by-side pair; the conflict layout sizes its own windows
     if vim.fn.win_screenpos(left)[1] == vim.fn.win_screenpos(right)[1] then
-      local diff_width = vim.o.columns - PANEL_WIDTH - 1
+      local diff_width = vim.o.columns - (shown and (width + 1) or 0)
       vim.api.nvim_win_set_width(left, math.floor((diff_width - 1) / 2))
     end
   end
+  if not shown then
+    return
+  end
   session.column_height = vim.api.nvim_win_get_height(w.tree)
-  if w.log and vim.api.nvim_win_is_valid(w.log) then
+  if valid_win(w.log) then
     session.column_height = session.column_height + vim.api.nvim_win_get_height(w.log)
+    if session.entries and #session.entries > 0 then
+      local h = math.max(1, math.min(#session.entries, math.floor(session.column_height * 0.4)))
+      vim.api.nvim_win_set_height(w.log, h)
+    end
+  end
+end
+
+--- Hide the panel column (§2 toggle) without ending the session: the
+--- windows' teardown watchers are dropped first and the panel buffers kept
+--- (`bufhidden=hide`) so they come back unchanged.
+function M.hide_panels(session)
+  if session.panel_hidden then
+    return
+  end
+  session._panel_cursor = {}
+  local to_close = {}
+  for _, name in ipairs({ 'tree', 'log' }) do
+    local win = session.wins[name]
+    if valid_win(win) then
+      session._panel_cursor[name] = vim.api.nvim_win_get_cursor(win)
+      local au = session._win_watchers and session._win_watchers[win]
+      if au then
+        pcall(vim.api.nvim_del_autocmd, au)
+        session._win_watchers[win] = nil
+      end
+      vim.bo[session.bufs[name]].bufhidden = 'hide'
+      table.insert(to_close, win)
+    end
+  end
+  session.panel_hidden = true
+  for _, win in ipairs(to_close) do
+    pcall(vim.api.nvim_win_close, win, true)
+  end
+  M.relayout(session)
+end
+
+--- Re-open the panel column with the same tree/log buffers and cursors.
+function M.show_panels(session)
+  if not session.panel_hidden then
+    return
+  end
+  session._nav_guard = (session._nav_guard or 0) + 1
+  local tree_win = vim.api.nvim_open_win(session.bufs.tree, false, { win = -1, split = 'left', width = panel_width() })
+  local log_win = vim.api.nvim_open_win(session.bufs.log, false, { win = tree_win, split = 'below', height = 10 })
+  session._nav_guard = session._nav_guard - 1
+  for name, win in pairs({ tree = tree_win, log = log_win }) do
+    vim.bo[session.bufs[name]].bufhidden = 'wipe'
+    M.register_window(session, name, win)
+    setup_panel_window(win, name)
+    local cur = session._panel_cursor and session._panel_cursor[name]
+    if cur then
+      pcall(vim.api.nvim_win_set_cursor, win, cur)
+    end
+  end
+  session.panel_hidden = false
+  M.relayout(session)
+  if session.tree_rows then
+    require('diffy.panels.tree').redraw(session)
+  end
+  if session.entries then
+    require('diffy.panels.log').render(session)
+  end
+end
+
+function M.toggle_panels(session)
+  if session.panel_hidden then
+    M.show_panels(session)
+  else
+    M.hide_panels(session)
+  end
+end
+
+--- Buffer-local panel-toggle key (configurable) on `buf`.
+function M.map_toggle(session, buf)
+  local lhs = require('diffy').config.keymaps.toggle_panel
+  if lhs and lhs ~= '' then
+    M.map(session, 'n', lhs, function()
+      M.toggle_panels(session)
+    end, { buffer = buf, nowait = true, desc = 'toggle panels' })
   end
 end
 
@@ -228,7 +341,7 @@ function M.open(opts)
   M.register_window(session, 'right', right_win)
 
   local tree_buf = M.scratch_buf(session, 'tree')
-  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = -1, split = 'left', width = 30 })
+  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = -1, split = 'left', width = panel_width() })
   M.register_buffer(session, 'tree', tree_buf, { panel = true })
   M.register_window(session, 'tree', tree_win)
 
@@ -237,9 +350,19 @@ function M.open(opts)
   M.register_buffer(session, 'log', log_buf, { panel = true })
   M.register_window(session, 'log', log_win)
 
-  vim.wo[tree_win].winfixwidth = true
-  vim.wo[log_win].winfixwidth = true
+  setup_panel_window(tree_win, 'tree')
+  setup_panel_window(log_win, 'log')
+  -- panel indentation is layout, not code scope (mini.indentscope)
+  vim.b[tree_buf].miniindentscope_disable = true
+  vim.b[log_buf].miniindentscope_disable = true
+  require('diffy.highlight').setup()
   M.relayout(session)
+  vim.api.nvim_create_autocmd('VimResized', {
+    group = session.augroup,
+    callback = function()
+      M.relayout(session)
+    end,
+  })
 
   vim.api.nvim_set_current_win(left_win)
 

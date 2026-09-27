@@ -46,6 +46,7 @@ local function set_nav_keymaps(session, buf)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  session_mod.map_toggle(session, buf)
   require('diffy.review.ui').setup_diff_keymaps(session, buf)
 end
 
@@ -174,6 +175,7 @@ function M.leave(session)
   end
 
   session.current_path = nil
+  require('diffy.panels.tree').mark_current(session)
 end
 
 return M

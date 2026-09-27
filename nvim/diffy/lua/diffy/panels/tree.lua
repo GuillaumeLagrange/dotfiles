@@ -127,39 +127,44 @@ local function node_items(node)
   return items
 end
 
---- Lay `node` out into display rows: a directory whose only content is one
---- subdirectory is merged into `chain` (no row of its own - §5's "chains
---- of single-child dirs flattened into one row"); a directory whose only
---- content is one file is skipped entirely (the file is shown directly,
---- its own path already carrying the full prefix); everything else gets
---- one collapsible header row for the accumulated `chain` (empty at the
---- root, so the root itself never gets a header) followed by its
---- children, one depth deeper - `foldmethod=indent` then folds exactly
---- that header's children on `za`, at every nesting level.
-local function layout(node, chain, depth, rows)
+--- Lay `node` (full path `path`) out into display rows: a directory whose
+--- only content is one subdirectory is merged into `chain` (no row of its
+--- own - §5's "chains of single-child dirs flattened into one row"); a
+--- directory whose only content is one file is skipped entirely (the file
+--- is shown directly, with its path relative to the enclosing header);
+--- everything else gets one collapsible header row for the accumulated
+--- `chain` (empty at the root, so the root itself never gets a header)
+--- followed by its children, one depth deeper - `foldmethod=indent` then
+--- folds exactly that header's children on `za`, at every nesting level.
+--- `base` is the full path of the nearest enclosing header ('' at root):
+--- file rows display their path relative to it.
+local function layout(node, path, chain, base, depth, rows)
+  local function join(a, b)
+    return a == '' and b or (a .. '/' .. b)
+  end
   local items = node_items(node)
   if #items == 0 then
     return
   end
   if #items == 1 and items[1].kind == 'dir' then
     local it = items[1]
-    layout(it.node, chain == '' and it.name or (chain .. '/' .. it.name), depth, rows)
+    layout(it.node, join(path, it.name), join(chain, it.name), base, depth, rows)
     return
   end
   if #items == 1 and items[1].kind == 'file' then
-    table.insert(rows, { kind = 'file', entry = items[1].entry, depth = depth })
+    table.insert(rows, { kind = 'file', entry = items[1].entry, depth = depth, base = base })
     return
   end
-  local child_depth = depth
+  local child_depth, child_base = depth, base
   if chain ~= '' then
     table.insert(rows, { kind = 'dir', name = chain, depth = depth })
-    child_depth = depth + 1
+    child_depth, child_base = depth + 1, path
   end
   for _, it in ipairs(items) do
     if it.kind == 'file' then
-      table.insert(rows, { kind = 'file', entry = it.entry, depth = child_depth })
+      table.insert(rows, { kind = 'file', entry = it.entry, depth = child_depth, base = child_base })
     else
-      layout(it.node, it.name, child_depth, rows)
+      layout(it.node, join(path, it.name), it.name, child_base, child_depth, rows)
     end
   end
 end
@@ -170,25 +175,66 @@ end
 --- directory holding exactly one file flattened away entirely.
 local function group_rows(entries)
   local rows = {}
-  layout(build_tree(entries), '', 0, rows)
+  layout(build_tree(entries), '', '', '', 0, rows)
   return rows
 end
 
-local function row_text(row)
+local hl = require('diffy.highlight')
+
+local function relative(path, base)
+  if base ~= '' and path:sub(1, #base + 1) == base .. '/' then
+    return path:sub(#base + 2)
+  end
+  return path
+end
+
+local function dirname(path)
+  return path:match('^(.*)/[^/]*$') or ''
+end
+
+local function basename(path)
+  return path:match('([^/]+)$') or path
+end
+
+--- One display row fitted to `width` cells (§5): `text` plus highlight
+--- spans `{start_col, end_col, group}` (byte columns).
+local function row_line(row, width)
   local indent = ('  '):rep(row.depth)
   if row.kind == 'dir' then
-    return indent .. row.name .. '/'
+    local text = hl.truncate(indent .. row.name .. '/', width)
+    return text, { { #indent, #text, 'DiffyDirectory' } }
   end
   local e = row.entry
-  local name = e.path
-  if e.status == 'R' or e.status == 'C' then
-    name = (e.old_path or '?') .. ' \226\134\146 ' .. e.path
-  end
   local counts = ''
   if e.added or e.removed then
-    counts = ('  +%d -%d'):format(e.added or 0, e.removed or 0)
+    counts = ('+%d -%d'):format(e.added or 0, e.removed or 0)
   end
-  return ('%s%s %s%s'):format(indent, e.status, name, counts)
+  local head = indent .. e.status .. ' '
+  local avail = width - vim.fn.strdisplaywidth(head) - (counts ~= '' and (#counts + 1) or 0)
+  local new_rel = relative(e.path, row.base)
+  local name = new_rel
+  if (e.status == 'R' or e.status == 'C') and e.old_path then
+    if dirname(e.old_path) == dirname(e.path) then
+      local dir = relative(dirname(e.path), row.base)
+      dir = (dir == '' or dir == row.base) and '' or (dir .. '/')
+      name = dir .. basename(e.old_path) .. ' → ' .. basename(e.path)
+    else
+      local full = relative(e.old_path, row.base) .. ' → ' .. new_rel
+      name = vim.fn.strdisplaywidth(full) <= avail and full or new_rel
+    end
+  end
+  name = hl.truncate_left(name, math.max(1, avail))
+  local left = head .. name
+  local pad = math.max(1, width - vim.fn.strdisplaywidth(left) - #counts)
+  local text = counts ~= '' and (left .. (' '):rep(pad) .. counts) or left
+  local spans = { { #indent, #indent + #e.status, hl.STATUS[e.status] or 'DiffyChanged' } }
+  if counts ~= '' then
+    local plus_end = #text - #counts + #tostring(e.added or 0) + 1
+    table.insert(spans, { #text - #counts, plus_end, 'DiffyAdded' })
+    table.insert(spans, { plus_end + 1, #text, 'DiffyRemoved' })
+  end
+  row.name_col = { #head, #left }
+  return text, spans
 end
 
 --- Per-file real-file/dirty context (§3) built from `session.status_entries`.
@@ -348,6 +394,7 @@ function M.open_row(session, row)
   local e = row.entry
   if e.status == 'U' then
     session.current_path = e.path
+    M.mark_current(session)
     require('diffy.conflict').enter(session, e.path)
     return
   end
@@ -374,6 +421,7 @@ function M.open_row(session, row)
   end
 
   session.current_path = e.path
+  M.mark_current(session)
   diffpair.show(session, left_spec, right_spec)
 end
 
@@ -394,11 +442,43 @@ function M.open_path(session, path)
   return false
 end
 
-local function render_buffer(session)
+--- Highlight the row of the file shown in the diff pair (§5).
+function M.mark_current(session)
   local buf = session.bufs.tree
-  local lines = {}
-  for _, row in ipairs(session.tree_rows) do
-    table.insert(lines, row_text(row))
+  if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+    return
+  end
+  local ns = require('diffy.session').namespace(session, 'tree_current')
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  for i, row in ipairs(session.tree_rows or {}) do
+    if row.kind == 'file' and row.entry.path == session.current_path and row.name_col then
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = 'DiffyCurrentFile' })
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, row.name_col[1], {
+        end_col = row.name_col[2],
+        hl_group = 'DiffyCurrentFileName',
+      })
+      return
+    end
+  end
+end
+
+local function tree_width(session)
+  local win = session.wins.tree
+  if win and vim.api.nvim_win_is_valid(win) then
+    return hl.text_width(win) - 1
+  end
+  return session.tree_width or require('diffy').config.panel_width
+end
+
+--- Re-render the current rows fitted to the tree window's width (no git).
+function M.redraw(session)
+  local buf = session.bufs.tree
+  local width = tree_width(session)
+  session.tree_width = width
+  local lines, all_spans = {}, {}
+  for i, row in ipairs(session.tree_rows) do
+    local text, spans = row_line(row, width)
+    lines[i], all_spans[i] = text, spans
   end
   if #lines == 0 then
     lines = { '(no changes)' }
@@ -407,10 +487,25 @@ local function render_buffer(session)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
   vim.bo[buf].shiftwidth = 2
-  vim.wo[session.wins.tree].foldmethod = 'indent'
-  vim.wo[session.wins.tree].foldenable = true
-  vim.wo[session.wins.tree].foldlevel = 99
+  local ns = require('diffy.session').namespace(session, 'tree_render')
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  for i, spans in ipairs(all_spans) do
+    for _, sp in ipairs(spans) do
+      if sp[2] > sp[1] then
+        vim.api.nvim_buf_set_extmark(buf, ns, i - 1, sp[1], { end_col = sp[2], hl_group = sp[3] })
+      end
+    end
+  end
+  local win = session.wins.tree
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.wo[win].foldmethod = 'indent'
+    vim.wo[win].foldenable = true
+    vim.wo[win].foldlevel = 99
+  end
+  M.mark_current(session)
 end
+
+local render_buffer = M.redraw
 
 local function file_rows(session)
   local out = {}
@@ -458,6 +553,7 @@ function M.render(session, cb)
     else
       require('diffy.diffpair').clear(session)
       session.current_path = nil
+      M.mark_current(session)
     end
     if cb then
       cb()
@@ -570,6 +666,16 @@ function M.setup(session)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  require('diffy.session').map_toggle(session, buf)
+  vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
+    group = session.augroup,
+    callback = function()
+      local win = session.wins.tree
+      if session.tree_rows and win and vim.api.nvim_win_is_valid(win) and tree_width(session) ~= session.tree_width then
+        M.redraw(session)
+      end
+    end,
+  })
 end
 
 return M
