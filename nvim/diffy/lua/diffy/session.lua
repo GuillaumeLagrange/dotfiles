@@ -76,7 +76,7 @@ end
 -- no-ops, while a lone `:q` still has its siblings open for teardown to
 -- close.
 local function watch_close(session, win)
-  vim.api.nvim_create_autocmd('WinClosed', {
+  local au_id = vim.api.nvim_create_autocmd('WinClosed', {
     group = session.augroup,
     pattern = tostring(win),
     once = true,
@@ -86,6 +86,8 @@ local function watch_close(session, win)
       end)
     end,
   })
+  session._win_watchers = session._win_watchers or {}
+  session._win_watchers[win] = au_id
 end
 
 local function watch_wipe(session, buf)
@@ -106,6 +108,20 @@ end
 function M.register_window(session, name, win)
   session.wins[name] = win
   watch_close(session, win)
+end
+
+--- Reverse of `register_window`: stop watching `session.wins[name]` for
+--- auto-teardown and drop it from the registry, without closing it. For a
+--- phase that closes/replaces one of its own windows without ending the
+--- session (e.g. the conflict view's 4-window layout reverting to the
+--- normal 2-window pair, §8) - the caller closes the window itself.
+function M.unregister_window(session, name)
+  local win = session.wins[name]
+  if win and session._win_watchers and session._win_watchers[win] then
+    pcall(vim.api.nvim_del_autocmd, session._win_watchers[win])
+    session._win_watchers[win] = nil
+  end
+  session.wins[name] = nil
 end
 
 --- Register a managed buffer under `name` (`session.bufs[name]`).
@@ -209,6 +225,13 @@ function M.teardown(session)
   end
   session.closed = true
   M.sessions[session.id] = nil
+
+  -- best-effort restore of an active full checkout (§7): skipped while
+  -- nvim is exiting, since checkout.lua's own VimLeavePre handler does the
+  -- synchronous version of this - see its comment for why.
+  if session.checkout and vim.v.exiting == vim.NIL then
+    require('diffy.checkout').leave_on_teardown(session)
+  end
 
   pcall(vim.api.nvim_del_augroup_by_id, session.augroup)
 

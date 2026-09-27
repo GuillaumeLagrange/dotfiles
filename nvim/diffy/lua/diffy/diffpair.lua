@@ -42,6 +42,7 @@ local function set_nav_keymaps(session, buf)
       session.refresh(session)
     end
   end, { buffer = buf, desc = 'rebuild' })
+  require('diffy.review.ui').setup_diff_keymaps(session, buf)
 end
 
 --- Put `spec` (`{rev, path}` or `nil` for "no file on this side") into
@@ -72,7 +73,12 @@ local function open_side(session, name, spec)
     session_mod.unmap_buffer(session, prev_real)
   end
 
+  -- navigation.lua's BufWinEnter handler must ignore diffy's own writes to
+  -- the right window (§6) - every actual buffer swap is bracketed with this
+  -- counter so it can tell the difference from a real user navigation.
+  session._nav_guard = (session._nav_guard or 0) + 1
   vim.api.nvim_win_set_buf(win, buf)
+  session._nav_guard = session._nav_guard - 1
 
   if is_real then
     session.real_bufs[name] = buf
@@ -103,11 +109,56 @@ function M.show(session, left_spec, right_spec)
       vim.cmd('diffthis')
     end)
   end
+
+  require('diffy.review.ui').decorate(session)
 end
 
 --- No files in the current selection: clear both sides to placeholders.
 function M.clear(session)
   M.show(session, nil, nil)
+end
+
+--- Leave diff mode because the right window navigated outside the current
+--- file list (§6): the right window keeps whatever real buffer it now
+--- shows (its diffy keymaps removed, since it's no longer diffy-managed);
+--- the left window becomes an "outside diff" placeholder. Selecting a
+--- listed file again (`M.show`) restores the pair.
+function M.leave(session)
+  local left, right = session.wins.left, session.wins.right
+  for _, win in ipairs({ left, right }) do
+    if win and vim.api.nvim_win_is_valid(win) then
+      vim.wo[win].scrollbind = false
+      vim.wo[win].cursorbind = false
+      vim.api.nvim_win_call(win, function()
+        pcall(vim.cmd, 'diffoff')
+      end)
+    end
+  end
+
+  if right and vim.api.nvim_win_is_valid(right) then
+    local prev_real = session.real_bufs and session.real_bufs.right
+    if prev_real and vim.api.nvim_buf_is_valid(prev_real) then
+      session_mod.unmap_buffer(session, prev_real)
+    end
+    if session.real_bufs then
+      session.real_bufs.right = nil
+    end
+    vim.w[right].diffy_rev = nil
+    vim.w[right].diffy_path = nil
+    vim.wo[right].winbar = '(outside diff)'
+  end
+
+  if left and vim.api.nvim_win_is_valid(left) then
+    local buf = session_mod.scratch_buf(session, 'left')
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '(outside diff)' })
+    session_mod.register_buffer(session, 'left', buf)
+    vim.api.nvim_win_set_buf(left, buf)
+    vim.w[left].diffy_rev = nil
+    vim.w[left].diffy_path = nil
+    vim.wo[left].winbar = '(outside diff)'
+  end
+
+  session.current_path = nil
 end
 
 return M

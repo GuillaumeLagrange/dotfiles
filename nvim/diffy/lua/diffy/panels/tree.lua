@@ -1,16 +1,13 @@
 -- The file tree panel (contract §5): the diff between the current
--- selection's (left, right), grouped by directory (single-child dirs
--- flattened), with rename pairs and +n/-m counts.
+-- selection's (left, right) as a nested directory tree (collapsible on
+-- `za`, chains of single-child dirs flattened into one row), with rename
+-- pairs, +n/-m counts and the staging keys (`s`/`u`/`-`/`S`/`U`).
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
 local parse = require('diffy.git.parse')
 local selection = require('diffy.selection')
 
 local M = {}
-
-local function dirname(path)
-  return path:match('^(.*)/[^/]+$') or ''
-end
 
 --- name-status + numstat for the current selection, merged by path, plus
 --- untracked files (only when the selection is exactly Unstaged, §5).
@@ -20,6 +17,12 @@ local function build_diff_entries(session, cb)
   vim.list_extend(ns_args, diff_args)
   local num_args = { 'diff', '-z', '-M', '--numstat' }
   vim.list_extend(num_args, diff_args)
+  if session.follow_pathspec then
+    table.insert(ns_args, '--')
+    vim.list_extend(ns_args, session.follow_pathspec)
+    table.insert(num_args, '--')
+    vim.list_extend(num_args, session.follow_pathspec)
+  end
 
   run.git(ns_args, {
     cwd = session.root,
@@ -58,6 +61,24 @@ local function build_diff_entries(session, cb)
               end
             end
           end
+          -- an unmerged path's plain `git diff` (worktree vs index) reports
+          -- it twice ('U', then a spurious 'M' from git's own auto-merge
+          -- attempt) - keep only the conflict status (§8).
+          local unmerged_paths = {}
+          for _, e in ipairs(entries) do
+            if e.status == 'U' then
+              unmerged_paths[e.path] = true
+            end
+          end
+          if next(unmerged_paths) then
+            local deduped = {}
+            for _, e in ipairs(entries) do
+              if e.status == 'U' or not unmerged_paths[e.path] then
+                table.insert(deduped, e)
+              end
+            end
+            entries = deduped
+          end
           table.sort(entries, function(a, b)
             return a.path < b.path
           end)
@@ -68,36 +89,84 @@ local function build_diff_entries(session, cb)
   })
 end
 
---- Group a flat entry list into display rows: a directory containing 2+
---- entries gets one collapsible header row followed by its indented
---- children; a directory with exactly one entry is flattened away (the
---- entry is shown directly, its own path carrying the directory prefix).
-local function group_rows(entries)
-  local groups, order = {}, {}
+--- Build a nested directory tree from a flat, path-sorted entry list:
+--- `dirs`/`dir_order` hold immediate child directories, `files` the
+--- entries whose parent directory is this node.
+local function build_tree(entries)
+  local root = { dirs = {}, dir_order = {}, files = {} }
   for _, e in ipairs(entries) do
-    local dir = dirname(e.path)
-    if not groups[dir] then
-      groups[dir] = {}
-      table.insert(order, dir)
+    local node = root
+    for seg in e.path:gmatch('([^/]+)/') do
+      if not node.dirs[seg] then
+        node.dirs[seg] = { dirs = {}, dir_order = {}, files = {} }
+        table.insert(node.dir_order, seg)
+      end
+      node = node.dirs[seg]
     end
-    table.insert(groups[dir], e)
+    table.insert(node.files, e)
   end
-  table.sort(order)
+  return root
+end
 
-  local rows = {}
-  for _, dir in ipairs(order) do
-    local list = groups[dir]
-    if dir == '' or #list == 1 then
-      for _, e in ipairs(list) do
-        table.insert(rows, { kind = 'file', entry = e, depth = 0 })
-      end
+--- `node`'s direct children (files and subdirectories), ordered by name.
+local function node_items(node)
+  local items = {}
+  for _, e in ipairs(node.files) do
+    table.insert(items, { key = e.path:match('([^/]+)$') or e.path, kind = 'file', entry = e })
+  end
+  for _, name in ipairs(node.dir_order) do
+    table.insert(items, { key = name, kind = 'dir', name = name, node = node.dirs[name] })
+  end
+  table.sort(items, function(a, b)
+    return a.key < b.key
+  end)
+  return items
+end
+
+--- Lay `node` out into display rows: a directory whose only content is one
+--- subdirectory is merged into `chain` (no row of its own - §5's "chains
+--- of single-child dirs flattened into one row"); a directory whose only
+--- content is one file is skipped entirely (the file is shown directly,
+--- its own path already carrying the full prefix); everything else gets
+--- one collapsible header row for the accumulated `chain` (empty at the
+--- root, so the root itself never gets a header) followed by its
+--- children, one depth deeper - `foldmethod=indent` then folds exactly
+--- that header's children on `za`, at every nesting level.
+local function layout(node, chain, depth, rows)
+  local items = node_items(node)
+  if #items == 0 then
+    return
+  end
+  if #items == 1 and items[1].kind == 'dir' then
+    local it = items[1]
+    layout(it.node, chain == '' and it.name or (chain .. '/' .. it.name), depth, rows)
+    return
+  end
+  if #items == 1 and items[1].kind == 'file' then
+    table.insert(rows, { kind = 'file', entry = items[1].entry, depth = depth })
+    return
+  end
+  local child_depth = depth
+  if chain ~= '' then
+    table.insert(rows, { kind = 'dir', name = chain, depth = depth })
+    child_depth = depth + 1
+  end
+  for _, it in ipairs(items) do
+    if it.kind == 'file' then
+      table.insert(rows, { kind = 'file', entry = it.entry, depth = child_depth })
     else
-      table.insert(rows, { kind = 'dir', name = dir, depth = 0 })
-      for _, e in ipairs(list) do
-        table.insert(rows, { kind = 'file', entry = e, depth = 1 })
-      end
+      layout(it.node, it.name, child_depth, rows)
     end
   end
+end
+
+--- Group a flat, path-sorted entry list into display rows (§5): a nested
+--- directory tree, each real directory collapsible on its own header row,
+--- chains of single-child directories flattened into one row, and a
+--- directory holding exactly one file flattened away entirely.
+local function group_rows(entries)
+  local rows = {}
+  layout(build_tree(entries), '', 0, rows)
   return rows
 end
 
@@ -138,13 +207,147 @@ local function clean_ctx(session)
   }
 end
 
---- Open the diff pair for tree row `row` (a `{kind='file', entry=...}`).
+--- True when the current selection is exactly `Unstaged` (left=index,
+--- right=worktree) or exactly `Staged` (left=HEAD, right=index) - the only
+--- two selections staging keys operate on (§5).
+local function staging_pane(session)
+  if session.pair.left == 'INDEX' and session.pair.right == 'WORKTREE' then
+    return 'unstaged'
+  elseif session.pair.left == 'HEAD' and session.pair.right == 'INDEX' then
+    return 'staged'
+  end
+  return nil
+end
+
+local function require_staging_pane(session)
+  local pane = staging_pane(session)
+  if not pane then
+    vim.notify('diffy: staging needs the Unstaged or Staged selection', vim.log.levels.WARN)
+  end
+  return pane
+end
+
+--- Both paths of a rename/copy row, or the single path of any other row.
+local function row_paths(row)
+  local e = row.entry
+  if e.status == 'R' or e.status == 'C' then
+    return { e.old_path, e.path }
+  end
+  return { e.path }
+end
+
+local function row_at_cursor(session)
+  local lnum = vim.api.nvim_win_get_cursor(session.wins.tree)[1]
+  local row = session.tree_rows[lnum]
+  if row and row.kind == 'file' then
+    return row
+  end
+  return nil
+end
+
+--- Run `git <verb> -- <paths>` and refresh on success (mutations refresh
+--- and re-fire `DiffyReady`, §5).
+local function git_paths(session, verb, paths)
+  local args = { verb, '--' }
+  vim.list_extend(args, paths)
+  run.git(args, {
+    cwd = session.root,
+    on_exit = function(res)
+      if res.code == 0 and session.refresh then
+        session.refresh(session)
+      end
+    end,
+  })
+end
+
+--- `s`: stage the file (or both paths of a rename pair) at the cursor, or
+--- (§8) mark a conflicted ('U') row resolved (warns if markers remain).
+function M.stage(session)
+  local row = row_at_cursor(session)
+  if row and row.entry.status == 'U' then
+    require('diffy.conflict').resolve(session, row.entry.path)
+    return
+  end
+  if not require_staging_pane(session) then
+    return
+  end
+  if not row then
+    return
+  end
+  git_paths(session, 'add', row_paths(row))
+end
+
+--- `u`: unstage the file (or both paths of a rename pair) at the cursor.
+function M.unstage(session)
+  if not require_staging_pane(session) then
+    return
+  end
+  local row = row_at_cursor(session)
+  if not row then
+    return
+  end
+  git_paths(session, 'reset', row_paths(row))
+end
+
+--- `-`: stage from the `Unstaged` pane, unstage from the `Staged` pane.
+function M.toggle(session)
+  local pane = require_staging_pane(session)
+  if not pane then
+    return
+  end
+  if pane == 'unstaged' then
+    M.stage(session)
+  else
+    M.unstage(session)
+  end
+end
+
+--- `S`: stage every change (tracked and untracked).
+function M.stage_all(session)
+  if not require_staging_pane(session) then
+    return
+  end
+  run.git({ 'add', '-A' }, {
+    cwd = session.root,
+    on_exit = function(res)
+      if res.code == 0 and session.refresh then
+        session.refresh(session)
+      end
+    end,
+  })
+end
+
+--- `U`: unstage every staged change.
+function M.unstage_all(session)
+  if not require_staging_pane(session) then
+    return
+  end
+  run.git({ 'reset' }, {
+    cwd = session.root,
+    on_exit = function(res)
+      if res.code == 0 and session.refresh then
+        session.refresh(session)
+      end
+    end,
+  })
+end
+
+--- Open the diff pair for tree row `row` (a `{kind='file', entry=...}`),
+--- or (§8) the 4-window conflict view for an unmerged ('U') row.
 function M.open_row(session, row)
   if not row or row.kind ~= 'file' then
     return
   end
-  local diffpair = require('diffy.diffpair')
   local e = row.entry
+  if e.status == 'U' then
+    session.current_path = e.path
+    require('diffy.conflict').enter(session, e.path)
+    return
+  end
+  if session.conflict_active then
+    require('diffy.conflict').leave(session)
+  end
+  local diffpair = require('diffy.diffpair')
   local ctx = clean_ctx(session)
 
   local left_spec, right_spec
@@ -167,6 +370,23 @@ function M.open_row(session, row)
   diffpair.show(session, left_spec, right_spec)
 end
 
+--- Locate the tree row for `path` and open its diff pair, updating the
+--- tracked current-file line and cursor position (§6 navigation, phase 4).
+--- Returns `true` if `path` is in the current file list, `false` otherwise.
+function M.open_path(session, path)
+  for i, row in ipairs(session.tree_rows or {}) do
+    if row.kind == 'file' and row.entry.path == path then
+      session.current_file_line = i
+      if vim.api.nvim_win_is_valid(session.wins.tree) then
+        pcall(vim.api.nvim_win_set_cursor, session.wins.tree, { i, 0 })
+      end
+      M.open_row(session, row)
+      return true
+    end
+  end
+  return false
+end
+
 local function render_buffer(session)
   local buf = session.bufs.tree
   local lines = {}
@@ -179,6 +399,7 @@ local function render_buffer(session)
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
+  vim.bo[buf].shiftwidth = 2
   vim.wo[session.wins.tree].foldmethod = 'indent'
   vim.wo[session.wins.tree].foldenable = true
   vim.wo[session.wins.tree].foldlevel = 99
@@ -320,6 +541,21 @@ function M.setup(session)
   map(session, 'n', 'gf', function()
     M.open_real_file(session)
   end, { buffer = buf, desc = 'open real file' })
+  map(session, 'n', 's', function()
+    M.stage(session)
+  end, { buffer = buf, desc = 'stage' })
+  map(session, 'n', 'u', function()
+    M.unstage(session)
+  end, { buffer = buf, desc = 'unstage' })
+  map(session, 'n', '-', function()
+    M.toggle(session)
+  end, { buffer = buf, desc = 'toggle stage' })
+  map(session, 'n', 'S', function()
+    M.stage_all(session)
+  end, { buffer = buf, desc = 'stage all' })
+  map(session, 'n', 'U', function()
+    M.unstage_all(session)
+  end, { buffer = buf, desc = 'unstage all' })
   map(session, 'n', 'R', function()
     if session.refresh then
       session.refresh(session)

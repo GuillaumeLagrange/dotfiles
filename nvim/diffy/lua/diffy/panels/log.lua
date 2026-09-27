@@ -19,6 +19,12 @@ local function log_args(expr, limit)
   return args
 end
 
+--- `git log -z --follow --date-order --pretty=… -- path` (§4 `:Diffy
+--- file`): commits touching `path`, tracked across renames.
+local function file_log_args(path)
+  return { 'log', '-z', '--follow', '--date-order', '--pretty=format:%H%x1f%P%x1f%s', '--', path }
+end
+
 local function commit_entries(root, args, cb)
   run.git(args, {
     cwd = root,
@@ -44,7 +50,7 @@ local function commit_entries(root, args, cb)
 end
 
 local function worktree_prefix(spec)
-  if spec.kind == 'range' then
+  if spec.kind == 'range' or spec.kind == 'file' then
     return {}
   end
   return {
@@ -88,6 +94,39 @@ function M.build_entries(root, spec, cb)
         end)
       end)
     end)
+  elseif spec.kind == 'file' then
+    commit_entries(root, file_log_args(spec.path), function(commits, err)
+      if not commits then
+        cb(nil, err)
+        return
+      end
+      -- every name `path` has ever had (renames), so the tree's diff calls
+      -- can be pathspec-restricted to just this file (§8's phase-5 hook)
+      -- while still letting git detect a rename across adjacent commits.
+      run.git({ 'log', '--follow', '-z', '--name-status', '--pretty=format:%H', '--', spec.path }, {
+        cwd = root,
+        on_exit = function(res)
+          local names = { [spec.path] = true }
+          if res.code == 0 then
+            for _, rec in ipairs(parse.log_name_status(res.stdout or '')) do
+              if rec.path then
+                names[rec.path] = true
+              end
+              if rec.old_path then
+                names[rec.old_path] = true
+              end
+            end
+          end
+          local pathspec = {}
+          for name in pairs(names) do
+            table.insert(pathspec, name)
+          end
+          table.sort(pathspec)
+          commits.follow_pathspec = pathspec
+          cb(commits, nil)
+        end,
+      })
+    end)
   else
     repo.default_range(root, function(range_spec)
       commit_entries(root, log_args(range_spec.expr, range_spec.n), function(commits, err)
@@ -112,6 +151,13 @@ function M.default_selection(entries, spec)
   end
   if spec.kind == 'default' then
     return { top = 1, bottom = 1 }
+  end
+  if spec.kind == 'file' then
+    local top = selection.first_selectable(entries)
+    if not top then
+      return nil
+    end
+    return { top = top, bottom = top }
   end
   local first_commit = 1
   if spec.kind == 'branch' then
@@ -335,6 +381,9 @@ function M.setup(session)
   map(session, 'n', 'K', function()
     M.move_selection(session, -1)
   end, { buffer = buf, desc = 'select previous commit' })
+  map(session, 'n', 'X', function()
+    require('diffy.checkout').toggle(session)
+  end, { buffer = buf, desc = 'full checkout' })
   map(session, 'n', 'R', function()
     if session.refresh then
       session.refresh(session)

@@ -62,9 +62,35 @@ end
 --- Threads currently rendered in `side`'s window ('left'|'right') of the
 --- session in `child`'s current tab, read from the extmarks actually drawn:
 --- `{ { line = 15, summary = '💬 alice +1' }, … }`.
---- Implemented by phase 6 (review layer), once threads/signs exist.
-function M.threads_visible(_child, _side)
-  error('ui.threads_visible: implemented by phase 6 (review layer)')
+function M.threads_visible(child, side)
+  return child.lua(([[
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    if not s then return {} end
+    local win = s.wins[%q]
+    if not win or not vim.api.nvim_win_is_valid(win) then return {} end
+    local ns = s.ns.review
+    if not ns then return {} end
+    local buf = vim.api.nvim_win_get_buf(win)
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
+    local out = {}
+    for _, m in ipairs(marks) do
+      local details = m[4]
+      if details.virt_lines then
+        local parts = {}
+        for _, vl in ipairs(details.virt_lines) do
+          local chunk = vl[1]
+          if chunk and chunk[1] ~= '' then
+            table.insert(parts, chunk[1])
+          end
+        end
+        if #parts > 0 then
+          table.insert(out, { line = m[2] + 1, summary = table.concat(parts, ' | ') })
+        end
+      end
+    end
+    table.sort(out, function(a, b) return a.line < b.line end)
+    return out
+  ]]):format(side))
 end
 
 --- True if the left/right diff windows currently show matching rows for

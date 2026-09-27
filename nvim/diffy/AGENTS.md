@@ -24,8 +24,9 @@ it goes in the contract, not here.
 
 ## nvim facts (verified on 0.12.5)
 
-- `nvim_win_add_ns` does not exist. `nvim__ns_set(ns, { wins = { win } })` works: extmarks, virt_lines and signs
-  in that namespace render only in the listed windows. Experimental API (`nvim__` prefix).
+- `nvim_win_add_ns` does not exist. `vim.api.nvim__ns_set(ns, { wins = { win } })` (not `vim.fn.nvim__ns_set` -
+  that raises "Tried to call API function with vim.fn") works: extmarks, virt_lines and signs in that
+  namespace render only in the listed windows. Experimental API (`nvim__` prefix).
 - virt_lines on one side of a scrollbound diff shift that window and break alignment. The same number of empty
   virt_lines on the counterpart line of the other window restores it.
 - Default `diffopt` here: `internal,filler,closeoff,indent-heuristic,inline:char,linematch:40`.
@@ -51,6 +52,22 @@ it goes in the contract, not here.
   escapes like `%.` are *not* interpreted and become part of the literal string being searched for (so
   `s:find('%.%.', 1, true)` looks for the four characters `%.%.`, never matches `..`). Use the plain
   substring (`s:find('..', 1, true)`) or drop `plain`.
+- `BufWinEnter`'s callback runs with the *affected* window as
+  `vim.api.nvim_get_current_win()` even when a background (non-focused) window's
+  buffer was changed via `nvim_win_set_buf(win, buf)` - reverting to the real current
+  window once the callback returns. There is no buffer-agnostic, window-scoped variant
+  of the autocmd itself, so window-scoping it means checking this inside the callback.
+- `nvim_win_set_buf(win, buf)` fires `BufWinEnter` only when `buf` actually differs from
+  what the window already shows; setting the same buffer again is a silent no-op (no
+  autocmd) - useful for a handler that reacts to a buffer change and then redundantly
+  re-applies the same buffer without causing a refire loop.
+- `v:exiting` is already non-`nil` (`0` on a normal `:qa`) by the time `VimLeavePre`
+  fires, not just `VimLeave` - use it inside a `VimLeavePre` callback to tell a real
+  exit apart from an ordinary `:tabclose`/`:q` that merely closes one tab.
+- `:0cquit` (what mini.test's `child.stop()`/`child.restart()` use to close a child)
+  **does** fire `VimLeavePre`/`VimLeave` - it is not a stand-in for a hard kill. To
+  simulate nvim being killed (no graceful shutdown autocmds at all), send `SIGKILL` to
+  the real OS pid (`vim.fn.getpid()` inside the target process) instead.
 
 ## git facts
 
@@ -65,6 +82,13 @@ it goes in the contract, not here.
   further NUL-terminated tokens - the two `-z` shapes need different splitting logic.
   `--date-order` on `git log` guarantees a merge commit is listed before both its parents (plain reverse
   chronological order happens to too, given monotonically increasing commit dates, but isn't guaranteed to).
+- A conflicted path's plain `git diff` (worktree vs index, no revs) reports it *twice*
+  in `--name-status`/`--numstat`: once as `U`, once as a spurious `M` (git's own
+  auto-merge attempt) with the same path. Dedupe by keeping only the `U` row.
+- `git diff -M <a> <b> -- <pathspec>...` only detects a rename between two names if
+  *both* the old and new name are given as pathspecs (or none at all) - restricting to
+  only the new name loses the pairing and reports a plain `A`, even for adjacent
+  commits where the unrestricted diff would show `R`.
 
 ## GitHub facts (measured on the sandbox; the fake GitHub must reproduce them)
 
@@ -153,6 +177,22 @@ Follow the global browser rule. Specific to GitHub's new "Changes" UI:
   `lua/`); add the plugin root to `package.path` explicitly (`root .. '/?.lua;' .. package.path`) instead.
 - Buffer/window/tabpage handles round-trip as plain Lua numbers through `child.lua_get`/`child.lua` (msgpack-rpc
   to a separate child process) — comparing/using them the same way as in-process is fine, no unwrapping needed.
+- `vim.fn.confirm()` does **not** block for real input in this harness (headless, UI
+  attached only for `get_screenshot`): it returns its default choice immediately, even
+  with zero typeahead queued, and `child.type_keys()` can't drive it (confirmed by
+  direct experiment: `is_blocked()` never becomes true around a `confirm()` call
+  reached through a mapped keystroke, regardless of ordering/timing/combining keys).
+  Test confirm()-driven code by mocking it instead (`child.lua("vim.fn.confirm =
+  function(...) return N end")`), the same technique mini.nvim's own test suite uses
+  for its `confirm()`-driven features (`mini.bufremove`, `mini.files`).
+- A mapped key that itself calls `nvim_open_win` + `vim.cmd('startinsert')` (a
+  floating compose buffer, say) leaves `nvim_get_mode().blocking` `true` for a while
+  after `child.type_keys()` returns - clearing only once *more real input* arrives
+  (another `type_keys()` call), not with more wall-clock time or more guard-free
+  polling alone. `ui.wait_ready`/`child.lua` throw immediately while blocked (their
+  guard checks `is_blocked()` up front); reimplement the same `DiffyReady` wait with
+  raw `child.api.*` calls (no guard) instead of `ui.wait_ready` right after such a
+  keystroke - see `tests/test_review_local.lua`'s `wait_ready_raw`.
 
 ## Open questions
 

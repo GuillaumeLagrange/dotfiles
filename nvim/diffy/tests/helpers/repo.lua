@@ -133,6 +133,22 @@ function Repo:merge(name, label)
   return self
 end
 
+--- Attempt to merge `name` into the current branch, tolerating a conflict
+--- (§8's conflict-view scenarios need a real unresolved merge in progress -
+--- unlike `:merge`, a nonzero exit here is the expected outcome, not a
+--- fixture-builder error).
+function Repo:merge_conflict(name)
+  vim.system({ 'git', 'merge', '--no-ff', '--no-edit', name }, { cwd = self.dir, text = true, env = BASE_ENV }):wait()
+  return self
+end
+
+--- Attempt to rebase the current branch onto `name`, tolerating a conflict
+--- (§8's rebase-conflict scenario).
+function Repo:rebase_conflict(name)
+  vim.system({ 'git', 'rebase', name }, { cwd = self.dir, text = true, env = BASE_ENV }):wait()
+  return self
+end
+
 --- Rename a tracked path (staged; not committed until `:commit`).
 function Repo:mv(old, new)
   git(self.dir, { 'mv', old, new })

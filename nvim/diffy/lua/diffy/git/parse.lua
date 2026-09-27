@@ -143,4 +143,39 @@ function M.ls_files_unmerged(stdout)
   return out
 end
 
+--- `git log --follow -z --name-status --pretty=format:%H -- <path>` (§4
+--- `:Diffy file`). Each commit's own `\n`-joined "sha\nfirst-status-token"
+--- opens a new record (log's `-z` only separates *commits*, so a NUL
+--- token straddles the pretty-format sha and the first name-status line);
+--- everything else follows `M.name_status`'s per-line shape.
+--- @return { sha: string, status: string, path: string, old_path?: string }[]
+function M.log_name_status(stdout)
+  local tokens = split_z(stdout)
+  local out = {}
+  local i = 1
+  while i <= #tokens do
+    local tok = tokens[i]
+    if tok == '' then
+      i = i + 1
+    else
+      local sha, status = tok:match('^(.-)\n(.*)$')
+      if not sha then
+        i = i + 1
+      elseif status == '' then
+        i = i + 1
+      else
+        local letter = status:sub(1, 1)
+        if letter == 'R' or letter == 'C' then
+          table.insert(out, { sha = sha, status = letter, old_path = tokens[i + 1], path = tokens[i + 2] })
+          i = i + 3
+        else
+          table.insert(out, { sha = sha, status = letter, path = tokens[i + 1] })
+          i = i + 2
+        end
+      end
+    end
+  end
+  return out
+end
+
 return M
