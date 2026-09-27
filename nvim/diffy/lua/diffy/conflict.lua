@@ -209,24 +209,39 @@ end
 
 --- `s` on a conflicted row (dedicated conflicts tree, or a `U` row in a
 --- normal session, via `panels/tree.lua`'s `M.stage`): `git add` the file,
---- warning and asking for confirmation first if markers remain (§8).
-function M.resolve(session, path)
+--- warning and asking for real-key confirmation first if markers remain
+--- (§8, §11.2 - `lua/diffy/prompt.lua`, not `vim.fn.confirm`). `cb(staged)`
+--- is optional and always called exactly once: `true` once `git add`
+--- succeeds, `false` on decline or failure.
+function M.resolve(session, path, cb)
   local abspath = session.root .. '/' .. path
-  if still_conflicted(abspath) then
-    local choice = vim.fn.confirm(('diffy: %s still has conflict markers - stage anyway?'):format(path), '&Yes\n&No', 2)
-    if choice ~= 1 then
-      return
-    end
+  local function do_add()
+    run.git({ 'add', '--', path }, {
+      cwd = session.root,
+      session = session,
+      on_exit = function(res)
+        if res.code == 0 and session.refresh then
+          session.refresh(session)
+        end
+        if cb then
+          cb(res.code == 0)
+        end
+      end,
+    })
   end
-  run.git({ 'add', '--', path }, {
-    cwd = session.root,
-    session = session,
-    on_exit = function(res)
-      if res.code == 0 and session.refresh then
-        session.refresh(session)
+  if still_conflicted(abspath) then
+    require('diffy.prompt').confirm(session, {
+      ('%s still has conflict markers - stage anyway?'):format(path),
+    }, function(accepted)
+      if accepted then
+        do_add()
+      elseif cb then
+        cb(false)
       end
-    end,
-  })
+    end)
+  else
+    do_add()
+  end
 end
 
 -- `:Diffy conflicts`'s own tree (no log entries, only unmerged files).

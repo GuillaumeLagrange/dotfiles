@@ -55,6 +55,40 @@ local function is_diff(win)
   return child.lua_get(('vim.wo[%d].diff'):format(win))
 end
 
+-- Closing the confirm prompt's floating window right before spawning the
+-- `git add` subprocess (`M.resolve`'s accept path) leaves the child
+-- transiently `blocking=true` in a way that only clears once the
+-- subprocess itself finishes, not with more wall-clock time or
+-- guard-free polling alone (same family of headless-nvim/RPC quirk as
+-- `test_review_local.lua`'s compose float, see AGENTS.md). `ui.arm_ready`/
+-- `wait_ready` go through mini.test's blocked-child guard, which throws
+-- immediately in that window; these reimplement the same `DiffyReady`
+-- wait with raw, guard-free `child.api` calls instead, safe to use right
+-- after such a keystroke.
+local function arm_ready_raw(event)
+  child.api.nvim_exec_lua(([[
+    _G.__diffy_ready = false
+    _G.__diffy_ready_au = vim.api.nvim_create_autocmd('User', {
+      pattern = 'DiffyReady',
+      callback = function(a)
+        if a.data and a.data.event == %q then
+          _G.__diffy_ready = true
+        end
+      end,
+    })
+  ]]):format(event), {})
+end
+
+local function wait_ready_raw(timeout)
+  local start = vim.loop.now()
+  while vim.loop.now() - start < (timeout or 5000) do
+    if child.api.nvim_exec_lua('return _G.__diffy_ready', {}) then
+      break
+    end
+  end
+  pcall(child.api.nvim_exec_lua, 'pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)', {})
+end
+
 T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file'] = function()
   -- a fixed path (not `vim.fn.tempname()`'s random one): nothing in this
   -- layout shows an absolute path except the result window's statusline,
@@ -127,11 +161,9 @@ T['§8: gho/ght take hunks and s marks the file resolved'] = function()
   child.cmd('Diffy close')
 end
 
--- `vim.fn.confirm`'s interactive prompt can't be driven through real
--- keystrokes in this headless harness (verified: it resolves to its
--- default choice immediately, without ever blocking for input) - answered
--- with a mock instead, the same technique mini.nvim's own test suite uses
--- for its own `confirm()`-driven code (e.g. `mini.bufremove`).
+-- `s` with markers left opens `lua/diffy/prompt.lua`'s real floating
+-- confirmation (contract §11.2: nvim is never mocked) - driven here with
+-- actual `y`/`n` keystrokes, not a `vim.fn.confirm` mock.
 T['§8: s with conflict markers left asks for confirmation'] = function()
   repo = conflict_repo()
   child.fn.chdir(repo.dir)
@@ -141,16 +173,20 @@ T['§8: s with conflict markers left asks for confirmation'] = function()
   ui.wait_ready(child)
   local w = wins()
 
-  child.lua('_G.__confirm_choice = 2; vim.fn.confirm = function(...) return _G.__confirm_choice end')
-
   child.api.nvim_set_current_win(w.tree)
-  child.type_keys('s') -- declines (mocked choice 2, "No")
+  child.type_keys('s') -- markers still present: opens the confirm float
+  MiniTest.expect.equality(child.lua_get('vim.api.nvim_win_get_config(0).relative'), 'editor')
   MiniTest.expect.equality(ui.git(repo.dir, { 'status', '--porcelain=v2' }):find('^u ') ~= nil, true)
 
-  ui.arm_ready(child, 'render')
-  child.lua('_G.__confirm_choice = 1')
-  child.type_keys('s') -- accepts (mocked choice 1, "Yes")
-  ui.wait_ready(child)
+  child.type_keys('n') -- declines
+  MiniTest.expect.equality(child.lua_get('vim.api.nvim_win_get_config(0).relative'), '')
+  MiniTest.expect.equality(ui.git(repo.dir, { 'status', '--porcelain=v2' }):find('^u ') ~= nil, true)
+
+  child.type_keys('s') -- asks again
+  MiniTest.expect.equality(child.lua_get('vim.api.nvim_win_get_config(0).relative'), 'editor')
+  arm_ready_raw('render')
+  child.type_keys('y') -- accepts
+  wait_ready_raw()
   MiniTest.expect.equality(ui.git(repo.dir, { 'status', '--porcelain=v2' }):find('^u ') == nil, true)
 
   child.cmd('Diffy close')

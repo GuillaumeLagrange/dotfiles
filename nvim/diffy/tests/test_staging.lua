@@ -138,7 +138,7 @@ T['§5: `u` on a staged rename pair unstages both paths'] = function()
   child.cmd('Diffy close')
 end
 
-T['§5: an unstaged rename shows as D + ?, and as R after `git add -N`'] = function()
+T['§5: an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stages both paths'] = function()
   repo = Repo.new():commit('Base', { ['h.txt'] = Repo.lines(5) })
   os.rename(repo.dir .. '/h.txt', repo.dir .. '/i.txt')
   child.fn.chdir(repo.dir)
@@ -159,7 +159,20 @@ T['§5: an unstaged rename shows as D + ?, and as R after `git add -N`'] = funct
   ui.wait_ready(child)
 
   local after = buf_lines(w.tree)
-  MiniTest.expect.equality(find_line(after, 'R h.txt \226\134\146 i.txt') ~= nil, true)
+  local lnum = find_line(after, 'R h.txt \226\134\146 i.txt')
+  MiniTest.expect.equality(lnum ~= nil, true)
+
+  child.api.nvim_set_current_win(w.tree)
+  child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(lnum))
+  ui.arm_ready(child, 'render')
+  child.type_keys('s') -- stage the rename pair from its Unstaged (intent-to-add) row
+  ui.wait_ready(child)
+
+  local staged = ui.git(repo.dir, { 'diff', '--cached', '-M', '--name-status' })
+  MiniTest.expect.equality(staged:sub(1, 1), 'R')
+  MiniTest.expect.equality(staged:find('h.txt', 1, true) ~= nil, true)
+  MiniTest.expect.equality(staged:find('i.txt', 1, true) ~= nil, true)
+  MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--name-only' }), '')
 
   child.cmd('Diffy close')
 end
@@ -188,7 +201,20 @@ T['§5: staging keys are a no-op when the selection is not exactly Unstaged or S
 
   child.type_keys('<C-w>k')
   child.fn.win_execute(w.tree, 'call cursor(1, 1)')
+
+  -- observe only that a warning fires, never its exact wording (§11.3.4)
+  child.lua([[
+    _G.__warns = 0
+    local orig = vim.notify
+    vim.notify = function(msg, level, ...)
+      if level == vim.log.levels.WARN or level == vim.log.levels.ERROR then
+        _G.__warns = _G.__warns + 1
+      end
+      return orig(msg, level, ...)
+    end
+  ]])
   child.type_keys('s')
+  MiniTest.expect.equality(child.lua_get('_G.__warns') >= 1, true)
 
   MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--cached', '--name-only' }), '')
   MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--name-only' }), 'f.txt')
