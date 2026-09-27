@@ -5,6 +5,19 @@
 local root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
 local deps = root .. '/.deps'
 
+-- §11.3.8: no dependence on the user's git config (commit signing with a
+-- hardware key hangs `git commit`). The live GitHub run keeps the global
+-- config for gh's credential helper, but never signs.
+if not vim.env.DIFFY_TESTGH then
+  vim.env.GIT_CONFIG_GLOBAL = '/dev/null'
+  vim.env.GIT_CONFIG_NOSYSTEM = '1'
+end
+vim.env.GIT_CONFIG_COUNT = '2'
+vim.env.GIT_CONFIG_KEY_0 = 'commit.gpgsign'
+vim.env.GIT_CONFIG_VALUE_0 = 'false'
+vim.env.GIT_CONFIG_KEY_1 = 'tag.gpgsign'
+vim.env.GIT_CONFIG_VALUE_1 = 'false'
+
 local function git(dir, args)
   local cmd = { 'git' }
   vim.list_extend(cmd, args)
