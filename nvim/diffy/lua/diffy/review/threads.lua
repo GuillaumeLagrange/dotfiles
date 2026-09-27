@@ -1,12 +1,16 @@
--- `:Diffy threads`: the review's threads, all of them or one file's. In
--- snacks.nvim's picker when it's installed (fuzzy over every comment, the
--- thread previewed as in the float, <CR> jumps into it), else the quickfix
--- list.
+-- `:Diffy threads`: the review's threads, all of them, the selection's or
+-- one file's. In snacks.nvim's picker when it's installed (fuzzy over every
+-- comment, previewed with the code they're on, <CR> jumps into it), else the
+-- quickfix list.
 local model = require('diffy.review.model')
 local ui = require('diffy.review.ui')
 local highlight = require('diffy.highlight')
+local session_mod = require('diffy.session')
 
 local M = {}
+
+-- rows of code in a preview; the middle of a longer range is cut
+local SNIPPET_ROWS = 14
 
 local function state_of(t)
   return t.resolved and 'resolved' or (t.outdated and 'outdated') or (t._detached and 'detached') or 'open'
@@ -16,38 +20,51 @@ local function first_line(t)
   return t.comments[1] and vim.split(t.comments[1].body or '', '\n', { plain = true })[1] or ''
 end
 
---- Threads matching `filters` (`author`, `state`, `review`, `path`), by
---- file, then line, then age.
-local function collect(review, filters)
+--- Entries `{ thread, line }` matching `filters` (`author`, `state`,
+--- `review`, `path`), by file, then line, then age. With `filters.view`,
+--- only threads shown in the current selection, at the line shown there.
+local function collect(session, filters)
+  local review = session.review
+  local files = {}
+  for _, row in ipairs(session.tree_rows or {}) do
+    if row.kind == 'file' then
+      files[row.entry.path] = true
+    end
+  end
   local out = {}
   for _, t in ipairs(review.threads) do
     local author = t.comments[1] and t.comments[1].author or ''
-    if
-      (not filters.author or filters.author == author)
+    local line = t.anchor.start_line
+    local keep = (not filters.author or filters.author == author)
       and (not filters.state or filters.state == state_of(t))
       and (not filters.review or filters.review == (t.review_id or ''))
       and (not filters.path or filters.path == t.anchor.path)
-    then
-      table.insert(out, t)
+    if keep and filters.view then
+      local place = files[t.anchor.path] and review.backend.view_place(session, t)
+      keep = place ~= nil
+      line = place and place.start_line
+    end
+    if keep then
+      table.insert(out, { thread = t, line = line })
     end
   end
   table.sort(out, function(a, b)
-    if a.anchor.path ~= b.anchor.path then
-      return a.anchor.path < b.anchor.path
+    if a.thread.anchor.path ~= b.thread.anchor.path then
+      return a.thread.anchor.path < b.thread.anchor.path
     end
-    local la, lb = a.anchor.start_line or 0, b.anchor.start_line or 0
-    if la ~= lb then
-      return la < lb
+    if (a.line or 0) ~= (b.line or 0) then
+      return (a.line or 0) < (b.line or 0)
     end
-    return model.started(a) < model.started(b)
+    return model.started(a.thread) < model.started(b.thread)
   end)
   return out
 end
 
-local function to_quickfix(session, threads, title)
+local function to_quickfix(session, entries, title)
   local review = session.review
   local items = {}
-  for _, t in ipairs(threads) do
+  for _, e in ipairs(entries) do
+    local t = e.thread
     local first = first_line(t)
     if vim.fn.strchars(first) > 60 then
       first = vim.fn.strcharpart(first, 0, 59) .. '…'
@@ -59,7 +76,7 @@ local function to_quickfix(session, threads, title)
     end
     table.insert(items, {
       filename = session.root .. '/' .. t.anchor.path,
-      lnum = math.max(1, t.anchor.start_line or 1),
+      lnum = math.max(1, e.line or 1),
       text = text,
     })
   end
@@ -77,9 +94,10 @@ local ICONS = {
 
 --- A thread's picker columns: state, location, author (+replies), what
 --- isn't published yet, first line.
-local function columns(session, t, with_path)
+local function columns(session, e, with_path)
+  local t = e.thread
   local first = t.comments[1]
-  local line = t.anchor.start_line and tostring(t.anchor.start_line) or nil
+  local line = e.line and tostring(e.line) or nil
   local loc
   if with_path then
     loc = { { t.anchor.path, 'DiffyDirectory' }, { line and (':' .. line) or ' (file)', 'LineNr' } }
@@ -114,10 +132,10 @@ end
 
 --- Picker rows with every column padded to its widest cell, so the first
 --- lines start at the same column.
-local function rows(session, threads, with_path)
+local function rows(session, entries, with_path)
   local cols, w = {}, { loc = 0, who = 0, badges = 0 }
-  for i, t in ipairs(threads) do
-    local c = columns(session, t, with_path)
+  for i, e in ipairs(entries) do
+    local c = columns(session, e, with_path)
     cols[i] = c
     w.loc = math.max(w.loc, width_of(c.loc))
     w.who = math.max(w.who, vim.fn.strdisplaywidth(c.author .. c.replies))
@@ -149,10 +167,70 @@ local function rows(session, threads, with_path)
   return out
 end
 
-local function pick(snacks, session, threads, title, with_path)
-  local chunks = rows(session, threads, with_path)
+--- The code a thread is on, as a fenced block in the file's language (the
+--- preview's markdown highlighting injects it), lines cut to `width`.
+--- Returns the lines and, per 1-based line, its snippet row.
+local function code_block(t, width)
+  local snippet = model.snippet(t, SNIPPET_ROWS)
+  if not snippet then
+    return nil
+  end
+  -- a fence longer than any backtick run in the code
+  local fence = 3
+  for _, r in ipairs(snippet) do
+    for run in (r.text or ''):gmatch('`+') do
+      fence = math.max(fence, #run + 1)
+    end
+  end
+  fence = ('`'):rep(fence)
+  local lines, at = { fence .. (vim.filetype.match({ filename = t.anchor.path }) or '') }, {}
+  for _, r in ipairs(snippet) do
+    if r.gap then
+      at[#lines] = at[#lines] or {}
+      at[#lines].gap = r.gap
+    else
+      table.insert(lines, highlight.truncate(r.text, width))
+      at[#lines] = { row = r }
+    end
+  end
+  table.insert(lines, fence)
+  table.insert(lines, '')
+  return lines, at
+end
+
+local function preview(session, ctx)
+  local t = ctx.item.thread
+  ctx.preview:reset()
+  ctx.preview:minimal()
+  local gutter = 7
+  local lines, at = code_block(t, math.max(20, vim.api.nvim_win_get_width(ctx.win) - gutter - 1))
+  ui.render_thread(session, ctx.buf, t, { preamble = lines })
+  local ns = session_mod.namespace(session, 'review_snippet')
+  for i, a in pairs(at or {}) do
+    if a.row then
+      local r = a.row
+      vim.api.nvim_buf_set_extmark(ctx.buf, ns, i - 1, 0, {
+        -- the commented lines' numbers stand out, as in the diff
+        virt_text = { { ('%5s'):format(r.n or ''), r.range and 'DiffyThreadRange' or 'LineNr' }, { '  ' } },
+        virt_text_pos = 'inline',
+        line_hl_group = r.kind == 'add' and 'DiffAdd' or r.kind == 'del' and 'DiffDelete' or nil,
+      })
+    end
+    if a.gap then
+      vim.api.nvim_buf_set_extmark(ctx.buf, ns, i - 1, 0, {
+        virt_lines = { { { ('%s⋯ %d more line%s'):format((' '):rep(gutter), a.gap, a.gap == 1 and '' or 's'), 'Comment' } } },
+      })
+    end
+  end
+  ctx.preview:wo({ wrap = true, linebreak = true, breakindent = true, conceallevel = 2, concealcursor = 'nvic' })
+  ctx.preview:set_title(ctx.item.line and ('%s:%d'):format(t.anchor.path, ctx.item.line) or t.anchor.path)
+end
+
+local function pick(snacks, session, entries, title, with_path)
+  local chunks = rows(session, entries, with_path)
   local items = {}
-  for i, t in ipairs(threads) do
+  for i, e in ipairs(entries) do
+    local t = e.thread
     -- matched on everything a reader could remember a thread by
     local words = { t.anchor.path }
     for _, c in ipairs(t.comments) do
@@ -162,10 +240,11 @@ local function pick(snacks, session, threads, title, with_path)
     table.insert(items, {
       text = table.concat(words, ' '),
       thread = t,
+      line = e.line,
       chunks = chunks[i],
       -- for snacks' own actions, e.g. sending the list to the quickfix
       file = session.root .. '/' .. t.anchor.path,
-      pos = { math.max(1, t.anchor.start_line or 1), 0 },
+      pos = { math.max(1, e.line or 1), 0 },
     })
   end
   snacks.picker.pick({
@@ -175,12 +254,7 @@ local function pick(snacks, session, threads, title, with_path)
       return item.chunks
     end,
     preview = function(ctx)
-      ctx.preview:reset()
-      ctx.preview:minimal()
-      ui.render_thread(session, ctx.buf, ctx.item.thread)
-      ctx.preview:wo({ wrap = true, linebreak = true, breakindent = true, conceallevel = 2, concealcursor = 'nvic' })
-      local t = ctx.item.thread
-      ctx.preview:set_title(t.anchor.start_line and ('%s:%d'):format(t.anchor.path, t.anchor.start_line) or t.anchor.path)
+      preview(session, ctx)
     end,
     confirm = function(picker, item)
       picker:close()
@@ -195,9 +269,11 @@ local function pick(snacks, session, threads, title, with_path)
   })
 end
 
---- `:Diffy threads [file] [author=<name>] [state=<open|resolved|outdated|
---- detached>] [review=<id>]`: `file` keeps the file shown in the diff. For
---- GitHub, the quickfix text also says which commits show each thread.
+--- `:Diffy threads [file|selection] [author=<name>] [state=<open|resolved|
+--- outdated|detached>] [review=<id>]`: `selection` keeps the threads shown
+--- in the selected range, `file` those of the file in the diff; without
+--- either, every thread of the review. For GitHub, the quickfix text also
+--- says which commits show each thread.
 function M.open(session, args)
   local review = ui.ensure(session)
   if not review then
@@ -209,25 +285,29 @@ function M.open(session, args)
     local k, v = a:match('^(%a+)=(.*)$')
     if k then
       filters[k] = v
+    elseif a == 'selection' then
+      filters.view = true
     elseif a == 'file' then
       if not session.current_path then
         vim.notify('diffy: no file shown in the diff', vim.log.levels.WARN)
         return
       end
-      filters.path = session.current_path
+      filters.view, filters.path = true, session.current_path
     end
   end
-  local threads = collect(review, filters)
-  local title = filters.path and ('Threads in ' .. filters.path) or 'Review threads'
+  local entries = collect(session, filters)
+  local title = filters.path and ('Threads in ' .. filters.path)
+    or filters.view and 'Threads in the selection'
+    or 'Review threads'
   local ok, snacks = pcall(require, 'snacks')
   if ok and type(snacks) == 'table' and snacks.picker then
-    if #threads == 0 then
-      vim.notify('diffy: no threads' .. (filters.path and (' in ' .. filters.path) or ''))
+    if #entries == 0 then
+      vim.notify('diffy: no ' .. title:lower())
       return
     end
-    pick(snacks, session, threads, title, not filters.path)
+    pick(snacks, session, entries, title, not filters.path)
   else
-    to_quickfix(session, threads, title)
+    to_quickfix(session, entries, title)
   end
 end
 

@@ -351,7 +351,7 @@ T['resolved threads read ✓ inline, <leader>dr hides them and <leader>ds keeps 
   child.cmd('Diffy close')
 end
 
-T[':Diffy threads lists the whole review, `file` only the file in the diff'] = function()
+T[':Diffy threads lists the whole review, `selection` what the selected range shows, `file` the file in the diff'] = function()
   vim.fn.writefile(Repo.lines(10), repo.dir .. '/g.txt')
   open_default()
   local w = ui.wins(child)
@@ -374,7 +374,21 @@ T[':Diffy threads lists the whole review, `file` only the file in the diff'] = f
     return out
   end
   MiniTest.expect.equality(listed('Diffy threads'), { 'f.txt:5', 'g.txt:3' })
+  MiniTest.expect.equality(listed('Diffy threads selection'), { 'f.txt:5', 'g.txt:3' })
   MiniTest.expect.equality(listed('Diffy threads file'), { 'g.txt:3' })
+
+  -- the commit doesn't show comments written on the worktree
+  child.api.nvim_set_current_win(w.log)
+  for i, row in ipairs(ui.panel(child, 'log')) do
+    if row.text:find('base', 1, true) then
+      child.api.nvim_win_set_cursor(w.log, { i, 0 })
+    end
+  end
+  ui.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+  MiniTest.expect.equality(listed('Diffy threads selection'), {})
+  MiniTest.expect.equality(listed('Diffy threads'), { 'f.txt:5', 'g.txt:3' })
 
   child.cmd('Diffy close')
 end

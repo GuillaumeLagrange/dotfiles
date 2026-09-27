@@ -25,6 +25,7 @@ require('diffy').setup({
   panel_width = 40,               -- width of the files/commits column
   keymaps = {
     toggle_panel = '<leader>e',   -- hide/show the panel column, in every diffy window
+    focus_panel = '<leader>E',    -- go to the file tree, showing the column first if hidden
   },
   -- copied to `+` by `:Diffy review export`; %s is the absolute path of review.md
   review_prompt = 'Read %s and address each review comment. Reply per comment id with what you changed.',
@@ -43,7 +44,7 @@ require('diffy').setup({
 | `:Diffy file [path]` | commits touching the file (default: current buffer), across renames | newest |
 | `:Diffy conflicts` | conflicted files, in the conflict view | first file |
 | `:Diffy panel` | hide/show the panel column | |
-| `:Diffy threads [file] [author=… state=… review=…]` | every review thread, or `file`: the file in the diff (`state`: open, resolved, outdated, detached). See Review | |
+| `:Diffy threads [file\|selection] [author=… state=… review=…]` | every review thread; `selection`: those the selected range shows; `file`: those of the file in the diff (`state`: open, resolved, outdated, detached). See Review | |
 | `:Diffy review export\|clear` | local review, see below | |
 | `:Diffy review push\|pull\|submit [comment\|approve\|request_changes]` | GitHub review, see below | |
 | `:Diffy restore` | go back to your branch after an interrupted full checkout | |
@@ -85,9 +86,10 @@ with `Unstaged` selected the left side is the index, so `do`/`dp` or editing it 
 ## The diff
 
 The right side is the real file (LSP, editable) when it shows the worktree, or HEAD for a file with no
-uncommitted changes. Otherwise both sides are read-only fugitive blobs. Jumping to another file from the
-right side (go-to-definition, `gf`, `:e`) loads that file's pair if it's part of the diff; otherwise diff
-mode turns off until you come back (`<C-o>` or the tree).
+uncommitted changes. Otherwise both sides are read-only fugitive blobs. An added or deleted file takes the
+whole diff area on its own, coloured as added or deleted. Jumping to another file from the right side
+(go-to-definition, `gf`, `:e`) loads that file's pair if it's part of the diff; otherwise diff mode turns
+off until you come back (`<C-o>` or the tree).
 
 | Key (in either diff window) | |
 |---|---|
@@ -95,6 +97,7 @@ mode turns off until you come back (`<C-o>` or the tree).
 | `]r` / `[r` | next / previous commit |
 | `R` | refresh everything: git state, panels, window sizes |
 | `<leader>e` | hide / show the panel column |
+| `<leader>E` | go to the file tree, bringing the column back first if it's hidden |
 
 **Full checkout.** `X` on a single commit checks it out (detached) so the right side becomes real files with
 LSP. Leaving it (selecting something else, `X` again, closing the session) checks your branch out again.
@@ -126,7 +129,7 @@ the oldest one still open.
 | `<leader>ds` | hide / show the summaries, keeping the signs (hover still previews) |
 | `<leader>dr` | hide / show resolved threads |
 | `<leader>dt` | hide / show comments inline altogether |
-| `<leader>dc` / `<leader>df` | every thread of the review / of this file (`:Diffy threads`, `:Diffy threads file`) |
+| `<leader>dc` / `<leader>dC` | threads of this file / of the whole selected range (`:Diffy threads file`, `:Diffy threads selection`) |
 | `gP` | PR description and conversation (`:Diffy pr`) |
 
 Threads open as a framed card over the other diff window. Each comment gets a header strip: avatar, author (on
@@ -142,10 +145,11 @@ the thread, which stays in view; saving or cancelling goes back into the thread.
 its conversation the same way.
 
 The thread lists use [snacks.nvim](https://github.com/folke/snacks.nvim)'s picker when it's installed:
-fuzzy search over every comment, the thread previewed as a card, `<CR>` opens its file, moves to it and
-enters it (showing resolved threads again if they were hidden); snacks' `<C-q>` still sends the list to
-the quickfix. Without snacks the list goes to the quickfix; for GitHub each entry says which commits show
-the thread.
+fuzzy search over every comment; the preview shows the code the thread is on (its lines numbered and
+marked, up to 3 lines of context above, the middle of a long range cut) above the thread; `<CR>` opens its
+file, moves to it and enters it (showing resolved threads again if they were hidden); snacks' `<C-q>` still
+sends the list to the quickfix. Without snacks the list goes to the quickfix; for GitHub each entry says
+which commits show the thread.
 
 Avatars need a terminal with the kitty graphics protocol, `curl` and ImageMagick. They're downloaded once
 and cached in `stdpath('cache')/diffy/avatars`; without them the headers are text only.
@@ -185,6 +189,7 @@ All set with `default = true`, so a colorscheme or your config can override any 
 | Group | Default | |
 |---|---|---|
 | `DiffyAdded` / `DiffyChanged` / `DiffyRemoved` / `DiffyConflict` | `Added` / `Changed` / `Removed` / `DiagnosticError` | status letters, counts |
+| `DiffyFileAdded` / `DiffyFileDeleted` | `DiffAdd` / `DiffDelete` | an added / deleted file shown on its own |
 | `DiffyDirectory`, `DiffySha`, `DiffyLabel`, `DiffyMerge` | `Directory`, `Identifier`, `Title`, `Comment` | tree folders, log rows |
 | `DiffySelection` | `Visual` | selected commits |
 | `DiffyCurrentFile`, `DiffyCurrentFileName` | `Visual`, bold | the file shown in the diff |

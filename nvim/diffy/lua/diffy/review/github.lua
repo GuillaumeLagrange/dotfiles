@@ -577,6 +577,11 @@ function M.place(session, thread)
   return place_at(session.review, thread, session.pair.left, session.pair.right, session.current_path)
 end
 
+--- Where `thread` shows in the current pair, whichever file is open, or nil.
+function M.view_place(session, thread)
+  return place_at(session.review, thread, session.pair.left, session.pair.right, thread.anchor.path)
+end
+
 --- Every commit (by subject, newest first) `thread` is visible in, plus
 --- `'head'` for the full-PR view. Used by `:Diffy threads`.
 function M.visible_in(session, thread)

@@ -56,10 +56,14 @@ Conventions the code relies on:
 - **DiffyReady.** `run.ready({ session, event })` fires `User DiffyReady` when something finished drawing.
   Events: `render`, `select`, `open_row`, `review`, `thread`, `compose`, `conflict`, `checkout`, `restore`,
   `pr`, `close`. Tests wait on these; never sleep.
-- **Review backends** expose `name`, `capabilities = {resolve, suggestions}`, `branch`, `author`,
-  `place(session, thread) -> {win, start_line, end_line} | nil`, and for authoring `load`, `save`, `clear`,
+- **Review backends** expose `name`, `capabilities = {resolve, suggestions, people}`, `branch`, `author`,
+  `place(session, thread) -> {win, start_line, end_line} | nil` (in the open file), `view_place` (the same
+  for any file of the current pair, used by the thread lists), and for authoring `load`, `save`, `clear`,
   `export` (local) or `push`/`pull`/`submit`/`resolve_thread` (GitHub). `review/ui.lua` only draws what
   `place` returns and caches it on `thread._place`.
+- **One-sided files.** An added or deleted file closes the empty side's window (`session.hidden_side`,
+  `session.wins[side] = nil`) until `diffpair.restore`; anything reaching for `session.wins.left/right`
+  checks it exists. The conflict view restores both first.
 - **Alignment.** Counterpart lines come from nvim's own diff: in each window `row(l) = l + Σ diff_filler(k)`
   for `k ≤ l`; equal rows are counterparts. Summaries under a row are padded with blank virt_lines to the
   busier side's count so both windows stay aligned.

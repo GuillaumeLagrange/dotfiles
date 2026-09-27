@@ -147,6 +147,75 @@ function M.started(thread)
   return first and M.epoch(first.created_at) or 0
 end
 
+--- The code `thread` is on, for showing next to it: rows `{ n, text, kind =
+--- 'add'|'del'|nil, range }` (`range`: one of the commented lines) and at
+--- most one `{ gap = count }` where rows were cut. From the excerpt (drafts)
+--- or else the first comment's diff hunk (GitHub, which ends on the
+--- commented line), with up to 3 lines of context above the range; past
+--- `max` rows the middle is cut. nil for file-level threads or when neither
+--- is known.
+function M.snippet(thread, max)
+  local a = thread.anchor
+  if not a.side or not a.start_line then
+    return nil
+  end
+  local rows = {}
+  local raw = thread._raw_comments and thread._raw_comments[1]
+  if a.excerpt and #a.excerpt > 0 then
+    for i, l in ipairs(a.excerpt) do
+      rows[i] = { n = a.start_line + i - 1, text = l, range = true }
+    end
+  elseif raw and type(raw.diffHunk) == 'string' then
+    local hunk, o, n = {}, nil, nil
+    for _, l in ipairs(vim.split(raw.diffHunk, '\n', { plain = true })) do
+      local os, ns = l:match('^@@ %-(%d+),?%d* %+(%d+),?%d* @@')
+      if os then
+        o, n = tonumber(os), tonumber(ns)
+      elseif o then
+        local c, text = l:sub(1, 1), l:sub(2)
+        if c == '+' then
+          table.insert(hunk, { n = n, text = text, kind = 'add', side = 'new' })
+          n = n + 1
+        elseif c == '-' then
+          table.insert(hunk, { n = o, text = text, kind = 'del', side = 'old' })
+          o = o + 1
+        elseif c == ' ' then
+          table.insert(hunk, { n = a.side == 'old' and o or n, text = text })
+          o, n = o + 1, n + 1
+        end
+      end
+    end
+    -- the range is the hunk's last lines on the commented side
+    local want = (a.end_line or a.start_line) - a.start_line + 1
+    local first, seen = #hunk + 1, 0
+    for i = #hunk, 1, -1 do
+      if seen == want then
+        break
+      end
+      if not hunk[i].side or hunk[i].side == a.side then
+        seen = seen + 1
+      end
+      first = i
+    end
+    for i = math.max(1, first - 3), #hunk do
+      local h = hunk[i]
+      table.insert(rows, { n = h.n, text = h.text, kind = h.kind, range = i >= first and (not h.side or h.side == a.side) })
+    end
+  end
+  if #rows == 0 then
+    return nil
+  end
+  if #rows > max then
+    -- keep more of the end: GitHub hangs a comment on its range's last line
+    local head = math.floor((max - 1) / 3)
+    local tail = max - 1 - head
+    local cut = vim.list_slice(rows, 1, head)
+    table.insert(cut, { gap = #rows - head - tail })
+    rows = vim.list_extend(cut, vim.list_slice(rows, #rows - tail + 1, #rows))
+  end
+  return rows
+end
+
 --- Parse one file's unified diff (`git diff -U*`) into hunks:
 --- `{ old_start, old_count, new_start, new_count, lines (incl. @@ header) }[]`.
 function M.parse_hunks(diff_text)

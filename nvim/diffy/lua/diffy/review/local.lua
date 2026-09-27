@@ -90,6 +90,13 @@ function M.place(session, thread)
   return { win = side, start_line = thread.anchor.start_line, end_line = thread.anchor.end_line }
 end
 
+--- Where `thread` shows in the current pair, whichever file is open, or nil.
+--- Its last known lines: relocating needs the file's buffer.
+function M.view_place(session, thread)
+  local side = model.pair_side(session.pair, session.head_sha, thread.anchor)
+  return side and { win = side, start_line = thread.anchor.start_line, end_line = thread.anchor.end_line } or nil
+end
+
 -- ---------------------------------------------------------------------
 -- export
 

@@ -19,7 +19,8 @@
 -- A backend module exposes: `name`, `capabilities = {resolve, suggestions,
 -- people}` (`people`: comments come from several people, so the float shows
 -- names and avatars; else every comment is the user's), `branch(session)`,
--- `author(root)`, optionally `avatar_url(login)`,
+-- `author(root)`, optionally `avatar_url(login)`, `view_place(session,
+-- thread)` (where it shows in the current pair, any file: the thread lists),
 -- `place(session, thread) -> nil | {win='left'|'right', start_line,
 --   end_line}` (the only backend-specific step of decorate()), and, for
 --   authoring, `load(session, branch) -> Thread[]`, `save(session, branch,
@@ -588,9 +589,10 @@ end
 --- body. The header is virtual text on an empty line, so each body parses
 --- as markdown on its own. `opts.people`: names and avatars (else every
 --- comment is "You"); `opts.badges`: extra badges on the first header;
---- `opts.avatar_url(login)`. Returns the headers.
+--- `opts.avatar_url(login)`; `opts.preamble`: lines put above the cards,
+--- as they are. Returns the headers.
 local function fill_cards(session, buf, comments, opts)
-  local lines, heads, code, labels = {}, {}, {}, {}
+  local lines, heads, code, labels = vim.list_extend({}, opts.preamble or {}), {}, {}, {}
   for i, c in ipairs(comments) do
     local badges = {}
     if BADGES[c.state] then
@@ -1076,9 +1078,10 @@ local function side_threads(session, win)
 end
 
 --- Fill `buf` with `thread` as comment cards (as in the thread float), for
---- any window showing it. `opts.avatars` reserves room for the avatars.
---- Returns the headers.
+--- any window showing it. `opts.avatars` reserves room for the avatars;
+--- `opts.preamble` goes above the cards. Returns the headers.
 function M.render_thread(session, buf, thread, opts)
+  opts = opts or {}
   local backend = session.review.backend
   local badges = {}
   if thread.outdated then
@@ -1090,7 +1093,8 @@ function M.render_thread(session, buf, thread, opts)
   return fill_cards(session, buf, thread.comments, {
     people = backend.capabilities.people,
     badges = badges,
-    avatar_url = opts and opts.avatars and backend.avatar_url or nil,
+    avatar_url = opts.avatars and backend.avatar_url or nil,
+    preamble = opts.preamble,
   })
 end
 
@@ -1364,7 +1368,7 @@ end
 
 --- One-time keymap setup for a diff-window buffer (on every left/right
 --- swap): `gc`, `K`/`<CR>`, `]t`/`[t`, the display toggles, the thread
---- lists (`<leader>dc`/`df`), `gP`. These apply on any diff buffer, real
+--- lists (`<leader>dc`/`dC`), `gP`. These apply on any diff buffer, real
 --- file or blob alike.
 function M.setup_diff_keymaps(session, buf)
   local map = session_mod.map
@@ -1396,11 +1400,11 @@ function M.setup_diff_keymaps(session, buf)
     M.toggle_resolved(session)
   end, { buffer = buf, desc = 'review: toggle resolved threads' })
   map(session, 'n', '<leader>dc', function()
-    require('diffy.review.threads').open(session, {})
-  end, { buffer = buf, desc = 'review: every thread of the review' })
-  map(session, 'n', '<leader>df', function()
     require('diffy.review.threads').open(session, { 'file' })
   end, { buffer = buf, desc = 'review: threads of this file' })
+  map(session, 'n', '<leader>dC', function()
+    require('diffy.review.threads').open(session, { 'selection' })
+  end, { buffer = buf, desc = 'review: threads of the selected range' })
   map(session, 'n', 'gP', function()
     M.open_pr_description(session)
   end, { buffer = buf, desc = 'review: PR description' })
