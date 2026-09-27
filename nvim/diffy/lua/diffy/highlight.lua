@@ -14,7 +14,10 @@ local LINKS = {
   DiffySelection = 'Visual',
   -- not CursorLine: the panel's own cursorline would make it invisible
   DiffyCurrentFile = 'Visual',
-  DiffyThreadSummary = 'Special',
+  DiffyThreadSummary = 'Comment',
+  DiffyThreadRelevant = 'Special',
+  DiffyThreadCurrent = 'PmenuSel',
+  DiffyThreadRange = 'Visual',
 }
 
 --- Status letter -> highlight group.

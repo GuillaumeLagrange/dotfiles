@@ -183,14 +183,19 @@ Anchor  { path, side: old|new, start_line, end_line, commit, excerpt }
   alignment: row(l) = l + Σ `diff_filler(k)` for k ≤ l in each window; lines with equal rows are counterparts.
 - Decorations use namespaces scoped to the diffy diff windows (`nvim__ns_set(ns, {wins=…})`). A worktree
   buffer also open in another tab shows no diffy marks there.
-- `K` / `<CR>` on an anchored line opens a float with every thread covering that line, one after the other
-  (markdown, suggestion blocks rendered as diffs). In the float: `r` reply, `e` edit own draft, `dd` delete own
-  draft, `x` resolve/unresolve (GitHub), each acting on the thread under the cursor; `q` close.
-- `gc` (normal on a line, visual on a range) opens a floating markdown compose buffer anchored below the line.
-  `<C-s>` or `:w` saves the draft, `q` cancels. In compose, `<C-g>s` inserts a ```` ```suggestion ```` block
-  pre-filled with the anchored lines (GitHub only).
-- `]t`/`[t` next/previous thread in the file. `:Diffy threads` opens a quickfix list of all threads for the
-  session (including detached and outdated ones), filterable by author, state and review.
+- One thread is open at a time, in a float drawn over the *other* diff window, level with the thread, so the
+  commented code stays visible; the thread's lines are highlighted in its own window while it's open.
+  Moving the cursor onto a commented line previews that line's first thread (focus stays in the diff); moving
+  off every thread closes it. Summaries of the open thread and of the other threads covering the cursor line
+  are highlighted. `K` / `<CR>` enters the float. In it: `r` reply, `e` edit own draft, `dd` delete own draft,
+  `x` resolve/unresolve (GitHub), `q` close.
+- `]t`/`[t` (from a diff window or the float) open the next/previous thread of that window one at a time,
+  stacked threads on the same line included, moving the cursor to it.
+- `gc` (normal on a line, visual on a range) opens a floating markdown compose buffer over the other diff
+  window, level with the line. `<C-s>` or `:w` saves the draft, `q` cancels. In compose, `<C-g>s` inserts a
+  ```` ```suggestion ```` block pre-filled with the anchored lines (GitHub only).
+- `:Diffy threads` opens a quickfix list of all threads for the session (including detached and outdated
+  ones), filterable by author, state and review.
 - Thread filtering and toggling inline display (`<leader>dt`) never touch the underlying drafts.
 
 ### 9.3 Local backend (LLM feed)

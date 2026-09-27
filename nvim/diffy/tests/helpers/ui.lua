@@ -129,7 +129,8 @@ end
 --- session in `child`'s current tab, read from the extmarks actually drawn:
 --- `{ { line = 15, summary = '💬 alice +1: first line' }, … }`; several
 --- summaries under one line are joined with ' | '. `blanks` counts the
---- padding lines drawn under that line.
+--- padding lines drawn under that line; `hl` maps each summary text to the
+--- highlight group it's drawn with.
 function M.threads_visible(child, side)
   return child.lua(([[
     local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
@@ -144,7 +145,7 @@ function M.threads_visible(child, side)
     for _, m in ipairs(marks) do
       local details = m[4]
       if details.virt_lines then
-        local parts, blanks = {}, 0
+        local parts, blanks, hl = {}, 0, {}
         for _, vl in ipairs(details.virt_lines) do
           local text = {}
           for _, chunk in ipairs(vl) do
@@ -153,18 +154,41 @@ function M.threads_visible(child, side)
           text = table.concat(text)
           if text ~= '' then
             table.insert(parts, text)
+            hl[text] = vl[1][2]
           else
             blanks = blanks + 1
           end
         end
         if #parts > 0 then
-          table.insert(out, { line = m[2] + 1, summary = table.concat(parts, ' | '), count = #parts, blanks = blanks })
+          table.insert(out, { line = m[2] + 1, summary = table.concat(parts, ' | '), count = #parts, blanks = blanks, hl = hl })
         end
       end
     end
     table.sort(out, function(a, b) return a.line < b.line end)
     return out
   ]]):format(side))
+end
+
+--- The thread float in `child`'s current tab, or nil: `{ text = lines, over
+--- = 'left'|'right' (the diff window it's drawn over), focused = bool }`.
+function M.thread_float(child)
+  return child.lua([[
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    if not s then return vim.NIL end
+    for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      local cfg = vim.api.nvim_win_get_config(w)
+      local name = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(w))
+      if cfg.relative ~= '' and name:find('/thread/', 1, true) then
+        local over = cfg.win == s.wins.left and 'left' or cfg.win == s.wins.right and 'right' or vim.NIL
+        return {
+          text = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(w), 0, -1, false),
+          over = over,
+          focused = w == vim.api.nvim_get_current_win(),
+        }
+      end
+    end
+    return vim.NIL
+  ]])
 end
 
 --- True if every pair of counterpart lines visible in both diff windows is

@@ -93,7 +93,8 @@ T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the ot
   child.cmd('Diffy close')
 end
 
-T['§9.2: threads on the same row pad both sides to the larger count, and K shows every thread on the line'] = function()
+T['§9.2: stacked threads pad both sides to the larger count and open one at a time, switched with ]t/[t'] = function()
+  child.o.columns = 160
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 5, 'right one')
@@ -110,13 +111,65 @@ T['§9.2: threads on the same row pad both sides to the larger count, and K show
   child.fn.win_execute(w.right, 'call cursor(10, 1)')
   MiniTest.expect.equality(ui.aligned(child), true)
 
+  local function summary_hl(body)
+    for text, hl in pairs(ui.threads_visible(child, 'right')[1].hl) do
+      if text:find(body, 1, true) then
+        return hl
+      end
+    end
+  end
+
+  child.type_keys('5G')
+  local float = ui.thread_float(child)
+  MiniTest.expect.equality(table.concat(float.text, '\n'):find('right one', 1, true) ~= nil, true)
+  MiniTest.expect.equality(table.concat(float.text, '\n'):find('right two', 1, true), nil)
+  MiniTest.expect.equality({ summary_hl('right one'), summary_hl('right two') }, { 'DiffyThreadCurrent', 'DiffyThreadRelevant' })
+
+  child.type_keys(']t')
+  float = ui.thread_float(child)
+  MiniTest.expect.equality(table.concat(float.text, '\n'):find('right two', 1, true) ~= nil, true)
+  MiniTest.expect.equality({ summary_hl('right one'), summary_hl('right two') }, { 'DiffyThreadRelevant', 'DiffyThreadCurrent' })
+
+  child.type_keys('[t')
+  MiniTest.expect.equality(table.concat(ui.thread_float(child).text, '\n'):find('right one', 1, true) ~= nil, true)
+
+  child.type_keys('10G')
+  MiniTest.expect.equality(ui.thread_float(child), vim.NIL)
+  MiniTest.expect.equality({ summary_hl('right one'), summary_hl('right two') }, { 'DiffyThreadSummary', 'DiffyThreadSummary' })
+
+  child.cmd('Diffy close')
+end
+
+T['§9.2: hovering a commented line previews it over the other diff window with its range highlighted'] = function()
+  open_default()
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.right)
   child.fn.win_execute(w.right, 'call cursor(5, 1)')
-  child.type_keys('K')
-  local float = child.api.nvim_buf_get_lines(0, 0, -1, false)
-  local text = table.concat(float, '\n')
-  MiniTest.expect.equality(text:find('right one', 1, true) ~= nil, true)
-  MiniTest.expect.equality(text:find('right two', 1, true) ~= nil, true)
-  child.api.nvim_input('q')
+  arm_ready_raw('compose')
+  child.type_keys('V', '2j', 'gc')
+  ui.wait_ready_raw(child)
+  child.type_keys('covers three lines', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  ui.wait_ready_raw(child)
+
+  child.type_keys('1G', '6G')
+  local float = ui.thread_float(child)
+  MiniTest.expect.equality(table.concat(float.text, '\n'):find('covers three lines', 1, true) ~= nil, true)
+  MiniTest.expect.equality({ float.over, float.focused }, { 'left', false })
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.right)
+  MiniTest.expect.equality(ui.rows_with(child, 'right', 'DiffyThreadRange'), { '5', '6', '7' })
+
+  child.type_keys('12G')
+  MiniTest.expect.equality(ui.thread_float(child), vim.NIL)
+  MiniTest.expect.equality(ui.rows_with(child, 'right', 'DiffyThreadRange'), {})
+
+  -- K enters the thread; q leaves it and returns to the diff
+  child.type_keys('5G', 'K')
+  MiniTest.expect.equality(ui.thread_float(child).focused, true)
+  child.type_keys('q')
+  MiniTest.expect.equality(ui.thread_float(child), vim.NIL)
+  MiniTest.expect.equality(child.api.nvim_get_current_win(), w.right)
 
   child.cmd('Diffy close')
 end

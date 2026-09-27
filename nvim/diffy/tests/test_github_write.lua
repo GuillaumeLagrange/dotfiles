@@ -502,17 +502,20 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
 
   MiniTest.expect.equality(lines_with_signs('right')[30], true)
 
+  -- `x` resolves in place; the thread stays open until `q`
   child.fn.win_execute(right, 'call cursor(30, 1)')
   child.type_keys('K')
   arm_ready_raw('review')
   child.type_keys('x')
   wait_ready_raw()
+  child.type_keys('q')
 
   child.fn.win_execute(right, 'call cursor(20, 1)')
   child.type_keys('K')
   arm_ready_raw('review')
   child.type_keys('x')
   wait_ready_raw()
+  child.type_keys('q')
 
   local d1_line = quickfix_at(30)
   local d2_line = quickfix_at(20)
