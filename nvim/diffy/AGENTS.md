@@ -184,6 +184,9 @@ with the real config and `--listen`, screenshotted with `grim`:
   background group in (`{ 'DiffyThread', 'DiffyThreadKey' }`).
 - The user's kitty has `background_opacity 0.95` over a wallpaper: backgrounds that are close in value
   (a tinted float on `Normal`) barely separate on their screen. A frame line does.
+- Moving a float with `nvim_win_set_config` and scrolling it with `normal! G` in `nvim_win_call` didn't
+  get the avatars re-placed through the `WinScrolled`/`WinResized` handlers (observed while the reply box
+  opened): after moving a card yourself, redraw its avatars explicitly.
 - Markdown treesitter highlighting conceals fence lines entirely (`conceal_lines`) at `conceallevel=2`, so
   a label for a fenced block has to hang off the line before the fence.
 - `nvim_ui_send(data)` writes raw bytes to the TUI's terminal (the server's own stdout isn't the tty);

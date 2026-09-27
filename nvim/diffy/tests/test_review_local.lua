@@ -190,9 +190,9 @@ T['each comment in the thread float is headed by who wrote it, when, and its sta
   child.type_keys('<C-s>')
   ui.wait_ready_raw(child)
 
-  child.fn.win_execute(w.right, 'call cursor(5, 1)')
-  child.type_keys('K')
+  -- saving the reply went back into the thread
   local float = ui.thread_float(child)
+  MiniTest.expect.equality(float.focused, true)
   local text = table.concat(float.text, '\n')
   MiniTest.expect.equality(float.text[1], 'You  just now  draft')
   MiniTest.expect.equality(float.text[2], 'first point')
@@ -214,6 +214,139 @@ T['each comment in the thread float is headed by who wrote it, when, and its sta
   MiniTest.expect.equality(float.footer:find('e edit', 1, true), nil)
   MiniTest.expect.equality(float.footer:find('r reply', 1, true) ~= nil, true)
   child.type_keys('q')
+
+  child.cmd('Diffy close')
+end
+
+--- The reply box's first text row and the thread float's last one, on screen.
+local function reply_layout()
+  return child.lua([[
+    local out = {}
+    for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      local name = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(w))
+      if name:find('/compose/', 1, true) then
+        out.reply_top = vim.fn.screenpos(w, 1, 1).row
+        out.reply_focused = w == vim.api.nvim_get_current_win()
+      elseif name:find('/thread/', 1, true) then
+        out.thread_bottom = vim.fn.screenpos(w, vim.fn.line('w$', w), 1).row
+      end
+    end
+    return out
+  ]])
+end
+
+T['replying keeps the thread in view above the reply box, then goes back into it'] = function()
+  open_default()
+  local w = ui.wins(child)
+  write_comment(w.right, 5, 'first point')
+  child.api.nvim_set_current_win(w.right)
+  child.fn.win_execute(w.right, 'call cursor(5, 1)')
+  child.type_keys('K')
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  ui.wait_ready_raw(child)
+
+  local float = ui.thread_float(child)
+  MiniTest.expect.equality(float ~= vim.NIL and float.text[2], 'first point')
+  local layout = reply_layout()
+  MiniTest.expect.equality(layout.reply_focused, true)
+  MiniTest.expect.equality(layout.reply_top > layout.thread_bottom, true)
+
+  -- cancelling goes back into the thread, unchanged
+  child.type_keys('<Esc>', 'q')
+  float = ui.thread_float(child)
+  MiniTest.expect.equality({ float.focused, #float.text }, { true, 2 })
+
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  ui.wait_ready_raw(child)
+  child.type_keys('second point', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  ui.wait_ready_raw(child)
+  float = ui.thread_float(child)
+  MiniTest.expect.equality({ float.focused, float.text[#float.text] }, { true, 'second point' })
+  child.type_keys('q')
+
+  child.cmd('Diffy close')
+end
+
+T['threads stacked on a line are drawn oldest first; the hover opens the oldest open one and ]t walks down'] = function()
+  child.o.columns = 160
+  open_default()
+  local w = ui.wins(child)
+  -- written newest first, so the drawing order can't come from creation order
+  write_comment(w.right, 5, 'third thread')
+  write_comment(w.right, 5, 'second thread')
+  write_comment(w.right, 5, 'first thread')
+  child.cmd('Diffy close')
+
+  local branch = ui.git(repo.dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
+  local path = repo.dir .. '/.git/diffy/' .. branch .. '/local.json'
+  local data = vim.json.decode(table.concat(vim.fn.readfile(path), '\n'))
+  local ages = { ['first thread'] = 7200, ['second thread'] = 3600, ['third thread'] = 60 }
+  for _, t in ipairs(data.threads) do
+    t.comments[1].created_at = os.time() - ages[t.comments[1].body]
+    t.resolved = t.comments[1].body == 'first thread'
+  end
+  vim.fn.writefile({ vim.json.encode(data) }, path)
+
+  open_default()
+  w = ui.wins(child)
+  local summary = ui.threads_visible(child, 'right')[1].summary
+  local first, second, third = summary:find('first thread', 1, true), summary:find('second thread', 1, true), summary:find('third thread', 1, true)
+  MiniTest.expect.equality(first < second and second < third, true)
+
+  local function shown()
+    local text = table.concat(ui.thread_float(child).text, '\n')
+    return text:match('(%a+) thread')
+  end
+  child.api.nvim_set_current_win(w.right)
+  child.type_keys('1G', '5G')
+  -- the oldest is resolved: the oldest still open comes first
+  MiniTest.expect.equality(shown(), 'second')
+  child.type_keys(']t')
+  MiniTest.expect.equality(shown(), 'third')
+  child.type_keys('[t', '[t')
+  MiniTest.expect.equality(shown(), 'first')
+
+  child.cmd('Diffy close')
+end
+
+T['resolved threads read ✓ inline, <leader>dr hides them and <leader>ds keeps only the signs'] = function()
+  child.o.columns = 160
+  open_default()
+  local w = ui.wins(child)
+  write_comment(w.right, 5, 'still open')
+  write_comment(w.right, 10, 'settled')
+  child.api.nvim_set_current_win(w.right)
+  child.type_keys('10G', 'K', 'x', 'q')
+
+  local visible = ui.threads_visible(child, 'right')
+  MiniTest.expect.equality({ visible[1].line, visible[2].line }, { 5, 10 })
+  MiniTest.expect.equality(visible[1].summary:find('\240\159\146\172', 1, true), 1)
+  MiniTest.expect.equality(visible[2].summary:find('✓', 1, true), 1)
+  -- drawn apart from open ones, not only told by the text
+  MiniTest.expect.equality(visible[2].hl[visible[2].summary] ~= visible[1].hl[visible[1].summary], true)
+  MiniTest.expect.equality(ui.thread_signs(child, 'right'), { ['5'] = '\240\159\146\172', ['10'] = '✓' })
+
+  child.type_keys('\\dr')
+  MiniTest.expect.equality(vim.tbl_map(function(v) return v.line end, ui.threads_visible(child, 'right')), { 5 })
+  MiniTest.expect.equality(ui.thread_signs(child, 'right'), { ['5'] = '\240\159\146\172' })
+  child.type_keys('1G', '10G')
+  MiniTest.expect.equality(ui.thread_float(child), vim.NIL)
+  child.type_keys('\\dr')
+  MiniTest.expect.equality(#ui.threads_visible(child, 'right'), 2)
+
+  child.type_keys('\\ds')
+  MiniTest.expect.equality(ui.threads_visible(child, 'right'), {})
+  MiniTest.expect.equality(ui.thread_signs(child, 'right'), { ['5'] = '\240\159\146\172', ['10'] = '✓' })
+  -- no summaries means no padding either: the sides stay aligned
+  MiniTest.expect.equality(ui.aligned(child), true)
+  child.type_keys('1G', '5G')
+  MiniTest.expect.equality(table.concat(ui.thread_float(child).text, '\n'):find('still open', 1, true) ~= nil, true)
+  child.type_keys('\\ds')
+  MiniTest.expect.equality(#ui.threads_visible(child, 'right'), 2)
 
   child.cmd('Diffy close')
 end

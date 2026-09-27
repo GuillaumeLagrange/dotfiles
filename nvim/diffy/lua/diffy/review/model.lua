@@ -125,6 +125,28 @@ function M.summary_text(thread)
   return text
 end
 
+--- Seconds since the epoch of a comment's `created_at`: `os.time()` for
+--- local drafts, an ISO 8601 UTC string from GitHub. nil if unparseable.
+function M.epoch(t)
+  if type(t) == 'number' then
+    return t
+  end
+  local y, mo, d, h, mi, s = tostring(t or ''):match('^(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)')
+  if not y then
+    return nil
+  end
+  local now = os.time()
+  -- os.time reads a table as local time: add the local UTC offset back
+  local offset = os.difftime(now, os.time(os.date('!*t', now)))
+  return os.time({ year = y, month = mo, day = d, hour = h, min = mi, sec = s, isdst = false }) + offset
+end
+
+--- When a thread was started (its first comment), for ordering; 0 if unknown.
+function M.started(thread)
+  local first = thread.comments[1]
+  return first and M.epoch(first.created_at) or 0
+end
+
 --- Parse one file's unified diff (`git diff -U*`) into hunks:
 --- `{ old_start, old_count, new_start, new_count, lines (incl. @@ header) }[]`.
 function M.parse_hunks(diff_text)

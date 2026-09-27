@@ -111,8 +111,11 @@ result (the real file) below. Works for merge, rebase, cherry-pick and stash pop
 
 ## Review
 
-Comments show as a 💬 sign on their line and a one-line summary under it (author, reply count, first line
-of the comment). The other side gets matching blank lines so the diff stays aligned.
+Comments show as a sign on their line, 💬 for an open thread and ✓ for a resolved one, and a one-line
+summary under it (author, reply count, first line of the comment; dimmed with a ✓ when resolved). The other
+side gets matching blank lines so the diff stays aligned. Several threads under one line are listed top to
+bottom by the line they end on, then oldest first; `]t`/`[t` walk them in that order, and the hover opens
+the oldest one still open.
 
 | Key (in a diff window) | |
 |---|---|
@@ -120,7 +123,9 @@ of the comment). The other side gets matching blank lines so the diff stays alig
 | move onto a commented line | preview its thread, over the other diff window, with its lines marked |
 | `K` / `<CR>` | enter the thread float |
 | `]t` / `[t` | next / previous thread, including several on the same line |
-| `<leader>dt` | hide / show comments inline |
+| `<leader>ds` | hide / show the summaries, keeping the signs (hover still previews) |
+| `<leader>dr` | hide / show resolved threads |
+| `<leader>dt` | hide / show comments inline altogether |
 | `gP` | PR description and conversation (`:Diffy pr`) |
 
 Threads open as a framed card over the other diff window. Each comment gets a header strip: avatar, author (on
@@ -130,9 +135,10 @@ also says `outdated` or `✓ resolved`. Bodies render as markdown; suggestion bl
 ones as "remove these lines". A preview taller than half the window is cut, with a hint to press `K`.
 
 In the thread float, the footer lists the keys that apply: `r` reply, `e` edit your draft, `dd` delete
-your draft, `x` resolve/unresolve, `]t`/`[t` switch thread, `q` close. In the compose float, `<C-g>s`
-inserts a GitHub suggestion block with the commented lines. `gP` shows the PR description and its
-conversation the same way.
+your draft, `x` resolve/unresolve, `]t`/`[t` switch thread, `q` close. A reply is written in a box under
+the thread, which stays in view; saving or cancelling goes back into the thread. In the compose float,
+`<C-g>s` inserts a GitHub suggestion block with the commented lines. `gP` shows the PR description and
+its conversation the same way.
 
 Avatars need a terminal with the kitty graphics protocol, `curl` and ImageMagick. They're downloaded once
 and cached in `stdpath('cache')/diffy/avatars`; without them the headers are text only.
@@ -176,6 +182,7 @@ All set with `default = true`, so a colorscheme or your config can override any 
 | `DiffySelection` | `Visual` | selected commits |
 | `DiffyCurrentFile`, `DiffyCurrentFileName` | `Visual`, bold | the file shown in the diff |
 | `DiffyThreadSummary` / `DiffyThreadRelevant` / `DiffyThreadCurrent` | `Comment` / `Special` / `PmenuSel` | comment summaries: others / on the cursor line / open |
+| `DiffyThreadSummaryResolved` | `NonText` | summaries of resolved threads (their ✓ and sign use `DiffyThreadResolved`) |
 | `DiffyThreadRange` | `PmenuSel` | line numbers of the open thread's lines |
 | `DiffyThread` / `DiffyThreadHeader` | background of `CursorLine` / `Pmenu` | comment cards / their header strips |
 | `DiffyThreadBorder` | `WinSeparator`'s colour on the card background | card frames |

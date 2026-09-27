@@ -175,6 +175,28 @@ function M.threads_visible(child, side)
   ]]):format(side))
 end
 
+--- Review signs in `side`'s window: `{ ['5'] = '💬' | '✓', … }`, the one
+--- that shows when several threads share a line.
+function M.thread_signs(child, side)
+  return child.lua(([[
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    local win = s and s.wins[%q]
+    if not (win and vim.api.nvim_win_is_valid(win) and s.ns.review) then return {} end
+    local best = {}
+    for _, m in ipairs(vim.api.nvim_buf_get_extmarks(vim.api.nvim_win_get_buf(win), s.ns.review, 0, -1, { details = true })) do
+      local d, line = m[4], tostring(m[2] + 1)
+      if d.sign_text and (not best[line] or d.priority > best[line].priority) then
+        best[line] = { text = vim.trim(d.sign_text), priority = d.priority }
+      end
+    end
+    local out = {}
+    for line, b in pairs(best) do
+      out[line] = b.text
+    end
+    return out
+  ]]):format(side))
+end
+
 --- The thread float in `child`'s current tab, or nil: `{ text = lines as
 --- drawn (virtual header text and labels included), footer = key hints,
 --- over = 'left'|'right' (the diff window it's drawn over), focused = bool }`.

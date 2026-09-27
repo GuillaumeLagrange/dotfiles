@@ -15,6 +15,7 @@ local LINKS = {
   -- not CursorLine: the panel's own cursorline would make it invisible
   DiffyCurrentFile = 'Visual',
   DiffyThreadSummary = 'Comment',
+  DiffyThreadSummaryResolved = 'NonText',
   DiffyThreadRelevant = 'Special',
   DiffyThreadCurrent = 'PmenuSel',
   -- drawn on the number column, so it needs a strong background

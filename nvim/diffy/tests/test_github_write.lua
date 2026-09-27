@@ -295,9 +295,7 @@ local function quickfix_entries()
   return qf
 end
 
---- The single quickfix entry anchored at `lnum` (identifies a thread by
---- its anchor line, since the quickfix `text` carries the id/state/summary
---- - author/count, never the body - not the comment content itself).
+--- The single quickfix entry anchored at `lnum`.
 local function quickfix_at(lnum)
   for _, e in ipairs(quickfix_entries()) do
     if e.lnum == lnum then
@@ -305,6 +303,36 @@ local function quickfix_at(lnum)
     end
   end
   return nil
+end
+
+--- The quickfix entry of the thread whose first line starts with `id`
+--- (the sandbox's comment ids, e.g. 'D2').
+local function quickfix_of(id)
+  for _, e in ipairs(quickfix_entries()) do
+    if e.text:find(': ' .. id .. ' ', 1, true) then
+      return e.text
+    end
+  end
+  return nil
+end
+
+--- Enter the thread at `lnum` of `win` whose text has `needle`: `K` opens the
+--- default one, `]t`/`[t` step through the others stacked there.
+local function enter_thread_with(win, lnum, needle)
+  child.api.nvim_set_current_win(win)
+  for _, step in ipairs({ ']t', '[t' }) do
+    child.fn.win_execute(win, ('call cursor(%d, 1)'):format(lnum))
+    child.type_keys('K')
+    for _ = 1, 4 do
+      local f = ui.thread_float(child)
+      if f ~= vim.NIL and table.concat(f.text, '\n'):find(needle, 1, true) then
+        return
+      end
+      child.type_keys(step)
+    end
+    child.type_keys('q')
+  end
+  error('no thread with ' .. needle .. ' at line ' .. lnum)
 end
 
 T['push validates locally, sends nothing for an invalid draft (kept local with a warning), and pushes the rest'] = function()
@@ -487,8 +515,7 @@ T['the thread float names each author and marks drafts and resolved threads'] = 
   child.type_keys('<C-s>')
   wait_ready_raw()
 
-  child.fn.win_execute(right, 'call cursor(30, 1)')
-  child.type_keys('K')
+  -- saving the reply went back into the thread
   local text = ui.thread_float(child).text
   -- D1 is published: its header carries no state
   MiniTest.expect.equality(text[1]:find('^GuillaumeLagrange  ') ~= nil, true)
@@ -501,8 +528,7 @@ T['the thread float names each author and marks drafts and resolved threads'] = 
   MiniTest.expect.equality({ text[#text - 1]:find('  draft$') ~= nil, text[#text] }, { true, 'a reply' })
   child.type_keys('q')
 
-  child.fn.win_execute(right, 'call cursor(20, 1)')
-  child.type_keys('K')
+  enter_thread_with(right, 20, 'D2')
   MiniTest.expect.equality(ui.thread_float(child).text[1]:match('  ✓ resolved$') ~= nil, true)
   child.type_keys('q')
 
@@ -535,23 +561,21 @@ T['reply, resolve/unresolve and submit'] = function()
 
   MiniTest.expect.equality(lines_with_signs('right')[30], true)
 
-  -- `x` resolves in place; the thread stays open until `q`
-  child.fn.win_execute(right, 'call cursor(30, 1)')
-  child.type_keys('K')
+  -- saving the reply went back into the thread; `x` resolves it in place and
+  -- the thread stays open until `q`
   arm_ready_raw('review')
   child.type_keys('x')
   wait_ready_raw()
   child.type_keys('q')
 
-  child.fn.win_execute(right, 'call cursor(20, 1)')
-  child.type_keys('K')
+  enter_thread_with(right, 20, 'D2')
   arm_ready_raw('review')
   child.type_keys('x')
   wait_ready_raw()
   child.type_keys('q')
 
-  local d1_line = quickfix_at(30)
-  local d2_line = quickfix_at(20)
+  local d1_line = quickfix_of('D1')
+  local d2_line = quickfix_of('D2')
   MiniTest.expect.equality(d1_line ~= nil, true)
   MiniTest.expect.equality(d1_line:find('[resolved]', 1, true) ~= nil, true)
   MiniTest.expect.equality(d2_line ~= nil, true)
