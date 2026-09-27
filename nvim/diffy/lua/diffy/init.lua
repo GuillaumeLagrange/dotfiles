@@ -83,6 +83,28 @@ function M.dispatch.close()
   end)
 end
 
+local function entry_key(e)
+  return e.kind .. ':' .. (e.sha or '')
+end
+
+-- `R` and diffy's own mutations rebuild everything but keep the selection when
+-- its endpoints still exist.
+local function keep_selection(old_entries, old_sel, entries)
+  if not (old_entries and old_sel) then
+    return nil
+  end
+  local index = {}
+  for i, e in ipairs(entries) do
+    index[entry_key(e)] = i
+  end
+  local top = index[entry_key(old_entries[old_sel.top])]
+  local bottom = index[entry_key(old_entries[old_sel.bottom])]
+  if top and bottom and top <= bottom then
+    return { top = top, bottom = bottom }
+  end
+  return nil
+end
+
 --- Build (or rebuild, on `R`) the log/tree/diff-pair content for `s` from
 --- its stored `s.root`/`s.range` (contract §2's render pipeline): entries,
 --- default/kept selection, HEAD and repo status, then the panels. Fires
@@ -99,9 +121,10 @@ function M.build(s)
       vim.notify('diffy: ' .. tostring(err), vim.log.levels.ERROR)
       return
     end
+    local kept = keep_selection(s.entries, s.sel, entries)
     s.entries = entries
     s.follow_pathspec = entries.follow_pathspec
-    s.sel = log_panel.default_selection(entries, s.range)
+    s.sel = kept or log_panel.default_selection(entries, s.range)
     if not s.sel then
       vim.notify('diffy: nothing to show for this selection', vim.log.levels.WARN)
       return
@@ -118,6 +141,7 @@ function M.build(s)
           s.setup_done = true
         end
         local function finish()
+          session.relayout(s)
           log_panel.render(s)
           tree_panel.render(s, function()
             run.ready({ session = s.id, event = 'render' })

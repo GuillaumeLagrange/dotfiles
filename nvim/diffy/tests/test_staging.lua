@@ -324,4 +324,40 @@ T['§5: a new untracked directory shows its files individually as ? rows, groupe
   child.cmd('Diffy close')
 end
 
+T['§5: staging from Unstaged in :Diffy branch keeps Unstaged selected'] = function()
+  repo = Repo.new():commit('Base', { ['base.txt'] = Repo.lines(5) })
+  repo:branch('feat'):commit('C1', { ['committed.txt'] = Repo.lines(3) })
+  vim.fn.writefile({ 'dirty a' }, repo.dir .. '/a.txt')
+  vim.fn.writefile({ 'dirty b' }, repo.dir .. '/b.txt')
+  ui.git(repo.dir, { 'add', '-N', 'a.txt', 'b.txt' })
+  child.fn.chdir(repo.dir)
+
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy branch main')
+  ui.wait_ready(child)
+  local w = wins()
+
+  child.api.nvim_set_current_win(w.tree)
+  child.type_keys('<C-w>j')
+  child.fn.win_execute(w.log, 'call cursor(1, 1)') -- Unstaged
+  ui.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+
+  child.api.nvim_set_current_win(w.tree)
+  local tree = buf_lines(w.tree)
+  child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(find_line(tree, 'a.txt')))
+  ui.arm_ready(child, 'render')
+  child.type_keys('s')
+  ui.wait_ready(child)
+
+  -- still the Unstaged view: only b.txt left, not the branch's committed file
+  tree = buf_lines(w.tree)
+  MiniTest.expect.equality(find_line(tree, 'b.txt') ~= nil, true)
+  MiniTest.expect.equality(find_line(tree, 'a.txt'), nil)
+  MiniTest.expect.equality(find_line(tree, 'committed.txt'), nil)
+
+  child.cmd('Diffy close')
+end
+
 return T

@@ -159,6 +159,30 @@ function M.scratch_buf(session, name)
   return buf
 end
 
+local PANEL_WIDTH = 30
+
+--- Reset window sizes (§2): fixed-width panel column, diff area split evenly.
+--- Called on open and on `R`.
+function M.relayout(session)
+  local w = session.wins
+  if not (w.tree and vim.api.nvim_win_is_valid(w.tree)) then
+    return
+  end
+  vim.api.nvim_win_set_width(w.tree, PANEL_WIDTH)
+  local left, right = w.left, w.right
+  if left and right and vim.api.nvim_win_is_valid(left) and vim.api.nvim_win_is_valid(right) then
+    -- only the side-by-side pair; the conflict layout sizes its own windows
+    if vim.fn.win_screenpos(left)[1] == vim.fn.win_screenpos(right)[1] then
+      local diff_width = vim.o.columns - PANEL_WIDTH - 1
+      vim.api.nvim_win_set_width(left, math.floor((diff_width - 1) / 2))
+    end
+  end
+  session.column_height = vim.api.nvim_win_get_height(w.tree)
+  if w.log and vim.api.nvim_win_is_valid(w.log) then
+    session.column_height = session.column_height + vim.api.nvim_win_get_height(w.log)
+  end
+end
+
 --- Open a new session: its own tabpage with the §2 layout skeleton (tree
 --- and log panels stacked in a fixed-width left column, left/right diff
 --- windows filling the rest). Content is wired up by later phases
@@ -215,10 +239,7 @@ function M.open(opts)
 
   vim.wo[tree_win].winfixwidth = true
   vim.wo[log_win].winfixwidth = true
-  local diff_width = vim.o.columns - vim.api.nvim_win_get_width(tree_win) - 1
-  vim.api.nvim_win_set_width(left_win, math.floor((diff_width - 1) / 2))
-
-  session.column_height = vim.api.nvim_win_get_height(tree_win) + vim.api.nvim_win_get_height(log_win)
+  M.relayout(session)
 
   vim.api.nvim_set_current_win(left_win)
 
