@@ -93,10 +93,11 @@ function M.threads_visible(child, side)
   ]]):format(side))
 end
 
---- True if the left/right diff windows currently show matching rows for
---- counterpart lines (contract §9.2: `row(l) = l + Σ diff_filler(k)`):
---- each window's own cursor line (kept in step by cursorbind) is compared
---- via that formula, so this catches any diff-fill/scroll misalignment.
+--- True if every pair of counterpart lines visible in both diff windows is
+--- drawn on the same screen row. Counterparts come from nvim's own diff
+--- alignment (contract §9.2: `row(l) = l + Σ diff_filler(k)`, equal rows are
+--- counterparts); the screen rows come from `screenpos`, so virt_lines that
+--- shift one side only are caught.
 function M.aligned(child)
   return child.lua([[
     local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
@@ -105,17 +106,31 @@ function M.aligned(child)
     if not (lw and rw and vim.api.nvim_win_is_valid(lw) and vim.api.nvim_win_is_valid(rw)) then
       return false
     end
-    local function row(win)
+    vim.cmd('redraw')
+    local function rows(win)
       return vim.api.nvim_win_call(win, function()
-        local lnum = vim.fn.line('.')
-        local filler = 0
-        for k = 1, lnum do
+        local by_row, filler = {}, 0
+        for k = 1, vim.fn.line('w$') do
           filler = filler + vim.fn.diff_filler(k)
+          if k >= vim.fn.line('w0') then
+            by_row[k + filler] = k
+          end
         end
-        return lnum + filler
+        return by_row
       end)
     end
-    return row(lw) == row(rw)
+    local left, right = rows(lw), rows(rw)
+    local pairs_seen = 0
+    for row, l in pairs(left) do
+      local r = right[row]
+      if r then
+        pairs_seen = pairs_seen + 1
+        if vim.fn.screenpos(lw, l, 1).row ~= vim.fn.screenpos(rw, r, 1).row then
+          return false
+        end
+      end
+    end
+    return pairs_seen > 0
   ]])
 end
 

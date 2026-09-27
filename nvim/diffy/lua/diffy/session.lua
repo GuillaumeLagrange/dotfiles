@@ -204,7 +204,7 @@ function M.open(opts)
   M.register_window(session, 'right', right_win)
 
   local tree_buf = M.scratch_buf(session, 'tree')
-  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = left_win, split = 'left', width = 30 })
+  local tree_win = vim.api.nvim_open_win(tree_buf, false, { win = -1, split = 'left', width = 30 })
   M.register_buffer(session, 'tree', tree_buf, { panel = true })
   M.register_window(session, 'tree', tree_win)
 
@@ -212,6 +212,11 @@ function M.open(opts)
   local log_win = vim.api.nvim_open_win(log_buf, false, { win = tree_win, split = 'below', height = 10 })
   M.register_buffer(session, 'log', log_buf, { panel = true })
   M.register_window(session, 'log', log_win)
+
+  vim.wo[tree_win].winfixwidth = true
+  vim.wo[log_win].winfixwidth = true
+  local diff_width = vim.o.columns - vim.api.nvim_win_get_width(tree_win) - 1
+  vim.api.nvim_win_set_width(left_win, math.floor((diff_width - 1) / 2))
 
   session.column_height = vim.api.nvim_win_get_height(tree_win) + vim.api.nvim_win_get_height(log_win)
 
