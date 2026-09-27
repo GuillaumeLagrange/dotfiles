@@ -770,11 +770,6 @@ end
 --- (GitHub rejects the whole review on one bad thread) - a draft that
 --- fails either check stays local with a warning; everything else is
 --- pushed via `M.push_execute`. `cb(ok, warnings)`, `warnings` a string[].
---- **Deviation**: an extra draft comment on a thread that is *itself*
---- still unpushed (two-or-more comments composed on one new thread before
---- ever pushing) is left local, silently, until a follow-up push - the
---- batched `addPullRequestReview` mutation that creates a new thread
---- returns no per-thread id to reply against in the same round-trip.
 function M.push(session, cb)
   local review = session.review
   if not (review and review.pr) then
@@ -795,7 +790,9 @@ function M.push(session, cb)
   -- `draft`/`pending`) is gone once step 1 runs and must be recreated;
   -- one with a published root (a reply drafted onto an existing,
   -- surviving thread) keeps its id and just gets `addPullRequestReviewThreadReply`.
-  local roots, replies = {}, {}
+  -- Later drafts on a thread that has nothing published are replies to the
+  -- thread this push creates (`followups`); its id is only known afterwards.
+  local roots, replies, followups = {}, {}, {}
   for _, t in ipairs(review.threads) do
     local has_published = false
     for _, c in ipairs(t.comments) do
@@ -803,12 +800,16 @@ function M.push(session, cb)
         has_published = true
       end
     end
+    local root_draft
     for i, c in ipairs(t.comments) do
       if c.state == 'draft' then
         if i == 1 and not has_published then
-          table.insert(roots, { thread = t, comment = c })
+          root_draft = { thread = t, comment = c }
+          table.insert(roots, root_draft)
         elseif has_published then
           table.insert(replies, { thread = t, comment = c })
+        elseif root_draft then
+          table.insert(followups, { thread = t, comment = c, root = root_draft })
         end
       end
     end
@@ -890,6 +891,7 @@ function M.push(session, cb)
           primary_threads = primary_threads,
           other_drafts = other_drafts,
           replies = replies,
+          followups = followups,
           head_path = head_path,
           warnings = warnings,
         }, function(ok)
@@ -958,7 +960,7 @@ function M.push_execute(session, plan, cb)
   local root = session.root
 
   local function finish(ok)
-    for _, group in ipairs({ plan.primary_threads, plan.other_drafts, plan.replies }) do
+    for _, group in ipairs({ plan.primary_threads, plan.other_drafts, plan.replies, plan.followups or {} }) do
       for _, d in ipairs(group) do
         if d._pushed then
           for i, c in ipairs(d.thread.comments) do
@@ -993,7 +995,7 @@ function M.push_execute(session, plan, cb)
         return
       end
       local d = plan.replies[i]
-      M.transport(MUTATIONS.add_reply, { r = review_id, t = d.thread.id, b = d.comment.body }, function(data, err)
+      M.transport(MUTATIONS.add_reply, { r = review_id, t = d.reply_to or d.thread.id, b = d.comment.body }, function(data, err)
         if data then
           d._pushed = true
         else
@@ -1005,12 +1007,52 @@ function M.push_execute(session, plan, cb)
     next_reply()
   end
 
+  -- Find the threads this push just created (matched by path and first body
+  -- within the new pending review) so their follow-up drafts become replies.
+  local function push_followups(review_id)
+    local pending = {}
+    for _, f in ipairs(plan.followups or {}) do
+      if f.root._pushed then
+        table.insert(pending, f)
+      end
+    end
+    if #pending == 0 then
+      push_replies(review_id)
+      return
+    end
+    M.owner_repo(root, function(owner, name, err)
+      if not owner then
+        table.insert(plan.warnings, tostring(err))
+        push_replies(review_id)
+        return
+      end
+      paginate_threads(owner, name, session.range.pr_number, function(nodes)
+        for _, f in ipairs(pending) do
+          local path = plan.head_path(f.thread.anchor.path)
+          for _, n in ipairs(nodes or {}) do
+            local first = n.comments.nodes[1]
+            if n.path == path and first and first.body == f.root.comment.body
+              and first.pullRequestReview and first.pullRequestReview.id == review_id then
+              f.reply_to = n.id
+            end
+          end
+          if f.reply_to then
+            table.insert(plan.replies, f)
+          else
+            table.insert(plan.warnings, f.thread.id .. ": couldn't find the pushed thread to reply to")
+          end
+        end
+        push_replies(review_id)
+      end)
+    end)
+  end
+
   local function push_other(review_id)
     local i = 0
     local function next_other()
       i = i + 1
       if i > #plan.other_drafts then
-        push_replies(review_id)
+        push_followups(review_id)
         return
       end
       local d = plan.other_drafts[i]

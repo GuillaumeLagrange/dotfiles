@@ -319,6 +319,45 @@ T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a
   child.cmd('Diffy close')
 end
 
+T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on push'] = function()
+  install_fake_empty(child, dir)
+  open_pr()
+  open_file('f.txt')
+
+  local right = wins().right
+  compose_draft(right, 30, 'root comment')
+  child.api.nvim_set_current_win(right)
+  child.fn.win_execute(right, 'call cursor(30, 1)')
+  child.type_keys('K')
+  arm_ready_raw('compose')
+  child.type_keys('r')
+  wait_ready_raw()
+  child.type_keys('follow-up', '<Esc>')
+  arm_ready_raw('review')
+  child.type_keys('<C-s>')
+  wait_ready_raw()
+
+  push()
+
+  -- one thread on GitHub holding both comments, nothing left as a local draft
+  local at_30 = {}
+  for _, e in ipairs(quickfix_entries()) do
+    if e.lnum == 30 then
+      table.insert(at_30, e.text)
+    end
+  end
+  MiniTest.expect.equality(#at_30, 1)
+  MiniTest.expect.equality(at_30[1]:find('+1', 1, true) ~= nil, true)
+  local branch = ui.git(dir, { 'rev-parse', '--abbrev-ref', 'HEAD' })
+  local draft_path = dir .. '/.git/diffy/' .. branch .. '/pr-4.json'
+  if vim.fn.filereadable(draft_path) == 1 then
+    local text = table.concat(vim.fn.readfile(draft_path), '\n')
+    MiniTest.expect.equality(text:find('follow-up', 1, true), nil)
+  end
+
+  child.cmd('Diffy close')
+end
+
 T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) at its original commit and line'] = function()
   install_fake_pr4(child, dir)
   open_pr()
