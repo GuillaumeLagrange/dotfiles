@@ -14,9 +14,9 @@ local M = {}
 --- ('WORKTREE'/'INDEX'/'HEAD'/a sha) suitable for `repo.diff_args`.
 --- Per §3's table: right = top entry's rev; left = parent of the bottom
 --- entry (its own rev if Unstaged -> index, if Staged -> HEAD, if a commit
---- -> `sha^`). This also covers a range spanning a merge (§3's "A^..B"):
---- `git diff left right` computes the tree diff regardless of what
---- topology lies between the two endpoints.
+--- -> `sha^`), except that a selection reaching the oldest commit of a
+--- branch/PR view uses the merge-base (`entries.base`) once its top
+--- contains it. A range spanning a merge is otherwise `A^..B`.
 function M.resolve(entries, top_idx, bottom_idx)
   assert(top_idx <= bottom_idx, 'selection.resolve: top_idx must be <= bottom_idx')
   local top = entries[top_idx]
@@ -30,6 +30,11 @@ function M.resolve(entries, top_idx, bottom_idx)
     left = 'HEAD'
   else
     left = bottom.sha .. '^'
+    -- down to the oldest commit of a branch/PR view whose top contains the
+    -- merged-in base: diff against the merge-base, as github.com does
+    if entries.base and bottom_idx == M.last_selectable(entries) and (top.kind ~= 'commit' or top.has_base) then
+      left = entries.base
+    end
   end
 
   return { left = left, right = right, top = top, bottom = bottom, top_idx = top_idx, bottom_idx = bottom_idx }

@@ -348,6 +348,10 @@ function M.compose(session, mode)
     commit = model.rev_to_commit(rev, session.head_sha),
     excerpt = excerpt,
   }
+  local function pin(r)
+    return r == 'HEAD' and session.head_sha or r
+  end
+  local pinned_left, pinned_right = pin(session.pair.left), pin(session.pair.right)
 
   local suggestion = review.backend.capabilities.suggestions and excerpt or nil
   M.open_compose(session, win, end_line, function(body)
@@ -371,6 +375,8 @@ function M.compose(session, mode)
       resolved = false,
       outdated = false,
       _has_source = true,
+      -- the pair the comment was written against, for review.md's diff hunk
+      view = { left = pinned_left, right = pinned_right },
     }
     table.insert(review.threads, thread)
     backend.save(session, review.branch, review.threads)

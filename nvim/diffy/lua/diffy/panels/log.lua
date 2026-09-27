@@ -59,6 +59,30 @@ local function worktree_prefix(spec)
   }
 end
 
+--- Branch/PR views (§3): record the merge-base as `entries.base` and flag
+--- the commits that contain it (`has_base`), i.e. those after a merge of
+--- the base branch, so a selection down to the oldest commit diffs against
+--- the merge-base like github.com instead of showing merged-in base changes.
+local function with_base(root, mb, entries, cb, session)
+  run.git({ 'rev-list', '--ancestry-path', mb .. '..HEAD' }, {
+    cwd = root,
+    session = session,
+    on_exit = function(res)
+      local contains = {}
+      for sha in (res.stdout or ''):gmatch('%x+') do
+        contains[sha] = true
+      end
+      for _, e in ipairs(entries) do
+        if e.kind == 'commit' then
+          e.has_base = contains[e.sha] or false
+        end
+      end
+      entries.base = mb
+      cb(entries, nil)
+    end,
+  })
+end
+
 --- Build the log entry list for range spec `spec` (`{kind='default'}`,
 --- `{kind='branch', base=ref_or_nil}`, or `{kind='range', expr='A..B'}`).
 --- `cb(entries, err)`. `session`, if given, is threaded to every git/gh call
@@ -91,7 +115,7 @@ function M.build_entries(root, spec, cb, session)
           end
           local out = vim.deepcopy(prefix)
           vim.list_extend(out, commits)
-          cb(out, nil)
+          with_base(root, mb, out, cb, session)
         end, session)
       end, session)
     end, session)
@@ -110,7 +134,7 @@ function M.build_entries(root, spec, cb, session)
           cb(nil, err3)
           return
         end
-        cb(commits, nil)
+        with_base(root, mb, commits, cb, session)
       end, session)
     end, session)
   elseif spec.kind == 'file' then

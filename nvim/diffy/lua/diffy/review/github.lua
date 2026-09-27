@@ -906,7 +906,11 @@ function M.push(session, cb)
       local remaining = #roots
       for _, d in ipairs(roots) do
         local anchor = d.thread.anchor
-        local c = anchor.side == 'old' and (anchor.commit:match('^(.+)%^$') or anchor.commit) or anchor.commit
+        local c = anchor.commit
+        if anchor.side == 'old' then
+          -- the full-PR view's left side is the merge-base itself (§3)
+          c = anchor.commit == merge_base and head_sha or (anchor.commit:match('^(.+)%^$') or anchor.commit)
+        end
         d._commit = c
         commit_diff(c, function(entry)
           local function done()

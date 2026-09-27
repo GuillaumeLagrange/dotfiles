@@ -135,14 +135,14 @@ local function read_side(session, commit, path, cb)
   })
 end
 
---- The (left, right) rev pair whose diff produced `commit`/`side`, per
---- §3's table restricted to the single-row selections local comments are
---- normally written from (Unstaged, Staged, or one commit): `commit` alone
---- doesn't retain which multi-row range was active, so a comment written
---- from a range spanning into Staged/Unstaged falls back to the same-row
---- pair. Good enough for the local backend, which never tracks anchors
---- across commits the way the GitHub backend (§9.4) does.
-local function hunk_pair(commit, side)
+--- The (left, right) rev pair whose diff produced the comment: the view it
+--- was written in (`thread.view`), or for drafts saved before that was
+--- recorded, a guess from the anchor's commit and side.
+local function hunk_pair(thread)
+  if thread.view then
+    return thread.view.left, thread.view.right
+  end
+  local commit, side = thread.anchor.commit, thread.anchor.side
   if commit == 'worktree' then
     return 'INDEX', 'WORKTREE'
   elseif commit == 'index' then
@@ -215,7 +215,7 @@ function M.export(session, cb)
   for _, item in ipairs(pending) do
     local a = item.thread.anchor
     sides[a.commit .. '\0' .. a.path] = { commit = a.commit, path = a.path }
-    local left, right = hunk_pair(a.commit, a.side)
+    local left, right = hunk_pair(item.thread)
     diffs[left .. '\0' .. right .. '\0' .. a.path] = { left = left, right = right, path = a.path }
   end
 
@@ -273,7 +273,7 @@ function M.export(session, cb)
       vim.list_extend(out, numbered_excerpt(lines, a.start_line, a.end_line))
       table.insert(out, '```')
 
-      local left, right = hunk_pair(a.commit, a.side)
+      local left, right = hunk_pair(item.thread)
       local hunks = diff_hunks[left .. '\0' .. right .. '\0' .. a.path] or {}
       local hunk = model.find_hunk(hunks, a.side, a.start_line, a.end_line)
       table.insert(out, '<details><summary>diff hunk</summary>')

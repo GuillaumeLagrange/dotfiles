@@ -68,6 +68,9 @@ entry.
 - Commits listed are `merge-base..HEAD` (branch views) or the requested range. Non-merge commits only;
   merge commits appear dimmed in place so history shape stays visible, and navigation skips them.
 - A selection that spans a merge is a range `A^..B` over non-merge endpoints (git computes the combined diff).
+  Exception, in `:Diffy branch` and `:Diffy pr`: when the selection reaches the oldest commit and its top
+  contains a merge of the base branch, the left side is the merge-base, as github.com's full-PR view. Otherwise
+  base-branch changes merged into the branch would show as branch changes.
 - Keys in log: `<CR>` select single entry, `v`+motion / `V` range select, `a` select all, `J`/`K` (also usable
   from the diff windows as `]r`/`[r`) move the single-entry selection to next/previous commit.
 - **Right side is a real file** (LSP, editable) when the top entry is `Unstaged`, or it is `HEAD` and the file has
