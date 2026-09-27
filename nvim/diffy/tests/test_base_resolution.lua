@@ -42,9 +42,9 @@ local function resolve(root, explicit)
   return result
 end
 
-T['an explicit base is used as-is, without calling gh'] = function()
+T['an explicit base wins over the PR base'] = function()
   local root = tempdir()
-  local shim = fake_gh({ 'echo "gh should not have been called" >&2', 'exit 1' })
+  local shim = fake_gh({ 'echo "release"', 'exit 0' })
   local result
   with_path(shim, function()
     result = resolve(root, 'develop')

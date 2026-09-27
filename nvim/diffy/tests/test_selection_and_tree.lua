@@ -25,25 +25,17 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
-local function buf_lines(win)
-  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
-end
-
 T['§3: selecting Base..M2 shows f.txt with left = base content and right = M2 content'] = function()
   ui.arm_ready(child, 'render')
   child.cmd(('Diffy %s..%s'):format(repo.sha.Base, repo.sha.M2))
   ui.wait_ready(child)
 
-  local w = wins()
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_path'), 'f.txt')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'f.txt')
+  -- §3
+  local l = ui.layout(child)
+  MiniTest.expect.equality({ l.left.path, l.right.path }, { 'f.txt', 'f.txt' })
 
-  local left_lines = buf_lines(w.left)
-  local right_lines = buf_lines(w.right)
+  local left_lines = l.left.text
+  local right_lines = l.right.text
   -- base: line 1 untouched, line 90 still its original numbered content
   MiniTest.expect.equality(left_lines[1], '1')
   MiniTest.expect.equality(left_lines[90], '90')
@@ -51,9 +43,7 @@ T['§3: selecting Base..M2 shows f.txt with left = base content and right = M2 c
   MiniTest.expect.equality(right_lines[1], '1')
   MiniTest.expect.equality(right_lines[90], 'main: line 90 v2')
   -- the left winbar names a rev that resolves to the base commit
-  local left_bar = child.lua_get('vim.wo[' .. w.left .. '].winbar')
-  local shown_rev = left_bar:match('^(%S+)%s+f%.txt$')
-  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', shown_rev }), repo.sha.Base)
+  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', l.left.rev }), repo.sha.Base)
 
   child.cmd('Diffy close')
 end
@@ -63,8 +53,9 @@ T['§5: a rename shows as one entry whose sides are the old and new file'] = fun
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
 
-  local w = wins()
-  local tree_lines = buf_lines(w.tree)
+  -- §5
+  local w = ui.wins(child)
+  local tree_lines = ui.layout(child).tree
   local rename_lnum
   for i, l in ipairs(tree_lines) do
     if l:find('R h.txt', 1, true) then
@@ -79,14 +70,12 @@ T['§5: a rename shows as one entry whose sides are the old and new file'] = fun
   child.type_keys('<CR>')
   ui.wait_ready(child)
 
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_path'), 'h.txt')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'i.txt')
-  local left_lines = buf_lines(w.left)
-  local right_lines = buf_lines(w.right)
-  MiniTest.expect.equality(left_lines[1], 'h1')
-  MiniTest.expect.equality(right_lines[1], 'h1')
-  MiniTest.expect.equality(#left_lines, 40)
-  MiniTest.expect.equality(#right_lines, 40)
+  local l = ui.layout(child)
+  MiniTest.expect.equality({ l.left.path, l.right.path }, { 'h.txt', 'i.txt' })
+  local old = vim.split(ui.git(repo.dir, { 'show', l.left.rev .. ':h.txt' }), '\n')
+  MiniTest.expect.equality(old[1], 'h1')
+  MiniTest.expect.equality(l.left.text, old)
+  MiniTest.expect.equality(l.right.text, old)
 
   child.cmd('Diffy close')
 end

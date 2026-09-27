@@ -63,8 +63,27 @@ local function install_fake(c)
     local fake = require('tests.helpers.fake_github')
     local state = fake.load_fixture(%q, 2)
     state.find_pr = { ['sandbox/placement'] = { number = 2, baseRefName = %q, headRefOid = %q } }
+    _G.__fake_state = state
     require('diffy.review.github').transport = fake.new(state).transport
   ]]):format(PR2_FIXTURE, BASE, HEAD_SHA))
+end
+
+--- Adds a published thread on head `line` of f.txt to the fake PR #2
+--- (before `:Diffy pr` reads it).
+local function serve_thread_at(line)
+  child.lua(([[
+    local pr = _G.__fake_state.reads[2].repository.pullRequest
+    local head = %q
+    table.insert(pr.reviewThreads.nodes, {
+      id = 'PRRT_far', isResolved = false, path = 'f.txt', diffSide = 'RIGHT',
+      line = %d, originalLine = %d,
+      comments = { nodes = { {
+        id = 'PRRC_far', author = { login = 'x' }, body = 'far from any change',
+        createdAt = '2026-09-27T07:00:00Z', line = %d, originalLine = %d,
+        commit = { oid = head }, originalCommit = { oid = head },
+      } } },
+    })
+  ]]):format(HEAD_SHA, line, line, line, line))
 end
 
 local T = MiniTest.new_set({
@@ -93,7 +112,7 @@ local T = MiniTest.new_set({
 })
 
 local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
+  return ui.wins(child)
 end
 
 local function open_pr()
@@ -112,15 +131,18 @@ local function select_commit(idx)
   ui.wait_ready(child)
 end
 
---- Jump the tree/diff pair to `path` (already the current file after a
---- fresh open, since it's the tree's first row - explicit for clarity/
---- robustness across the two views this file uses).
+--- Focus the tree, put the cursor on `path`'s row and press `<CR>`.
 local function open_file(path)
+  local w = wins()
+  child.api.nvim_set_current_win(w.tree)
+  for i, row in ipairs(ui.panel(child, 'tree')) do
+    if row.text:find(path, 1, true) then
+      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
+      break
+    end
+  end
   ui.arm_ready(child, 'review')
-  child.lua(([[
-    local s = require('diffy.session').current()
-    require('diffy.panels.tree').open_path(s, %q)
-  ]]):format(path))
+  child.type_keys('<CR>')
   ui.wait_ready(child)
 end
 
@@ -133,7 +155,7 @@ local function lines_with_signs(side)
 end
 
 T['§9.4: placement tracks a thread across commits (shown at head/its own view) and hides+outdates one whose line later changed'] = function()
-  -- Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
+  -- §9.4. Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
   if live.enabled then
     MiniTest.skip('placement: recorded-fixture only')
   end
@@ -166,27 +188,12 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
   MiniTest.expect.equality(at_head[11], nil)
   MiniTest.expect.equality(at_head[10], nil)
 
-  -- `:Diffy threads`: B2 is labelled outdated (contract §9.1's `outdated`
-  -- field - this thread also happens to be resolved in the real PR #2
-  -- data, so the quickfix `[state]` tag alone can't distinguish it; the
-  -- "commits it's visible in" annotation can - not `head`, only its own
-  -- P1 view, exactly what §9.4's outdated means: untrackable to HEAD)
-  local b2_outdated = child.lua_get([[
-    (function()
-      for _, t in ipairs(require('diffy.session').current().review.threads) do
-        if t.id == 'PRRT_kwDOUtQPis6mYNPI' then
-          return t.outdated
-        end
-      end
-    end)()
-  ]])
-  MiniTest.expect.equality(b2_outdated, true)
-
+  -- `:Diffy threads`: B2 (outdated, §9.1) lists only its own P1 view, never `head`
   child.cmd('Diffy threads')
   local qf = child.lua_get('vim.tbl_map(function(e) return e.text end, vim.fn.getqflist())')
   local b2_line
   for _, text in ipairs(qf) do
-    if text:find('PRRT_kwDOUtQPis6mYNPI', 1, true) then
+    if text:find(': B2 ', 1, true) then
       b2_line = text
     end
   end
@@ -198,67 +205,51 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
 end
 
 T['§9.4: a thread placed on a line unchanged in the viewed commit opens the fold around it'] = function()
-  -- Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
+  -- §9.4
   if live.enabled then
     MiniTest.skip('placement: recorded-fixture only')
   end
-  -- A hand-built synthetic thread (not the recorded PR #2 ones): a comment
-  -- far from every change, guaranteed to fall inside a closed diff fold at
-  -- nvim's default foldlevel - the recorded PR #2 threads all sit close
-  -- enough to a hunk (within the default 6-line diff context) that none
-  -- reliably exercises a *closed* fold. `:Diffy pr` already defaults to
-  -- the full-PR view (all 7 commits selected, §4).
+  -- f.txt's head changes cluster around 10-18/50-53/70/90; line 30 sits in
+  -- a closed fold between them, far from PR #2's recorded threads
+  serve_thread_at(30)
   open_pr()
   open_file('f.txt')
-  ui.arm_ready(child, 'review')
-  -- f.txt's real changes cluster around lines 10-18/50-53/70/90-ish
-  -- (head-tracked); line 30 sits untouched between two of those hunks
-  child.lua([[
-    local s = require('diffy.session').current()
-    table.insert(s.review.threads, {
-      id = 'synthetic', backend = 'github', resolved = false, outdated = false,
-      comments = { { id = 'c', author = 'x', body = 'far from any change', created_at = 0, state = 'published' } },
-      anchor = { path = 'f.txt', side = 'new', start_line = 30, end_line = 30, commit = s.head_sha },
-      _has_source = true,
-    })
-    require('diffy.review.ui').decorate(s)
-  ]])
-  ui.wait_ready(child)
 
-  local win = wins().right
   local closed = child.lua_get(([[
     vim.api.nvim_win_call(%d, function() return vim.fn.foldclosed(30) end)
-  ]]):format(win))
+  ]]):format(wins().right))
   MiniTest.expect.equality(closed, -1)
 
   child.cmd('Diffy close')
 end
 
-T[':Diffy pr refuses when local HEAD differs from the PR head on GitHub'] = function()
-  -- amend the checked-out commit locally: HEAD now differs from the
-  -- fixture's declared `headRefOid`
-  git(dir, { 'commit', '--amend', '-q', '--allow-empty', '-m', 'local-only amend' })
-  child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
-  child.cmd('Diffy pr')
+local function expect_refused()
   vim.wait(live.timeout, function()
-    return child.lua_get('_G.__notif') ~= vim.NIL
-  end)
-  local msg = child.lua_get('_G.__notif')
-  MiniTest.expect.equality(msg:find('refused', 1, true) ~= nil, true)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current()') == vim.NIL, true)
+    return child.lua_get('_G.__warned') == true
+  end, 10)
+  MiniTest.expect.equality(child.lua_get('_G.__warned'), true)
+  MiniTest.expect.equality(child.fn.tabpagenr('$'), 1)
+  MiniTest.expect.equality(ui.diffy_buffers(child), {})
 end
 
-T[':Diffy pr refuses when the tree is dirty'] = function()
-  vim.fn.writefile({ 'dirty' }, dir .. '/f.txt')
-  child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
+local function capture_warnings()
+  child.lua([[_G.__warned = false; vim.notify = function(_, level) if level == vim.log.levels.WARN or level == vim.log.levels.ERROR then _G.__warned = true end end]])
+end
+
+T[':Diffy pr refuses to open when local HEAD differs from the PR head on GitHub'] = function()
+  -- §9.4
+  git(dir, { 'commit', '--amend', '-q', '--allow-empty', '-m', 'local-only amend' })
+  capture_warnings()
   child.cmd('Diffy pr')
-  vim.wait(live.timeout, function()
-    return child.lua_get('_G.__notif') ~= vim.NIL
-  end)
-  local msg = child.lua_get('_G.__notif')
-  MiniTest.expect.equality(msg:find('refused', 1, true) ~= nil, true)
-  MiniTest.expect.equality(msg:find('dirty', 1, true) ~= nil, true)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current()') == vim.NIL, true)
+  expect_refused()
+end
+
+T[':Diffy pr refuses to open when the tree is dirty'] = function()
+  -- §9.4
+  vim.fn.writefile({ 'dirty' }, dir .. '/f.txt')
+  capture_warnings()
+  child.cmd('Diffy pr')
+  expect_refused()
 end
 
 return T

@@ -1,9 +1,6 @@
 -- §9.4, §12.7 (phase 7, logic): GitHub backend line tracking, anchor
 -- validity and `position` computation. Pure `review/model.lua` functions;
--- inputs are real `git diff` output from fixture repos (§11.2), never
--- hand-built diff shapes for the tracking/position tests (the anchor
--- validity one hand-builds a diff hunk, same style as
--- `test_review_model.lua`'s `find_hunk` case).
+-- inputs are real `git diff` output from fixture repos (§11.2).
 local Repo = require('tests.helpers.repo')
 local model = require('diffy.review.model')
 
@@ -92,26 +89,20 @@ T['§9.4: map_line handles a pure line insertion (zero-count hunk) without shift
 end
 
 T['§9.4: anchor_valid accepts a changed line and up to 3 lines of context, rejects beyond that'] = function()
-  local diff = table.concat({
-    '@@ -20,3 +20,3 @@',
-    '-old a',
-    '-old b',
-    '-old c',
-    '+new a',
-    '+new b',
-    '+new c',
-  }, '\n')
-  local hunks = model.parse_hunks(diff)
-  -- changed range itself
+  local r = Repo.new()
+  r:commit('Base', { ['f.txt'] = Repo.lines(60) })
+  r:commit('Edit', { ['f.txt'] = Repo.edit(20, 'new a', 21, 'new b', 22, 'new c') })
+  local hunks = model.parse_hunks(git_diff(r.dir, r.sha.Base, r.sha.Edit))
   MiniTest.expect.equality(model.anchor_valid(hunks, 'new', 20, 22), true)
-  -- exactly 3 lines above/below (17..19 and 23..25)
+  -- exactly 3 lines above/below
   MiniTest.expect.equality(model.anchor_valid(hunks, 'new', 17, 17), true)
   MiniTest.expect.equality(model.anchor_valid(hunks, 'new', 25, 25), true)
   -- one line beyond the ±3 window on either side
   MiniTest.expect.equality(model.anchor_valid(hunks, 'new', 16, 16), false)
   MiniTest.expect.equality(model.anchor_valid(hunks, 'new', 26, 26), false)
-  -- a file-level comment (no side) is always valid, hunks notwithstanding
+  -- a file-level comment (no side) is always valid
   MiniTest.expect.equality(model.anchor_valid(hunks, nil, nil, nil), true)
+  r:destroy()
 end
 
 T['§9.4: diff_position for a single-hunk and a multi-hunk file (position = 1-based diff-line index below the first @@)'] = function()

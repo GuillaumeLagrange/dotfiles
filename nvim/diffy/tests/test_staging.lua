@@ -24,12 +24,23 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
+local function tree()
+  return ui.layout(child).tree
 end
 
-local function buf_lines(win)
-  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
+local function select_log_row(needle)
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.log)
+  local row
+  for i, l in ipairs(ui.layout(child).log) do
+    if not row and l:find(needle, 1, true) then
+      row = i
+    end
+  end
+  child.api.nvim_win_set_cursor(w.log, { row, 0 })
+  ui.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
 end
 
 local function find_line(lines, needle)
@@ -41,7 +52,8 @@ local function find_line(lines, needle)
   return nil
 end
 
-T['§5: Unstaged shows index/worktree, and writing the left buffer stages exactly the edited hunk'] = function()
+T['Unstaged shows index/worktree, and writing the left buffer stages exactly the edited hunk'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['f.txt'] = Repo.lines(20) })
   local edited = Repo.lines(20)
   edited[5] = 'edited5'
@@ -53,11 +65,10 @@ T['§5: Unstaged shows index/worktree, and writing the left buffer stages exactl
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_rev'), 'INDEX')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_rev'), 'WORKTREE')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_path'), 'f.txt')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'f.txt')
+  local l = ui.layout(child)
+  MiniTest.expect.equality({ l.left.rev, l.left.path }, { 'index', 'f.txt' })
+  MiniTest.expect.equality({ l.right.rev, l.right.path }, { 'worktree', 'f.txt' })
+  local w = ui.wins(child)
 
   child.api.nvim_set_current_win(w.left)
   child.fn.win_execute(w.left, 'call cursor(5, 1)')
@@ -77,7 +88,8 @@ T['§5: Unstaged shows index/worktree, and writing the left buffer stages exactl
   child.cmd('Diffy close')
 end
 
-T['§5: `s` on an unstaged file stages it'] = function()
+T['`s` on an unstaged file stages it, then `u` from Staged unstages it again'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['f.txt'] = Repo.lines(5), ['g.txt'] = Repo.lines(5) })
   vim.fn.writefile({ 'changed' }, repo.dir .. '/g.txt')
   child.fn.chdir(repo.dir)
@@ -86,7 +98,7 @@ T['§5: `s` on an unstaged file stages it'] = function()
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
+  local w = ui.wins(child)
   child.api.nvim_set_current_win(w.tree)
   child.fn.win_execute(w.tree, 'call cursor(1, 1)')
 
@@ -97,10 +109,21 @@ T['§5: `s` on an unstaged file stages it'] = function()
   MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--cached', '--name-only' }), 'g.txt')
   MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--name-only' }), '')
 
+  select_log_row('Staged')
+  child.api.nvim_set_current_win(w.tree)
+  child.api.nvim_win_set_cursor(w.tree, { find_line(tree(), 'g.txt'), 0 })
+  ui.arm_ready(child, 'render')
+  child.type_keys('u')
+  ui.wait_ready(child)
+
+  MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--cached', '--name-only' }), '')
+  MiniTest.expect.equality(ui.git(repo.dir, { 'diff', '--name-only' }), 'g.txt')
+
   child.cmd('Diffy close')
 end
 
-T['§5: `u` on a staged rename pair unstages both paths'] = function()
+T['`u` on a staged rename pair unstages both paths'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['h.txt'] = Repo.lines(5) })
   repo:mv('h.txt', 'i.txt')
   child.fn.chdir(repo.dir)
@@ -109,18 +132,10 @@ T['§5: `u` on a staged rename pair unstages both paths'] = function()
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  -- select the log's `Staged` entry (line 2 of the prefix)
-  child.type_keys('<C-w>t')
-  child.type_keys('<C-w>j')
-  local w = wins()
-  child.fn.win_execute(w.log, 'call cursor(2, 1)')
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
-
-  child.type_keys('<C-w>k')
-  local tree_lines = buf_lines(w.tree)
-  local lnum = find_line(tree_lines, 'R h.txt')
+  select_log_row('Staged')
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.tree)
+  local lnum = find_line(tree(), 'R h.txt')
   MiniTest.expect.equality(lnum ~= nil, true)
   child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(lnum))
 
@@ -138,7 +153,8 @@ T['§5: `u` on a staged rename pair unstages both paths'] = function()
   child.cmd('Diffy close')
 end
 
-T['§5: an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stages both paths'] = function()
+T['an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stages both paths'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['h.txt'] = Repo.lines(5) })
   os.rename(repo.dir .. '/h.txt', repo.dir .. '/i.txt')
   child.fn.chdir(repo.dir)
@@ -147,8 +163,8 @@ T['§5: an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stag
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
-  local before = buf_lines(w.tree)
+  local w = ui.wins(child)
+  local before = tree()
   MiniTest.expect.equality(find_line(before, 'D h.txt') ~= nil, true)
   MiniTest.expect.equality(find_line(before, '? i.txt') ~= nil, true)
   MiniTest.expect.equality(find_line(before, 'R h.txt') == nil, true)
@@ -158,7 +174,7 @@ T['§5: an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stag
   child.type_keys('R')
   ui.wait_ready(child)
 
-  local after = buf_lines(w.tree)
+  local after = tree()
   local lnum = find_line(after, 'R h.txt \226\134\146 i.txt')
   MiniTest.expect.equality(lnum ~= nil, true)
 
@@ -177,7 +193,8 @@ T['§5: an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stag
   child.cmd('Diffy close')
 end
 
-T['§5: staging keys are a no-op when the selection is not exactly Unstaged or Staged'] = function()
+T['staging keys are a no-op, with a warning, when the selection is not exactly Unstaged or Staged'] = function()
+  -- §5
   repo = Repo.standard()
   local cur = vim.fn.readfile(repo.dir .. '/f.txt')
   cur[1] = 'dirty'
@@ -188,18 +205,9 @@ T['§5: staging keys are a no-op when the selection is not exactly Unstaged or S
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  child.type_keys('<C-w>t')
-  child.type_keys('<C-w>j')
-  local w = wins()
-  local log_lines = buf_lines(w.log)
-  local lnum = find_line(log_lines, 'Shift') -- touches f.txt, same file as the dirty edit
-  MiniTest.expect.equality(lnum ~= nil, true)
-  child.fn.win_execute(w.log, ('call cursor(%d, 1)'):format(lnum))
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
-
-  child.type_keys('<C-w>k')
+  select_log_row('Shift') -- touches f.txt, same file as the dirty edit
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.tree)
   child.fn.win_execute(w.tree, 'call cursor(1, 1)')
 
   -- observe only that a warning fires, never its exact wording (§11.3.4)
@@ -222,7 +230,8 @@ T['§5: staging keys are a no-op when the selection is not exactly Unstaged or S
   child.cmd('Diffy close')
 end
 
-T['§5: nested directories group under collapsible headers, single-child chains flattened'] = function()
+T['nested directories group under collapsible headers, single-child chains flattened'] = function()
+  -- §5
   repo = Repo.new()
     :commit('Base', { ['top.txt'] = Repo.lines(1) })
     :commit('Add', {
@@ -236,8 +245,8 @@ T['§5: nested directories group under collapsible headers, single-child chains 
   child.cmd(('Diffy %s..%s'):format(repo.sha.Base, repo.sha.Add))
   ui.wait_ready(child)
 
-  local w = wins()
-  local lines = buf_lines(w.tree)
+  local w = ui.wins(child)
+  local lines = tree()
 
   local function has(text)
     for _, l in ipairs(lines) do
@@ -285,7 +294,8 @@ T['§5: nested directories group under collapsible headers, single-child chains 
   child.cmd('Diffy close')
 end
 
-T['§5: a new untracked directory shows its files individually as ? rows, grouped under a header'] = function()
+T['a new untracked directory shows its files individually as ? rows, grouped under a header'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['top.txt'] = Repo.lines(1) })
   vim.fn.mkdir(repo.dir .. '/newdir', 'p')
   vim.fn.writefile({ 'x' }, repo.dir .. '/newdir/a.txt')
@@ -296,8 +306,7 @@ T['§5: a new untracked directory shows its files individually as ? rows, groupe
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
-  local lines = buf_lines(w.tree)
+  local lines = tree()
 
   local function has_exact(text)
     for _, l in ipairs(lines) do
@@ -327,7 +336,8 @@ T['§5: a new untracked directory shows its files individually as ? rows, groupe
   child.cmd('Diffy close')
 end
 
-T['§5: staging from Unstaged in :Diffy branch keeps Unstaged selected'] = function()
+T['staging from Unstaged in :Diffy branch keeps Unstaged selected'] = function()
+  -- §5
   repo = Repo.new():commit('Base', { ['base.txt'] = Repo.lines(5) })
   repo:branch('feat'):commit('C1', { ['committed.txt'] = Repo.lines(3) })
   vim.fn.writefile({ 'dirty a' }, repo.dir .. '/a.txt')
@@ -338,27 +348,20 @@ T['§5: staging from Unstaged in :Diffy branch keeps Unstaged selected'] = funct
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
-  local w = wins()
-
+  select_log_row('Unstaged')
+  local w = ui.wins(child)
   child.api.nvim_set_current_win(w.tree)
-  child.type_keys('<C-w>j')
-  child.fn.win_execute(w.log, 'call cursor(1, 1)') -- Unstaged
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
-
-  child.api.nvim_set_current_win(w.tree)
-  local tree = buf_lines(w.tree)
-  child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(find_line(tree, 'a.txt')))
+  child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(find_line(tree(), 'a.txt')))
   ui.arm_ready(child, 'render')
   child.type_keys('s')
   ui.wait_ready(child)
 
   -- still the Unstaged view: only b.txt left, not the branch's committed file
-  tree = buf_lines(w.tree)
-  MiniTest.expect.equality(find_line(tree, 'b.txt') ~= nil, true)
-  MiniTest.expect.equality(find_line(tree, 'a.txt'), nil)
-  MiniTest.expect.equality(find_line(tree, 'committed.txt'), nil)
+  MiniTest.expect.equality(ui.rows_with(child, 'log', 'DiffySelection'), { '\226\150\140 Unstaged' })
+  local t = tree()
+  MiniTest.expect.equality(find_line(t, 'b.txt') ~= nil, true)
+  MiniTest.expect.equality(find_line(t, 'a.txt'), nil)
+  MiniTest.expect.equality(find_line(t, 'committed.txt'), nil)
 
   child.cmd('Diffy close')
 end

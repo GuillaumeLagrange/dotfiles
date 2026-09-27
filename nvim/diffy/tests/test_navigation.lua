@@ -35,67 +35,57 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
 local function win_diff(win)
   return child.lua_get(('vim.wo[%d].diff'):format(win))
 end
 
-local function diffy_path(win)
-  return child.lua_get(('vim.w[%d].diffy_path'):format(win))
-end
-
-local function buf_lines(win)
-  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
-end
-
 T['jumping to another listed file swaps both sides and highlights the tree'] = function()
+  -- §6
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
-  MiniTest.expect.equality(diffy_path(w.right), 'a.txt')
+  local w = ui.wins(child)
+  MiniTest.expect.equality(ui.layout(child).right.path, 'a.txt')
 
   child.api.nvim_set_current_win(w.right)
   child.cmd('edit ' .. vim.fn.fnameescape(repo.dir .. '/b.txt'))
 
-  MiniTest.expect.equality(diffy_path(w.right), 'b.txt')
-  MiniTest.expect.equality(diffy_path(w.left), 'b.txt')
-  MiniTest.expect.equality(win_diff(w.left), true)
+  local l = ui.layout(child)
+  MiniTest.expect.equality({ l.left.path, l.right.path }, { 'b.txt', 'b.txt' })
+  MiniTest.expect.equality(l.diff, true)
   MiniTest.expect.equality(win_diff(w.right), true)
 
-  local cursor_line = child.lua_get(('vim.api.nvim_win_get_cursor(%d)[1]'):format(w.tree))
-  local highlighted = buf_lines(w.tree)[cursor_line]
-  MiniTest.expect.equality(highlighted:find('b.txt', 1, true) ~= nil, true)
+  local current = ui.rows_with(child, 'tree', 'DiffyCurrentFile')
+  MiniTest.expect.equality(#current, 1)
+  MiniTest.expect.equality(current[1]:find('b.txt', 1, true) ~= nil, true)
 
   child.cmd('Diffy close')
 end
 
 T['jumping outside the file list leaves diff mode with a placeholder, and <C-o> restores the pair'] = function()
+  -- §6
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
+  local w = ui.wins(child)
   child.api.nvim_set_current_win(w.right)
   child.cmd('edit ' .. vim.fn.fnameescape(repo.dir .. '/outside.txt'))
 
-  MiniTest.expect.equality(win_diff(w.left), false)
+  local l = ui.layout(child)
+  MiniTest.expect.equality(l.diff, false)
   MiniTest.expect.equality(win_diff(w.right), false)
-  MiniTest.expect.equality(buf_lines(w.left), { '(outside diff)' })
-  local right_name = child.lua_get(('vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(%d))'):format(w.right))
-  MiniTest.expect.equality(right_name:find('outside.txt', 1, true) ~= nil, true)
+  MiniTest.expect.equality(l.left.text, { '(outside diff)' })
+  MiniTest.expect.equality(l.right.name, repo.dir .. '/outside.txt')
 
   child.api.nvim_set_current_win(w.right)
   child.type_keys('<C-o>')
 
-  MiniTest.expect.equality(win_diff(w.left), true)
+  l = ui.layout(child)
+  MiniTest.expect.equality(l.diff, true)
   MiniTest.expect.equality(win_diff(w.right), true)
-  MiniTest.expect.equality(diffy_path(w.right), 'a.txt')
-  MiniTest.expect.equality(diffy_path(w.left), 'a.txt')
+  MiniTest.expect.equality({ l.left.path, l.right.path }, { 'a.txt', 'a.txt' })
 
   child.cmd('Diffy close')
 end

@@ -2,6 +2,7 @@
 -- sessions in separate tabs are fully independent.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
+local ui = require('tests.helpers.ui')
 
 local child = MiniTest.new_child_neovim()
 local snapshot
@@ -11,8 +12,12 @@ local function tabs()
   return child.lua_get('#vim.api.nvim_list_tabpages()')
 end
 
-local function session_count()
-  return child.lua_get('vim.tbl_count(require("diffy.session").sessions)')
+-- teardown is complete when only the original tab is left and no diffy://
+-- buffer survives
+local function expect_no_session()
+  MiniTest.expect.equality(tabs(), 1)
+  MiniTest.expect.equality(ui.diffy_buffers(child), {})
+  MiniTest.expect.equality(ui.layout(child), nil)
 end
 
 -- some paths defer teardown to the next tick (see session.lua's
@@ -41,27 +46,28 @@ local T = MiniTest.new_set({
 
 T[':Diffy opens a session tab with the layout skeleton'] = function()
   child.cmd('Diffy')
+  -- §1
   MiniTest.expect.equality(tabs(), 2)
-  MiniTest.expect.equality(session_count(), 1)
-  local names = child.lua_get([[(function()
-    local s = require('diffy.session').current()
-    local out = {}
-    for name, win in pairs(s.wins) do out[name] = vim.api.nvim_win_is_valid(win) end
-    return out
-  end)()]])
-  MiniTest.expect.equality(names, { tree = true, log = true, left = true, right = true })
+  local l = ui.layout(child)
+  MiniTest.expect.equality(l ~= nil, true)
+  MiniTest.expect.equality(
+    { tree = l.tree ~= vim.NIL, log = l.log ~= vim.NIL, left = l.left ~= vim.NIL, right = l.right ~= vim.NIL },
+    { tree = true, log = true, left = true, right = true }
+  )
+  MiniTest.expect.equality(#l.bars, 4)
 end
 
 T['closing the tab with :tabclose leaves no diffy state'] = function()
+  -- §1, §12.1
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 2)
   child.cmd('tabclose')
   wait_tabs(1)
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 end
 
 T['§1: :tabclose before DiffyReady tears down cleanly, and the pending async render is a no-op'] = function()
+  -- §1
   -- deterministically reproduce the race (real subprocess completion time
   -- is not reliable enough to race against on its own): hold back the
   -- delivery of `M.start`'s very first git call (`repo.root`, still a real
@@ -84,8 +90,7 @@ T['§1: :tabclose before DiffyReady tears down cleanly, and the pending async re
   child.cmd('Diffy')
   child.cmd('tabclose')
   wait_tabs(1)
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 
   -- release the held-back completion now that the session is gone, then
   -- give the rest of the (real, unpatched) chain it kicks off - `git log`,
@@ -96,8 +101,7 @@ T['§1: :tabclose before DiffyReady tears down cleanly, and the pending async re
   child.lua("vim.wait(1500, function() return vim.v.errmsg ~= '' end)")
 
   MiniTest.expect.equality(child.lua_get('vim.v.errmsg'), '')
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 end
 
 T['quitting a managed window closes the whole session'] = MiniTest.new_set({
@@ -105,13 +109,12 @@ T['quitting a managed window closes the whole session'] = MiniTest.new_set({
 })
 
 T['quitting a managed window closes the whole session']['leaves no diffy state'] = function(name)
+  -- §1
   child.cmd('Diffy')
-  local winid = child.lua_get(('require("diffy.session").current().wins.%s'):format(name))
-  child.fn.win_gotoid(winid)
+  child.fn.win_gotoid(ui.wins(child)[name])
   child.cmd('q')
   wait_tabs(1)
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 end
 
 T['wiping a panel buffer closes the whole session'] = MiniTest.new_set({
@@ -119,57 +122,56 @@ T['wiping a panel buffer closes the whole session'] = MiniTest.new_set({
 })
 
 T['wiping a panel buffer closes the whole session']['leaves no diffy state'] = function(name)
+  -- §1
   child.cmd('Diffy')
-  local bufnr = child.lua_get(('require("diffy.session").current().bufs.%s'):format(name))
+  local bufnr = child.api.nvim_win_get_buf(ui.wins(child)[name])
   child.cmd(('bwipeout! %d'):format(bufnr))
   wait_tabs(1)
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 end
 
 T[':Diffy close tears down the session'] = function()
+  -- §1
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 2)
   child.cmd('Diffy close')
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
+  expect_no_session()
 end
 
-T['VimLeavePre tears down every open session'] = function()
+T['quitting nvim (VimLeavePre) tears down every open session'] = function()
+  -- §1, §12.1; a real :qa would end the child before anything is observable
   child.cmd('Diffy')
-  MiniTest.expect.equality(tabs(), 2)
-  child.cmd('doautocmd VimLeavePre')
-  MiniTest.expect.equality(tabs(), 1)
-  MiniTest.expect.equality(session_count(), 0)
-end
-
-T['two sessions in separate tabs are independent'] = function()
-  child.cmd('Diffy')
-  local tab1 = child.lua_get('require("diffy.session").current().tab')
-
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 3)
-  MiniTest.expect.equality(session_count(), 2)
-  local tab2 = child.lua_get('require("diffy.session").current().tab')
-  MiniTest.expect.equality(tab1 == tab2, false)
+  child.cmd('doautocmd VimLeavePre')
+  expect_no_session()
+end
 
-  -- close session 2 only; session 1 must stay fully intact
+T['closing one of two session tabs leaves the other working'] = function()
+  -- §1
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy')
+  ui.wait_ready(child)
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy')
+  ui.wait_ready(child)
+  MiniTest.expect.equality(tabs(), 3)
+
   child.cmd('Diffy close')
   MiniTest.expect.equality(tabs(), 2)
-  MiniTest.expect.equality(session_count(), 1)
+  child.cmd('tabnext 2')
+  MiniTest.expect.equality(ui.layout(child) ~= nil, true)
 
-  local session1_ok = child.lua_get((([[(function()
-    local s = require('diffy.session').for_tab(%d)
-    if not s then return false end
-    for _, w in pairs(s.wins) do
-      if not vim.api.nvim_win_is_valid(w) then return false end
-    end
-    for _, b in pairs(s.bufs) do
-      if not vim.api.nvim_buf_is_valid(b) then return false end
-    end
-    return true
-  end)()]]):format(tab1)))
-  MiniTest.expect.equality(session1_ok, true)
+  -- session 1 still reacts to its keys: R picks up a new worktree change
+  vim.fn.writefile({ 'changed' }, repo.dir .. '/f.txt')
+  child.api.nvim_set_current_win(ui.wins(child).tree)
+  ui.arm_ready(child, 'render')
+  child.type_keys('R')
+  ui.wait_ready(child)
+  local l = ui.layout(child)
+  MiniTest.expect.equality(vim.iter(l.tree):any(function(t) return t:find('f.txt', 1, true) ~= nil end), true)
+  MiniTest.expect.equality(l.right.rev, 'worktree')
+  MiniTest.expect.equality(l.right.path, 'f.txt')
 end
 
 return T

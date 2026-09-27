@@ -30,23 +30,19 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
 local function state_file()
   return repo.dir .. '/.git/diffy/checkout.json'
 end
 
 T['`X` on a commit with a dirty tree refuses, leaving HEAD untouched'] = function()
+  -- §7
   vim.fn.writefile({ 'dirty, uncommitted' }, repo.dir .. '/f.txt')
 
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
 
-  local w = wins()
-  child.api.nvim_set_current_win(w.log)
+  child.api.nvim_set_current_win(ui.wins(child).log)
   ui.arm_ready(child, 'checkout')
   child.type_keys('X')
   ui.wait_ready(child)
@@ -59,12 +55,12 @@ T['`X` on a commit with a dirty tree refuses, leaving HEAD untouched'] = functio
 end
 
 T['`X` then closing the tab returns to the original branch'] = function()
+  -- §7
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
 
-  local w = wins()
-  child.api.nvim_set_current_win(w.log)
+  child.api.nvim_set_current_win(ui.wins(child).log)
   ui.arm_ready(child, 'checkout')
   child.type_keys('X')
   ui.wait_ready(child)
@@ -74,7 +70,7 @@ T['`X` then closing the tab returns to the original branch'] = function()
   local branch_ok = pcall(ui.git, repo.dir, { 'symbolic-ref', '-q', 'HEAD' })
   MiniTest.expect.equality(branch_ok, false)
   MiniTest.expect.equality(vim.fn.filereadable(state_file()), 1)
-  MiniTest.expect.equality(child.lua_get(('vim.w[%d].diffy_rev'):format(w.right)), 'WORKTREE')
+  MiniTest.expect.equality(ui.layout(child).right.rev, 'worktree')
 
   ui.arm_ready(child, 'close')
   child.cmd('Diffy close')
@@ -86,12 +82,12 @@ T['`X` then closing the tab returns to the original branch'] = function()
 end
 
 T['nvim killed during a checkout: the next :Diffy warns, and :Diffy restore returns to the branch'] = function()
+  -- §7
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
 
-  local w = wins()
-  child.api.nvim_set_current_win(w.log)
+  child.api.nvim_set_current_win(ui.wins(child).log)
   ui.arm_ready(child, 'checkout')
   child.type_keys('X')
   ui.wait_ready(child)

@@ -39,25 +39,30 @@ local function file_history_repo()
   return r
 end
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
+
+local function subject(text)
+  return (text:gsub('^\226\150\140', ''):gsub('^%s*', ''):gsub('^%x%x%x%x%x%x%x ', ''))
 end
 
-local function buf_lines(win)
-  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
+local function subjects(texts)
+  local out = {}
+  for i, t in ipairs(texts or ui.layout(child).log) do
+    out[i] = subject(t)
+  end
+  return out
 end
 
-local function subjects()
-  return child.lua_get([[(function()
-    local out = {}
-    for _, e in ipairs(require('diffy.session').current().entries) do
-      table.insert(out, e.subject)
-    end
-    return out
-  end)()]])
+local function select_row(row)
+  local w = ui.wins(child)
+  child.api.nvim_set_current_win(w.log)
+  child.api.nvim_win_set_cursor(w.log, { row, 0 })
+  ui.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
 end
 
-T['§4: :Diffy file follows a file across its rename'] = function()
+T[':Diffy file follows a file across its rename'] = function()
+  -- §4
   repo = file_history_repo()
   child.fn.chdir(repo.dir)
 
@@ -67,37 +72,24 @@ T['§4: :Diffy file follows a file across its rename'] = function()
 
   MiniTest.expect.equality(subjects(), { 'Edit', 'Rename', 'Base' })
 
-  local w = wins()
   -- default selection: the newest commit; tree restricted to just this file
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().sel'), { top = 1, bottom = 1 })
-  MiniTest.expect.equality(#buf_lines(w.tree), 1)
-  MiniTest.expect.equality(buf_lines(w.tree)[1]:find('new.txt', 1, true) ~= nil, true)
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'new.txt')
+  MiniTest.expect.equality(subjects(ui.rows_with(child, 'log', 'DiffySelection')), { 'Edit' })
+  local l = ui.layout(child)
+  MiniTest.expect.equality(l.tree, { 'M new.txt' .. (' '):rep(25) .. '+1 -1' })
+  MiniTest.expect.equality(l.right.path, 'new.txt')
 
-  -- select the rename commit: one row, old -> new, sides old.txt/new.txt
-  child.api.nvim_set_current_win(w.tree)
-  child.type_keys('<C-w>j')
-  child.fn.win_execute(w.log, 'call cursor(2, 1)') -- Edit, Rename
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
+  -- the rename commit: one row, old -> new, sides old.txt/new.txt
+  select_row(2)
+  l = ui.layout(child)
+  MiniTest.expect.equality(l.tree, { 'R old.txt \226\134\146 new.txt' .. (' '):rep(15) .. '+0 -0' })
+  MiniTest.expect.equality(l.left.path, 'old.txt')
+  MiniTest.expect.equality(l.right.path, 'new.txt')
 
-  MiniTest.expect.equality(#buf_lines(w.tree), 1)
-  -- one row, counts right-aligned to the 40-cell panel (§5)
-  MiniTest.expect.equality(buf_lines(w.tree)[1], 'R old.txt \226\134\146 new.txt' .. (' '):rep(15) .. '+0 -0')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.left .. '].diffy_path'), 'old.txt')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'new.txt')
-
-  -- select the commit that first added the file, before any rename: the
-  -- tree shows it under its old name
-  child.fn.win_execute(w.log, 'call cursor(3, 1)') -- Edit, Rename, Base
-  ui.arm_ready(child, 'select')
-  child.type_keys('<CR>')
-  ui.wait_ready(child)
-
-  MiniTest.expect.equality(#buf_lines(w.tree), 1)
-  MiniTest.expect.equality(buf_lines(w.tree)[1], 'A old.txt' .. (' '):rep(25) .. '+5 -0')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'old.txt')
+  -- the commit that added the file, before the rename: shown under its old name
+  select_row(3)
+  l = ui.layout(child)
+  MiniTest.expect.equality(l.tree, { 'A old.txt' .. (' '):rep(25) .. '+5 -0' })
+  MiniTest.expect.equality(l.right.path, 'old.txt')
 
   child.cmd('Diffy close')
 end

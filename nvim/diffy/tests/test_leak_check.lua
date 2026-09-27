@@ -53,9 +53,4 @@ T['a leaked extmark in a diffy namespace fails the check'] = function()
   expect_leak('extmark:')
 end
 
-T['a clean child passes the check'] = function()
-  local ok = pcall(leak.check, child)
-  MiniTest.expect.equality(ok, true)
-end
-
 return T

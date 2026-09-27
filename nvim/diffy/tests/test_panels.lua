@@ -24,23 +24,12 @@ local T = MiniTest.new_set({
   },
 })
 
-local function session_wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
-local function valid(win)
-  return child.api.nvim_win_is_valid(win)
-end
-
-local function buf_lines(win)
-  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
-end
-
 local function tab_wins()
   return child.lua_get('vim.api.nvim_tabpage_list_wins(0)')
 end
 
 T['§2: the panel toggle hides the column (diff spans the width, ]f still works) and brings it back'] = function()
+  -- §2
   repo = Repo.new():commit('Base', { ['a.txt'] = Repo.lines(5, 'a'), ['b.txt'] = Repo.lines(5, 'b') })
   vim.fn.writefile({ 'a1', 'changed' }, repo.dir .. '/a.txt')
   vim.fn.writefile({ 'b1', 'changed' }, repo.dir .. '/b.txt')
@@ -50,34 +39,33 @@ T['§2: the panel toggle hides the column (diff spans the width, ]f still works)
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
-  local w = session_wins()
-  local tree_before, log_before = buf_lines(w.tree), buf_lines(w.log)
+  local w = ui.wins(child)
+  local before_hide = ui.layout(child)
 
   -- hide with the buffer-local key from a diff window
   child.api.nvim_set_current_win(w.left)
   child.type_keys('\\e')
-  MiniTest.expect.equality(valid(w.tree) or valid(w.log), false)
+  local hidden = ui.layout(child)
+  MiniTest.expect.equality({ hidden.tree, hidden.log }, { vim.NIL, vim.NIL })
   MiniTest.expect.equality(#tab_wins(), 2)
   local lw, rw = child.api.nvim_win_get_width(w.left), child.api.nvim_win_get_width(w.right)
   MiniTest.expect.equality(lw + rw + 1, child.o.columns)
   MiniTest.expect.equality(math.abs(lw - rw) <= 1, true)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current() ~= nil'), true)
+  MiniTest.expect.equality(hidden.left.path, 'a.txt')
 
   child.api.nvim_set_current_win(w.right)
-  local before = child.lua_get('vim.w[' .. w.right .. '].diffy_path')
   ui.arm_ready(child, 'open_row')
   child.type_keys(']f')
   ui.wait_ready(child)
-  local after = child.lua_get('vim.w[' .. session_wins().right .. '].diffy_path')
-  MiniTest.expect.equality(before ~= after, true)
+  MiniTest.expect.equality(ui.layout(child).right.path, 'b.txt')
 
   -- show again: same content, panel width, clean window options
   child.cmd('Diffy panel')
-  w = session_wins()
-  MiniTest.expect.equality(valid(w.tree) and valid(w.log), true)
+  w = ui.wins(child)
+  local shown = ui.layout(child)
+  MiniTest.expect.equality(shown.tree, before_hide.tree)
+  MiniTest.expect.equality(shown.log, before_hide.log)
   MiniTest.expect.equality(child.api.nvim_win_get_width(w.tree), 40)
-  MiniTest.expect.equality(buf_lines(w.tree), tree_before)
-  MiniTest.expect.equality(#buf_lines(w.log), #log_before)
   MiniTest.expect.equality(child.lua_get('vim.wo[' .. w.tree .. '].number'), false)
 
   -- tree keys still open files after the re-show
@@ -86,16 +74,17 @@ T['§2: the panel toggle hides the column (diff spans the width, ]f still works)
   ui.arm_ready(child, 'open_row')
   child.type_keys('<CR>')
   ui.wait_ready(child)
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. w.right .. '].diffy_path'), 'a.txt')
+  MiniTest.expect.equality(ui.layout(child).right.path, 'a.txt')
 
   -- hidden again, then closed: post_case's leak check covers the teardown
   child.type_keys('\\e')
-  MiniTest.expect.equality(valid(w.tree), false)
+  MiniTest.expect.equality(ui.layout(child).tree, vim.NIL)
   child.cmd('Diffy close')
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current() == nil'), true)
+  MiniTest.expect.equality(ui.diffy_buffers(child), {})
 end
 
 T['§5: a long path under nested dirs renders as one row fitting the panel, status and counts visible'] = function()
+  -- §5
   local long = 'nvim/diffy/lua/diffy/a_rather_long_directory_name/init_with_an_extremely_long_file_name.lua'
   repo = Repo.new():commit('Base', { [long] = Repo.lines(5), ['nvim/diffy/lua/diffy/other.lua'] = Repo.lines(5) })
   vim.fn.writefile({ '1', 'changed', '3', '4', '5' }, repo.dir .. '/' .. long)
@@ -105,9 +94,8 @@ T['§5: a long path under nested dirs renders as one row fitting the panel, stat
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
-  local w = session_wins()
-  local width = child.api.nvim_win_get_width(w.tree)
-  local lines = buf_lines(w.tree)
+  local width = child.api.nvim_win_get_width(ui.wins(child).tree)
+  local lines = ui.layout(child).tree
 
   -- header, the long file (relative to its own chain), the sibling
   MiniTest.expect.equality(#lines, 3)

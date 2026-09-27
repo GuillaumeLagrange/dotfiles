@@ -39,32 +39,18 @@ local function conflict_repo()
   return r
 end
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
 local function buf_lines(win)
   return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
-end
-
-local function winbar(win)
-  return child.lua_get(('vim.wo[%d].winbar'):format(win))
 end
 
 local function is_diff(win)
   return child.lua_get(('vim.wo[%d].diff'):format(win))
 end
 
--- Closing the confirm prompt's floating window right before spawning the
--- `git add` subprocess (`M.resolve`'s accept path) leaves the child
--- transiently `blocking=true` in a way that only clears once the
--- subprocess itself finishes, not with more wall-clock time or
--- guard-free polling alone (same family of headless-nvim/RPC quirk as
--- `test_review_local.lua`'s compose float, see AGENTS.md). `ui.arm_ready`/
--- `wait_ready` go through mini.test's blocked-child guard, which throws
--- immediately in that window; these reimplement the same `DiffyReady`
--- wait with raw, guard-free `child.api` calls instead, safe to use right
--- after such a keystroke.
+-- Closing the confirm float right before spawning `git add` leaves the
+-- child transiently `blocking` (AGENTS.md harness facts), so arm the
+-- DiffyReady listener through raw `child.api` calls; pair with
+-- `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
   child.api.nvim_exec_lua(([[
     _G.__diffy_ready = false
@@ -77,16 +63,6 @@ local function arm_ready_raw(event)
       end,
     })
   ]]):format(event), {})
-end
-
-local function wait_ready_raw(timeout)
-  local start = vim.loop.now()
-  while vim.loop.now() - start < (timeout or 5000) do
-    if child.api.nvim_exec_lua('return _G.__diffy_ready', {}) then
-      break
-    end
-  end
-  pcall(child.api.nvim_exec_lua, 'pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)', {})
 end
 
 T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file'] = function()
@@ -104,12 +80,12 @@ T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file
   child.cmd('Diffy conflicts')
   ui.wait_ready(child)
 
-  local w = wins()
+  local w = ui.wins(child)
   MiniTest.expect.equality(buf_lines(w.tree), { 'U f.txt' })
-  MiniTest.expect.equality(winbar(w.ours), 'ours :2  f.txt')
-  MiniTest.expect.equality(winbar(w.base), 'base :1  f.txt')
-  MiniTest.expect.equality(winbar(w.theirs), 'theirs :3  f.txt')
-  MiniTest.expect.equality(winbar(w.result), 'result  f.txt')
+  local bars = ui.layout(child).bars
+  for _, bar in ipairs({ 'ours :2  f.txt', 'base :1  f.txt', 'theirs :3  f.txt', 'result  f.txt' }) do
+    MiniTest.expect.equality(vim.tbl_contains(bars, bar), true)
+  end
   MiniTest.expect.equality(buf_lines(w.ours), { 'l1', 'MAIN', 'l3' })
   MiniTest.expect.equality(buf_lines(w.base), { 'l1', 'l2', 'l3' })
   MiniTest.expect.equality(buf_lines(w.theirs), { 'l1', 'FEATURE', 'l3' })
@@ -125,14 +101,14 @@ T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file
   child.cmd('Diffy close')
 end
 
-T['§8: gho/ght take hunks and s marks the file resolved'] = function()
+T['§8: gho/ght take hunks and s on the last conflict resolves it and leaves no conflict pane'] = function()
   repo = conflict_repo()
   child.fn.chdir(repo.dir)
 
   ui.arm_ready(child, 'conflict')
   child.cmd('Diffy conflicts')
   ui.wait_ready(child)
-  local w = wins()
+  local w = ui.wins(child)
 
   child.api.nvim_set_current_win(w.result)
   child.fn.win_execute(w.result, 'call cursor(1, 1)')
@@ -150,9 +126,10 @@ T['§8: gho/ght take hunks and s marks the file resolved'] = function()
   local status = ui.git(repo.dir, { 'status', '--porcelain=v2' })
   MiniTest.expect.equality(status:find('^u ') == nil, true)
   MiniTest.expect.equality(status:find('f.txt', 1, true) ~= nil, true)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().conflict_active'), false)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().wins.left') ~= nil, true)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().wins.right') ~= nil, true)
+  -- no conflict pane (not even a stale ours) remains once nothing is conflicted
+  for _, bar in ipairs(ui.layout(child).bars) do
+    MiniTest.expect.equality(bar:find('^ours ') or bar:find('^theirs ') or bar:find('^base ') or bar:find('^result '), nil)
+  end
 
   child.cmd('Diffy close')
 end
@@ -167,7 +144,7 @@ T['§8: s with conflict markers left asks for confirmation'] = function()
   ui.arm_ready(child, 'conflict')
   child.cmd('Diffy conflicts')
   ui.wait_ready(child)
-  local w = wins()
+  local w = ui.wins(child)
 
   child.api.nvim_set_current_win(w.tree)
   child.type_keys('s') -- markers still present: opens the confirm float
@@ -182,7 +159,7 @@ T['§8: s with conflict markers left asks for confirmation'] = function()
   MiniTest.expect.equality(child.lua_get('vim.api.nvim_win_get_config(0).relative'), 'editor')
   arm_ready_raw('render')
   child.type_keys('y') -- accepts
-  wait_ready_raw()
+  ui.wait_ready_raw(child)
   MiniTest.expect.equality(ui.git(repo.dir, { 'status', '--porcelain=v2' }):find('^u ') == nil, true)
 
   child.cmd('Diffy close')
@@ -200,7 +177,7 @@ T['§8: the same flow works during a rebase conflict'] = function()
   ui.arm_ready(child, 'conflict')
   child.cmd('Diffy conflicts')
   ui.wait_ready(child)
-  local w = wins()
+  local w = ui.wins(child)
 
   MiniTest.expect.equality(buf_lines(w.ours), { 'l1', 'MAIN', 'l3' })
   MiniTest.expect.equality(buf_lines(w.theirs), { 'l1', 'FEATURE', 'l3' })
@@ -229,7 +206,7 @@ T['§8: selecting a normal file after a U row restores the 2-window diff area'] 
   child.cmd('Diffy')
   ui.wait_ready(child)
 
-  local w = wins()
+  local w = ui.wins(child)
   local tree_lines = buf_lines(w.tree)
   local u_line, g_line
   for i, l in ipairs(tree_lines) do
@@ -248,18 +225,17 @@ T['§8: selecting a normal file after a U row restores the 2-window diff area'] 
   ui.arm_ready(child, 'conflict')
   child.type_keys('<CR>')
   ui.wait_ready(child)
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().conflict_active'), true)
+  MiniTest.expect.equality(vim.tbl_contains(ui.layout(child).bars, 'result  f.txt'), true)
 
   child.fn.win_execute(w.tree, ('call cursor(%d, 1)'):format(g_line))
   ui.arm_ready(child, 'open_row')
   child.type_keys('<CR>')
   ui.wait_ready(child)
 
-  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().conflict_active'), false)
-  local sw = child.lua_get('require("diffy.session").current().wins')
-  MiniTest.expect.equality(child.lua_get('vim.w[' .. sw.right .. '].diffy_path'), 'g.txt')
-  MiniTest.expect.equality(is_diff(sw.left), true)
-  MiniTest.expect.equality(is_diff(sw.right), true)
+  local lay = ui.layout(child)
+  MiniTest.expect.equality(vim.tbl_contains(lay.bars, 'result  f.txt'), false)
+  MiniTest.expect.equality(lay.right.path, 'g.txt')
+  MiniTest.expect.equality(lay.diff, true)
 
   child.cmd('Diffy close')
 end

@@ -25,10 +25,6 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
 local function buf_lines(win)
   return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
 end
@@ -51,15 +47,15 @@ T['§3: all commits of :Diffy branch diff against the merge-base; the oldest com
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
-  local w = wins()
+  local w = ui.wins(child)
 
   -- default selection is every branch commit: main's line-90 edit, merged
   -- into the branch, is on both sides, so it isn't part of the diff
   open_file(w, 'f.txt')
-  MiniTest.expect.equality(buf_lines(w.left)[90], 'main: line 90 v2')
-  MiniTest.expect.equality(buf_lines(w.right)[91], 'main: line 90 v2')
-  local left_rev = child.lua_get('vim.wo[' .. w.left .. '].winbar'):match('^(%S+)')
-  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', left_rev }), repo.sha.M2)
+  local l = ui.layout(child)
+  MiniTest.expect.equality(l.left.text[90], 'main: line 90 v2')
+  MiniTest.expect.equality(l.right.text[91], 'main: line 90 v2')
+  MiniTest.expect.equality(ui.git(repo.dir, { 'rev-parse', l.left.rev }), repo.sha.M2)
 
   -- C1 alone (the oldest commit, before the merge): its own parent
   local log = buf_lines(w.log)
@@ -74,8 +70,9 @@ T['§3: all commits of :Diffy branch diff against the merge-base; the oldest com
   ui.arm_ready(child, 'select')
   child.type_keys('<CR>')
   ui.wait_ready(child)
-  MiniTest.expect.equality(buf_lines(w.left)[90], '90')
-  MiniTest.expect.equality(buf_lines(w.right)[10], 'feat: line 10')
+  l = ui.layout(child)
+  MiniTest.expect.equality(l.left.text[90], '90')
+  MiniTest.expect.equality(l.right.text[10], 'feat: line 10')
 
   child.cmd('Diffy close')
 end

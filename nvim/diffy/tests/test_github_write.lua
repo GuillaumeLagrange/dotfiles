@@ -65,6 +65,7 @@ local function setup_pending()
       state.merge_base = %q
       state.viewer = 'GuillaumeLagrange'
       state.find_pr = { ['sandbox/pending'] = { number = 4, baseRefName = %q, headRefOid = %q } }
+      _G.__fake_state = state
       require('diffy.review.github').transport = fake.new(state).transport
     ]]):format(PR4_FIXTURE, dir, MERGE_BASE, BASE, HEAD_SHA))
     return
@@ -123,6 +124,7 @@ local function setup_empty()
       } } } },
       find_pr = { ['sandbox/pending'] = { number = 4, baseRefName = %q, headRefOid = %q } },
     }
+    _G.__fake_state = state
     require('diffy.review.github').transport = fake.new(state).transport
   ]]):format(dir, MERGE_BASE, BASE, HEAD_SHA, BASE, HEAD_SHA))
 end
@@ -151,7 +153,7 @@ local T = MiniTest.new_set({
 })
 
 local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
+  return ui.wins(child)
 end
 
 local function open_pr()
@@ -160,12 +162,18 @@ local function open_pr()
   ui.wait_ready(child, live.timeout)
 end
 
+--- Focus the tree, put the cursor on `path`'s row and press `<CR>`.
 local function open_file(path)
+  local w = wins()
+  child.api.nvim_set_current_win(w.tree)
+  for i, row in ipairs(ui.panel(child, 'tree')) do
+    if row.text:find(path, 1, true) then
+      child.api.nvim_win_set_cursor(w.tree, { i, 0 })
+      break
+    end
+  end
   ui.arm_ready(child, 'review')
-  child.lua(([[
-    local s = require('diffy.session').current()
-    require('diffy.panels.tree').open_path(s, %q)
-  ]]):format(path))
+  child.type_keys('<CR>')
   ui.wait_ready(child, live.timeout)
 end
 
@@ -188,11 +196,8 @@ local function select_all()
   ui.wait_ready(child, live.timeout)
 end
 
--- Opening a float (`gc`/`K`+`r`) leaves the child transiently
--- `blocking=true` in a way that only clears once more real input arrives -
--- `ui.arm_ready`/`wait_ready` throw immediately while blocked (AGENTS.md);
--- reimplement the same wait with raw, guard-free `child.api.*` calls right
--- after such a keystroke (`tests/test_review_local.lua`'s own convention).
+-- Opening a float (`gc`/`K`+`r`) leaves the child transiently `blocking`
+-- (AGENTS.md): arm/wait through raw `child.api` calls there.
 local function arm_ready_raw(event)
   child.api.nvim_exec_lua(([[
     _G.__diffy_ready = false
@@ -207,14 +212,40 @@ local function arm_ready_raw(event)
   ]]):format(event), {})
 end
 
-local function wait_ready_raw(timeout)
-  local start = vim.loop.now()
-  while vim.loop.now() - start < (timeout or live.timeout) do
-    if child.api.nvim_exec_lua('return _G.__diffy_ready', {}) then
-      break
+local function wait_ready_raw()
+  ui.wait_ready_raw(child, live.timeout)
+end
+
+--- GitHub's state of the PR's reviews: `{ pending = bool, submitted =
+--- { { state, body }, … } }` (the fake's recorded db, or the live API).
+local function remote_reviews()
+  if live.enabled then
+    local owner, name = live.REPO:match('(.+)/(.+)')
+    local pr = live.graphql(
+      'query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviews(last:50){nodes{state body}}}}}',
+      { o = owner, r = name, n = pr_number() }
+    ).repository.pullRequest
+    local out = { pending = false, submitted = {} }
+    for _, r in ipairs(pr.reviews.nodes) do
+      if r.state == 'PENDING' then
+        out.pending = true
+      else
+        table.insert(out.submitted, { state = r.state, body = r.body })
+      end
     end
+    return out
   end
-  pcall(child.api.nvim_exec_lua, 'pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)', {})
+  return child.api.nvim_exec_lua(
+    [[
+    local db = (_G.__fake_state._db or {})[4] or { pending = {}, reviews = {} }
+    local out = { pending = next(db.pending) ~= nil, submitted = {} }
+    for _, r in ipairs(db.reviews) do
+      table.insert(out.submitted, { state = r.state, body = r.body })
+    end
+    return out
+  ]],
+    {}
+  )
 end
 
 local function compose_draft(win, lnum, body)
@@ -277,6 +308,7 @@ local function quickfix_at(lnum)
 end
 
 T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kept local with a warning), and pushes the rest'] = function()
+  -- §9.4, §12.7
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -314,6 +346,7 @@ T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kep
 end
 
 T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a multi-line draft on the second is tracked to HEAD'] = function()
+  -- §9.4, §12.7
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -369,6 +402,7 @@ T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a
 end
 
 T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on push'] = function()
+  -- §9.4
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -408,6 +442,7 @@ T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on pus
 end
 
 T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) at its original commit and line'] = function()
+  -- §9.4, §12.7
   setup_pending()
   open_pr()
   open_file('f.txt')
@@ -441,6 +476,7 @@ T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) 
 end
 
 T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
+  -- §9.4, §12.7
   setup_pending()
   open_pr()
   open_file('f.txt')
@@ -481,35 +517,29 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
   local d1_line = quickfix_at(30)
   local d2_line = quickfix_at(20)
   MiniTest.expect.equality(d1_line ~= nil, true)
-  MiniTest.expect.equality(d1_line:find('resolved', 1, true) ~= nil, true)
+  MiniTest.expect.equality(d1_line:find('[resolved]', 1, true) ~= nil, true)
   MiniTest.expect.equality(d2_line ~= nil, true)
-  MiniTest.expect.equality(d2_line:find('resolved', 1, true), nil)
+  MiniTest.expect.equality(d2_line:find('[resolved]', 1, true), nil)
 
   arm_ready_raw('compose')
   child.cmd('Diffy review submit comment')
   wait_ready_raw()
   child.type_keys('looks good', '<Esc>')
   child.type_keys('<C-s>')
-  -- `<C-s>` here chains push's own refresh+decorate (one `review` event)
-  -- with submit's *own* mutation and refresh (another) - waiting for the
-  -- first `review` event alone would catch push's, not submit's; poll the
-  -- actual outcome (no pending review left) instead.
-  local start = vim.loop.now()
-  while vim.loop.now() - start < live.timeout do
-    if child.api.nvim_exec_lua('return require("diffy.session").current().review.pr.pending == nil', {}) then
-      break
+  -- push+submit consumes the pending review on GitHub (§9.4)
+  local function submitted()
+    local r = remote_reviews()
+    if r.pending then
+      return false
     end
+    for _, s in ipairs(r.submitted) do
+      if s.body == 'looks good' then
+        return true
+      end
+    end
+    return false
   end
-
-  -- submit consumed the pending review entirely (push+submit, contract
-  -- §9.4): nothing left to pull afterwards
-  child.lua([[_G.__notif = nil; vim.notify = function(msg) _G.__notif = msg end]])
-  ui.arm_ready(child, 'review')
-  child.cmd('Diffy review pull')
-  ui.wait_ready(child, live.timeout)
-  local msg = child.lua_get('_G.__notif')
-  MiniTest.expect.equality(msg ~= vim.NIL, true)
-  MiniTest.expect.equality(msg:find('no pending review', 1, true) ~= nil, true)
+  MiniTest.expect.equality(vim.wait(live.timeout, submitted, live.enabled and 1000 or 10), true)
 
   child.cmd('Diffy close')
 end

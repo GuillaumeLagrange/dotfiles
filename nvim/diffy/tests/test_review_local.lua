@@ -34,24 +34,15 @@ local T = MiniTest.new_set({
   },
 })
 
-local function wins()
-  return child.lua_get('require("diffy.session").current().wins')
-end
-
 local function open_default()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
 end
 
--- Opening/closing a floating window (as `gc`'s compose float does) leaves
--- the child transiently `blocking=true` in a way that only clears once
--- more real input arrives - not with more wall-clock time or more
--- guard-free polling alone (a headless-nvim/RPC quirk, not a real
--- interactive-use race). `ui.arm_ready`/`wait_ready` go through
--- mini.test's blocked-child guard, which throws immediately in that
--- window; these reimplement the same DiffyReady wait with raw, guard-free
--- `child.api` calls instead, safe to use right after such a keypress.
+-- Opening/closing `gc`'s compose float leaves the child transiently
+-- `blocking` (AGENTS.md harness facts), so arm DiffyReady through raw
+-- `child.api` calls; pair with `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
   child.api.nvim_exec_lua(([[
     _G.__diffy_ready = false
@@ -66,16 +57,6 @@ local function arm_ready_raw(event)
   ]]):format(event), {})
 end
 
-local function wait_ready_raw(timeout)
-  local start = vim.loop.now()
-  while vim.loop.now() - start < (timeout or 5000) do
-    if child.api.nvim_exec_lua('return _G.__diffy_ready', {}) then
-      break
-    end
-  end
-  pcall(child.api.nvim_exec_lua, 'pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)', {})
-end
-
 --- `gc` on line `lnum` of `win`, type `body`, then `<C-s>` to save the draft.
 --- Syncs on the `compose`/`review` `DiffyReady` events (`review/ui.lua`).
 local function write_comment(win, lnum, body)
@@ -83,16 +64,16 @@ local function write_comment(win, lnum, body)
   child.fn.win_execute(win, ('call cursor(%d, 1)'):format(lnum))
   arm_ready_raw('compose')
   child.type_keys('gc')
-  wait_ready_raw()
+  ui.wait_ready_raw(child)
   child.type_keys(body, '<Esc>')
   arm_ready_raw('review')
   child.type_keys('<C-s>')
-  wait_ready_raw()
+  ui.wait_ready_raw(child)
 end
 
 T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the other side, staying aligned'] = function()
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 5, 'needs a null check')
 
   local visible = ui.threads_visible(child, 'right')
@@ -113,7 +94,7 @@ end
 
 T['§9.3: drafts survive restarting nvim'] = function()
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 5, 'first draft')
   child.cmd('Diffy close')
 
@@ -131,7 +112,7 @@ end
 
 T['§9.1: editing lines above an anchor moves it with its excerpt'] = function()
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 20, 'about line 20')
 
   -- insert two lines above the anchor through the buffer itself (a real
@@ -152,7 +133,7 @@ end
 
 T["§9.1: deleting an anchor's lines detaches it and lists it in :Diffy threads"] = function()
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 20, 'about line 20')
 
   child.api.nvim_buf_set_lines(child.api.nvim_win_get_buf(w.right), 19, 20, false, {})
@@ -177,7 +158,7 @@ T['§9.3: review export writes review.md for worktree, index and commit views, m
   vim.fn.writefile(Repo.edit(3, 'second uncommitted')(vim.fn.readfile(repo.dir .. '/f.txt')), repo.dir .. '/f.txt')
 
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 3, 'worktree comment')
 
   -- stage the uncommitted edit directly (not through diffy's own staging
@@ -244,21 +225,26 @@ T['§9.3: review export writes review.md for worktree, index and commit views, m
   local reg = child.fn.getreg('+')
   MiniTest.expect.equality(reg:find(review_md, 1, true) ~= nil, true)
 
-  -- exporting again writes nothing new: every comment is now `sent`
-  child.lua([[
-    _G.__notif = nil
-    vim.notify = function(msg) _G.__notif = msg end
-  ]])
+  -- exported comments are `sent`: the next export carries only newer ones
+  child.api.nvim_set_current_win(w.log)
+  ui.arm_ready(child, 'select')
+  child.fn.win_execute(w.log, 'call cursor(2, 1)')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+  write_comment(w.right, 5, 'later comment')
+  ui.arm_ready(child, 'review')
   child.cmd('Diffy review export')
-  local notified = child.lua_get('_G.__notif')
-  MiniTest.expect.equality(notified ~= nil and notified:find('nothing', 1, true) ~= nil, true)
+  ui.wait_ready(child)
+  local again = table.concat(vim.fn.readfile(review_md), '\n')
+  MiniTest.expect.equality(again:find('later comment', 1, true) ~= nil, true)
+  MiniTest.expect.equality(again:find('worktree comment', 1, true), nil)
 
   child.cmd('Diffy close')
 end
 
 T["§9.2: comment decorations don't show in a window outside the session showing the same file"] = function()
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 5, 'a comment')
   MiniTest.expect.equality(#ui.threads_visible(child, 'right'), 1)
 
@@ -287,10 +273,36 @@ T['§9.2 screenshot: gc + <C-s> shows sign, summary and mirrored blank lines'] =
   child.fn.chdir(repo.dir)
 
   open_default()
-  local w = wins()
+  local w = ui.wins(child)
   write_comment(w.right, 5, 'needs a null check')
   MiniTest.expect.reference_screenshot(child.get_screenshot())
 
+  child.cmd('Diffy close')
+end
+
+T['§9.2: gc on the empty-diff placeholder opens no composer and exports nothing'] = function()
+  -- §9.2, §9.3
+  ui.git(repo.dir, { 'checkout', '--', 'f.txt' })
+  open_default()
+  local w = ui.wins(child)
+  MiniTest.expect.equality(ui.layout(child).right.path, nil)
+
+  child.api.nvim_set_current_win(w.right)
+  child.lua('_G.__warned = false; vim.notify = function(_, l) if l == vim.log.levels.WARN then _G.__warned = true end end')
+  child.type_keys('gc')
+  vim.wait(2000, function() return child.api.nvim_exec_lua('return _G.__warned', {}) end, 10)
+  -- whatever gc opened, try to save a draft from it
+  child.type_keys('Aorphan', '<Esc>', '<C-s>', '<Esc>')
+  local floats = child.lua_get([[#vim.tbl_filter(function(x)
+    return vim.api.nvim_win_get_config(x).relative ~= '' end, vim.api.nvim_list_wins())]])
+  MiniTest.expect.equality(floats, 0)
+  MiniTest.expect.equality(ui.threads_visible(child, 'right'), {})
+
+  child.cmd('Diffy review export')
+  local mds = vim.fn.glob(repo.dir .. '/.git/diffy/*/review.md', false, true)
+  for _, p in ipairs(mds) do
+    MiniTest.expect.equality(table.concat(vim.fn.readfile(p), '\n'):find('f.txt', 1, true), nil)
+  end
   child.cmd('Diffy close')
 end
 

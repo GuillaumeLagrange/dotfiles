@@ -1,50 +1,116 @@
 -- Observation helpers (contract §11.1): describe what the user sees, never
 -- diffy's internal tables. Each takes the `MiniTest.child` driving the UI
 -- (except `git`, which inspects the fixture repo directly on disk).
+--
+-- `wins` is the one exception: it looks the session's windows up so a test
+-- can *address* them (focus, move the cursor). Never assert on its result.
 local M = {}
 
---- `{ tree = lines, log = lines, left = { rev, path, text }, right = {…},
----   diff = bool }` for the session in `child`'s current tab, or `nil` if
---- none is open. `rev`/`path` come from `vim.w.diffy_rev`/`diffy_path`,
---- window-local vars later phases (diffpair.lua) set on the diff windows.
+--- Window ids of the session in `child`'s current tab, by role (`tree`,
+--- `log`, `left`, `right`, and during a conflict `ours`, `theirs`, `base`,
+--- `result`), or `{}` if none is open. For addressing only.
+function M.wins(child)
+  return child.lua_get([[(function()
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    return s and s.wins or {}
+  end)()]])
+end
+
+--- `{ tree = lines, log = lines, left = side, right = side, diff = bool,
+---   bars = { winbar, … } }` for the session in `child`'s current tab, or
+--- `nil` if none is open. A side is `{ rev, path, bar, name, text }`: `bar` is
+--- the winbar as drawn, `rev`/`path` are parsed from it (`'worktree'`,
+--- `'index'`, `'HEAD'` or a 7-char sha, then the path; both nil for
+--- placeholders like `(outside diff)`), `name` the buffer name and `text` its
+--- lines. `bars` lists every window's winbar in the tab, in screen order.
 function M.layout(child)
   local result = child.lua([[
-    local session = require('diffy.session')
-    local s = session.for_tab(vim.api.nvim_get_current_tabpage())
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
     if not s then return vim.NIL end
+    local function ok(win) return win and vim.api.nvim_win_is_valid(win) end
 
     local function buf_lines(win)
-      if not win or not vim.api.nvim_win_is_valid(win) then return vim.NIL end
+      if not ok(win) then return vim.NIL end
       return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, -1, false)
     end
 
     local function side(win)
-      if not win or not vim.api.nvim_win_is_valid(win) then return vim.NIL end
+      if not ok(win) then return vim.NIL end
       local buf = vim.api.nvim_win_get_buf(win)
+      local bar = vim.wo[win].winbar
+      local rev, path = bar:match('^(%S+)  (.+)$')
       return {
-        rev = vim.w[win].diffy_rev,
-        path = vim.w[win].diffy_path,
+        rev = rev, path = path, bar = bar,
+        name = vim.api.nvim_buf_get_name(buf),
         text = vim.api.nvim_buf_get_lines(buf, 0, -1, false),
       }
     end
 
-    local diff = false
-    if s.wins.left and vim.api.nvim_win_is_valid(s.wins.left) then
-      diff = vim.wo[s.wins.left].diff
-    end
+    local wins = vim.api.nvim_tabpage_list_wins(0)
+    table.sort(wins, function(a, b)
+      local pa, pb = vim.api.nvim_win_get_position(a), vim.api.nvim_win_get_position(b)
+      return pa[2] < pb[2] or (pa[2] == pb[2] and pa[1] < pb[1])
+    end)
+    local bars = {}
+    for _, w in ipairs(wins) do table.insert(bars, vim.wo[w].winbar) end
 
     return {
       tree = buf_lines(s.wins.tree),
       log = buf_lines(s.wins.log),
       left = side(s.wins.left),
       right = side(s.wins.right),
-      diff = diff,
+      diff = ok(s.wins.left) and vim.wo[s.wins.left].diff or false,
+      bars = bars,
     }
   ]])
   if result == vim.NIL then
     return nil
   end
   return result
+end
+
+--- Rows of the `panel` ('log' | 'tree') as drawn: `{ { text, hl = { group =
+--- true, … } }, … }`, where `hl` holds the whole-line highlight groups
+--- rendered on that row (`DiffySelection`, `DiffyMerge`, `DiffyCurrentFile`).
+function M.panel(child, panel)
+  return child.lua(([[
+    local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
+    local win = s and s.wins[%q]
+    if not (win and vim.api.nvim_win_is_valid(win)) then return {} end
+    local buf = vim.api.nvim_win_get_buf(win)
+    local rows = {}
+    for i, l in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+      rows[i] = { text = l, hl = vim.empty_dict() }
+    end
+    for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })) do
+      local g = m[4].line_hl_group
+      if g and rows[m[2] + 1] then rows[m[2] + 1].hl[g] = true end
+    end
+    return rows
+  ]]):format(panel))
+end
+
+--- Texts of the `panel` rows drawn with line highlight `group`.
+function M.rows_with(child, panel, group)
+  local out = {}
+  for _, r in ipairs(M.panel(child, panel)) do
+    if r.hl[group] then
+      table.insert(out, r.text)
+    end
+  end
+  return out
+end
+
+--- Names of every `diffy://` buffer still loaded in `child`.
+function M.diffy_buffers(child)
+  return child.lua_get([[(function()
+    local out = {}
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      local n = vim.api.nvim_buf_get_name(b)
+      if n:find('^diffy://') then table.insert(out, n) end
+    end
+    return out
+  end)()]])
 end
 
 --- Runs `git <args>` in fixture repo `dir`, for asserting HEAD/index/branch/
@@ -160,6 +226,17 @@ end
 function M.wait_ready(child, timeout)
   child.lua(('vim.wait(%d, function() return _G.__diffy_ready end)'):format(timeout or 5000))
   child.lua('pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)')
+end
+
+--- `M.wait_ready` through raw `child.api` calls, for right after a keystroke
+--- that leaves the child transiently `blocking` (a float + `startinsert`, or
+--- a handler spawning git synchronously; see AGENTS.md harness facts), where
+--- `child.lua`'s guard would throw.
+function M.wait_ready_raw(child, timeout)
+  vim.wait(timeout or 5000, function()
+    return child.api.nvim_exec_lua('return _G.__diffy_ready', {}) == true
+  end, 10)
+  child.api.nvim_exec_lua('pcall(vim.api.nvim_del_autocmd, _G.__diffy_ready_au)', {})
 end
 
 return M
