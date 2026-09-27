@@ -74,6 +74,8 @@ Singleton {
             return;
         node.audio.muted = false;
         node.audio.volume = Math.max(0, Math.min(1, value));
+        if (node === root.sink)
+            chime.restart();
     }
 
     function toggleMute(node): void {
@@ -108,5 +110,13 @@ Singleton {
     // and the panel needs every one of them, not just the default sink's.
     PwObjectTracker {
         objects: root.nodes
+    }
+
+    // Trailing debounce: a drag chimes once it settles, not on every step.
+    Timer {
+        id: chime
+
+        interval: 150
+        onTriggered: Quickshell.execDetached(Config.volumeChime)
     }
 }

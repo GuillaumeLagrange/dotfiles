@@ -84,7 +84,6 @@
         volMuted = glyph "EEE8";
         mic = glyph "F036C";
         micMuted = glyph "F036D";
-        chevronUp = glyph "F0143";
         batHigh = glyph "F12A3";
         batMedium = glyph "F12A2";
         batLow = glyph "F12A1";
@@ -186,6 +185,9 @@
             // VPN profiles are invisible to Quickshell.Networking, which models
             // wifi and wired devices only, so WireGuard goes through nmcli.
             readonly property string nmcli: "${pkgs.networkmanager}/bin/nmcli"
+            // The volume keys' feedback sound (audio.nix), tagged as an event
+            // so Audio.streams does not list it.
+            readonly property var volumeChime: ["${pkgs.pulseaudio}/bin/paplay", "--property=media.role=event", "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga"]
 
             readonly property var glyph: ${builtins.toJSON glyphs}
             readonly property var appGlyph: ${builtins.toJSON appGlyphs}
