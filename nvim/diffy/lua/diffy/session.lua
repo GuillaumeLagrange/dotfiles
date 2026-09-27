@@ -11,7 +11,14 @@
 --            right in phase 1; later phases add more under new names)
 --   bufs     name -> buffer handle for every managed buffer
 --   keymaps  {buf, mode, lhs} list of buffer-local keymaps set via `M.map`
---   closed   set once teardown has run; guards re-entrancy
+--   gen      bumped by `panels/tree.lua`'s `M.render` on every call; an
+--            async continuation started for an earlier value is stale and
+--            must no-op (see `git/run.lua`'s `M.run`'s `opts.gen`) - this is
+--            what makes rapid selection changes (J/K/...) end up showing
+--            the last one, regardless of git subprocess completion order
+--   closed   set once teardown has run; guards re-entrancy and (via
+--            `git/run.lua`'s `opts.session`) makes any async continuation
+--            still in flight for this session a no-op
 local M = {}
 
 -- id -> session
@@ -176,6 +183,7 @@ function M.open(opts)
     wins = {},
     bufs = {},
     keymaps = {},
+    gen = 0,
     closed = false,
   }
 

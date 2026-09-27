@@ -61,6 +61,45 @@ T['closing the tab with :tabclose leaves no diffy state'] = function()
   MiniTest.expect.equality(session_count(), 0)
 end
 
+T['§1: :tabclose before DiffyReady tears down cleanly, and the pending async render is a no-op'] = function()
+  -- deterministically reproduce the race (real subprocess completion time
+  -- is not reliable enough to race against on its own): hold back the
+  -- delivery of `M.start`'s very first git call (`repo.root`, still a real
+  -- `git rev-parse` subprocess) until released below, standing in for it
+  -- completing after the tab is already gone.
+  child.lua([[
+    local real_system = vim.system
+    _G.__release_root = nil
+    vim.system = function(cmd, opts, on_exit)
+      if cmd[1] == 'git' and cmd[2] == 'rev-parse' and cmd[3] == '--show-toplevel' then
+        return real_system(cmd, opts, function(res)
+          _G.__release_root = function() on_exit(res) end
+        end)
+      end
+      return real_system(cmd, opts, on_exit)
+    end
+  ]])
+
+  child.lua("vim.v.errmsg = ''")
+  child.cmd('Diffy')
+  child.cmd('tabclose')
+  wait_tabs(1)
+  MiniTest.expect.equality(tabs(), 1)
+  MiniTest.expect.equality(session_count(), 0)
+
+  -- release the held-back completion now that the session is gone, then
+  -- give the rest of the (real, unpatched) chain it kicks off - `git log`,
+  -- `head_sha`, `status`, the tree's own two `git diff` calls - actual
+  -- wall-clock time to run all the way to its former crash point
+  child.lua('vim.wait(2000, function() return _G.__release_root ~= nil end)')
+  child.lua('_G.__release_root()')
+  child.lua("vim.wait(1500, function() return vim.v.errmsg ~= '' end)")
+
+  MiniTest.expect.equality(child.lua_get('vim.v.errmsg'), '')
+  MiniTest.expect.equality(tabs(), 1)
+  MiniTest.expect.equality(session_count(), 0)
+end
+
 T['quitting a managed window closes the whole session'] = MiniTest.new_set({
   parametrize = { { 'tree' }, { 'log' }, { 'left' }, { 'right' } },
 })

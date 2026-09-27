@@ -182,6 +182,7 @@ end
 function M.enter(session, path)
   run.git({ 'ls-files', '-u', '-z', '--', path }, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       local unmerged = parse.ls_files_unmerged(res.stdout or '')
       local stages = unmerged[path] or {}
@@ -219,6 +220,7 @@ function M.resolve(session, path)
   end
   run.git({ 'add', '--', path }, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       if res.code == 0 and session.refresh then
         session.refresh(session)
@@ -320,6 +322,7 @@ end
 function M.refresh_list(session)
   run.git({ 'ls-files', '-u', '-z' }, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       local unmerged = parse.ls_files_unmerged(res.stdout or '')
       local paths = {}
@@ -378,7 +381,7 @@ function M.start()
     vim.api.nvim_buf_set_lines(s.bufs.log, 0, -1, false, { '(:Diffy conflicts - no log)' })
     vim.bo[s.bufs.log].modifiable = false
     M.refresh_list(s)
-  end)
+  end, s)
 end
 
 return M

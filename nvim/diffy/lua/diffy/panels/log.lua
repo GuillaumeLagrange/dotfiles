@@ -25,9 +25,10 @@ local function file_log_args(path)
   return { 'log', '-z', '--follow', '--date-order', '--pretty=format:%H%x1f%P%x1f%s', '--', path }
 end
 
-local function commit_entries(root, args, cb)
+local function commit_entries(root, args, cb, session)
   run.git(args, {
     cwd = root,
+    session = session,
     on_exit = function(res)
       if res.code ~= 0 then
         cb(nil, vim.trim(res.stderr or ''))
@@ -61,8 +62,9 @@ end
 
 --- Build the log entry list for range spec `spec` (`{kind='default'}`,
 --- `{kind='branch', base=ref_or_nil}`, or `{kind='range', expr='A..B'}`).
---- `cb(entries, err)`.
-function M.build_entries(root, spec, cb)
+--- `cb(entries, err)`. `session`, if given, is threaded to every git/gh call
+--- so the whole chain no-ops once that session is torn down.
+function M.build_entries(root, spec, cb, session)
   local prefix = worktree_prefix(spec)
   if spec.kind == 'range' then
     commit_entries(root, log_args(spec.expr), function(commits, err)
@@ -71,7 +73,7 @@ function M.build_entries(root, spec, cb)
         return
       end
       cb(commits, nil)
-    end)
+    end, session)
   elseif spec.kind == 'branch' then
     repo.resolve_base(root, spec.base, function(base, err)
       if not base then
@@ -91,9 +93,9 @@ function M.build_entries(root, spec, cb)
           local out = vim.deepcopy(prefix)
           vim.list_extend(out, commits)
           cb(out, nil)
-        end)
-      end)
-    end)
+        end, session)
+      end, session)
+    end, session)
   elseif spec.kind == 'file' then
     commit_entries(root, file_log_args(spec.path), function(commits, err)
       if not commits then
@@ -105,6 +107,7 @@ function M.build_entries(root, spec, cb)
       -- while still letting git detect a rename across adjacent commits.
       run.git({ 'log', '--follow', '-z', '--name-status', '--pretty=format:%H', '--', spec.path }, {
         cwd = root,
+        session = session,
         on_exit = function(res)
           local names = { [spec.path] = true }
           if res.code == 0 then
@@ -126,7 +129,7 @@ function M.build_entries(root, spec, cb)
           cb(commits, nil)
         end,
       })
-    end)
+    end, session)
   else
     repo.default_range(root, function(range_spec)
       commit_entries(root, log_args(range_spec.expr, range_spec.n), function(commits, err)
@@ -137,8 +140,8 @@ function M.build_entries(root, spec, cb)
         local out = vim.deepcopy(prefix)
         vim.list_extend(out, commits)
         cb(out, nil)
-      end)
-    end)
+      end, session)
+    end, session)
   end
 end
 

@@ -121,9 +121,9 @@ function M.build(s)
         tree_panel.render(s, function()
           run.ready({ session = s.id, event = 'render' })
         end)
-      end)
-    end)
-  end)
+      end, s)
+    end, s)
+  end, s)
 end
 
 --- Open a new session for `spec` (`{kind='default'|'branch'|'range', ...}`,
@@ -171,7 +171,7 @@ function M.start(spec)
       vim.notify('diffy: an interrupted full checkout is pending here — run `:Diffy restore`', vim.log.levels.WARN)
     end
     M.build(s)
-  end)
+  end, s)
 end
 
 function M.dispatch.branch(args)

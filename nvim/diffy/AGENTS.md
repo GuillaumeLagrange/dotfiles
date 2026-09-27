@@ -193,6 +193,24 @@ Follow the global browser rule. Specific to GitHub's new "Changes" UI:
   guard checks `is_blocked()` up front); reimplement the same `DiffyReady` wait with
   raw `child.api.*` calls (no guard) instead of `ui.wait_ready` right after such a
   keystroke - see `tests/test_review_local.lua`'s `wait_ready_raw`.
+- An uncaught Lua error thrown inside a `vim.schedule`-scheduled callback sets
+  `vim.v.errmsg` inside that same nvim process (verified: `child.lua_get('vim.v.errmsg')`
+  picks it up); it does **not** reliably land in `:messages`' own history in headless
+  mode. Detect an async-callback crash from the test side by clearing `vim.v.errmsg`
+  before the action and reading it back after, not by scraping `:messages`.
+- Reproducing "an async git callback fires after/out of order with a later one" needs
+  more than delaying delivery of an already-finished `vim.system` result: `git/run.lua`'s
+  own liveness/staleness check runs at the moment the real subprocess completes, using
+  whatever session state is current *then* - holding back only the delivery of an
+  already-completed callback lets that check see the (by then already-stale) state
+  regardless, so it still gets dropped correctly and proves nothing. Instead, defer
+  *issuing* the subprocess itself (patch `require('diffy.git.run').git`/`.run` to push
+  `function() real_fn(args, opts) end` onto a queue instead of calling it, matched by
+  `opts.gen`, and run the queued closure only when the test wants the race to happen) -
+  this delays the real subprocess's own completion time, and so the check inside it,
+  to whenever the test chooses. A held multi-call chain (e.g. tree.lua's name-status
+  then numstat) needs the drain repeated (each release can enqueue the next call in the
+  chain), not a single pass.
 
 ## Open questions
 

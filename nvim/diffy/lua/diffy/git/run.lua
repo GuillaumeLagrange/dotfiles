@@ -5,7 +5,7 @@ local M = {}
 
 --- Run `git <args>` asynchronously.
 --- @param args string[] arguments after `git`
---- @param opts { cwd: string, on_exit?: fun(res: vim.SystemCompleted), notify_on_error?: boolean }
+--- @param opts { cwd: string, on_exit?: fun(res: vim.SystemCompleted), notify_on_error?: boolean, session?: table, gen?: integer }
 --- @return vim.SystemObj
 function M.git(args, opts)
   opts = opts or {}
@@ -15,13 +15,28 @@ end
 --- Run an arbitrary command asynchronously (`gh` calls use this directly).
 --- On a nonzero exit, surfaces the failure via `vim.notify` unless
 --- `opts.notify_on_error == false`.
+---
+--- `opts.session`, if given, makes the completion a no-op (no notify, no
+--- `on_exit`) once the session is torn down (`session.closed`) or once a
+--- newer operation has superseded it (`opts.gen ~= session.gen` - see
+--- `panels/tree.lua`'s `M.render`, the only place that bumps `session.gen`).
+--- This is the single choke point every git/gh call in the codebase goes
+--- through, so passing `session` here is enough to make an entire chained
+--- callback (e.g. two sequential `git diff` calls) a no-op from the first
+--- link once the session it was working for is gone or superseded -
+--- nothing downstream ever runs, so it can't touch wiped buffers/closed
+--- windows or clobber a fresher render with stale results.
 --- @param cmd string[]
---- @param opts { cwd: string, on_exit?: fun(res: vim.SystemCompleted), notify_on_error?: boolean }
+--- @param opts { cwd: string, on_exit?: fun(res: vim.SystemCompleted), notify_on_error?: boolean, session?: table, gen?: integer }
 --- @return vim.SystemObj
 function M.run(cmd, opts)
   opts = opts or {}
+  local session, gen = opts.session, opts.gen
   return vim.system(cmd, { cwd = opts.cwd, text = true }, function(res)
     vim.schedule(function()
+      if session and (session.closed or (gen ~= nil and session.gen ~= gen)) then
+        return
+      end
       if res.code ~= 0 and opts.notify_on_error ~= false then
         vim.notify(
           ('diffy: `%s` failed (%d)\n%s'):format(table.concat(cmd, ' '), res.code, vim.trim(res.stderr or '')),

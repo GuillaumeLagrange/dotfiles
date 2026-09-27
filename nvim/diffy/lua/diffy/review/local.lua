@@ -103,6 +103,7 @@ local function read_side(session, commit, path, cb)
   local object = commit == 'index' and (':0:' .. path) or (commit .. ':' .. path)
   run.git({ 'show', object }, {
     cwd = session.root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -215,6 +216,7 @@ function M.export(session, cb)
       vim.list_extend(args, { '--', d.path })
       run.git(args, {
         cwd = session.root,
+        session = session,
         notify_on_error = false,
         on_exit = function(res)
           diff_hunks[key] = model.parse_hunks(res.code == 0 and res.stdout or '')
@@ -311,6 +313,7 @@ function M.export(session, cb)
 
     run.git({ 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}' }, {
       cwd = session.root,
+      session = session,
       notify_on_error = false,
       on_exit = function(res)
         if res.code ~= 0 then
@@ -320,6 +323,7 @@ function M.export(session, cb)
         local upstream = vim.trim(res.stdout or '')
         run.git({ 'merge-base', upstream, 'HEAD' }, {
           cwd = session.root,
+          session = session,
           notify_on_error = false,
           on_exit = function(res2)
             if res2.code ~= 0 then

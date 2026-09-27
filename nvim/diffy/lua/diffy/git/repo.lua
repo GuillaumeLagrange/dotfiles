@@ -2,15 +2,22 @@
 -- resolution (§4), cleanliness checks (§3/§4/§7), and translating a
 -- (left, right) rev pair into `git diff` arguments (§3's Unstaged/Staged
 -- collapse to plain worktree/--cached diffs).
+--
+-- Every function below takes an optional trailing `session`: when given, it
+-- is forwarded to `git/run.lua`'s `M.run`/`M.git`, which no-ops the whole
+-- callback (this module's own `on_exit` included) once that session is torn
+-- down. Callers with no live session yet (`checkout.lua`'s `M.restore`,
+-- which works with no diffy session open at all) simply omit it.
 local run = require('diffy.git.run')
 local parse = require('diffy.git.parse')
 
 local M = {}
 
 --- `git rev-parse --show-toplevel` for `cwd`. `on_exit(root, err)`.
-function M.root(cwd, on_exit)
+function M.root(cwd, on_exit, session)
   run.git({ 'rev-parse', '--show-toplevel' }, {
     cwd = cwd,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -23,9 +30,10 @@ function M.root(cwd, on_exit)
 end
 
 --- Current `HEAD` sha, or `nil` on an unborn branch. `on_exit(sha, err)`.
-function M.head_sha(root, on_exit)
+function M.head_sha(root, on_exit, session)
   run.git({ 'rev-parse', 'HEAD' }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -38,9 +46,10 @@ function M.head_sha(root, on_exit)
 end
 
 --- `git merge-base a b`. `on_exit(sha, err)`.
-function M.merge_base(root, a, b, on_exit)
+function M.merge_base(root, a, b, on_exit, session)
   run.git({ 'merge-base', a, b }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -55,13 +64,14 @@ end
 --- §4 `branch` base resolution: explicit arg, else the PR base of the
 --- current branch (`gh pr view`), else `origin`'s default branch
 --- (`gh repo view`). `on_exit(ref, err)`.
-function M.resolve_base(root, explicit, on_exit)
+function M.resolve_base(root, explicit, on_exit, session)
   if explicit and explicit ~= '' then
     on_exit(explicit, nil)
     return
   end
   run.run({ 'gh', 'pr', 'view', '--json', 'baseRefName', '-q', '.baseRefName' }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       local base = vim.trim(res.stdout or '')
@@ -71,6 +81,7 @@ function M.resolve_base(root, explicit, on_exit)
       end
       run.run({ 'gh', 'repo', 'view', '--json', 'defaultBranchRef', '-q', '.defaultBranchRef.name' }, {
         cwd = root,
+        session = session,
         notify_on_error = false,
         on_exit = function(res2)
           local default_branch = vim.trim(res2.stdout or '')
@@ -85,11 +96,16 @@ function M.resolve_base(root, explicit, on_exit)
   })
 end
 
---- Parsed `git status --porcelain=v2 -z` entries for the whole repo
---- (untracked tree entries, per-file cleanliness lookups). `on_exit(entries, err)`.
-function M.status(root, on_exit)
-  run.git({ 'status', '--porcelain=v2', '-z' }, {
+--- Parsed `git status --porcelain=v2 -z --untracked-files=all` entries for
+--- the whole repo (untracked tree entries, per-file cleanliness lookups).
+--- `--untracked-files=all` is load-bearing for §5: without it, git reports a
+--- brand-new untracked directory as a single `?? dir/` entry instead of its
+--- files individually, so the tree can't group them like any other
+--- directory. `on_exit(entries, err)`.
+function M.status(root, on_exit, session)
+  run.git({ 'status', '--porcelain=v2', '-z', '--untracked-files=all' }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -105,13 +121,14 @@ end
 --- (untracked/ignored files don't count). `path`, if given, restricts the
 --- check to that pathspec (§3 real-file rule: "the file has no uncommitted
 --- changes"). `on_exit(clean, err)`.
-function M.is_clean(root, path, on_exit)
+function M.is_clean(root, path, on_exit, session)
   local args = { 'status', '--porcelain=v2', '-z' }
   if path then
     vim.list_extend(args, { '--', path })
   end
   run.git(args, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code ~= 0 then
@@ -134,9 +151,10 @@ end
 --- branch has an upstream, else the last 20 commits. `on_exit(spec)` where
 --- `spec` is `{ expr = 'A..B' }` or `{ n = 20 }` (passed to `git log` as a
 --- rev range or a `-n` limit respectively).
-function M.default_range(root, on_exit)
+function M.default_range(root, on_exit, session)
   run.git({ 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}' }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       if res.code == 0 then

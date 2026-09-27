@@ -11,7 +11,7 @@ local M = {}
 
 --- name-status + numstat for the current selection, merged by path, plus
 --- untracked files (only when the selection is exactly Unstaged, §5).
-local function build_diff_entries(session, cb)
+local function build_diff_entries(session, gen, cb)
   local diff_args = repo.diff_args(session.pair.left, session.pair.right)
   local ns_args = { 'diff', '-z', '-M', '--name-status' }
   vim.list_extend(ns_args, diff_args)
@@ -26,6 +26,8 @@ local function build_diff_entries(session, cb)
 
   run.git(ns_args, {
     cwd = session.root,
+    session = session,
+    gen = gen,
     on_exit = function(res1)
       if res1.code ~= 0 then
         cb(nil, vim.trim(res1.stderr or ''))
@@ -34,6 +36,8 @@ local function build_diff_entries(session, cb)
       local ns_list = parse.name_status(res1.stdout or '')
       run.git(num_args, {
         cwd = session.root,
+        session = session,
+        gen = gen,
         on_exit = function(res2)
           if res2.code ~= 0 then
             cb(nil, vim.trim(res2.stderr or ''))
@@ -252,6 +256,7 @@ local function git_paths(session, verb, paths)
   vim.list_extend(args, paths)
   run.git(args, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       if res.code == 0 and session.refresh then
         session.refresh(session)
@@ -309,6 +314,7 @@ function M.stage_all(session)
   end
   run.git({ 'add', '-A' }, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       if res.code == 0 and session.refresh then
         session.refresh(session)
@@ -324,6 +330,7 @@ function M.unstage_all(session)
   end
   run.git({ 'reset' }, {
     cwd = session.root,
+    session = session,
     on_exit = function(res)
       if res.code == 0 and session.refresh then
         session.refresh(session)
@@ -421,7 +428,9 @@ end
 --- given, runs once rendering (including the diff pair) has finished -
 --- callers that signal `DiffyReady` must wait for it, since this is async.
 function M.render(session, cb)
-  build_diff_entries(session, function(entries, err)
+  session.gen = (session.gen or 0) + 1
+  local gen = session.gen
+  build_diff_entries(session, gen, function(entries, err)
     if not entries then
       vim.notify('diffy: ' .. tostring(err), vim.log.levels.ERROR)
       if cb then

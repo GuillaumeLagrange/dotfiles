@@ -29,6 +29,10 @@ local function wins()
   return child.lua_get('require("diffy.session").current().wins')
 end
 
+local function buf_lines(win)
+  return child.lua_get(('vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(%d), 0, -1, false)'):format(win))
+end
+
 local function subjects()
   return child.lua_get([[(function()
     local out = {}
@@ -134,6 +138,77 @@ T['§2: the log collapses to a summary when unfocused and expands on focus'] = f
   child.type_keys('<C-w>k')
   local reblurred_height = child.lua_get(('vim.api.nvim_win_get_height(%d)'):format(w.log))
   MiniTest.expect.equality(reblurred_height, 1)
+
+  child.cmd('Diffy close')
+end
+
+T['§2/§3: rapid J J J ends up showing the last selection, even if an earlier one\'s git calls resolve later'] = function()
+  open_branch()
+  local w = wins()
+
+  -- select 'Add' singly first (line 4: Unstaged,Staged,Shift,Add,...)
+  child.api.nvim_set_current_win(w.tree)
+  child.type_keys('<C-w>j')
+  child.fn.win_execute(w.log, 'call cursor(4, 1)')
+  ui.arm_ready(child, 'select')
+  child.type_keys('<CR>')
+  ui.wait_ready(child)
+
+  local g0 = child.lua_get('require("diffy.session").current().gen')
+
+  -- `J` from here visits Delete, Rename, then (skipping the dimmed merge)
+  -- C1 - three real, distinct diffs. Defer *issuing* (not just delivering)
+  -- Delete's diff calls - the first J's render - until released below, so
+  -- its git subprocess only starts, and so only completes and only then
+  -- reaches `git/run.lua`'s own gen check, once two more selections have
+  -- already landed: a deterministic stand-in for that subprocess simply
+  -- taking longer than the next two, real git being unmockable but its
+  -- completion order not otherwise controllable from a test.
+  child.lua(([[
+    local run_mod = require('diffy.git.run')
+    local real_git = run_mod.git
+    _G.__stale_gen = %d
+    _G.__deferred = {}
+    run_mod.git = function(args, opts)
+      if args[1] == 'diff' and opts.gen == _G.__stale_gen then
+        table.insert(_G.__deferred, function() real_git(args, opts) end)
+        return nil
+      end
+      return real_git(args, opts)
+    end
+  ]]):format(g0 + 1))
+
+  ui.arm_ready(child, 'select')
+  child.type_keys('J')
+  child.type_keys('J')
+  child.type_keys('J')
+  ui.wait_ready(child)
+
+  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().sel'), { top = 8, bottom = 8 })
+  MiniTest.expect.equality(
+    child.lua_get('require("diffy.session").current().entries[8].subject'),
+    'C1'
+  )
+  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt  +1 -1' })
+
+  -- now let the held-back (stale) render actually run and complete - it
+  -- takes two rounds (name-status, then the numstat call it triggers on
+  -- completion, also deferred by the same gen match). Fails without the
+  -- session/gen check: it unconditionally overwrites the tree with
+  -- Delete's diff (`D d.txt`) even though the selection still correctly
+  -- points at C1.
+  for _ = 1, 10 do
+    child.lua([[
+      while #_G.__deferred > 0 do
+        local fn = table.remove(_G.__deferred, 1)
+        fn()
+      end
+    ]])
+    child.lua('vim.wait(300, function() return #_G.__deferred > 0 end)')
+  end
+
+  MiniTest.expect.equality(buf_lines(w.tree), { 'M f.txt  +1 -1' })
+  MiniTest.expect.equality(child.lua_get('require("diffy.session").current().sel'), { top = 8, bottom = 8 })
 
   child.cmd('Diffy close')
 end

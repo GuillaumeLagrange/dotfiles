@@ -257,4 +257,45 @@ T['§5: nested directories group under collapsible headers, single-child chains 
   child.cmd('Diffy close')
 end
 
+T['§5: a new untracked directory shows its files individually as ? rows, grouped under a header'] = function()
+  repo = Repo.new():commit('Base', { ['top.txt'] = Repo.lines(1) })
+  vim.fn.mkdir(repo.dir .. '/newdir', 'p')
+  vim.fn.writefile({ 'x' }, repo.dir .. '/newdir/a.txt')
+  vim.fn.writefile({ 'y' }, repo.dir .. '/newdir/b.txt')
+  child.fn.chdir(repo.dir)
+
+  ui.arm_ready(child, 'render')
+  child.cmd('Diffy')
+  ui.wait_ready(child)
+
+  local w = wins()
+  local lines = buf_lines(w.tree)
+
+  local function has_exact(text)
+    for _, l in ipairs(lines) do
+      if l == text then
+        return true
+      end
+    end
+    return false
+  end
+
+  -- plain `git status` (no `--untracked-files=all`) reports a brand-new
+  -- untracked directory as one `?? newdir/` entry, rendered as a single
+  -- flattened `? newdir/` row with no header and no per-file rows; fails
+  -- without `repo.status` passing `--untracked-files=all`, which reports
+  -- (and so renders) both files individually instead
+  MiniTest.expect.equality(has_exact('? newdir/'), false)
+  MiniTest.expect.equality(has_exact('newdir/'), true)
+  local a_lnum = find_line(lines, '? newdir/a.txt')
+  local b_lnum = find_line(lines, '? newdir/b.txt')
+  MiniTest.expect.equality(a_lnum ~= nil, true)
+  MiniTest.expect.equality(b_lnum ~= nil, true)
+  -- grouped under the directory's own header row, indented one level in
+  MiniTest.expect.equality(lines[a_lnum]:match('^(%s*)'), '  ')
+  MiniTest.expect.equality(lines[b_lnum]:match('^(%s*)'), '  ')
+
+  child.cmd('Diffy close')
+end
+
 return T

@@ -46,9 +46,10 @@ function M.pending(gitdir)
   return read_state(gitdir) ~= nil
 end
 
-local function current_branch(root, cb)
+local function current_branch(root, cb, session)
   run.git({ 'symbolic-ref', '--short', '-q', 'HEAD' }, {
     cwd = root,
+    session = session,
     notify_on_error = false,
     on_exit = function(res)
       cb(res.code == 0 and vim.trim(res.stdout or '') or nil)
@@ -78,6 +79,7 @@ function M.enter(session)
       write_state(session.gitdir, state)
       run.git({ 'checkout', '--quiet', '--detach', entry.sha }, {
         cwd = session.root,
+        session = session,
         on_exit = function(res)
           if res.code ~= 0 then
             delete_state(session.gitdir)
@@ -92,8 +94,8 @@ function M.enter(session)
           end)
         end,
       })
-    end)
-  end)
+    end, session)
+  end, session)
 end
 
 --- Leave the checked-out commit (`X` again, moving the log selection away,
@@ -116,6 +118,7 @@ function M.leave(session, cb)
     end
     run.git({ 'checkout', '--quiet', session.checkout.branch }, {
       cwd = session.root,
+      session = session,
       on_exit = function(res)
         if res.code ~= 0 then
           cb(false)
@@ -128,7 +131,7 @@ function M.leave(session, cb)
         cb(true)
       end,
     })
-  end)
+  end, session)
 end
 
 --- `X`: enter or leave the checkout of the currently selected commit.
@@ -178,6 +181,10 @@ end
 --- handler below). The window/tab is already gone by the time this runs, so
 --- there is nothing left to refuse into: a dirty tree just leaves the state
 --- file for `:Diffy restore` to pick up later, with a warning explaining why.
+-- Deliberately doesn't pass `session` to `repo.is_clean`/`run.git` below:
+-- this runs from `session.teardown`, after `session.closed` is already true
+-- (see session.lua), and is meant to keep running anyway (`M.active` exists
+-- exactly so this best-effort restore survives the session being gone).
 function M.leave_on_teardown(session)
   if not session.checkout then
     return
