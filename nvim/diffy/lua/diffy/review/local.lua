@@ -13,8 +13,6 @@ M.name = 'local'
 -- Suggestion blocks are a GitHub-only feature.
 M.capabilities = { resolve = true, suggestions = false }
 
-M.prompt_template = 'Read %s and address each review comment. Reply per comment id with what you changed.'
-
 --- Current branch name, read from `<gitdir>/HEAD` without a subprocess
 --- (`session.gitdir` already resolves worktrees whose `.git` is a file).
 --- Falls back to a short HEAD sha (detached) or `'detached'`.
@@ -320,7 +318,7 @@ function M.export(session, cb)
       end
       M.save(session, branch, review.threads)
 
-      vim.fn.setreg('+', M.prompt_template:format(path))
+      vim.fn.setreg('+', require('diffy').config.review_prompt:format(path))
       cb(true, path)
     end
 

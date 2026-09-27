@@ -9,6 +9,8 @@ M.config = {
     -- buffer-local in every diffy window: hide/show the panel column
     toggle_panel = '<leader>e',
   },
+  -- copied to `+` by `:Diffy review export`; %s is the absolute path of review.md
+  review_prompt = 'Read %s and address each review comment. Reply per comment id with what you changed.',
 }
 
 function M.setup(opts)
