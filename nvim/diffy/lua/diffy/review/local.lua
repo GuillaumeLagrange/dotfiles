@@ -1,6 +1,7 @@
--- Local review backend (contract §9.3): the LLM feed. Available in `:Diffy`
--- and `:Diffy branch`. State lives in `.git/diffy/<branch>/local.json`;
--- `:Diffy review export` renders `.git/diffy/<branch>/review.md`.
+-- Local review backend: comments meant to be fed to an LLM. Available in
+-- `:Diffy` and `:Diffy branch`. State lives in
+-- `.git/diffy/<branch>/local.json`; `:Diffy review export` renders
+-- `.git/diffy/<branch>/review.md`.
 local store = require('diffy.review.store')
 local model = require('diffy.review.model')
 local run = require('diffy.git.run')
@@ -9,17 +10,14 @@ local repo = require('diffy.git.repo')
 local M = {}
 
 M.name = 'local'
--- Resolve/unresolve is plain local state (no API call needed), suggestion
--- blocks are a GitHub-only affordance (§9.2's `<C-g>s`).
+-- Suggestion blocks are a GitHub-only feature.
 M.capabilities = { resolve = true, suggestions = false }
 
 M.prompt_template = 'Read %s and address each review comment. Reply per comment id with what you changed.'
 
---- Current branch name for `session`, read directly from `<gitdir>/HEAD`
---- (no subprocess - this only needs to be right, not live-async, and a
---- worktree's `.git` may be a file pointing elsewhere, which
---- `session.gitdir` already resolved via fugitive). Falls back to a short
---- HEAD sha (detached) or `'detached'` if even that isn't known yet.
+--- Current branch name, read from `<gitdir>/HEAD` without a subprocess
+--- (`session.gitdir` already resolves worktrees whose `.git` is a file).
+--- Falls back to a short HEAD sha (detached) or `'detached'`.
 function M.branch(session)
   local head_path = session.gitdir .. '/HEAD'
   if vim.fn.filereadable(head_path) == 1 then
@@ -33,10 +31,8 @@ function M.branch(session)
 end
 
 local cached_author
---- `git config user.name` for the local comment author, cached for the
---- process lifetime. A single synchronous call: it only runs once, the
---- first time the user actually authors a comment (not on every render),
---- so it doesn't sit on the async render path contract §1 is about.
+--- `git config user.name`, cached for the process lifetime. Synchronous,
+--- but only runs the first time the user writes a comment.
 function M.author(root)
   if cached_author then
     return cached_author
@@ -55,7 +51,7 @@ local function review_md_path(session, branch)
   return store.dir(session.gitdir, branch) .. '/review.md'
 end
 
---- Load persisted threads for `branch`, or `{}` if there is no state yet.
+--- Persisted threads for `branch`, or `{}` if there is no state yet.
 function M.load(session, branch)
   local data = store.load(local_json_path(session, branch))
   if not data or not data.threads then
@@ -69,22 +65,19 @@ function M.load(session, branch)
   return out
 end
 
---- Persist `threads` for `branch`.
 function M.save(session, branch, threads)
   store.save(local_json_path(session, branch), { threads = threads })
 end
 
---- `:Diffy review clear`: delete the state file entirely.
 function M.clear(session, branch)
   store.delete(local_json_path(session, branch))
 end
 
---- `review/ui.lua`'s backend placement hook (architecture.md, phase 6/7):
---- the local backend does no cross-commit tracking (§9.3) - a thread only
---- shows in the *exact* view it was written in. Re-locates the excerpt
---- (§9.1) against that view's current lines, mutating `thread.anchor` in
---- place on success (persisted on the next `save`); marks the thread
---- `_detached` (session-only, §9.2) on failure.
+--- A thread only shows in the exact view it was written in (no
+--- cross-commit tracking). Re-locates the excerpt against that view's
+--- current lines, updating `thread.anchor` in place on success (persisted
+--- on the next `save`); marks the thread `_detached` (session-only) on
+--- failure.
 function M.place(session, thread)
   local side = model.pair_side(session.pair, session.head_sha, thread.anchor)
   local win = side and session.wins[side]

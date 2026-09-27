@@ -1,21 +1,20 @@
 -- One session per tabpage: registry, augroup, namespaces, buffer-local
--- keymap tracking, idempotent teardown (contract §1, §10).
+-- keymap tracking, idempotent teardown.
 --
--- Session fields (see local://diffy-architecture.md for the full contract):
+-- Session fields:
 --   id       unique integer, also used in buffer names (`diffy://<id>/…`)
 --            and the augroup name (`diffy_session_<id>`)
 --   tab      the owning tabpage handle
 --   augroup  this session's augroup id; deleted whole on teardown
---   ns       name -> namespace id (lua/diffy/git/run.lua's namespace registry)
---   wins     name -> window handle for every managed window (tree/log/left/
---            right in phase 1; later phases add more under new names)
+--   ns       name -> namespace id
+--   wins     name -> window handle for every managed window
 --   bufs     name -> buffer handle for every managed buffer
 --   keymaps  {buf, mode, lhs} list of buffer-local keymaps set via `M.map`
 --   gen      bumped by `panels/tree.lua`'s `M.render` on every call; an
 --            async continuation started for an earlier value is stale and
---            must no-op (see `git/run.lua`'s `M.run`'s `opts.gen`) - this is
---            what makes rapid selection changes (J/K/...) end up showing
---            the last one, regardless of git subprocess completion order
+--            must no-op (`git/run.lua`'s `opts.gen`), so rapid selection
+--            changes (J/K/...) end up showing the last one regardless of git
+--            subprocess completion order
 --   closed   set once teardown has run; guards re-entrancy and (via
 --            `git/run.lua`'s `opts.session`) makes any async continuation
 --            still in flight for this session a no-op
@@ -62,7 +61,7 @@ function M.map(session, modes, lhs, rhs, opts)
 end
 
 --- Remove every tracked keymap on `buf` (e.g. when a real-file buffer
---- leaves a diffy window, per §6/§10).
+--- leaves a diffy window).
 function M.unmap_buffer(session, buf)
   for i = #session.keymaps, 1, -1 do
     local km = session.keymaps[i]
@@ -118,10 +117,9 @@ function M.register_window(session, name, win)
 end
 
 --- Reverse of `register_window`: stop watching `session.wins[name]` for
---- auto-teardown and drop it from the registry, without closing it. For a
---- phase that closes/replaces one of its own windows without ending the
---- session (e.g. the conflict view's 4-window layout reverting to the
---- normal 2-window pair, §8) - the caller closes the window itself.
+--- auto-teardown and drop it from the registry, without closing it (the
+--- caller closes it). Used when a window is replaced without ending the
+--- session, e.g. the conflict layout reverting to the 2-window pair.
 function M.unregister_window(session, name)
   local win = session.wins[name]
   if win and session._win_watchers and session._win_watchers[win] then
@@ -132,7 +130,7 @@ function M.unregister_window(session, name)
 end
 
 --- Register a managed buffer under `name` (`session.bufs[name]`).
---- `bufhidden=wipe` always (panel/blob buffers, contract §10). Pass
+--- `bufhidden=wipe` always. Pass
 --- `opts.panel = true` for buffers whose own `:bwipe` should tear down the
 --- whole session (tree/log); diff-content buffers get swapped constantly by
 --- refreshes and must NOT trigger teardown when wiped.
@@ -146,10 +144,9 @@ function M.register_buffer(session, name, buf, opts)
 end
 
 --- Create a new, uniquely-named scratch buffer (`diffy://<id>/<name>/<n>`)
---- for panel/diff content. Exported so `diffpair.lua` can swap left/right
---- content buffers on every render (each needs a fresh name: the outgoing
---- buffer, `bufhidden=wipe`, may still be alive until the window is
---- actually repointed at the new one).
+--- for panel/diff content. Each needs a fresh name: the outgoing buffer
+--- (`bufhidden=wipe`) may still be alive until the window is actually
+--- repointed at the new one.
 function M.scratch_buf(session, name)
   session._buf_seq = (session._buf_seq or 0) + 1
   local buf = vim.api.nvim_create_buf(false, true)
@@ -165,7 +162,7 @@ end
 
 local PANEL_LABELS = { tree = ' Files', log = ' Commits' }
 
---- Window-local look of a panel window (§2): nothing but the rows.
+--- Window-local look of a panel window: nothing but the rows.
 local function setup_panel_window(win, name)
   local wo = vim.wo[win]
   wo.number = false
@@ -186,7 +183,7 @@ local function valid_win(win)
   return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
 
---- Reset window sizes (§2): fixed-width panel column (log = min(#entries,
+--- Reset window sizes: fixed-width panel column (log = min(#entries,
 --- 40% of the column), tree the rest), diff area split evenly over what's
 --- left (the full width while the panel column is hidden). Called on open,
 --- on `R`, on `VimResized` and on panel toggle.
@@ -221,7 +218,7 @@ function M.relayout(session)
   end
 end
 
---- Hide the panel column (§2 toggle) without ending the session: the
+--- Hide the panel column without ending the session: the
 --- windows' teardown watchers are dropped first and the panel buffers kept
 --- (`bufhidden=hide`) so they come back unchanged.
 function M.hide_panels(session)
@@ -296,15 +293,12 @@ function M.map_toggle(session, buf)
   end
 end
 
---- Open a new session: its own tabpage with the §2 layout skeleton (tree
---- and log panels stacked in a fixed-width left column, left/right diff
---- windows filling the rest). Content is wired up by later phases
---- (panels/tree.lua, panels/log.lua, diffpair.lua); here the four windows
---- exist, are managed, and hold placeholder buffers.
+--- Open a new session: its own tabpage with tree and log panels stacked in
+--- a fixed-width left column and left/right diff windows filling the rest,
+--- all holding placeholder buffers until content is rendered.
 --- @param opts { root?: string, range?: table }  `root` is the repo root
----   (absolute path); `range` is the log range spec (phase 2, see
----   panels/log.lua's `build_entries`). Both nil is fine for a bare
----   skeleton with no content wired up yet.
+---   (absolute path); `range` is the log range spec (see panels/log.lua's
+---   `build_entries`).
 function M.open(opts)
   opts = opts or {}
   next_id = next_id + 1
@@ -372,9 +366,8 @@ end
 
 --- Idempotent teardown: closes managed windows/buffers, deletes the
 --- augroup, removes tracked keymaps, clears extmarks in this session's
---- namespaces from every buffer, and closes the tab if still open. Safe to
---- call from any of the trigger points in contract §1 (windows/tab may
---- already be gone).
+--- namespaces from every buffer, and closes the tab if still open. Windows
+--- and the tab may already be gone.
 function M.teardown(session)
   if not session or session.closed then
     return
@@ -382,9 +375,8 @@ function M.teardown(session)
   session.closed = true
   M.sessions[session.id] = nil
 
-  -- best-effort restore of an active full checkout (§7): skipped while
-  -- nvim is exiting, since checkout.lua's own VimLeavePre handler does the
-  -- synchronous version of this - see its comment for why.
+  -- best-effort restore of an active full checkout; skipped while nvim is
+  -- exiting, where checkout.lua's VimLeavePre handler does it synchronously.
   if session.checkout and vim.v.exiting == vim.NIL then
     require('diffy.checkout').leave_on_teardown(session)
   end

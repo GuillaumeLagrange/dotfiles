@@ -1,5 +1,5 @@
 -- BufWinEnter-driven pair swapping in the right diff window when it shows a
--- real file (contract §6): a jump to another file already in the current
+-- real file: a jump to another file already in the current
 -- list (go-to-definition, `gf`, `:e`) swaps both sides and highlights it in
 -- the tree; a jump outside the list leaves diff mode with a placeholder.
 local M = {}
@@ -30,7 +30,7 @@ end
 
 --- React to the right window's buffer becoming `buf`: swap in the matching
 --- pair if its path is in the current file list, otherwise leave diff mode
---- with an "outside diff" placeholder (§6).
+--- with an "outside diff" placeholder.
 function M.handle(session, buf)
   local path = relative_path(session, buf)
   if path and find_row(session, path) then
@@ -40,10 +40,8 @@ function M.handle(session, buf)
   end
 end
 
---- One-time: arm the `BufWinEnter` autocmd on the session augroup, scoped to
---- the right diff window. No-ops while the buffer change came from diffy's
---- own writes (`diffpair.lua`'s `_nav_guard`, set around every
---- `nvim_win_set_buf` it does on a diff window).
+--- Arm the `BufWinEnter` autocmd on the session augroup, scoped to the right
+--- diff window. Ignores buffer changes made by diffy itself (`_nav_guard`).
 function M.setup(session)
   vim.api.nvim_create_autocmd('BufWinEnter', {
     group = session.augroup,

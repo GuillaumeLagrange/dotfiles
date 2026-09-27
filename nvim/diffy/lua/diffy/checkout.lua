@@ -1,5 +1,5 @@
 -- Full checkout of a single log commit onto the real worktree, so its right
--- side gets a real, LSP-navigable buffer (contract §7). Writes a recovery
+-- side gets a real, LSP-navigable buffer. Writes a recovery
 -- state file before touching HEAD and restores the original branch when the
 -- user leaves it (selecting elsewhere, `X` again, closing the tab, exit).
 local run = require('diffy.git.run')
@@ -40,8 +40,7 @@ local function delete_state(gitdir)
   vim.fn.delete(state_path(gitdir))
 end
 
---- Whether an interrupted full checkout's state file exists for `gitdir`
---- (§4, §7: warn on `:Diffy` start and offer `:Diffy restore`).
+--- Whether an interrupted full checkout's state file exists for `gitdir`.
 function M.pending(gitdir)
   return read_state(gitdir) ~= nil
 end
@@ -58,7 +57,7 @@ local function current_branch(root, cb, session)
 end
 
 --- `X` on the single selected commit: check out its tree onto the real
---- worktree so its right side becomes a real file (§7). Refuses if the
+--- worktree so its right side becomes a real file. Refuses if the
 --- tree has tracked changes; HEAD is left untouched in that case.
 function M.enter(session)
   local sel = session.sel
@@ -176,15 +175,12 @@ function M.before_select(session, cb)
 end
 
 --- Best-effort restore when a session tears down with a checkout still
---- active via `:tabclose`/`:q`/a wiped panel buffer (session.lua's
---- teardown hook; skipped while nvim is exiting, see the `VimLeavePre`
---- handler below). The window/tab is already gone by the time this runs, so
---- there is nothing left to refuse into: a dirty tree just leaves the state
---- file for `:Diffy restore` to pick up later, with a warning explaining why.
--- Deliberately doesn't pass `session` to `repo.is_clean`/`run.git` below:
--- this runs from `session.teardown`, after `session.closed` is already true
--- (see session.lua), and is meant to keep running anyway (`M.active` exists
--- exactly so this best-effort restore survives the session being gone).
+--- active via `:tabclose`/`:q`/a wiped panel buffer (not while nvim is
+--- exiting; see the `VimLeavePre` handler below). The window/tab is already
+--- gone, so there is nothing left to refuse into: a dirty tree just leaves
+--- the state file for `:Diffy restore`, with a warning explaining why.
+-- `session` is not passed to `repo.is_clean`/`run.git`: it is already
+-- closed, which would turn their callbacks into no-ops.
 function M.leave_on_teardown(session)
   if not session.checkout then
     return
@@ -213,10 +209,8 @@ function M.leave_on_teardown(session)
 end
 
 -- nvim is exiting: `VimLeavePre` handlers have no later event-loop turn to
--- run an async callback in, so this is the one place a synchronous
--- `vim.system(...):wait()` is used instead of the usual async `run.git`.
--- Skips the is_clean check's own async path for the same reason, redoing it
--- inline instead.
+-- run an async callback in, so git runs synchronously here, including the
+-- clean-tree check.
 local function restore_sync(info)
   local status = vim.system({ 'git', 'status', '--porcelain=v2', '-z' }, { cwd = info.root, text = true }):wait()
   if status.code ~= 0 then
@@ -242,10 +236,10 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
   end,
 })
 
---- `:Diffy restore` (§4, §7): recover from an interrupted full checkout for
---- the repo at the current cwd - reads the state file, checks out the saved
---- branch, and deletes it. Works with no diffy session open (the whole
---- point: nvim may have been killed since the checkout).
+--- `:Diffy restore`: recover from an interrupted full checkout for the repo
+--- at the current cwd - reads the state file, checks out the saved branch,
+--- and deletes it. Works with no diffy session open, since nvim may have
+--- been killed since the checkout.
 function M.restore(_args)
   repo.root(vim.fn.getcwd(), function(root, err)
     if not root then

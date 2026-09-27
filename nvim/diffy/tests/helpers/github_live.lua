@@ -1,4 +1,4 @@
--- `make test-gh` (contract §11.4): per-case real PRs on the sandbox repo.
+-- `make test-gh`: per-case real PRs on the sandbox repo.
 -- Every call here is synchronous and runs in the test process, not the child.
 local M = {}
 
@@ -64,7 +64,7 @@ function M.close()
 end
 
 --- GitHub's legacy `position` of new-side line `line` in `merge-base...commit`
---- (AGENTS.md: 1-based index below the first `@@`, later `@@` counting).
+--- (1-based index below the first `@@`; later `@@` lines count).
 function M.position(dir, merge_base, commit, path, line)
   local diff = run({ 'git', 'diff', '-U3', merge_base, commit, '--', path }, { cwd = dir })
   local pos, new, started = 0, nil, false

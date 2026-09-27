@@ -1,5 +1,5 @@
--- Panel highlight groups (contract §2). All `default = true`, so a
--- colorscheme or the user can override any of them.
+-- Panel highlight groups. All `default = true`, so a colorscheme or the
+-- user can override any of them.
 local M = {}
 
 local LINKS = {
@@ -17,7 +17,8 @@ local LINKS = {
   DiffyThreadSummary = 'Comment',
   DiffyThreadRelevant = 'Special',
   DiffyThreadCurrent = 'PmenuSel',
-  DiffyThreadRange = 'Visual',
+  -- drawn on the number column, so it needs a strong background
+  DiffyThreadRange = 'PmenuSel',
 }
 
 --- Status letter -> highlight group.

@@ -1,6 +1,4 @@
--- Parsers for git's `-z` output formats. Pure functions: no subprocess, no
--- state. Callers (git/repo.lua, panels/*) own choosing the right git
--- invocation; this module only turns its stdout into Lua tables.
+-- Pure parsers turning git's `-z` output formats into Lua tables.
 local M = {}
 
 local function split_z(stdout)
@@ -143,8 +141,8 @@ function M.ls_files_unmerged(stdout)
   return out
 end
 
---- `git log --follow -z --name-status --pretty=format:%H -- <path>` (§4
---- `:Diffy file`). Each commit's own `\n`-joined "sha\nfirst-status-token"
+--- `git log --follow -z --name-status --pretty=format:%H -- <path>`.
+--- Each commit's own `\n`-joined "sha\nfirst-status-token"
 --- opens a new record (log's `-z` only separates *commits*, so a NUL
 --- token straddles the pretty-format sha and the first name-status line);
 --- everything else follows `M.name_status`'s per-line shape.

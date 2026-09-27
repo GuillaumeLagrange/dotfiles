@@ -1,4 +1,4 @@
--- §1, §12.1 (phase 1): every teardown path leaves no diffy state, and two
+-- Every teardown path leaves no diffy state, and two
 -- sessions in separate tabs are fully independent.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
@@ -46,7 +46,6 @@ local T = MiniTest.new_set({
 
 T[':Diffy opens a session tab with the layout skeleton'] = function()
   child.cmd('Diffy')
-  -- §1
   MiniTest.expect.equality(tabs(), 2)
   local l = ui.layout(child)
   MiniTest.expect.equality(l ~= nil, true)
@@ -58,7 +57,6 @@ T[':Diffy opens a session tab with the layout skeleton'] = function()
 end
 
 T['closing the tab with :tabclose leaves no diffy state'] = function()
-  -- §1, §12.1
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 2)
   child.cmd('tabclose')
@@ -66,8 +64,7 @@ T['closing the tab with :tabclose leaves no diffy state'] = function()
   expect_no_session()
 end
 
-T['§1: :tabclose before DiffyReady tears down cleanly, and the pending async render is a no-op'] = function()
-  -- §1
+T[':tabclose before DiffyReady tears down cleanly, and the pending async render is a no-op'] = function()
   -- deterministically reproduce the race (real subprocess completion time
   -- is not reliable enough to race against on its own): hold back the
   -- delivery of `M.start`'s very first git call (`repo.root`, still a real
@@ -109,7 +106,6 @@ T['quitting a managed window closes the whole session'] = MiniTest.new_set({
 })
 
 T['quitting a managed window closes the whole session']['leaves no diffy state'] = function(name)
-  -- §1
   child.cmd('Diffy')
   child.fn.win_gotoid(ui.wins(child)[name])
   child.cmd('q')
@@ -122,7 +118,6 @@ T['wiping a panel buffer closes the whole session'] = MiniTest.new_set({
 })
 
 T['wiping a panel buffer closes the whole session']['leaves no diffy state'] = function(name)
-  -- §1
   child.cmd('Diffy')
   local bufnr = child.api.nvim_win_get_buf(ui.wins(child)[name])
   child.cmd(('bwipeout! %d'):format(bufnr))
@@ -131,7 +126,6 @@ T['wiping a panel buffer closes the whole session']['leaves no diffy state'] = f
 end
 
 T[':Diffy close tears down the session'] = function()
-  -- §1
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 2)
   child.cmd('Diffy close')
@@ -139,7 +133,7 @@ T[':Diffy close tears down the session'] = function()
 end
 
 T['quitting nvim (VimLeavePre) tears down every open session'] = function()
-  -- §1, §12.1; a real :qa would end the child before anything is observable
+  -- a real :qa would end the child before anything is observable
   child.cmd('Diffy')
   child.cmd('Diffy')
   MiniTest.expect.equality(tabs(), 3)
@@ -148,7 +142,6 @@ T['quitting nvim (VimLeavePre) tears down every open session'] = function()
 end
 
 T['closing one of two session tabs leaves the other working'] = function()
-  -- §1
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)

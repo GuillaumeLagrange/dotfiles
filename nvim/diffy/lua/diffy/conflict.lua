@@ -1,4 +1,4 @@
--- The 4-window conflict view (contract §8): `:Diffy conflicts` (tree-only,
+-- The 4-window conflict view: `:Diffy conflicts` (tree-only,
 -- no log, first conflicted file selected) and selecting a `U` row in a
 -- normal session's tree (`panels/tree.lua`'s `open_row`/`stage` hooks).
 -- Stages 1/2/3 (base/ours/theirs) are read through fugitive; the result
@@ -14,13 +14,12 @@ local M = {}
 local STAGE_LABEL = { [1] = 'base :1', [2] = 'ours :2', [3] = 'theirs :3' }
 local MARKER_PAT = [[^\(<\{7}\|=\{7}\|>\{7}\)]]
 
---- One-time window restructuring: close the normal 2-window pair's right
---- window, reuse its left window as the "ours" pane (keeping its existing
---- `WinClosed` watcher - the key it's stored under doesn't matter to it),
---- then build `base`/`theirs` beside it and `result` below all three. The
---- big regions are split off first (top block / result), then the top
---- block is subdivided into three columns, so `result` ends up spanning
---- the full width instead of just one column.
+--- One-time window restructuring: close the normal pair's right window,
+--- reuse its left window as the "ours" pane (its `WinClosed` watcher does
+--- not depend on the name it's registered under), then build `base`/`theirs`
+--- beside it and `result` below all three. The top block and result are
+--- split first, then the top block is divided into three columns, so
+--- `result` spans the full width.
 local function enter_layout(session)
   local ours_win = session.wins.left
   local right_win = session.wins.right
@@ -175,9 +174,8 @@ local function set_result_keymaps(session, buf)
 end
 
 --- The result pane: the real worktree file (still holding its conflict
---- markers until resolved), replacing whatever it showed for a previously
---- open conflicted file (§10: a real buffer's diffy keymaps don't outlive
---- it being shown in a diffy window).
+--- markers until resolved). The previously shown real buffer loses its
+--- diffy keymaps.
 local function set_result_pane(session, path)
   local win = session.wins.result
   local prev_real = session.real_bufs and session.real_bufs.result
@@ -213,7 +211,7 @@ local function render_panes(session, path, stages)
   end
 end
 
---- Open (or switch to) the 4-window conflict view for `path` (§8). Builds
+--- Open (or switch to) the 4-window conflict view for `path`. Builds
 --- the layout on first entry; a later call while already active just
 --- swaps the four panes' content.
 function M.enter(session, path, opts)
@@ -249,10 +247,9 @@ end
 
 --- `s` on a conflicted row (dedicated conflicts tree, or a `U` row in a
 --- normal session, via `panels/tree.lua`'s `M.stage`): `git add` the file,
---- warning and asking for real-key confirmation first if markers remain
---- (§8, §11.2 - `lua/diffy/prompt.lua`, not `vim.fn.confirm`). `cb(staged)`
---- is optional and always called exactly once: `true` once `git add`
---- succeeds, `false` on decline or failure.
+--- warning and asking for confirmation first (via `lua/diffy/prompt.lua`)
+--- if markers remain. `cb(staged)` is optional and always called exactly
+--- once: `true` once `git add` succeeds, `false` on decline or failure.
 function M.resolve(session, path, cb)
   local abspath = session.root .. '/' .. path
   local function do_add()
@@ -420,7 +417,7 @@ function M.refresh_list(session)
   })
 end
 
---- `:Diffy conflicts` (§4, §8): open a session whose tree lists every
+--- `:Diffy conflicts`: open a session whose tree lists every
 --- unmerged file (no log entries) and whose diff area is the 4-window
 --- conflict view for the first one.
 function M.start()

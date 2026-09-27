@@ -1,4 +1,4 @@
--- §3, §5, §12.2 (phase 2): contiguous-range resolution (left = parent of
+-- Contiguous-range resolution (left = parent of
 -- the bottom entry) and the file tree's rename display.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
@@ -25,12 +25,11 @@ local T = MiniTest.new_set({
   },
 })
 
-T['§3: selecting Base..M2 shows f.txt with left = base content and right = M2 content'] = function()
+T['selecting Base..M2 shows f.txt with left = base content and right = M2 content'] = function()
   ui.arm_ready(child, 'render')
   child.cmd(('Diffy %s..%s'):format(repo.sha.Base, repo.sha.M2))
   ui.wait_ready(child)
 
-  -- §3
   local l = ui.layout(child)
   MiniTest.expect.equality({ l.left.path, l.right.path }, { 'f.txt', 'f.txt' })
 
@@ -48,12 +47,11 @@ T['§3: selecting Base..M2 shows f.txt with left = base content and right = M2 c
   child.cmd('Diffy close')
 end
 
-T['§5: a rename shows as one entry whose sides are the old and new file'] = function()
+T['a rename shows as one entry whose sides are the old and new file'] = function()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
 
-  -- §5
   local w = ui.wins(child)
   local tree_lines = ui.layout(child).tree
   local rename_lnum
@@ -80,7 +78,7 @@ T['§5: a rename shows as one entry whose sides are the old and new file'] = fun
   child.cmd('Diffy close')
 end
 
-T['§5: <CR> in the tree opens the pair and moves to the new side; o stays in the tree'] = function()
+T['<CR> in the tree opens the pair and moves to the new side; o stays in the tree'] = function()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)

@@ -1,4 +1,4 @@
--- Leak check (contract §1, §11.1). Use in every UI test file:
+-- Leak check. Use in every UI test file:
 --
 --   local snapshot
 --   T = MiniTest.new_set({

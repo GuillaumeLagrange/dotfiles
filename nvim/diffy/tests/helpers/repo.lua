@@ -1,4 +1,4 @@
--- Fluent fixture-repo builder (contract §11.1). Runs git synchronously (this
+-- Fluent fixture-repo builder. Runs git synchronously (this
 -- is test setup, not the plugin's own async path) with pinned author/
 -- committer identity and dates so shas are stable across runs.
 --
@@ -134,16 +134,14 @@ function Repo:merge(name, label)
 end
 
 --- Attempt to merge `name` into the current branch, tolerating a conflict
---- (§8's conflict-view scenarios need a real unresolved merge in progress -
---- unlike `:merge`, a nonzero exit here is the expected outcome, not a
---- fixture-builder error).
+--- (a nonzero exit is the expected outcome here, not a fixture-builder
+--- error).
 function Repo:merge_conflict(name)
   vim.system({ 'git', 'merge', '--no-ff', '--no-edit', name }, { cwd = self.dir, text = true, env = BASE_ENV }):wait()
   return self
 end
 
---- Attempt to rebase the current branch onto `name`, tolerating a conflict
---- (§8's rebase-conflict scenario).
+--- Attempt to rebase the current branch onto `name`, tolerating a conflict.
 function Repo:rebase_conflict(name)
   vim.system({ 'git', 'rebase', name }, { cwd = self.dir, text = true, env = BASE_ENV }):wait()
   return self
@@ -174,7 +172,7 @@ function M.new()
   return setmetatable({ dir = dir, sha = {}, _n = 0 }, Repo)
 end
 
---- The shared "standard" history (§11.1): edits, a re-edit of the same
+--- The shared "standard" history: edits, a re-edit of the same
 --- line, a merge from main, a rename, a delete, an add, and a line-shifting
 --- commit. Ends on branch `feat`.
 function M.standard()

@@ -1,4 +1,4 @@
--- §9.2, §9.3, §12.6 (phase 6): the review layer's UI and local backend -
+-- The review layer's UI and local backend -
 -- compose/sign/summary/alignment, persistence across restarts, excerpt
 -- relocation on edit/delete, review.md export, and namespace scoping.
 local Repo = require('tests.helpers.repo')
@@ -16,12 +16,12 @@ local T = MiniTest.new_set({
       snapshot = leak.snapshot(child)
       -- neutralize the machine's own git config so the local backend's
       -- author lookup (`git config user.name`) can't make a test's outcome
-      -- depend on it (contract §11.3: no dependence on the user's config).
+      -- depend on it.
       child.lua([[vim.env.GIT_CONFIG_GLOBAL = '/dev/null'; vim.env.GIT_CONFIG_NOSYSTEM = '1']])
       repo = Repo.new()
       repo:commit('base', { ['f.txt'] = Repo.lines(30) })
       -- an uncommitted worktree edit, so the default `Unstaged` selection
-      -- has a real file to show (§12.2's screenshot test does the same).
+      -- has a real file to show.
       vim.fn.writefile(Repo.edit(3, 'uncommitted')(vim.fn.readfile(repo.dir .. '/f.txt')), repo.dir .. '/f.txt')
       child.fn.chdir(repo.dir)
     end,
@@ -41,7 +41,7 @@ local function open_default()
 end
 
 -- Opening/closing `gc`'s compose float leaves the child transiently
--- `blocking` (AGENTS.md harness facts), so arm DiffyReady through raw
+-- `blocking`, so arm DiffyReady through raw
 -- `child.api` calls; pair with `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
   child.api.nvim_exec_lua(([[
@@ -71,7 +71,7 @@ local function write_comment(win, lnum, body)
   ui.wait_ready_raw(child)
 end
 
-T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the other side, staying aligned'] = function()
+T['gc + <C-s> shows a sign and summary, mirrored as blank lines on the other side, staying aligned'] = function()
   child.o.columns = 160
   open_default()
   local w = ui.wins(child)
@@ -93,7 +93,7 @@ T['§9.2: gc + <C-s> shows a sign and summary, mirrored as blank lines on the ot
   child.cmd('Diffy close')
 end
 
-T['§9.2: stacked threads pad both sides to the larger count and open one at a time, switched with ]t/[t'] = function()
+T['stacked threads pad both sides to the larger count and open one at a time, switched with ]t/[t'] = function()
   child.o.columns = 160
   open_default()
   local w = ui.wins(child)
@@ -140,7 +140,7 @@ T['§9.2: stacked threads pad both sides to the larger count and open one at a t
   child.cmd('Diffy close')
 end
 
-T['§9.2: hovering a commented line previews it over the other diff window with its range highlighted'] = function()
+T['hovering a commented line previews it over the other diff window with its range highlighted'] = function()
   open_default()
   local w = ui.wins(child)
   child.api.nvim_set_current_win(w.right)
@@ -174,7 +174,7 @@ T['§9.2: hovering a commented line previews it over the other diff window with 
   child.cmd('Diffy close')
 end
 
-T['§9.3: drafts survive restarting nvim'] = function()
+T['drafts survive restarting nvim'] = function()
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 5, 'first draft')
@@ -192,7 +192,7 @@ T['§9.3: drafts survive restarting nvim'] = function()
   child.cmd('Diffy close')
 end
 
-T['§9.1: editing lines above an anchor moves it with its excerpt'] = function()
+T['editing lines above an anchor moves it with its excerpt'] = function()
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 20, 'about line 20')
@@ -213,7 +213,7 @@ T['§9.1: editing lines above an anchor moves it with its excerpt'] = function()
   child.cmd('Diffy close')
 end
 
-T["§9.1: deleting an anchor's lines detaches it and lists it in :Diffy threads"] = function()
+T["deleting an anchor's lines detaches it and lists it in :Diffy threads"] = function()
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 20, 'about line 20')
@@ -233,7 +233,7 @@ T["§9.1: deleting an anchor's lines detaches it and lists it in :Diffy threads"
   child.cmd('Diffy close')
 end
 
-T['§9.3: review export writes review.md for worktree, index and commit views, marks sent, prompt in +'] = function()
+T['review export writes review.md for worktree, index and commit views, marks sent, prompt in +'] = function()
   repo:commit('second', { ['f.txt'] = Repo.edit(15, 'second: line 15') })
   -- an uncommitted worktree edit so the default Unstaged selection has a
   -- real diff to comment on
@@ -243,9 +243,8 @@ T['§9.3: review export writes review.md for worktree, index and commit views, m
   local w = ui.wins(child)
   write_comment(w.right, 3, 'worktree comment')
 
-  -- stage the uncommitted edit directly (not through diffy's own staging
-  -- UI, which is a sibling phase): select `Staged` via the log panel
-  -- (phase 2, already stable) and comment there
+  -- stage the uncommitted edit with git, select `Staged` via the log
+  -- panel and comment there
   ui.git(repo.dir, { 'add', '-A' })
   child.api.nvim_set_current_win(w.tree)
   child.type_keys('<C-w>j')
@@ -324,7 +323,7 @@ T['§9.3: review export writes review.md for worktree, index and commit views, m
   child.cmd('Diffy close')
 end
 
-T["§9.2: comment decorations don't show in a window outside the session showing the same file"] = function()
+T["comment decorations don't show in a window outside the session showing the same file"] = function()
   open_default()
   local w = ui.wins(child)
   write_comment(w.right, 5, 'a comment')
@@ -343,7 +342,7 @@ T["§9.2: comment decorations don't show in a window outside the session showing
   child.cmd('Diffy close')
 end
 
-T['§9.2 screenshot: gc + <C-s> shows sign, summary and mirrored blank lines'] = function()
+T['screenshot: gc + <C-s> shows sign, summary and mirrored blank lines'] = function()
   child.o.lines, child.o.columns = 24, 80
   -- a fixed path (not `vim.fn.tempname()`'s random one): the screenshot
   -- embeds the worktree's absolute path, which must be stable to diff
@@ -362,8 +361,7 @@ T['§9.2 screenshot: gc + <C-s> shows sign, summary and mirrored blank lines'] =
   child.cmd('Diffy close')
 end
 
-T['§9.2: gc on the empty-diff placeholder opens no composer and exports nothing'] = function()
-  -- §9.2, §9.3
+T['gc on the empty-diff placeholder opens no composer and exports nothing'] = function()
   ui.git(repo.dir, { 'checkout', '--', 'f.txt' })
   open_default()
   local w = ui.wins(child)

@@ -1,6 +1,6 @@
--- §9.4, §12.7 (phase 7, logic): GitHub backend line tracking, anchor
+-- GitHub backend line tracking, anchor
 -- validity and `position` computation. Pure `review/model.lua` functions;
--- inputs are real `git diff` output from fixture repos (§11.2).
+-- inputs are real `git diff` output from fixture repos.
 local Repo = require('tests.helpers.repo')
 local model = require('diffy.review.model')
 
@@ -16,7 +16,7 @@ local function git_diff(dir, a, b, extra)
   return res.stdout
 end
 
-T['§9.4: map_line/map_range track an unrenamed line across an edit, in both directions'] = function()
+T['map_line/map_range track an unrenamed line across an edit, in both directions'] = function()
   local r = Repo.new()
   r:commit('Base', { ['f.txt'] = Repo.lines(60) })
   r:commit('Edit', { ['f.txt'] = Repo.edit(11, 'line 11 EDIT', 50, 'line 50 EDIT') })
@@ -30,7 +30,6 @@ T['§9.4: map_line/map_range track an unrenamed line across an edit, in both dir
   MiniTest.expect.equality(model.map_line(hunks, 11), nil)
   MiniTest.expect.equality(model.map_line(hunks, 50), nil)
   -- a range whose endpoints survive but whose interior changed still maps
-  -- (contract §9.4: "lines inside the range may have changed")
   local s, e = model.map_range(hunks, 10, 12)
   MiniTest.expect.equality(s, 10)
   MiniTest.expect.equality(e, 12)
@@ -44,7 +43,7 @@ T['§9.4: map_line/map_range track an unrenamed line across an edit, in both dir
   r:destroy()
 end
 
-T['§9.4: map_line tracks a renamed file (rename-aware git diff -M), in both directions'] = function()
+T['map_line tracks a renamed file (rename-aware git diff -M), in both directions'] = function()
   local r = Repo.new()
   r:commit('Base', { ['old.txt'] = Repo.lines(20, 'r') })
   r:branch('feat'):mv('old.txt', 'new.txt'):commit('Rename', { ['new.txt'] = Repo.edit(10, 'r10 EDITED') })
@@ -65,7 +64,7 @@ T['§9.4: map_line tracks a renamed file (rename-aware git diff -M), in both dir
   r:destroy()
 end
 
-T['§9.4: map_line handles a pure line insertion (zero-count hunk) without shifting the anchor line itself'] = function()
+T['map_line handles a pure line insertion (zero-count hunk) without shifting the anchor line itself'] = function()
   local r = Repo.new()
   r:commit('Base', { ['f.txt'] = Repo.lines(20) })
   r:commit('Insert', {
@@ -88,7 +87,7 @@ T['§9.4: map_line handles a pure line insertion (zero-count hunk) without shift
   r:destroy()
 end
 
-T['§9.4: anchor_valid accepts a changed line and up to 3 lines of context, rejects beyond that'] = function()
+T['anchor_valid accepts a changed line and up to 3 lines of context, rejects beyond that'] = function()
   local r = Repo.new()
   r:commit('Base', { ['f.txt'] = Repo.lines(60) })
   r:commit('Edit', { ['f.txt'] = Repo.edit(20, 'new a', 21, 'new b', 22, 'new c') })
@@ -105,7 +104,7 @@ T['§9.4: anchor_valid accepts a changed line and up to 3 lines of context, reje
   r:destroy()
 end
 
-T['§9.4: diff_position for a single-hunk and a multi-hunk file (position = 1-based diff-line index below the first @@)'] = function()
+T['diff_position for a single-hunk and a multi-hunk file (position = 1-based diff-line index below the first @@)'] = function()
   local r = Repo.new()
   r:commit('Base', { ['f.txt'] = Repo.lines(60) })
   r:commit('Edit', { ['f.txt'] = Repo.edit(11, 'line 11 v2', 50, 'line 50 v2') })

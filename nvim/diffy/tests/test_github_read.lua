@@ -1,4 +1,4 @@
--- §9.4, §12.7 (phase 7A): the GitHub backend's read side through `:Diffy
+-- The GitHub backend's read side through `:Diffy
 -- pr` - placement tracked across commits (outdated/hidden/tracked-to-head),
 -- opening the fold around a thread placed on an unchanged line, and the
 -- readiness refusal (dirty tree / HEAD != PR head).
@@ -9,11 +9,11 @@
 -- pushed from here) gives commits with the *exact* shas the recorded
 -- GraphQL fixture (`tests/fixtures/github/pr2.json`, saved verbatim from
 -- `gh api graphql --input -` against the real PR #2) refers to - this is
--- what keeps the placement test deterministic and fully offline (§11.1)
+-- what keeps the placement test deterministic and fully offline
 -- while still exercising real line-tracking `git diff` calls against real
 -- history, not a hand-rolled approximation of it. The GitHub *transport*
 -- (`review/github.lua`'s `M.transport`) is the only thing faked
--- (`tests/helpers/fake_github.lua`, contract §11.4) - git and nvim are real.
+-- (`tests/helpers/fake_github.lua`) - git and nvim are real.
 -- `make test-gh`: only the refusal cases run live (fresh PR per case).
 local leak = require('tests.helpers.leak')
 local live = require('tests.helpers.github_live')
@@ -55,7 +55,7 @@ local function clone_placement()
   return d
 end
 
---- Swap `review/github.lua`'s transport for the fake (contract §11.4),
+--- Swap `review/github.lua`'s transport for the fake,
 --- loaded with the real PR #2 read fixture and a `find_pr` entry matching
 --- `sandbox/placement`.
 local function install_fake(c)
@@ -154,8 +154,8 @@ local function lines_with_signs(side)
   return out
 end
 
-T['§9.4: placement tracks a thread across commits (shown at head/its own view) and hides+outdates one whose line later changed'] = function()
-  -- §9.4. Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it (§11.4).
+T['placement tracks a thread across commits (shown at head/its own view) and hides+outdates one whose line later changed'] = function()
+  -- Live: PR #2's between-pushes state can't be recreated; recorded fixtures cover it.
   if live.enabled then
     MiniTest.skip('placement: recorded-fixture only')
   end
@@ -170,8 +170,8 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
   MiniTest.expect.equality(at_p1[11], true)
 
   -- P2 (index 6): P2 re-edited line 11, so B1 (unaffected line 10) is
-  -- still tracked and visible; B2 is hidden (contract §9.4: "both
-  -- endpoints... mappable, in either direction" - B2's single line isn't)
+  -- still tracked and visible; B2 is hidden (both range endpoints
+  -- must be mappable, in either direction - B2's single line isn't)
   select_commit(6)
   local at_p2 = lines_with_signs('right')
   MiniTest.expect.equality(at_p2[10], true)
@@ -188,7 +188,7 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
   MiniTest.expect.equality(at_head[11], nil)
   MiniTest.expect.equality(at_head[10], nil)
 
-  -- `:Diffy threads`: B2 (outdated, §9.1) lists only its own P1 view, never `head`
+  -- `:Diffy threads`: B2 (outdated) lists only its own P1 view, never `head`
   child.cmd('Diffy threads')
   local qf = child.lua_get('vim.tbl_map(function(e) return e.text end, vim.fn.getqflist())')
   local b2_line
@@ -204,8 +204,7 @@ T['§9.4: placement tracks a thread across commits (shown at head/its own view) 
   child.cmd('Diffy close')
 end
 
-T['§9.4: a thread placed on a line unchanged in the viewed commit opens the fold around it'] = function()
-  -- §9.4
+T['a thread placed on a line unchanged in the viewed commit opens the fold around it'] = function()
   if live.enabled then
     MiniTest.skip('placement: recorded-fixture only')
   end
@@ -237,7 +236,6 @@ local function capture_warnings()
 end
 
 T[':Diffy pr refuses to open when local HEAD differs from the PR head on GitHub'] = function()
-  -- §9.4
   git(dir, { 'commit', '--amend', '-q', '--allow-empty', '-m', 'local-only amend' })
   capture_warnings()
   child.cmd('Diffy pr')
@@ -245,7 +243,6 @@ T[':Diffy pr refuses to open when local HEAD differs from the PR head on GitHub'
 end
 
 T[':Diffy pr refuses to open when the tree is dirty'] = function()
-  -- §9.4
   vim.fn.writefile({ 'dirty' }, dir .. '/f.txt')
   capture_warnings()
   child.cmd('Diffy pr')

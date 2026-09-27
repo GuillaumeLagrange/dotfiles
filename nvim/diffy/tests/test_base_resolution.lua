@@ -1,4 +1,4 @@
--- §4 (phase 2, logic): `branch` base resolution order - explicit arg, then
+-- `branch` base resolution order: explicit arg, then
 -- the PR base (`gh pr view`), then origin's default branch (`gh repo view`).
 -- `gh` is faked via a PATH shim (no network); this is pure repo.lua logic,
 -- no UI involved.

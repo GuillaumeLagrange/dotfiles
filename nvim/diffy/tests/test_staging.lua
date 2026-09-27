@@ -1,4 +1,4 @@
--- §5, §12.3 (phase 3): tree staging keys, the Unstaged/Staged sides, and
+-- Tree staging keys, the Unstaged/Staged sides, and
 -- nested directory grouping.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
@@ -53,7 +53,6 @@ local function find_line(lines, needle)
 end
 
 T['Unstaged shows index/worktree, and writing the left buffer stages exactly the edited hunk'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['f.txt'] = Repo.lines(20) })
   local edited = Repo.lines(20)
   edited[5] = 'edited5'
@@ -89,7 +88,6 @@ T['Unstaged shows index/worktree, and writing the left buffer stages exactly the
 end
 
 T['`s` on an unstaged file stages it, then `u` from Staged unstages it again'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['f.txt'] = Repo.lines(5), ['g.txt'] = Repo.lines(5) })
   vim.fn.writefile({ 'changed' }, repo.dir .. '/g.txt')
   child.fn.chdir(repo.dir)
@@ -123,7 +121,6 @@ T['`s` on an unstaged file stages it, then `u` from Staged unstages it again'] =
 end
 
 T['`u` on a staged rename pair unstages both paths'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['h.txt'] = Repo.lines(5) })
   repo:mv('h.txt', 'i.txt')
   child.fn.chdir(repo.dir)
@@ -154,7 +151,6 @@ T['`u` on a staged rename pair unstages both paths'] = function()
 end
 
 T['an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stages both paths'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['h.txt'] = Repo.lines(5) })
   os.rename(repo.dir .. '/h.txt', repo.dir .. '/i.txt')
   child.fn.chdir(repo.dir)
@@ -194,7 +190,6 @@ T['an unstaged rename shows as D + ?, as R after `git add -N`, and `s` stages bo
 end
 
 T['staging keys are a no-op, with a warning, when the selection is not exactly Unstaged or Staged'] = function()
-  -- §5
   repo = Repo.standard()
   local cur = vim.fn.readfile(repo.dir .. '/f.txt')
   cur[1] = 'dirty'
@@ -210,7 +205,7 @@ T['staging keys are a no-op, with a warning, when the selection is not exactly U
   child.api.nvim_set_current_win(w.tree)
   child.fn.win_execute(w.tree, 'call cursor(1, 1)')
 
-  -- observe only that a warning fires, never its exact wording (§11.3.4)
+  -- observe only that a warning fires, never its exact wording
   child.lua([[
     _G.__warns = 0
     local orig = vim.notify
@@ -231,7 +226,6 @@ T['staging keys are a no-op, with a warning, when the selection is not exactly U
 end
 
 T['nested directories group under collapsible headers, single-child chains flattened'] = function()
-  -- §5
   repo = Repo.new()
     :commit('Base', { ['top.txt'] = Repo.lines(1) })
     :commit('Add', {
@@ -266,7 +260,7 @@ T['nested directories group under collapsible headers, single-child chains flatt
   -- a/d holds a single file, so `d/` never gets a header row at all
   MiniTest.expect.equality(has('d/'), false)
 
-  -- rows under a header show the path relative to it (§5)
+  -- rows under a header show the path relative to it
   local f1 = find_line(lines, 'A file1.txt')
   local f3 = find_line(lines, 'A d/file3.txt')
   MiniTest.expect.equality(find_line(lines, 'a/b/c/file1.txt'), nil)
@@ -295,7 +289,6 @@ T['nested directories group under collapsible headers, single-child chains flatt
 end
 
 T['a new untracked directory shows its files individually as ? rows, grouped under a header'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['top.txt'] = Repo.lines(1) })
   vim.fn.mkdir(repo.dir .. '/newdir', 'p')
   vim.fn.writefile({ 'x' }, repo.dir .. '/newdir/a.txt')
@@ -337,7 +330,6 @@ T['a new untracked directory shows its files individually as ? rows, grouped und
 end
 
 T['staging from Unstaged in :Diffy branch keeps Unstaged selected'] = function()
-  -- §5
   repo = Repo.new():commit('Base', { ['base.txt'] = Repo.lines(5) })
   repo:branch('feat'):commit('C1', { ['committed.txt'] = Repo.lines(3) })
   vim.fn.writefile({ 'dirty a' }, repo.dir .. '/a.txt')

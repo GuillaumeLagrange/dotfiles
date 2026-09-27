@@ -1,7 +1,7 @@
--- Review UI (contract §9.2, shared by every backend): signs + mirrored
--- virt_lines summaries, the thread float (`K`/`<CR>`), the compose float
--- (`gc`), `]t`/`[t`, `<leader>dt`, `gP` (GitHub PR description), and
--- `:Diffy threads`'s quickfix list.
+-- Review UI shared by every backend: signs + mirrored virt_lines summaries,
+-- the thread float (`K`/`<CR>`), the compose float (`gc`), `]t`/`[t`,
+-- `<leader>dt`, `gP` (GitHub PR description), and `:Diffy threads`'s
+-- quickfix list.
 --
 -- `session.review` (nil until `M.ensure` runs, `false` if this session's
 -- range kind doesn't support review, else a table):
@@ -11,19 +11,15 @@
 --   threads   Thread[] (see review/model.lua)
 --   inline    whether decorations are currently drawn (`<leader>dt`)
 --   pr        GitHub only: `{number, title, body, base, head_sha,
---             conversation, reviews, pending}` (`review/github.lua`'s
---             `M.refresh`) - `gP`'s source.
+--             conversation, reviews, pending}`, `gP`'s source.
 --   merge_base, _diff_cache  GitHub only: placement plumbing, not for UI use.
 -- A backend module exposes: `name`, `capabilities = {resolve, suggestions}`,
 -- `branch(session)`, `author(root)`,
 -- `place(session, thread) -> nil | {win='left'|'right', start_line,
---   end_line}` (contract §9.4 placement/§9.3 relocation - the *only*
---   backend-specific step of decorate(), everything else in this file is
---   shared). A backend that also supports authoring (`review/local.lua`
---   today; `review/github.lua` gains this in phase 7B) additionally
---   exposes `load(session, branch) -> Thread[]`, `save(session, branch,
---   threads)`, `clear(session, branch)`, `export(session, cb)` - `gc`/`r`/
---   `x` etc. are no-ops (with a notice) while a backend lacks `save`.
+--   end_line}` (the only backend-specific step of decorate()), and, for
+--   authoring, `load(session, branch) -> Thread[]`, `save(session, branch,
+--   threads)`, `clear(session, branch)`, `export(session, cb)`. `gc`/`r`/`x`
+--   etc. are no-ops (with a notice) while a backend lacks `save`.
 local session_mod = require('diffy.session')
 local model = require('diffy.review.model')
 local run = require('diffy.git.run')
@@ -37,13 +33,9 @@ end
 
 --- Lazily resolve the backend, branch and persisted threads for `session`.
 --- Returns the `session.review` table, or nil if review isn't available for
---- this session's range kind (contract §9.3/§9.4: `:Diffy`/`:Diffy branch`/
---- `:Diffy pr`). For `kind='pr'`, `init.lua`'s `M.build` has already
---- populated `session.review` via `review/github.lua`'s async `M.refresh`
---- before any render runs, so the lazy-init branch below only matters as a
---- safety net (e.g. a test driving `review/ui.lua` directly without going
---- through `:Diffy pr`) - it seeds an empty thread list rather than
---- attempting a synchronous fetch.
+--- this session's range kind. For `kind='pr'`, `:Diffy pr` has already
+--- populated `session.review` asynchronously before any render, so this
+--- only seeds an empty thread list rather than fetching synchronously.
 function M.ensure(session)
   if session.review ~= nil then
     return session.review or nil
@@ -77,9 +69,8 @@ function M.side_of(session, win)
   return nil
 end
 
--- row(l) = l + Σ diff_filler(k) for k ≤ l (contract §9.2); equal rows in the
--- two windows are counterpart lines. `win`'s line -> row and row -> line maps,
--- in one pass over the buffer.
+-- row(l) = l + Σ diff_filler(k) for k ≤ l; equal rows in the two windows are
+-- counterpart lines. Returns `win`'s line -> row and row -> line maps.
 local function row_map(win)
   return vim.api.nvim_win_call(win, function()
     local row, line, filler = {}, {}, 0
@@ -147,11 +138,9 @@ local function paint(session)
   end
 end
 
---- Open any closed fold covering `lnum` in `win` (contract §9.4: a thread
---- placed on a line unchanged in the current view - inside a diff fold -
---- gets its fold opened, as github.com adds a context hunk for it). `!`
---- opens every nested level; diff folds are flat, but this is harmless
---- either way.
+--- Open any closed fold covering `lnum` in `win`: a thread placed on an
+--- unchanged line (inside a diff fold) must stay visible, as github.com
+--- adds a context hunk for it.
 local function open_fold_if_closed(win, lnum)
   vim.api.nvim_win_call(win, function()
     if vim.fn.foldclosed(lnum) ~= -1 then
@@ -168,8 +157,8 @@ local function by_place(a, b)
 end
 
 --- Float config over the diff window opposite `src_win`, its top level with
---- `line`'s screen row, so the commented code stays in view (§9.2). Falls
---- back to below the cursor when there's no other diff window.
+--- `line`'s screen row, so the commented code stays in view. Falls back to
+--- below the cursor when there's no other diff window.
 local function beside(session, src_win, line, height)
   local other = src_win == session.wins.left and session.wins.right
     or src_win == session.wins.right and session.wins.left
@@ -187,12 +176,13 @@ local function beside(session, src_win, line, height)
     row = pos.row - text_top
   end
   row = math.max(0, math.min(row, h - height - 2))
-  return { relative = 'win', win = other, bufpos = { vim.fn.line('w0', other) - 1, 0 }, row = row, col = 0, width = math.max(10, w - 2), height = height }
+  -- `bufpos` anchors col 0 at the first text column, past the gutter
+  return { relative = 'win', win = other, bufpos = { vim.fn.line('w0', other) - 1, 0 }, row = row, col = 0, width = math.max(10, w - vim.fn.getwininfo(other)[1].textoff - 2), height = height }
 end
 
---- Hover (§9.2): the cursor on a commented line of a diff window opens
---- that line's thread in a preview float (focus stays in the diff); off
---- every thread, the preview closes. Registered once per session.
+--- Hover: the cursor on a commented line of a diff window opens that line's
+--- thread in a preview float (focus stays in the diff); off every thread,
+--- the preview closes. Registered once per session.
 local function setup_hover(session)
   local review = session.review
   if review._hover then
@@ -238,13 +228,9 @@ end
 
 --- Redraw every thread's sign + summary for the current file/pair (call
 --- after `diffpair.show`), and the counterpart blank lines that keep the
---- two windows aligned (§9.2). No-op when review isn't available for this
---- session. Placement is entirely `review.backend.place`'s job (local:
---- excerpt relocation within the exact view it was written in, §9.1/§9.3;
---- GitHub: line tracking across commits, §9.4) - this function only draws
---- whatever it returns, caching it on `thread._place` (session-only, not
---- persisted) so `M.thread_at`/`M.next_thread`/`M.quickfix` don't need to
---- recompute placement themselves.
+--- two windows aligned. Placement comes from `review.backend.place`, cached
+--- on `thread._place` (session-only, not persisted) for `M.thread_at`,
+--- `M.next_thread` and `M.quickfix`.
 function M.decorate(session)
   local review = M.ensure(session)
   if not review then
@@ -660,7 +646,7 @@ local function thread_lines(thread)
   return lines
 end
 
---- Show `thread` alone in the thread float (§9.2): over the other diff
+--- Show `thread` alone in the thread float: over the other diff
 --- window, level with the thread, with its code range highlighted in its
 --- own window. `opts.focus` moves the cursor into it (`K`); otherwise it's
 --- a preview and focus stays in the diff.
@@ -712,7 +698,8 @@ function M.show_thread(session, thread, opts)
   pcall(vim.api.nvim__ns_set, rns, { wins = { src } })
   local src_buf = vim.api.nvim_win_get_buf(src)
   for l = place.start_line, math.min(place.end_line, vim.api.nvim_buf_line_count(src_buf)) do
-    vim.api.nvim_buf_set_extmark(src_buf, rns, l - 1, 0, { line_hl_group = 'DiffyThreadRange', priority = 250 })
+    -- on the number column: DiffAdd/DiffText would hide a line_hl_group
+    vim.api.nvim_buf_set_extmark(src_buf, rns, l - 1, 0, { number_hl_group = 'DiffyThreadRange', priority = 250 })
   end
 
   vim.api.nvim_create_autocmd('WinClosed', {
@@ -850,9 +837,9 @@ function M.next_thread(session, delta)
   M.show_thread(session, target, { focus = in_float })
 end
 
---- One-time keymap setup for a diff-window buffer (`diffpair.lua`, on
---- every left/right swap): `gc`, `K`/`<CR>`, `]t`/`[t`, `<leader>dt`. These
---- apply on any diff buffer, real file or blob alike (§9.2).
+--- One-time keymap setup for a diff-window buffer (on every left/right
+--- swap): `gc`, `K`/`<CR>`, `]t`/`[t`, `<leader>dt`, `gP`. These apply on
+--- any diff buffer, real file or blob alike.
 function M.setup_diff_keymaps(session, buf)
   local map = session_mod.map
   map(session, 'n', 'gc', function()
@@ -882,11 +869,11 @@ function M.setup_diff_keymaps(session, buf)
 end
 
 -- ---------------------------------------------------------------------
--- `gP`: GitHub PR description + conversation comments (contract §9.4)
+-- `gP`: GitHub PR description + conversation comments
 
 --- `gP`: read-only markdown float with the PR's description and
---- conversation comments (`review.pr`, populated by `review/github.lua`'s
---- `M.refresh`). Only available for a `:Diffy pr` session.
+--- conversation comments (`review.pr`). Only available for a `:Diffy pr`
+--- session.
 function M.open_pr_description(session)
   local review = session.review
   if not review or review.backend.name ~= 'github' or not review.pr then
@@ -934,11 +921,10 @@ function M.open_pr_description(session)
   end, { buffer = buf, desc = 'close PR description' })
 end
 
---- `:Diffy review submit`'s body float (contract §9.4: "a body composed in
---- a float") - centered, unlike `M.open_compose`'s floats, which anchor
---- below a diff line: a review submission body isn't anchored to any one.
---- `<C-s>`/`:w` calls `on_save(body)` (a single string, blank if the
---- buffer was left empty) and closes; `q` cancels (`on_save` never runs).
+--- `:Diffy review submit`'s body float, centered since a review body isn't
+--- anchored to any line. `<C-s>`/`:w` calls `on_save(body)` (a single
+--- string, blank if the buffer was left empty) and closes; `q` cancels
+--- (`on_save` never runs).
 function M.open_submit_body(session, on_save)
   local buf = vim.api.nvim_create_buf(false, true)
   session._review_buf_seq = (session._review_buf_seq or 0) + 1
@@ -997,9 +983,8 @@ end
 
 --- `:Diffy threads [author=<name>] [state=<open|resolved|outdated|detached>]
 --- [review=<id>]`: quickfix list of every thread in the session (incl.
---- detached/outdated ones - §9.2/§9.4), optionally filtered. For GitHub,
---- appends which commits (contract §9.4: "with the commits each thread is
---- visible in") each thread currently shows in.
+--- detached/outdated ones), optionally filtered. For GitHub, appends the
+--- commits each thread is visible in.
 function M.quickfix(session, args)
   local review = M.ensure(session)
   if not review then

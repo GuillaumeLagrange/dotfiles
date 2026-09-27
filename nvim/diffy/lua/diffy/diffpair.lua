@@ -1,4 +1,4 @@
--- Left/right diff windows (contract §2, §3, §10): fugitive blob/index
+-- Left/right diff windows: fugitive blob/index
 -- buffers or the real worktree file, native diff mode with scrollbind/
 -- cursorbind, winbars, and the navigation keymaps shared by both windows.
 local session_mod = require('diffy.session')
@@ -78,9 +78,8 @@ local function open_side(session, name, spec)
     session_mod.unmap_buffer(session, prev_real)
   end
 
-  -- navigation.lua's BufWinEnter handler must ignore diffy's own writes to
-  -- the right window (§6) - every actual buffer swap is bracketed with this
-  -- counter so it can tell the difference from a real user navigation.
+  -- navigation.lua's BufWinEnter handler must ignore diffy's own buffer
+  -- swaps; this counter lets it tell them apart from user navigation.
   session._nav_guard = (session._nav_guard or 0) + 1
   vim.api.nvim_win_set_buf(win, buf)
   session._nav_guard = session._nav_guard - 1
@@ -100,8 +99,8 @@ local function open_side(session, name, spec)
 end
 
 --- Show `left_spec`/`right_spec` in the session's diff windows and put both
---- into native diff mode with scrollbind/cursorbind (§2, §3). Either spec
---- may be `nil` (added/deleted file: the other side is empty).
+--- into native diff mode with scrollbind/cursorbind. Either spec may be
+--- `nil` (added/deleted file: the other side is empty).
 function M.show(session, left_spec, right_spec)
   -- Swap buffers with diff off: a window still in diff mode diffs the new
   -- buffer against the old pair mid-swap, and diff plugins' BufWinEnter
@@ -135,7 +134,7 @@ function M.clear(session)
 end
 
 --- Leave diff mode because the right window navigated outside the current
---- file list (§6): the right window keeps whatever real buffer it now
+--- file list: the right window keeps whatever real buffer it now
 --- shows (its diffy keymaps removed, since it's no longer diffy-managed);
 --- the left window becomes an "outside diff" placeholder. Selecting a
 --- listed file again (`M.show`) restores the pair.

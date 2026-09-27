@@ -1,5 +1,5 @@
--- The log model -> (left rev, right rev) resolution and the real-file rule
--- (contract §3). Pure functions operating on the entry list built by
+-- The log model -> (left rev, right rev) resolution and the real-file rule.
+-- Pure functions operating on the entry list built by
 -- panels/log.lua; no git calls, no buffer/window access.
 --
 -- An entry is one of:
@@ -12,7 +12,7 @@ local M = {}
 --- bottom_idx, indices into `entries` where index 1 is the newest/topmost
 --- row) -> `{ left, right, top, bottom }`. `left`/`right` are revs
 --- ('WORKTREE'/'INDEX'/'HEAD'/a sha) suitable for `repo.diff_args`.
---- Per §3's table: right = top entry's rev; left = parent of the bottom
+--- Right = top entry's rev; left = parent of the bottom
 --- entry (its own rev if Unstaged -> index, if Staged -> HEAD, if a commit
 --- -> `sha^`), except that a selection reaching the oldest commit of a
 --- branch/PR view uses the merge-base (`entries.base`) once its top
@@ -41,7 +41,7 @@ function M.resolve(entries, top_idx, bottom_idx)
 end
 
 --- Index of the first/last entry in `entries` that is selectable as a range
---- endpoint (commits that are merges are never selectable, §3). Used for
+--- endpoint (commits that are merges are never selectable). Used for
 --- `a` (select all) and to clamp a default selection.
 function M.first_selectable(entries)
   for i = 1, #entries do
@@ -62,10 +62,9 @@ function M.last_selectable(entries)
 end
 
 --- Whether the right side of the pair for `path` should be the real
---- worktree file (editable) rather than a read-only blob (§3): the top of
---- the selection is Unstaged, or it is HEAD (or, per §7, the phase-4 full
---- checkout commit passed as `ctx.checkout_sha`) and `path` has no
---- uncommitted changes.
+--- worktree file (editable) rather than a read-only blob: the top of the
+--- selection is Unstaged, or it is HEAD (or the full-checkout commit passed
+--- as `ctx.checkout_sha`) and `path` has no uncommitted changes.
 --- @param sel table  result of `M.resolve`
 --- @param path string
 --- @param ctx { head_sha: string, checkout_sha: string|nil, is_clean: fun(path: string): boolean }

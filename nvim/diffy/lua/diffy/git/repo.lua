@@ -1,13 +1,10 @@
 -- Repository-level helpers: locating the root, merge-base and branch-base
--- resolution (§4), cleanliness checks (§3/§4/§7), and translating a
--- (left, right) rev pair into `git diff` arguments (§3's Unstaged/Staged
--- collapse to plain worktree/--cached diffs).
+-- resolution, cleanliness checks, and translating a (left, right) rev pair
+-- into `git diff` arguments.
 --
--- Every function below takes an optional trailing `session`: when given, it
--- is forwarded to `git/run.lua`'s `M.run`/`M.git`, which no-ops the whole
--- callback (this module's own `on_exit` included) once that session is torn
--- down. Callers with no live session yet (`checkout.lua`'s `M.restore`,
--- which works with no diffy session open at all) simply omit it.
+-- Every function below takes an optional trailing `session`, forwarded to
+-- `run.git`/`run.run`, so the callback no-ops once that session is torn
+-- down. Callers with no diffy session open omit it.
 local run = require('diffy.git.run')
 local parse = require('diffy.git.parse')
 
@@ -61,7 +58,7 @@ function M.merge_base(root, a, b, on_exit, session)
   })
 end
 
---- §4 `branch` base resolution: explicit arg, else the PR base of the
+--- `:Diffy branch` base resolution: explicit arg, else the PR base of the
 --- current branch (`gh pr view`), else `origin`'s default branch
 --- (`gh repo view`). `on_exit(ref, err)`.
 function M.resolve_base(root, explicit, on_exit, session)
@@ -98,7 +95,7 @@ end
 
 --- Parsed `git status --porcelain=v2 -z --untracked-files=all` entries for
 --- the whole repo (untracked tree entries, per-file cleanliness lookups).
---- `--untracked-files=all` is load-bearing for §5: without it, git reports a
+--- `--untracked-files=all` is load-bearing: without it, git reports a
 --- brand-new untracked directory as a single `?? dir/` entry instead of its
 --- files individually, so the tree can't group them like any other
 --- directory. `on_exit(entries, err)`.
@@ -119,8 +116,7 @@ end
 
 --- Whether `root`'s tree has no staged/unstaged changes to tracked files
 --- (untracked/ignored files don't count). `path`, if given, restricts the
---- check to that pathspec (§3 real-file rule: "the file has no uncommitted
---- changes"). `on_exit(clean, err)`.
+--- check to that pathspec. `on_exit(clean, err)`.
 function M.is_clean(root, path, on_exit, session)
   local args = { 'status', '--porcelain=v2', '-z' }
   if path then
@@ -147,7 +143,7 @@ function M.is_clean(root, path, on_exit, session)
   })
 end
 
---- Default commit range for bare `:Diffy` (§4): `@{u}..HEAD` if the current
+--- Default commit range for bare `:Diffy`: `@{u}..HEAD` if the current
 --- branch has an upstream, else the last 20 commits. `on_exit(spec)` where
 --- `spec` is `{ expr = 'A..B' }` or `{ n = 20 }` (passed to `git log` as a
 --- rev range or a `-n` limit respectively).
@@ -167,9 +163,8 @@ function M.default_range(root, on_exit, session)
 end
 
 --- Args to append to `git diff [flags]` for the pair `(left, right)`, where
---- each is `'INDEX'`, `'WORKTREE'`, `'HEAD'`, or a commit sha (§3's
---- Unstaged/Staged rows collapse to a plain/`--cached` diff with no
---- explicit revs, matching git's own defaults for "worktree" and "index").
+--- each is `'INDEX'`, `'WORKTREE'`, `'HEAD'`, or a commit sha. Unstaged and
+--- Staged collapse to a plain/`--cached` diff with no explicit revs.
 function M.diff_args(left, right)
   if right == 'WORKTREE' then
     if left == 'INDEX' then

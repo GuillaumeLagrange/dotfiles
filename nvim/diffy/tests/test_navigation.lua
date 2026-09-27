@@ -1,4 +1,4 @@
--- §6, §12.4 (phase 4): a `BufWinEnter` in the right diff window swaps the
+-- A `BufWinEnter` in the right diff window swaps the
 -- pair when the new buffer's path is in the current file list and
 -- highlights it in the tree; otherwise diff mode turns off and the left
 -- window shows an "outside diff" placeholder. `<C-o>` restores the pair.
@@ -21,7 +21,7 @@ local T = MiniTest.new_set({
         ['outside.txt'] = Repo.lines(5),
       })
       -- unstaged edits so bare `:Diffy` (Unstaged selected) shows a real,
-      -- editable worktree file on the right for both a.txt and b.txt (§3)
+      -- editable worktree file on the right for both a.txt and b.txt
       vim.fn.writefile({ 'a1 edited', 'a2', 'a3', 'a4', 'a5' }, repo.dir .. '/a.txt')
       vim.fn.writefile({ 'b1 edited', 'b2', 'b3', 'b4', 'b5' }, repo.dir .. '/b.txt')
       child.fn.chdir(repo.dir)
@@ -40,7 +40,6 @@ local function win_diff(win)
 end
 
 T['jumping to another listed file swaps both sides and highlights the tree'] = function()
-  -- §6
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)
@@ -64,7 +63,6 @@ T['jumping to another listed file swaps both sides and highlights the tree'] = f
 end
 
 T['jumping outside the file list leaves diff mode with a placeholder, and <C-o> restores the pair'] = function()
-  -- §6
   ui.arm_ready(child, 'render')
   child.cmd('Diffy')
   ui.wait_ready(child)

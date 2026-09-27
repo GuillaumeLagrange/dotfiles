@@ -1,4 +1,4 @@
--- §12.1 (phase 1): the leak check itself fails when a diffy augroup,
+-- The leak check itself fails when a diffy augroup,
 -- buffer, buffer-local keymap or extmark is deliberately left behind. Each
 -- case restarts a fresh child (no diffy session involved) and fabricates
 -- one artifact directly, bypassing the normal `post_case` hook since the

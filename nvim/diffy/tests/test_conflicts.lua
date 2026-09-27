@@ -1,4 +1,4 @@
--- §8, §12.5 (phase 5): the 4-window conflict view - layout (screenshot),
+-- The 4-window conflict view - layout (screenshot),
 -- `gho`/`ght` hunk-taking, `s` resolving (with a confirmation prompt when
 -- markers remain), the same flow during a rebase conflict, and switching
 -- back to a normal pair restoring the 2-window diff area.
@@ -48,7 +48,7 @@ local function is_diff(win)
 end
 
 -- Closing the confirm float right before spawning `git add` leaves the
--- child transiently `blocking` (AGENTS.md harness facts), so arm the
+-- child transiently `blocking`, so arm the
 -- DiffyReady listener through raw `child.api` calls; pair with
 -- `ui.wait_ready_raw`.
 local function arm_ready_raw(event)
@@ -65,7 +65,7 @@ local function arm_ready_raw(event)
   ]]):format(event), {})
 end
 
-T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file'] = function()
+T[':Diffy conflicts opens the 4-window layout for the first conflicted file'] = function()
   -- a fixed path (not `vim.fn.tempname()`'s random one): nothing in this
   -- layout shows an absolute path except the result window's statusline,
   -- which must be stable to diff against a committed reference.
@@ -101,7 +101,7 @@ T['§8: :Diffy conflicts opens the 4-window layout for the first conflicted file
   child.cmd('Diffy close')
 end
 
-T['§8: gho/ght take hunks and s on the last conflict resolves it and leaves no conflict pane'] = function()
+T['gho/ght take hunks and s on the last conflict resolves it and leaves no conflict pane'] = function()
   repo = conflict_repo()
   child.fn.chdir(repo.dir)
 
@@ -135,9 +135,9 @@ T['§8: gho/ght take hunks and s on the last conflict resolves it and leaves no 
 end
 
 -- `s` with markers left opens `lua/diffy/prompt.lua`'s real floating
--- confirmation (contract §11.2: nvim is never mocked) - driven here with
+-- confirmation - driven here with
 -- actual `y`/`n` keystrokes, not a `vim.fn.confirm` mock.
-T['§8: s with conflict markers left asks for confirmation'] = function()
+T['s with conflict markers left asks for confirmation'] = function()
   repo = conflict_repo()
   child.fn.chdir(repo.dir)
 
@@ -165,7 +165,7 @@ T['§8: s with conflict markers left asks for confirmation'] = function()
   child.cmd('Diffy close')
 end
 
-T['§8: the same flow works during a rebase conflict'] = function()
+T['the same flow works during a rebase conflict'] = function()
   local r = Repo.new()
   r:commit('Base', { ['f.txt'] = { 'l1', 'l2', 'l3' } })
   r:branch('feature'):commit('Feature', { ['f.txt'] = { 'l1', 'FEATURE', 'l3' } })
@@ -197,7 +197,7 @@ T['§8: the same flow works during a rebase conflict'] = function()
   child.cmd('Diffy close')
 end
 
-T['§8: selecting a normal file after a U row restores the 2-window diff area'] = function()
+T['selecting a normal file after a U row restores the 2-window diff area'] = function()
   repo = conflict_repo()
   child.fn.chdir(repo.dir)
   vim.fn.writefile({ 'g1', 'edited' }, repo.dir .. '/g.txt')

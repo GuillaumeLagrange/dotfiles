@@ -1,4 +1,4 @@
--- §4, §12.5 (phase 5): `:Diffy file` builds its log with `--follow`,
+-- `:Diffy file` builds its log with `--follow`,
 -- defaults to the newest commit, and restricts the tree to just the
 -- followed file - showing its old name in commits before the rename.
 local Repo = require('tests.helpers.repo')
@@ -62,7 +62,6 @@ local function select_row(row)
 end
 
 T[':Diffy file follows a file across its rename'] = function()
-  -- §4
   repo = file_history_repo()
   child.fn.chdir(repo.dir)
 

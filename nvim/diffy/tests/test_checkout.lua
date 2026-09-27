@@ -1,4 +1,4 @@
--- §7, §12.4 (phase 4): `X` on a single selected commit refuses with a
+-- `X` on a single selected commit refuses with a
 -- dirty tree (HEAD untouched); leaving it (closing the tab) restores the
 -- original branch; an interrupted checkout (nvim killed) is warned about on
 -- the next `:Diffy` and recovered by `:Diffy restore`.
@@ -35,7 +35,6 @@ local function state_file()
 end
 
 T['`X` on a commit with a dirty tree refuses, leaving HEAD untouched'] = function()
-  -- §7
   vim.fn.writefile({ 'dirty, uncommitted' }, repo.dir .. '/f.txt')
 
   ui.arm_ready(child, 'render')
@@ -55,7 +54,6 @@ T['`X` on a commit with a dirty tree refuses, leaving HEAD untouched'] = functio
 end
 
 T['`X` then closing the tab returns to the original branch'] = function()
-  -- §7
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)
@@ -82,7 +80,6 @@ T['`X` then closing the tab returns to the original branch'] = function()
 end
 
 T['nvim killed during a checkout: the next :Diffy warns, and :Diffy restore returns to the branch'] = function()
-  -- §7
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)

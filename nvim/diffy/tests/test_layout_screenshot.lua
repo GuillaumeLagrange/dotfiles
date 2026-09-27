@@ -1,4 +1,4 @@
--- §2, §12.2 (phase 2): screenshot of the default `:Diffy` layout (tree/log
+-- Screenshot of the default `:Diffy` layout (tree/log
 -- column, diff pair, winbars).
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')

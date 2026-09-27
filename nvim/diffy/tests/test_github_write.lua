@@ -1,8 +1,8 @@
--- §9.4, §12.7 (phase 7B): the GitHub backend's write side through the UI -
+-- The GitHub backend's write side through the UI -
 -- push (client-side validation before any API call, primary-commit/
 -- other-commit routing, multi-line tracking to HEAD), pull (restoring
 -- drafts to their original commit/line from a pending review), reply,
--- resolve/unresolve, submit (contract §11.4). A real git bundle of the
+-- resolve/unresolve, submit. A real git bundle of the
 -- sandbox's `pending` PR history (exact shas) in both modes. Default: fake
 -- `gh` transport. `make test-gh` (DIFFY_TESTGH=1): the real transport against
 -- a fresh PR per case, pre-existing state created through the real API.
@@ -197,7 +197,7 @@ local function select_all()
 end
 
 -- Opening a float (`gc`/`K`+`r`) leaves the child transiently `blocking`
--- (AGENTS.md): arm/wait through raw `child.api` calls there.
+-- arm/wait through raw `child.api` calls there.
 local function arm_ready_raw(event)
   child.api.nvim_exec_lua(([[
     _G.__diffy_ready = false
@@ -307,8 +307,7 @@ local function quickfix_at(lnum)
   return nil
 end
 
-T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kept local with a warning), and pushes the rest'] = function()
-  -- §9.4, §12.7
+T['push validates locally, sends nothing for an invalid draft (kept local with a warning), and pushes the rest'] = function()
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -345,8 +344,7 @@ T['§9.4/§12.7: push validates locally, sends nothing for an invalid draft (kep
   child.cmd('Diffy close')
 end
 
-T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a multi-line draft on the second is tracked to HEAD'] = function()
-  -- §9.4, §12.7
+T['push with drafts on two commits lands each on its own commit; a multi-line draft on the second is tracked to HEAD'] = function()
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -401,8 +399,7 @@ T['§9.4/§12.7: push with drafts on two commits lands each on its own commit; a
   child.cmd('Diffy close')
 end
 
-T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on push'] = function()
-  -- §9.4
+T['a reply drafted on a not-yet-pushed thread lands in that thread on push'] = function()
   setup_empty()
   open_pr()
   open_file('f.txt')
@@ -441,8 +438,7 @@ T['§9.4: a reply drafted on a not-yet-pushed thread lands in that thread on pus
   child.cmd('Diffy close')
 end
 
-T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) at its original commit and line'] = function()
-  -- §9.4, §12.7
+T['pull restores a pending comment (eagerly remapped for display) at its original commit and line'] = function()
   setup_pending()
   open_pr()
   open_file('f.txt')
@@ -457,7 +453,7 @@ T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) 
   local data = vim.json.decode(table.concat(vim.fn.readfile(path), '\n'))
 
   -- E3 was written via the legacy position API against Q2 and eagerly
-  -- remapped by GitHub to `commit = head` (AGENTS.md) - `pull` must restore
+  -- remapped by GitHub to `commit = head` - `pull` must restore
   -- its *original* commit/line (Q2, L20), not the live-tracked one
   local e3
   for _, t in ipairs(data.threads) do
@@ -475,13 +471,12 @@ T['§9.4/§12.7: pull restores a pending comment (eagerly remapped for display) 
   child.cmd('Diffy close')
 end
 
-T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
-  -- §9.4, §12.7
+T['reply, resolve/unresolve and submit'] = function()
   setup_pending()
   open_pr()
   open_file('f.txt')
 
-  -- pull first (contract's own safety net): recreating the pending review
+  -- pull first: recreating the pending review
   -- on push/submit must not silently drop the pre-existing E1/E2/E3/E4
   ui.arm_ready(child, 'review')
   child.cmd('Diffy review pull')
@@ -529,7 +524,7 @@ T['§9.4/§12.7: reply, resolve/unresolve and submit'] = function()
   wait_ready_raw()
   child.type_keys('looks good', '<Esc>')
   child.type_keys('<C-s>')
-  -- push+submit consumes the pending review on GitHub (§9.4)
+  -- push+submit consumes the pending review on GitHub
   local function submitted()
     local r = remote_reviews()
     if r.pending then

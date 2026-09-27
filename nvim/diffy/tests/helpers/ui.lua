@@ -1,4 +1,4 @@
--- Observation helpers (contract §11.1): describe what the user sees, never
+-- Observation helpers: describe what the user sees, never
 -- diffy's internal tables. Each takes the `MiniTest.child` driving the UI
 -- (except `git`, which inspects the fixture repo directly on disk).
 --
@@ -70,8 +70,9 @@ function M.layout(child)
 end
 
 --- Rows of the `panel` ('log' | 'tree') as drawn: `{ { text, hl = { group =
---- true, … } }, … }`, where `hl` holds the whole-line highlight groups
---- rendered on that row (`DiffySelection`, `DiffyMerge`, `DiffyCurrentFile`).
+--- true, … } }, … }`, where `hl` holds the whole-line and line-number
+--- highlight groups rendered on that row (`DiffySelection`, `DiffyMerge`,
+--- `DiffyCurrentFile`, `DiffyThreadRange`).
 function M.panel(child, panel)
   return child.lua(([[
     local s = require('diffy.session').for_tab(vim.api.nvim_get_current_tabpage())
@@ -83,14 +84,19 @@ function M.panel(child, panel)
       rows[i] = { text = l, hl = vim.empty_dict() }
     end
     for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })) do
-      local g = m[4].line_hl_group
-      if g and rows[m[2] + 1] then rows[m[2] + 1].hl[g] = true end
+      local row = rows[m[2] + 1]
+      if row then
+        for _, key in ipairs({ 'line_hl_group', 'number_hl_group' }) do
+          local g = m[4][key]
+          if g then row.hl[g] = true end
+        end
+      end
     end
     return rows
   ]]):format(panel))
 end
 
---- Texts of the `panel` rows drawn with line highlight `group`.
+--- Texts of the `panel` rows drawn with line or line-number highlight `group`.
 function M.rows_with(child, panel, group)
   local out = {}
   for _, r in ipairs(M.panel(child, panel)) do
@@ -193,7 +199,7 @@ end
 
 --- True if every pair of counterpart lines visible in both diff windows is
 --- drawn on the same screen row. Counterparts come from nvim's own diff
---- alignment (contract §9.2: `row(l) = l + Σ diff_filler(k)`, equal rows are
+--- alignment (`row(l) = l + Σ diff_filler(k)`, equal rows are
 --- counterparts); the screen rows come from `screenpos`, so virt_lines that
 --- shift one side only are caught.
 function M.aligned(child)
@@ -237,7 +243,7 @@ end
 --- `'open_row'`, see the modules that call `git/run.lua`'s `M.ready`). Call
 --- this right before the action expected to trigger a render; pair with
 --- `M.wait_ready` right after. This is the only synchronization point
---- tests use - never a sleep (contract §11.3).
+--- tests use - never a sleep.
 function M.arm_ready(child, event)
   local filter = event and ('%q'):format(event) or 'nil'
   child.lua(([[
@@ -262,7 +268,7 @@ end
 
 --- `M.wait_ready` through raw `child.api` calls, for right after a keystroke
 --- that leaves the child transiently `blocking` (a float + `startinsert`, or
---- a handler spawning git synchronously; see AGENTS.md harness facts), where
+--- a handler spawning git synchronously), where
 --- `child.lua`'s guard would throw.
 function M.wait_ready_raw(child, timeout)
   vim.wait(timeout or 5000, function()

@@ -1,8 +1,8 @@
 -- :Diffy command + completion. Nothing else runs at startup.
 local diffy = require('diffy')
 
--- §4 subcommands plus review/threads (§9). Range args (`A..B`, `A...B`) and
--- the bare command aren't completed here; they fall through to `diffy.open`.
+-- Range args (`A..B`, `A...B`) and the bare command aren't completed; they
+-- fall through to `diffy.command`.
 local SUBCOMMANDS = { 'branch', 'pr', 'file', 'conflicts', 'restore', 'review', 'threads', 'panel', 'close' }
 
 local function complete(arg_lead)

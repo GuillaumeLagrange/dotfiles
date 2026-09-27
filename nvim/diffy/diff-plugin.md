@@ -373,7 +373,8 @@ Git, fugitive and nvim are never mocked. The only fake is the `gh` process.
 A test is kept only if it would catch a bug a user would notice. Concretely:
 
 1. **Named after a behaviour**, in user terms: `['writing the index buffer stages only the edited hunk']`, not
-   `['diffpair.write works']`. Its first comment names the contract section it proves (`-- §5`).
+   `['diffpair.write works']`. Code and tests never cite this document (no `§N` references): it's a working
+   document, the code must stand on its own.
 2. **Proven to fail.** Before committing a test, the author breaks the feature it covers (reverts the fix,
    comments out the call) and sees the test go red. The commit message states what was broken:
    `Fails without: index buffer written to worktree path`. A test that can't be made to fail by breaking

@@ -1,4 +1,4 @@
--- The file tree panel (contract §5): the diff between the current
+-- The file tree panel: the diff between the current
 -- selection's (left, right) as a nested directory tree (collapsible on
 -- `za`, chains of single-child dirs flattened into one row), with rename
 -- pairs, +n/-m counts and the staging keys (`s`/`u`/`-`/`S`/`U`).
@@ -10,7 +10,7 @@ local selection = require('diffy.selection')
 local M = {}
 
 --- name-status + numstat for the current selection, merged by path, plus
---- untracked files (only when the selection is exactly Unstaged, §5).
+--- untracked files (only when the selection is exactly Unstaged).
 local function build_diff_entries(session, gen, cb)
   local diff_args = repo.diff_args(session.pair.left, session.pair.right)
   local ns_args = { 'diff', '-z', '-M', '--name-status' }
@@ -67,7 +67,7 @@ local function build_diff_entries(session, gen, cb)
           end
           -- an unmerged path's plain `git diff` (worktree vs index) reports
           -- it twice ('U', then a spurious 'M' from git's own auto-merge
-          -- attempt) - keep only the conflict status (§8).
+          -- attempt) - keep only the conflict status.
           local unmerged_paths = {}
           for _, e in ipairs(entries) do
             if e.status == 'U' then
@@ -129,9 +129,8 @@ end
 
 --- Lay `node` (full path `path`) out into display rows: a directory whose
 --- only content is one subdirectory is merged into `chain` (no row of its
---- own - §5's "chains of single-child dirs flattened into one row"); a
---- directory whose only content is one file is skipped entirely (the file
---- is shown directly, with its path relative to the enclosing header);
+--- own); a directory whose only content is one file is skipped entirely (the
+--- file is shown directly, with its path relative to the enclosing header);
 --- everything else gets one collapsible header row for the accumulated
 --- `chain` (empty at the root, so the root itself never gets a header)
 --- followed by its children, one depth deeper - `foldmethod=indent` then
@@ -169,10 +168,7 @@ local function layout(node, path, chain, base, depth, rows)
   end
 end
 
---- Group a flat, path-sorted entry list into display rows (§5): a nested
---- directory tree, each real directory collapsible on its own header row,
---- chains of single-child directories flattened into one row, and a
---- directory holding exactly one file flattened away entirely.
+--- Group a flat, path-sorted entry list into display rows.
 local function group_rows(entries)
   local rows = {}
   layout(build_tree(entries), '', '', '', 0, rows)
@@ -196,7 +192,7 @@ local function basename(path)
   return path:match('([^/]+)$') or path
 end
 
---- One display row fitted to `width` cells (§5): `text` plus highlight
+--- One display row fitted to `width` cells: `text` plus highlight
 --- spans `{start_col, end_col, group}` (byte columns).
 local function row_line(row, width)
   local indent = ('  '):rep(row.depth)
@@ -237,7 +233,7 @@ local function row_line(row, width)
   return text, spans
 end
 
---- Per-file real-file/dirty context (§3) built from `session.status_entries`.
+--- Per-file real-file/dirty context built from `session.status_entries`.
 local function clean_ctx(session)
   local dirty = {}
   for _, s in ipairs(session.status_entries or {}) do
@@ -259,7 +255,7 @@ end
 
 --- True when the current selection is exactly `Unstaged` (left=index,
 --- right=worktree) or exactly `Staged` (left=HEAD, right=index) - the only
---- two selections staging keys operate on (§5).
+--- two selections staging keys operate on.
 local function staging_pane(session)
   if session.pair.left == 'INDEX' and session.pair.right == 'WORKTREE' then
     return 'unstaged'
@@ -295,8 +291,8 @@ local function row_at_cursor(session)
   return nil
 end
 
---- Run `git <verb> -- <paths>` and refresh on success (mutations refresh
---- and re-fire `DiffyReady`, §5).
+--- Run `git <verb> -- <paths>` and refresh on success (which re-fires
+--- `DiffyReady`).
 local function git_paths(session, verb, paths)
   local args = { verb, '--' }
   vim.list_extend(args, paths)
@@ -312,7 +308,7 @@ local function git_paths(session, verb, paths)
 end
 
 --- `s`: stage the file (or both paths of a rename pair) at the cursor, or
---- (§8) mark a conflicted ('U') row resolved (warns if markers remain).
+--- mark a conflicted ('U') row resolved (warns if markers remain).
 function M.stage(session)
   local row = row_at_cursor(session)
   if row and row.entry.status == 'U' then
@@ -386,7 +382,7 @@ function M.unstage_all(session)
 end
 
 --- Open the diff pair for tree row `row` (a `{kind='file', entry=...}`),
---- or (§8) the 4-window conflict view for an unmerged ('U') row.
+--- or the 4-window conflict view for an unmerged ('U') row.
 function M.open_row(session, row, opts)
   if not row or row.kind ~= 'file' then
     return
@@ -426,7 +422,7 @@ function M.open_row(session, row, opts)
 end
 
 --- Locate the tree row for `path` and open its diff pair, updating the
---- tracked current-file line and cursor position (§6 navigation, phase 4).
+--- tracked current-file line and cursor position.
 --- Returns `true` if `path` is in the current file list, `false` otherwise.
 function M.open_path(session, path)
   for i, row in ipairs(session.tree_rows or {}) do
@@ -442,7 +438,7 @@ function M.open_path(session, path)
   return false
 end
 
---- Highlight the row of the file shown in the diff pair (§5).
+--- Highlight the row of the file shown in the diff pair.
 function M.mark_current(session)
   local buf = session.bufs.tree
   if not (buf and vim.api.nvim_buf_is_valid(buf)) then
@@ -632,7 +628,6 @@ function M.open_real_file(session)
   vim.cmd('edit ' .. vim.fn.fnameescape(abspath))
 end
 
---- One-time keymap setup for the tree buffer.
 function M.setup(session)
   local map = require('diffy.session').map
   local buf = session.bufs.tree

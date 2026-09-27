@@ -1,4 +1,4 @@
--- §2, §5, §12.2: panel column toggle and single-line, width-fitted tree rows.
+-- Panel column toggle and single-line, width-fitted tree rows.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
 local ui = require('tests.helpers.ui')
@@ -28,8 +28,7 @@ local function tab_wins()
   return child.lua_get('vim.api.nvim_tabpage_list_wins(0)')
 end
 
-T['§2: the panel toggle hides the column (diff spans the width, ]f still works) and brings it back'] = function()
-  -- §2
+T['the panel toggle hides the column (diff spans the width, ]f still works) and brings it back'] = function()
   repo = Repo.new():commit('Base', { ['a.txt'] = Repo.lines(5, 'a'), ['b.txt'] = Repo.lines(5, 'b') })
   vim.fn.writefile({ 'a1', 'changed' }, repo.dir .. '/a.txt')
   vim.fn.writefile({ 'b1', 'changed' }, repo.dir .. '/b.txt')
@@ -83,8 +82,7 @@ T['§2: the panel toggle hides the column (diff spans the width, ]f still works)
   MiniTest.expect.equality(ui.diffy_buffers(child), {})
 end
 
-T['§5: a long path under nested dirs renders as one row fitting the panel, status and counts visible'] = function()
-  -- §5
+T['a long path under nested dirs renders as one row fitting the panel, status and counts visible'] = function()
   local long = 'nvim/diffy/lua/diffy/a_rather_long_directory_name/init_with_an_extremely_long_file_name.lua'
   repo = Repo.new():commit('Base', { [long] = Repo.lines(5), ['nvim/diffy/lua/diffy/other.lua'] = Repo.lines(5) })
   vim.fn.writefile({ '1', 'changed', '3', '4', '5' }, repo.dir .. '/' .. long)

@@ -1,4 +1,4 @@
--- §3: a branch view's full selection diffs against the merge-base, so
+-- A branch view's full selection diffs against the merge-base, so
 -- changes merged in from the base branch don't show as branch changes.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
@@ -43,7 +43,7 @@ local function open_file(w, name)
   error(name .. ' not in the tree')
 end
 
-T['§3: all commits of :Diffy branch diff against the merge-base; the oldest commit alone against its parent'] = function()
+T['all commits of :Diffy branch diff against the merge-base; the oldest commit alone against its parent'] = function()
   ui.arm_ready(child, 'render')
   child.cmd('Diffy branch main')
   ui.wait_ready(child)

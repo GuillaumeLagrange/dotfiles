@@ -1,4 +1,4 @@
--- The log panel (contract §2, §3, §4): builds the entry list (Unstaged,
+-- The log panel: builds the entry list (Unstaged,
 -- Staged, commits), renders it, and owns the contiguous-selection keys.
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
@@ -18,8 +18,7 @@ local function log_args(expr, limit)
   return args
 end
 
---- `git log -z --follow --date-order --pretty=… -- path` (§4 `:Diffy
---- file`): commits touching `path`, tracked across renames.
+--- `:Diffy file`: commits touching `path`, tracked across renames.
 local function file_log_args(path)
   return { 'log', '-z', '--follow', '--date-order', '--pretty=format:%H%x1f%P%x1f%s', '--', path }
 end
@@ -59,7 +58,7 @@ local function worktree_prefix(spec)
   }
 end
 
---- Branch/PR views (§3): record the merge-base as `entries.base` and flag
+--- Branch/PR views: record the merge-base as `entries.base` and flag
 --- the commits that contain it (`has_base`), i.e. those after a merge of
 --- the base branch, so a selection down to the oldest commit diffs against
 --- the merge-base like github.com instead of showing merged-in base changes.
@@ -120,7 +119,7 @@ function M.build_entries(root, spec, cb, session)
       end, session)
     end, session)
   elseif spec.kind == 'pr' then
-    -- `:Diffy pr` (§4/§9.4): `spec.base` is already resolved (the PR's
+    -- `:Diffy pr`: `spec.base` is already resolved (the PR's
     -- `baseRefName`, from `github.find_pr`) - no `resolve_base` call, and
     -- no Unstaged/Staged prefix (the readiness check already guarantees a
     -- clean tree at the PR head).
@@ -144,7 +143,7 @@ function M.build_entries(root, spec, cb, session)
         return
       end
       -- every name `path` has ever had (renames), so the tree's diff calls
-      -- can be pathspec-restricted to just this file (§8's phase-5 hook)
+      -- can be pathspec-restricted to just this file
       -- while still letting git detect a rename across adjacent commits.
       run.git({ 'log', '--follow', '-z', '--name-status', '--pretty=format:%H', '--', spec.path }, {
         cwd = root,
@@ -186,7 +185,7 @@ function M.build_entries(root, spec, cb, session)
   end
 end
 
---- Default selection for `spec` over `entries` (§4's table): `Unstaged`
+--- Default selection for `spec` over `entries`: `Unstaged`
 --- alone for `:Diffy`, all commits (excluding Unstaged/Staged) for
 --- `:Diffy branch`, everything for an explicit range.
 function M.default_selection(entries, spec)
@@ -250,7 +249,7 @@ local function log_width(session)
   return session.log_width or require('diffy').config.panel_width
 end
 
---- (Re)render the full entry list (§2): merges dimmed, the active
+--- (Re)render the full entry list: merges dimmed, the active
 --- contiguous selection marked. Call after entries/selection change.
 function M.render(session)
   local buf = session.bufs.log
@@ -347,7 +346,6 @@ function M.move_selection(session, delta)
   session.on_select(session)
 end
 
---- One-time setup: the panel's keys and width-following re-render.
 function M.setup(session)
   session.ns.log_render = require('diffy.session').namespace(session, 'log_render')
   vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {

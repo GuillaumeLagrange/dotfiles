@@ -1,10 +1,6 @@
--- GitHub review backend (contract §9.4): the PR of the checked-out branch.
--- This phase (7A) owns the *read* side - threads/reviews/description/
--- pending review, placement (line tracking across commits) and `:Diffy
--- pr`'s readiness check. Push/pull/submit/reply/resolve (phase 7B) are
--- added alongside `M.load`/`M.save` below, reusing this file's transport,
--- `M.owner_repo`, and `review/model.lua`'s `map_range`/`anchor_valid`/
--- `diff_position`.
+-- GitHub review backend: the PR of the checked-out branch. Reads threads,
+-- reviews, description and the viewer's pending review, places threads
+-- across commits, and pushes/pulls/submits local drafts.
 local model = require('diffy.review.model')
 local run = require('diffy.git.run')
 local repo = require('diffy.git.repo')
@@ -18,19 +14,14 @@ local M = {}
 M.name = 'github'
 M.capabilities = { resolve = true, suggestions = true }
 
---- Persistence scope key threaded through `review/ui.lua` as
---- `session.review.branch` (an opaque label, `pr-<number>`) - the actual
---- file path (contract §9.4 draft path `.git/diffy/<branch>/pr-<number>.json`,
---- `<branch>` there being the checked-out *git* branch) is built by
---- `pr_json_path` below instead, via `review/local.lua`'s own `M.branch`.
+--- Opaque persistence label (`pr-<number>`). The draft file itself lives
+--- under the checked-out git branch, see `pr_json_path`.
 function M.branch(session)
   return ('pr-%d'):format(session.range.pr_number)
 end
 
 local cached_author
---- Viewer's GitHub login, cached for the process lifetime (mirrors
---- `review/local.lua`'s `M.author` - a one-shot call, not on the render
---- path).
+--- Viewer's GitHub login, cached for the process lifetime.
 function M.author(_root)
   if cached_author then
     return cached_author
@@ -41,12 +32,10 @@ function M.author(_root)
 end
 
 -- ---------------------------------------------------------------------
--- persistence (contract §9.4 Writing): local drafts survive restarts at
+-- persistence: local drafts survive restarts at
 -- `.git/diffy/<branch>/pr-<number>.json`. Only `draft` (never pushed) and
--- `pending` (pushed once, then re-anchored to its original commit/line by
--- `:Diffy review pull`) comments are ever persisted - `published`/`sent`
--- content is always re-fetched fresh from GitHub instead of duplicated
--- locally.
+-- `pending` (pushed, then re-anchored by `:Diffy review pull`) comments are
+-- persisted; published content is always re-fetched from GitHub.
 local function pr_json_path(session)
   return store.dir(session.gitdir, local_backend.branch(session)) .. ('/pr-%d.json'):format(session.range.pr_number)
 end
@@ -73,19 +62,12 @@ function M.save(session, _branch, threads)
 end
 
 --- Merge persisted local drafts into freshly-fetched `threads` (mutated in
---- place, called from `M.refresh`), matched by real GitHub thread/comment
---- id where one exists:
---- - a persisted thread whose `id` matches a live one gets its `anchor`
----   reclaimed (contract §9.4 pull: "restoring...from originalCommit/
----   originalLine") and any comment not already present appended (a draft
----   reply, or a comment re-marked `draft` by a pull); a comment already
----   present just has its `state`/`body` updated in place (a pull
----   re-marking an already-`pending` comment `draft` again, or a local
----   edit of one).
---- - a persisted thread with no live match is a brand-new, never-pushed
----   local draft (a `t<N>` id, from `model.next_thread_id`) - inserted
----   as-is, `_has_source` forced true (its anchor is, by construction,
----   always local).
+--- place), matched by GitHub thread/comment id:
+--- - a persisted thread matching a live one gets its `anchor` back (the
+---   original commit/line) and any missing comment appended; comments
+---   already present get their `state`/`body` updated.
+--- - a persisted thread with no live match is a never-pushed local draft
+---   (`t<N>` id) and is inserted as-is; its anchor is always local.
 function M.merge_drafts(session, threads)
   local persisted = M.load(session, M.branch(session))
   local by_id = {}
@@ -118,14 +100,12 @@ function M.merge_drafts(session, threads)
 end
 
 -- ---------------------------------------------------------------------
--- transport (contract §9.4/§11.4): the one seam every gh request goes
--- through. Tests replace this module field with
--- `tests/helpers/fake_github.lua`'s function before opening a session -
--- never by mocking git or nvim itself.
+-- transport: every gh request goes through `M.transport`. Tests replace
+-- this field with `tests/helpers/fake_github.lua`'s function.
 
---- `gh api graphql --input -` with `{query, variables}` on stdin (avoids
---- `-f` quoting of multi-line bodies, AGENTS.md). `cb(data, err)`: `data`
---- is the response's `.data` object on success.
+--- `gh api graphql --input -` with the request on stdin, which avoids `-f`
+--- quoting issues with multi-line bodies. `cb(data, err)`: `data` is the
+--- response's `.data` object on success.
 function M.transport(query, variables, cb)
   local input = vim.json.encode({ query = query, variables = variables })
   return vim.system({ 'gh', 'api', 'graphql', '--input', '-' }, { stdin = input, text = true }, function(res)
@@ -148,9 +128,7 @@ function M.transport(query, variables, cb)
   end)
 end
 
---- `owner`/`name` of the `origin` remote (no `gh` call - a plain URL
---- parse, so it's independently testable and doesn't need the fake).
---- `cb(owner, name, err)`.
+--- `owner`/`name` parsed from the `origin` remote URL. `cb(owner, name, err)`.
 function M.owner_repo(root, cb)
   run.git({ 'remote', 'get-url', 'origin' }, {
     cwd = root,
@@ -184,8 +162,8 @@ query($o: String!, $r: String!, $h: String!) {
 }
 ]]
 
---- The open PR whose head is the current branch, or `(nil, err)`. `cb(pr,
---- err)`, `pr = { number, baseRefName, headRefOid }`.
+--- The open PR whose head is the current branch. `cb(pr, err)`,
+--- `pr = { number, baseRefName, headRefOid }`.
 function M.find_pr(root, cb)
   M.owner_repo(root, function(owner, name, err)
     if not owner then
@@ -218,11 +196,10 @@ function M.find_pr(root, cb)
   end)
 end
 
---- `:Diffy pr`'s refusal check (contract §4): the tree must be clean and
---- local HEAD must equal the PR head on GitHub. `cb(ok, reason)`; `reason`
---- is nil on success, else names what's wrong (dirty tree, unpushed
---- commits, behind remote, or - when ancestry can't be determined locally,
---- e.g. the PR head was never fetched - a generic mismatch message).
+--- `:Diffy pr` refuses unless the tree is clean and local HEAD equals the
+--- PR head on GitHub. `cb(ok, reason)`; `reason` names what's wrong (dirty
+--- tree, unpushed commits, behind remote, or a generic mismatch when the
+--- PR head isn't available locally to compare ancestry).
 function M.pr_readiness(root, head_sha, pr_head_sha, clean, cb)
   if not clean then
     cb(false, 'the tree is dirty (tracked changes present, staged or unstaged) - commit or stash them first')
@@ -262,12 +239,9 @@ function M.pr_readiness(root, head_sha, pr_head_sha, clean, cb)
 end
 
 -- ---------------------------------------------------------------------
--- read (contract §9.4): threads, reviews, description/conversation, the
--- viewer's own pending review. One query, paginated over `reviewThreads`
--- (the only connection realistically deep enough to exceed one page); the
--- PR-level fields (comments/reviews/pendingReviews) are only kept from the
--- first page, since they're cheap and don't need their own pagination for
--- the PR sizes diffy targets (contract §13's "large PRs" risk).
+-- read: threads, reviews, description/conversation and the viewer's pending
+-- review in one query, paginated over `reviewThreads` only. The PR-level
+-- connections are taken from the first page and not paginated.
 
 local READ_QUERY = [[
 query($o: String!, $r: String!, $n: Int!, $cursor: String) {
@@ -379,9 +353,8 @@ local function paginate_threads(owner, name, number, cb)
   step(nil)
 end
 
---- `git cat-file --batch-check` for every distinct sha in `shas`: which
---- ones are present locally (contract §13 - a force-pushed-away commit may
---- not be). `cb(exists)`, `exists[sha] == true` for present objects.
+--- Which of `shas` exist locally (a force-pushed-away commit may not).
+--- `cb(exists)`, `exists[sha] == true` for present objects.
 local function existing_shas(root, shas, cb)
   local uniq = {}
   for _, s in ipairs(shas) do
@@ -415,12 +388,11 @@ local function existing_shas(root, shas, cb)
   )
 end
 
---- Source anchor (contract §9.4): the first comment's `commit`/`line` if
---- that commit exists locally, else `originalCommit`/`originalLine`, else
---- `nil` (neither exists locally - §13, only `:Diffy threads` lists it).
---- For an old-side thread the chosen line is already merge-base-relative
---- (GitHub fact, AGENTS.md); `commit` only decides *which* of the two line
---- values is current, tracking itself always starts from merge-base.
+--- Source anchor: the first comment's `commit`/`line` if that commit exists
+--- locally, else `originalCommit`/`originalLine`, else `nil` (the thread is
+--- then only listed by `:Diffy threads`).
+--- GitHub reports old-side lines relative to the merge-base whichever commit
+--- is picked, so tracking always starts from merge-base.
 local function source_anchor(first, exists)
   local commit, line, start_line = first.commit and first.commit.oid, first.line, first.startLine
   if commit and exists[commit] and line then
@@ -433,12 +405,9 @@ local function source_anchor(first, exists)
   return nil
 end
 
---- Build one `Thread` (contract §9.1/§9.4) from a raw `reviewThreads` node.
---- `pending_review_id`, when given, marks any comment belonging to it
---- `state = 'pending'` (still on the viewer's own unsubmitted review - a
---- GitHub fact, AGENTS.md: pending threads/comments already appear in
---- `reviewThreads`, lazily, alongside submitted ones) rather than
---- `'published'`.
+--- Build one `Thread` from a raw `reviewThreads` node. Comments belonging to
+--- `pending_review_id` get `state = 'pending'`: GitHub already lists the
+--- viewer's unsubmitted comments in `reviewThreads`, next to submitted ones.
 local function build_thread(node, exists, pending_review_id)
   local comments = {}
   for _, c in ipairs(node.comments.nodes) do
@@ -455,7 +424,7 @@ local function build_thread(node, exists, pending_review_id)
   local source_commit, start_line, end_line = source_anchor(first, exists)
   local side
   if first.line == nil and first.originalLine == nil then
-    side = nil -- file-level: subjectType FILE, no line at all (contract §9.4)
+    side = nil -- file-level: subjectType FILE, no line at all
   else
     side = node.diffSide == 'LEFT' and 'old' or 'new'
   end
@@ -473,27 +442,24 @@ local function build_thread(node, exists, pending_review_id)
       commit = source_commit,
       excerpt = nil,
     },
-    -- computed below, once HEAD's tracking is known (M.refresh)
+    -- computed once HEAD's tracking is known (M.refresh)
     outdated = false,
     _has_source = source_commit ~= nil,
-    -- raw per-comment fields (originalCommit/originalLine/pullRequestReview) -
-    -- `M.pull`'s (phase 7B) source for rebuilding original-anchored drafts;
-    -- `comments` above only keeps the trimmed display shape.
+    -- raw per-comment fields (originalCommit/originalLine/pullRequestReview),
+    -- used by `M.pull` to rebuild original-anchored drafts.
     _raw_comments = node.comments.nodes,
   }
 end
 
 -- ---------------------------------------------------------------------
--- placement (contract §9.4): line tracking via `git diff -M X Y` hunks,
--- pre-computed for every (source, target) pair a session's log could
--- possibly show, so `M.place` (called synchronously from the render
--- pipeline, `review/ui.lua`'s `M.decorate`) only ever does table lookups.
+-- placement: line tracking via `git diff -M X Y` hunks, pre-computed for
+-- every (source, target) pair the session's log can show, so `M.place`
+-- (called synchronously while rendering) only does table lookups.
 
---- Every `(X, Y)` pair `M.place` might need for `session.entries`
---- (contract §9.4: new-side tracks to whichever commit is on the right;
---- old-side always tracks from merge-base to whichever commit is on the
---- left - `C^` for a single-commit view, merge-base itself, trivially, for
---- the full-PR view).
+--- Every `(X, Y)` pair `M.place` might need for `session.entries`: new-side
+--- anchors track to the commit on the right; old-side anchors track from
+--- merge-base to the commit on the left (`C^` for a single commit, the
+--- merge-base itself for the full-PR view).
 local function diff_pairs_needed(threads, entries, merge_base)
   local set = {}
   local function add(x, y)
@@ -549,18 +515,15 @@ local function build_diff_cache(root, pairs_set, cb)
   end
 end
 
---- Where `thread` shows in `left`/`right` (rev pair, e.g. `session.pair`)
---- for `path` (e.g. `session.current_path`), or `nil` if it's hidden in
---- this view. Pulled out of `M.place` so `:Diffy threads`'s "commits this
---- thread is visible in" (`M.visible_in`) can probe other views too.
+--- Where `thread` shows for the `left`/`right` revs and `path`, or `nil`
+--- if it's hidden in that view.
 local function place_at(review, thread, left, right, path)
   local anchor = thread.anchor
   if anchor.path ~= path or not thread._has_source then
     return nil
   end
   if not anchor.side then
-    -- file-level (contract §9.4/AGENTS.md): always valid, shown pinned at
-    -- the top of the new side.
+    -- file-level: always valid, pinned at the top of the new side.
     return { win = 'right', start_line = 1, end_line = 1 }
   end
   local win = anchor.side == 'old' and 'left' or 'right'
@@ -581,16 +544,13 @@ local function place_at(review, thread, left, right, path)
   return { win = win, start_line = s, end_line = e }
 end
 
---- `review/ui.lua`'s backend placement hook (architecture.md, phase 6/7):
---- where `thread` shows in the session's *current* pair/file, or `nil`.
+--- Where `thread` shows in the session's current pair/file, or `nil`.
 function M.place(session, thread)
   return place_at(session.review, thread, session.pair.left, session.pair.right, session.current_path)
 end
 
---- `:Diffy threads`: every commit (by subject, newest first) `thread` is
---- visible in, plus `'head'` for the full-PR view - contract §9.4's
---- "`:Diffy threads` always lists everything, with the commits each thread
---- is visible in".
+--- Every commit (by subject, newest first) `thread` is visible in, plus
+--- `'head'` for the full-PR view. Used by `:Diffy threads`.
 function M.visible_in(session, thread)
   local review = session.review
   local out = {}
@@ -607,13 +567,10 @@ function M.visible_in(session, thread)
   return out
 end
 
---- (Re)fetch everything read-related for `session` (contract §9.4: cached
---- per session, refreshed with `R`). Called from `init.lua`'s `M.build`
---- for a `kind='pr'` session, before the render pipeline's final render
---- step. `cb()` always runs, even on failure (a notify already fired).
---- Every continuation checks `session.closed` first (teardown may have run
---- mid-flight - `:Diffy close` while a fetch is in progress) so nothing
---- downstream touches a torn-down session's wiped buffers/closed windows.
+--- (Re)fetch everything read-related for `session` (refreshed with `R`).
+--- `cb()` always runs, even on failure (a notify already fired).
+--- Every continuation checks `session.closed` first: `:Diffy close` may
+--- tear the session down while a fetch is in flight.
 function M.refresh(session, cb)
   local root = session.root
   M.owner_repo(root, function(owner, name, err)
@@ -668,8 +625,8 @@ function M.refresh(session, cb)
             review.merge_base = mb
             review._diff_cache = cache
             session.review = review
-            -- outdated (contract §9.4): computed by diffy, not GitHub's own
-            -- `isOutdated` - can this thread's source be tracked to HEAD?
+            -- outdated is computed by diffy, not GitHub's `isOutdated`:
+            -- can this thread's source be tracked to HEAD?
             for _, t in ipairs(threads) do
               t.outdated = not t._has_source or place_at(review, t, mb, session.head_sha, t.anchor.path) == nil
             end
@@ -682,9 +639,7 @@ function M.refresh(session, cb)
 end
 
 -- ---------------------------------------------------------------------
--- writing (contract §9.4): push/pull/submit, reply (via `review/ui.lua`'s
--- generic `M.reply`, unlocked automatically now that `M.save` exists),
--- resolve/unresolve.
+-- writing: push/pull/submit, reply, resolve/unresolve.
 
 local MUTATIONS = {
   delete_review = [[mutation($id: ID!) { deletePullRequestReview(input: {pullRequestReviewId: $id}) { clientMutationId } }]],
@@ -697,8 +652,8 @@ local MUTATIONS = {
   unresolve = [[mutation($t: ID!) { unresolveReviewThread(input: {threadId: $t}) { thread { isResolved } } }]],
 }
 
---- Resolve/unresolve `thread` directly on GitHub (contract §9.4: "not part
---- of the draft" - no `backend.save`, no draft state involved). `cb(ok)`.
+--- Resolve/unresolve `thread` directly on GitHub; not part of the draft.
+--- `cb(ok)`.
 function M.resolve_thread(session, thread, resolved, cb)
   M.transport(resolved and MUTATIONS.resolve or MUTATIONS.unresolve, { t = thread.id }, function(data, err)
     if not data then
@@ -726,9 +681,9 @@ local function raw_diff(root, extra_args, x, y, cb)
   })
 end
 
---- The raw text lines of one file's section of a multi-file unified diff
---- (from `diff --git a/X b/Y` up to, not including, the next such header),
---- matching `path` against either name - `model.diff_position`'s input.
+--- The raw lines of one file's section of a multi-file unified diff (from
+--- `diff --git a/X b/Y` up to the next such header), matching `path`
+--- against either name.
 local function slice_file_section(raw_text, path)
   local lines = vim.split(raw_text, '\n', { plain = true })
   local start_i
@@ -750,10 +705,8 @@ local function slice_file_section(raw_text, path)
 end
 
 --- The hunks for `path` in `files` (from `model.parse_diff_files`),
---- matching either side's name (a plain `old_path`-only lookup, as
---- `model.diff_file_hunks` does, isn't enough here: depending on which
---- side of the (X, Y) diff `path` names the file on, it may be either
---- end's name). `{}` if the file is unrelated to this diff (unchanged).
+--- matching either side's name: depending on the direction of the diff,
+--- `path` may be the old or the new name. `{}` if the file is unchanged.
 local function find_hunks(files, path)
   for _, f in ipairs(files) do
     if f.old_path == path or f.new_path == path then
@@ -763,13 +716,12 @@ local function find_hunks(files, path)
   return {}, path, path
 end
 
---- `:Diffy review push` (contract §9.4): recreate the viewer's one pending
---- review from local drafts (`state == 'draft'` comments - the source of
---- truth). Validates every draft against the `merge-base...C` diff, and
---- tracks old-side (`C^` -> merge-base) anchors, *before* any API call
---- (GitHub rejects the whole review on one bad thread) - a draft that
---- fails either check stays local with a warning; everything else is
---- pushed via `M.push_execute`. `cb(ok, warnings)`, `warnings` a string[].
+--- `:Diffy review push`: recreate the viewer's pending review from local
+--- drafts (`state == 'draft'` comments are the source of truth).
+--- GitHub rejects the whole review if one thread is invalid, so every draft
+--- is validated against the `merge-base...C` diff (and old-side anchors
+--- tracked from `C^` to merge-base) before any API call. A draft failing
+--- either check stays local with a warning. `cb(ok, warnings)`.
 function M.push(session, cb)
   local review = session.review
   if not (review and review.pr) then
@@ -781,17 +733,12 @@ function M.push(session, cb)
   local merge_base = review.merge_base
   local head_sha = session.head_sha
 
-  -- A draft's thread needs full (re)creation - the primary/other-commit
-  -- paths below - unless it has a surviving `published` comment: step 1
-  -- deletes the pending review's own comments only (not published ones,
-  -- fake_github.lua mirrors this at comment granularity), so a thread
-  -- with nothing published left (a brand-new local draft, `t<N>` id, or a
-  -- `:Diffy review pull`-imported one, real id but every comment still
-  -- `draft`/`pending`) is gone once step 1 runs and must be recreated;
-  -- one with a published root (a reply drafted onto an existing,
-  -- surviving thread) keeps its id and just gets `addPullRequestReviewThreadReply`.
-  -- Later drafts on a thread that has nothing published are replies to the
-  -- thread this push creates (`followups`); its id is only known afterwards.
+  -- Deleting the pending review removes its own comments but not published
+  -- ones. So a thread with no published comment (a new `t<N>` draft, or one
+  -- imported by `:Diffy review pull`) is gone after that delete and must be
+  -- recreated; a thread with a published root keeps its id and just gets
+  -- `addPullRequestReviewThreadReply`. Later drafts on a recreated thread
+  -- are replies to it (`followups`); its id is only known afterwards.
   local roots, replies, followups = {}, {}, {}
   for _, t in ipairs(review.threads) do
     local has_published = false
@@ -827,9 +774,8 @@ function M.push(session, cb)
       cb2(diff_cache[c])
       return
     end
-    -- `-U0`, not `-U3`: `model.anchor_valid` itself adds the ±3 context
-    -- window - it expects hunks bounded to exactly the changed lines
-    -- (contract §9.4, `tests/test_review_tracking.lua`).
+    -- `-U0`: `model.anchor_valid` adds the ±3 context window itself and
+    -- expects hunks bounded to exactly the changed lines.
     raw_diff(root, { '-U0' }, merge_base, c, function(raw)
       local entry = { files = model.parse_diff_files(raw), raw = raw }
       diff_cache[c] = entry
@@ -908,7 +854,7 @@ function M.push(session, cb)
         local anchor = d.thread.anchor
         local c = anchor.commit
         if anchor.side == 'old' then
-          -- the full-PR view's left side is the merge-base itself (§3)
+          -- the full-PR view's left side is the merge-base itself
           c = anchor.commit == merge_base and head_sha or (anchor.commit:match('^(.+)%^$') or anchor.commit)
         end
         d._commit = c
@@ -951,14 +897,11 @@ function M.push(session, cb)
   })
 end
 
---- Runs the mutations for a validated push (`M.push`'s second half, pulled
---- out to keep the classification code above readable): delete any
---- existing pending review, create the primary batch, single-line/
---- multi-line drafts on other commits (contract §9.4 steps 1-4), draft
---- replies (step 5), then drop every successfully-pushed draft comment
---- from `session.review.threads` (the very next `M.refresh` re-fetches its
---- authoritative, real-id form from GitHub - nothing is lost, and nothing
---- is left duplicated locally) and persist/reload. `cb(ok)`.
+--- Runs the mutations for a validated push: delete any existing pending
+--- review, create the primary batch, drafts on other commits, draft
+--- replies, then drop every pushed draft comment from
+--- `session.review.threads` (the next `M.refresh` re-fetches them from
+--- GitHub) and persist/reload. `cb(ok)`.
 function M.push_execute(session, plan, cb)
   local review = session.review
   local root = session.root
@@ -1163,13 +1106,10 @@ function M.push_execute(session, plan, cb)
   end
 end
 
---- `:Diffy review pull` (contract §9.4): imports the viewer's pending
---- review into local drafts, restoring each comment's anchor from
---- `originalCommit`/`originalLine` (not the live-tracked `commit`/`line` -
---- the whole point is a faithful re-push after a future step-1 delete, not
---- the nicest current display, which the normal read side already shows
---- regardless of pulling). Asks (contract, `prompt.lua`) before replacing
---- existing local drafts. `cb(ok)`.
+--- `:Diffy review pull`: import the viewer's pending review into local
+--- drafts, anchored at `originalCommit`/`originalLine` rather than the
+--- live-tracked `commit`/`line`, so a later push recreates them faithfully.
+--- Asks before replacing existing local drafts. `cb(ok)`.
 function M.pull(session, cb)
   local review = session.review
   local pending = review and review.pr and review.pr.pending
@@ -1263,13 +1203,9 @@ function M.pull(session, cb)
   end
 end
 
---- `:Diffy review submit [comment|approve|request_changes]` (contract
---- §9.4): push, then `submitPullRequestReview` with `event`/`body`
---- (composed in a float by the caller, `init.lua`). A normal `M.refresh`
---- (already run at the end of `M.push`) reloads everything fresh -
---- submitted comments simply stop being part of any pending review, so
---- they come back `published` on their own, no separate bookkeeping
---- needed. `cb(ok, warnings)`.
+--- `:Diffy review submit [comment|approve|request_changes]`: push, then
+--- `submitPullRequestReview` with `event`/`body`. The refresh at the end
+--- of the push reloads submitted comments as `published`. `cb(ok, warnings)`.
 function M.submit(session, event, body, cb)
   M.push(session, function(ok, warnings)
     if not ok then

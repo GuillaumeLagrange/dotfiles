@@ -1,20 +1,20 @@
--- Pure review data model (contract §9.1): Thread/Comment/Anchor shapes,
--- excerpt relocation, rev<->commit-field mapping, placement in the current
--- pair, unified-diff hunk parsing. No vim.api, no subprocess, no session
--- table access beyond plain fields passed in - testable with plain tables.
+-- Pure review data model: Thread/Comment/Anchor shapes, excerpt relocation,
+-- rev<->commit-field mapping, placement in the current pair, unified-diff
+-- hunk parsing and line tracking. No vim.api or subprocesses, so it's
+-- testable with plain tables.
 --
 --   Thread  { id, backend, anchor, comments = {}, resolved, outdated }
 --   Comment { id, author, body, created_at, state = draft|pending|published|sent }
 --   Anchor  { path, side = old|new, start_line, end_line, commit, excerpt }
 --
--- `commit` is 'worktree', 'index', or a sha (§9.1/§9.3): the rev shown on
+-- `commit` is 'worktree', 'index', or a sha: the rev shown on
 -- `side` when the comment was written. `excerpt` is the array of lines that
 -- were anchored, used by `M.relocate` to re-find the anchor after edits.
 local M = {}
 
---- `session.pair`'s rev sentinels ('WORKTREE'/'INDEX'/'HEAD'/sha) -> the
---- lowercase commit-field vocabulary of an Anchor ('worktree'/'index'/sha).
---- `HEAD` resolves to the concrete sha so an Anchor is always sha-stable.
+--- `session.pair`'s rev sentinels ('WORKTREE'/'INDEX'/'HEAD'/sha) -> an
+--- Anchor's `commit` value ('worktree'/'index'/sha). `HEAD` resolves to the
+--- concrete sha so an Anchor stays valid after new commits.
 function M.rev_to_commit(rev, head_sha)
   if rev == 'WORKTREE' then
     return 'worktree'
@@ -27,9 +27,8 @@ function M.rev_to_commit(rev, head_sha)
 end
 
 --- Which window ('left'/'right') currently shows `anchor`'s side of `pair`,
---- or nil if neither side of the current pair matches it (local backend
---- does no cross-commit tracking, §9.3: a thread only shows in the exact
---- view it was written in).
+--- or nil. The local backend does no cross-commit tracking: a thread only
+--- shows in the exact view it was written in.
 function M.pair_side(pair, head_sha, anchor)
   if anchor.side == 'old' and M.rev_to_commit(pair.left, head_sha) == anchor.commit then
     return 'left'
@@ -81,8 +80,7 @@ function M.relocate(anchor, lines)
   return false
 end
 
---- Next unused `t<N>`/`c<N>` id: scans every thread id (for `M.next_thread_id`)
---- or every comment id across every thread (for `M.next_comment_id`).
+--- Next unused `<prefix><N>` id among `ids`.
 local function next_id(prefix, ids)
   local max = 0
   for _, id in ipairs(ids) do
@@ -112,8 +110,8 @@ function M.next_comment_id(threads)
   return next_id('c', ids)
 end
 
---- One-line `virt_lines` summary (§9.2): `💬 <first author>[ +N][ ·
---- resolved]`, N being the number of comments beyond the first.
+--- One-line `virt_lines` summary: `💬 <first author>[ +N][ · resolved]`,
+--- N being the number of comments beyond the first.
 function M.summary_text(thread)
   local first = thread.comments[1]
   local text = '\240\159\146\172 ' .. (first and first.author or 'unknown')
@@ -164,9 +162,8 @@ function M.find_hunk(hunks, side, start_line, end_line)
 end
 
 -- ---------------------------------------------------------------------
--- GitHub backend (contract §9.4): pure line-tracking/placement helpers.
--- `review/github.lua` supplies the actual diff text (subprocess); these
--- only interpret it, so they're testable with plain strings/tables.
+-- GitHub backend line-tracking/placement helpers. `review/github.lua`
+-- supplies the diff text; these only interpret it.
 
 --- Split a multi-file unified diff (`git diff [-M] X Y`, any context width,
 --- incl. `-U0`) into one record per file: `{ old_path, new_path, hunks }[]`
@@ -192,11 +189,8 @@ function M.parse_diff_files(diff_text)
 end
 
 --- The hunks for `old_path` in `files` (from `M.parse_diff_files`), and the
---- path it maps to on the other side (renamed, or unchanged). `nil` if
---- `old_path` isn't the *old* side of any record (file didn't exist there,
---- or is unrelated to this diff - i.e. unchanged): callers treat "no
---- record" as "unchanged, same name" by using `old_path` itself with `{}`
---- (no hunks), which is exactly what this returns for that case too.
+--- path it maps to on the other side (renamed, or unchanged). A file absent
+--- from the diff is unchanged: returns `{}` and `old_path` itself.
 function M.diff_file_hunks(files, old_path)
   for _, f in ipairs(files) do
     if f.old_path == old_path then
@@ -228,7 +222,7 @@ function M.map_line(hunks, line)
 end
 
 --- Map a range `[start_line, end_line]` the same way: both endpoints must
---- map (lines *inside* the range may still have changed, contract §9.4).
+--- map (lines inside the range may still have changed).
 function M.map_range(hunks, start_line, end_line)
   local s = M.map_line(hunks, start_line)
   local e = M.map_line(hunks, end_line)
@@ -239,11 +233,9 @@ function M.map_range(hunks, start_line, end_line)
 end
 
 --- Whether `[start_line, end_line]` on `side` ('old'/'new') is a changed
---- line or within 3 context lines of one, in `hunks` from a `-U0` diff of
---- the `merge-base...C` range (contract §9.4 anchor validity, used by the
---- GitHub backend's push - `review/github.lua`). `hunks` must be bounded
---- to exactly the changed lines - this function adds the ±3 window
---- itself, so a wider (`-U3`+) diff would double-count context.
+--- line or within 3 context lines of one, i.e. commentable on GitHub.
+--- `hunks` must come from a `-U0` diff of `merge-base...C`: this function
+--- adds the ±3 window itself, so a wider diff would double-count context.
 --- `nil` `side` (file-level comment) is always valid.
 function M.anchor_valid(hunks, side, start_line, end_line)
   if not side then
@@ -260,12 +252,11 @@ function M.anchor_valid(hunks, side, start_line, end_line)
   return false
 end
 
---- GitHub's `position` for `addPullRequestReviewComment` (contract §9.4
---- step 3): the 1-based index of the diff line for `new_line` below the
---- file's first `@@` header in a unified diff (`diff_lines`, the raw text
---- lines of one file's section, starting at or before its first hunk
---- header - later `@@` headers count as lines too). `nil` if `new_line`
---- isn't a line of the diff's new side at all (outside every hunk).
+--- GitHub's `position` for `addPullRequestReviewComment`: the 1-based index
+--- of the diff line for `new_line` below the file's first `@@` header
+--- (`diff_lines` is one file's section of a unified diff; later `@@`
+--- headers count as lines too). `nil` if `new_line` isn't on the diff's
+--- new side.
 function M.diff_position(diff_lines, new_line)
   local pos, nl = nil, nil
   for _, line in ipairs(diff_lines) do

@@ -1,4 +1,4 @@
--- Fake GitHub transport (contract §11.4): swapped in for
+-- Fake GitHub transport: swapped in for
 -- `review/github.lua`'s `M.transport` in every GitHub test, in a child
 -- nvim, before opening a session:
 --
@@ -9,16 +9,16 @@
 --     require('diffy.review.github').transport = fake.new(state).transport
 --   ]])
 --
--- Never mocks git or nvim (contract §11.2) - only this one seam. `state` is
+-- Never mocks git or nvim - only this one seam. `state` is
 -- plain Lua tables, so a test can hand-build one instead of a recorded
 -- fixture for a boundary case (see `tests/test_github_read.lua`'s fold-open
 -- case).
 --
--- Part B (push/pull/submit/reply/resolve) extends `state` with:
+-- For push/pull/submit/reply/resolve, `state` also takes:
 --   state.repo_dir     the fixture repo (for real `git diff` line-tracking
 --                      validation, matching the sandbox's own measured
 --                      "changed line or ±3 context of merge-base...commit"
---                      rule, AGENTS.md's "GitHub facts")
+--                      rule)
 --   state.merge_base   merge-base sha, used the same way
 --   state.viewer       viewer login owning the (one, per-user) pending
 --                      review; defaults to 'diffy-test-user'
@@ -71,8 +71,7 @@ end
 
 --- Real `git diff -U0 -M merge_base commitOID` hunks for `path` (`-U0`,
 --- not `-U3`: `model.anchor_valid` itself adds the ±3 context window - it
---- expects hunks bounded to exactly the changed lines, contract §9.4/
---- `tests/test_review_tracking.lua`), or nil if `state.repo_dir`/
+--- expects hunks bounded to exactly the changed lines), or nil if `state.repo_dir`/
 --- `state.merge_base` aren't configured (a test that never exercises
 --- validation, e.g. read-only fixtures, doesn't need them).
 local function validation_hunks(state, commit_oid, path)
@@ -94,8 +93,7 @@ local function validation_hunks(state, commit_oid, path)
   return {}, nil -- unchanged file: no hunks, every line is "context"
 end
 
---- `nil, "Line/Path could not be resolved"` if invalid (contract §9.4/
---- AGENTS.md: changed line or ±3 context of `merge-base...commitOID`, both
+--- `nil, "Line/Path could not be resolved"` if invalid (GitHub accepts a changed line or ±3 context of `merge-base...commitOID`, both
 --- sides, file-level always valid); `true` otherwise. Skips the check
 --- entirely (always valid) when the state has no repo configured.
 local function validate(state, commit_oid, path, side, start_line, end_line)
@@ -117,8 +115,8 @@ end
 
 --- Inverse of `model.diff_position`: the new-side line number `position`
 --- (1-based, below the file's first `@@`) refers to, for eager remap
---- (AGENTS.md: "GitHub moves its commit to head immediately when
---- trackable" - `addPullRequestReviewComment`'s legacy `position` API).
+--- (GitHub moves a legacy-`position` comment's commit to head immediately
+--- when the line is trackable).
 local function line_at_position(diff_lines, position)
   local pos, nl = nil, nil
   for _, line in ipairs(diff_lines) do
@@ -140,7 +138,7 @@ local function line_at_position(diff_lines, position)
 end
 
 --- Try eagerly remapping a legacy-position comment written on `commit_oid`
---- to `db.head` (AGENTS.md fact). Returns `head_sha, head_line` on success,
+--- to `db.head`. Returns `head_sha, head_line` on success,
 --- else `nil`.
 local function eager_remap(state, db, commit_oid, path, position)
   if not (state.repo_dir and db.head) or commit_oid == db.head then

@@ -1,10 +1,9 @@
--- setup(opts), config defaults, keymap table, and the `:Diffy` dispatcher.
 local session = require('diffy.session')
 
 local M = {}
 
 M.config = {
-  -- width of the tree/log column (§2)
+  -- width of the tree/log column
   panel_width = 40,
   keymaps = {
     -- buffer-local in every diffy window: hide/show the panel column
@@ -16,19 +15,11 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
---- subcommand name -> function(args: string[]). Later phases add pr/file/
---- conflicts/restore/review/threads here; for now they just say so.
+--- subcommand name -> function(args: string[])
 M.dispatch = {}
 
-local NOT_YET = {}
-for _, name in ipairs(NOT_YET) do
-  M.dispatch[name] = function()
-    vim.notify(('diffy: `%s` is not implemented yet'):format(name), vim.log.levels.WARN)
-  end
-end
-
 --- `:Diffy threads [author=<name>] [state=<open|resolved|detached>]
---- [review=<id>]` (§9.2): quickfix list of every thread in the session.
+--- [review=<id>]`: quickfix list of every thread in the session.
 function M.dispatch.threads(args)
   local s = session.current()
   if not s then
@@ -38,8 +29,8 @@ function M.dispatch.threads(args)
   require('diffy.review.ui').quickfix(s, args)
 end
 
---- `:Diffy review export|clear` (§9.3, local backend) and
---- `push|pull|submit` (§9.4, GitHub backend).
+--- `:Diffy review export|clear` (local backend) and
+--- `push|pull|submit` (GitHub backend).
 function M.dispatch.review(args)
   local s = session.current()
   if not s then
@@ -138,7 +129,7 @@ function M.dispatch.close()
   end)
 end
 
---- `:Diffy panel` (§2): hide/show the tree/log column.
+--- `:Diffy panel`: hide/show the tree/log column.
 function M.dispatch.panel()
   local s = session.current()
   if not s then
@@ -171,9 +162,9 @@ local function keep_selection(old_entries, old_sel, entries)
 end
 
 --- Build (or rebuild, on `R`) the log/tree/diff-pair content for `s` from
---- its stored `s.root`/`s.range` (contract §2's render pipeline): entries,
---- default/kept selection, HEAD and repo status, then the panels. Fires
---- `User DiffyReady` once rendering finishes.
+--- its stored `s.root`/`s.range`: entries, default/kept selection, HEAD and
+--- repo status, then the panels. Fires `User DiffyReady` once rendering
+--- finishes.
 function M.build(s)
   local log_panel = require('diffy.panels.log')
   local tree_panel = require('diffy.panels.tree')
@@ -212,10 +203,9 @@ function M.build(s)
             run.ready({ session = s.id, event = 'render' })
           end)
         end
-        -- §9.4: threads/reviews/description cached per session, refreshed
-        -- with `R` (which re-runs the whole of `M.build`) - fetched here,
-        -- before the final render, so `review/ui.lua`'s decorate (called
-        -- from that render) finds `s.review` already populated.
+        -- PR threads/reviews/description are cached per session and refreshed
+        -- by `R`; fetch them before the final render so its decorate pass
+        -- finds `s.review` populated.
         if s.range.kind == 'pr' then
           require('diffy.review.github').refresh(s, finish)
         else
@@ -227,10 +217,8 @@ function M.build(s)
 end
 
 --- Open a new session for `spec` (`{kind='default'|'branch'|'range', ...}`,
---- see panels/log.lua) immediately (the tab/skeleton, contract §1/§2 -
---- teardown paths and the leak check depend on this happening
---- synchronously with the command), then resolve the repo root and build
---- the panels asynchronously once it's known.
+--- see panels/log.lua). The tab skeleton is created synchronously so
+--- teardown works immediately; the repo root and panels follow async.
 function M.start(spec)
   local repo = require('diffy.git.repo')
   local selection = require('diffy.selection')
@@ -278,10 +266,9 @@ function M.dispatch.branch(args)
   M.start({ kind = 'branch', base = args[1] })
 end
 
---- `:Diffy pr` (§4, §9.4): only on the checked-out branch, only when local
---- HEAD equals the PR head on GitHub and the tree is clean. Log = PR
---- commits (`merge-base(base)..HEAD`); default selection all (no
---- Unstaged/Staged - the readiness check already guarantees none exist).
+--- `:Diffy pr`: only on the checked-out branch, only when local HEAD equals
+--- the PR head on GitHub and the tree is clean. Log = PR commits
+--- (`merge-base(base)..HEAD`), all selected by default.
 function M.dispatch.pr(_args)
   local repo = require('diffy.git.repo')
   local run = require('diffy.git.run')
@@ -318,7 +305,7 @@ function M.dispatch.restore(args)
   require('diffy.checkout').restore(args)
 end
 
---- `:Diffy file [path]` (§4): log = commits touching `path` (`--follow`),
+--- `:Diffy file [path]`: log = commits touching `path` (`--follow`),
 --- default selection the newest commit; `path` defaults to the current
 --- buffer's file.
 function M.dispatch.file(args)
@@ -335,15 +322,14 @@ function M.dispatch.file(args)
   M.start({ kind = 'file', abspath = abspath })
 end
 
---- `:Diffy conflicts` (§8): the 4-window conflict view over every
---- unmerged file, tree-only (no log entries).
+--- `:Diffy conflicts`: the 4-window conflict view over every unmerged file,
+--- tree-only (no log entries).
 function M.dispatch.conflicts()
   require('diffy.conflict').start()
 end
 
---- Open the default session skeleton (§2 layout) for a bare `:Diffy`.
---- `args` beyond the subcommand set is unrecognized here: ranges (`A..B`)
---- are routed by `M.command` before reaching this.
+--- Bare `:Diffy`. Ranges (`A..B`) are routed by `M.command` before this, so
+--- any argument here is unrecognized.
 function M.open(args)
   if args and args[1] then
     vim.notify(('diffy: unrecognized argument `%s`'):format(args[1]), vim.log.levels.WARN)
@@ -352,8 +338,8 @@ function M.open(args)
   M.start({ kind = 'default' })
 end
 
---- Entry point for the `:Diffy` command. `fargs` is `opts.fargs` from the
---- user command (already split, no subcommand quoting to worry about).
+--- Entry point for the `:Diffy` command; `fargs` is the user command's
+--- `opts.fargs`.
 function M.command(fargs)
   local sub = fargs[1]
   if sub and M.dispatch[sub] then

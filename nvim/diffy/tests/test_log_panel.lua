@@ -1,4 +1,4 @@
--- §2, §3, §4, §12.2 (phase 2): the log for `:Diffy branch`, merge
+-- The log for `:Diffy branch`, merge
 -- dimming/navigation-skip, and the log's fixed full-list height.
 local Repo = require('tests.helpers.repo')
 local leak = require('tests.helpers.leak')
@@ -59,7 +59,6 @@ local function select_row(row)
 end
 
 T[':Diffy branch lists Unstaged, Staged and the branch commits, with only the merge dimmed'] = function()
-  -- §3, §4
   open_branch()
 
   MiniTest.expect.equality(
@@ -72,7 +71,6 @@ T[':Diffy branch lists Unstaged, Staged and the branch commits, with only the me
 end
 
 T[']r from the commit before the merge lands on the commit after it, skipping it'] = function()
-  -- §3
   open_branch()
   select_row(6)
   MiniTest.expect.equality(selected(), { 'Rename' })
@@ -89,7 +87,6 @@ T[']r from the commit before the merge lands on the commit after it, skipping it
 end
 
 T['the log always lists every entry, sized min(#entries, 40% of the column), focused or not'] = function()
-  -- §2
   child.o.lines = 40
   open_branch()
   local w = ui.wins(child)
@@ -112,7 +109,6 @@ T['the log always lists every entry, sized min(#entries, 40% of the column), foc
 end
 
 T['rapid J J J ends up showing the last selection, even if an earlier one\'s git calls resolve later'] = function()
-  -- §2, §3
   open_branch()
   select_row(4) -- Add
 
