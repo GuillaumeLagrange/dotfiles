@@ -1,5 +1,8 @@
 # diffy — feature & implementation contract
 
+> Original design document, kept for history. `README.md` (features and usage) and `AGENTS.md` (code,
+> tests, measured behaviour) supersede it; where they disagree, they and the code win.
+
 A Neovim diff viewer that replaces diffview.nvim, plus a review layer with two backends:
 GitHub PR reviews and local reviews exported to an LLM agent.
 
