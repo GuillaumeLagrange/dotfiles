@@ -1,5 +1,5 @@
 // A volume bar you can drag, click or scroll, with an optional peak meter
-// drawn behind the fill.
+// drawn inside the fill.
 import QtQuick
 import qs
 
@@ -7,7 +7,8 @@ Item {
     id: root
 
     property real value: 0
-    // 0-1 level drawn behind the fill; negative hides the meter.
+    // The node's pre-volume level, as PwNodePeakMonitor reports it; negative
+    // hides the meter.
     property real peak: -1
     property color tint: Theme.blue
     property bool live: true
@@ -19,8 +20,17 @@ Item {
         return Math.max(0, Math.min(1, x / Math.max(1, root.width)));
     }
 
-    implicitHeight: 14
+    implicitHeight: 18
     opacity: root.live ? 1 : 0.4
+
+    // Overhangs the track so the thumb at either end still sits inside it.
+    Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: -5
+        anchors.rightMargin: -5
+        radius: 6
+        color: area.pressed ? Theme.alpha(Theme.fg, 0.1) : (area.containsMouse ? Theme.alpha(Theme.fg, 0.06) : "transparent")
+    }
 
     Rectangle {
         id: track
@@ -32,18 +42,20 @@ Item {
         color: Theme.alpha("#000000", 0.35)
 
         Rectangle {
-            visible: root.peak >= 0
-            width: parent.width * Math.max(0, Math.min(1, root.peak))
-            height: parent.height
-            radius: 99
-            color: Theme.alpha(root.tint, 0.3)
-        }
-
-        Rectangle {
             width: parent.width * Math.max(0, Math.min(1, root.value))
             height: parent.height
             radius: 99
             color: root.tint
+        }
+
+        // Scaled by the volume, both being on the same cube-root scale, so it
+        // shows what comes out and never runs past the thumb.
+        Rectangle {
+            visible: root.peak >= 0
+            width: parent.width * Math.max(0, Math.min(1, root.peak)) * Math.max(0, Math.min(1, root.value))
+            height: parent.height
+            radius: 99
+            color: Qt.lighter(root.tint, 1.35)
         }
     }
 
@@ -58,29 +70,20 @@ Item {
         border.color: Theme.alpha("#000000", 0.4)
     }
 
-    HoverHandler {
+    // Tap/DragHandlers only report on release or past the drag threshold.
+    MouseArea {
+        id: area
+
+        anchors.fill: parent
         enabled: root.live
+        hoverEnabled: true
+        preventStealing: true
         cursorShape: Qt.PointingHandCursor
-    }
-
-    TapHandler {
-        enabled: root.live
-        onSingleTapped: point => root.moved(root.valueAt(point.position.x))
-    }
-
-    DragHandler {
-        id: drag
-
-        enabled: root.live
-        target: null
-        xAxis.enabled: true
-        yAxis.enabled: false
-        onCentroidChanged: if (drag.active)
-            root.moved(root.valueAt(drag.centroid.position.x))
-    }
-
-    WheelHandler {
-        enabled: root.live
-        onWheel: event => root.moved(Math.max(0, Math.min(1, root.value + (event.angleDelta.y > 0 ? 0.02 : -0.02))))
+        onPressed: mouse => root.moved(root.valueAt(mouse.x))
+        onPositionChanged: mouse => {
+            if (area.pressed)
+                root.moved(root.valueAt(mouse.x));
+        }
+        onWheel: wheel => root.moved(Math.max(0, Math.min(1, root.value + (wheel.angleDelta.y > 0 ? 0.02 : -0.02))))
     }
 }

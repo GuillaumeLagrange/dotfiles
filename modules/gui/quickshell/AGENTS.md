@@ -354,6 +354,15 @@ i.e. when the strip is cropped.
 - **A row's tap handler must sit on the row's header, not the row**, or it also
   takes the taps its own action buttons got and collapses the row out from
   under the click.
+- **A `TapHandler`/`DragHandler` pair lags a press.** The tap reports on
+  release and the drag only past its threshold, so a slider stayed put while
+  the button was held; `Slider` uses a `MouseArea` and acts on `pressed`.
+- **`PwNodePeakMonitor.peak` is the level before the node's own volume**, for
+  a sink and a stream alike, on the same cube-root scale as `audio.volume`: a
+  sink's peak did not move when its volume went from 0.6 to 0.2, and dropped by
+  exactly the stream's factor when the stream's did. Drawn raw it ran past the
+  thumb - the volume chime flashed a bar out to 55% over a 23% output - so
+  `Slider` draws `peak × value`, inside the fill.
 - **The focused output comes from the snapshot's `focused_output`**, not from
   `Niri.workspaces`: that list holds the named workspaces the bar draws, and
   focus sitting on a dynamic one would name no output — every notification
