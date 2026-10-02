@@ -14,8 +14,8 @@ Singleton {
     // Node type flags: a sink is Audio|Sink, a source Audio|Source, a playback
     // stream Audio|Stream|Sink. `isStream` is what separates a device from an
     // application's stream on the same side of the graph.
-    readonly property var sinks: root.nodes.filter(node => node.audio && node.isSink && !node.isStream).sort((a, b) => root.label(a).localeCompare(root.label(b)))
-    readonly property var sources: root.nodes.filter(node => node.audio && !node.isSink && !node.isStream).sort((a, b) => root.label(a).localeCompare(root.label(b)))
+    readonly property var sinks: root.nodes.filter(node => node.audio && node.isSink && !node.isStream && !root.isEffectsDevice(node)).sort((a, b) => root.label(a).localeCompare(root.label(b)))
+    readonly property var sources: root.nodes.filter(node => node.audio && !node.isSink && !node.isStream && !root.isEffectsDevice(node)).sort((a, b) => root.label(a).localeCompare(root.label(b)))
     readonly property var streams: root.nodes.filter(node => node.audio && node.isStream && node.isSink && !root.isNotification(node))
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
@@ -47,6 +47,12 @@ Singleton {
         if (role === "notification" || role === "event")
             return true;
         return root.blipNames.includes((node.name ?? "").toLowerCase());
+    }
+
+    // EasyEffects routes streams through its virtual devices itself; they are
+    // not outputs or inputs to pick.
+    function isEffectsDevice(node): bool {
+        return node.name === "easyeffects_sink" || node.name === "easyeffects_source";
     }
 
     function label(node): string {

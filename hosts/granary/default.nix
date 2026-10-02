@@ -15,13 +15,50 @@
         ./_hardware.nix
       ];
 
-      home-manager.users.guillaume = {
-        imports = with self.modules.homeManager; [ guillaume ];
-        monitors.laptop = {
-          resolution = "2880x1920";
-          scale = 1.5;
+      home-manager.users.guillaume =
+        { lib, ... }:
+        let
+          speakersPreset = "FW13SpeakersV2-Loudness";
+          flatPreset = "Flat";
+          kwriteconfig = "${pkgs.kdePackages.kconfig}/bin/kwriteconfig6";
+        in
+        {
+          imports = with self.modules.homeManager; [ guillaume ];
+          monitors.laptop = {
+            resolution = "2880x1920";
+            scale = 1.5;
+          };
+
+          # Speaker EQ from github.com/stirlingsilver/fw13pro-customizations.
+          services.easyeffects = {
+            enable = true;
+            extraPresets = {
+              ${speakersPreset} = lib.importJSON ./FW13SpeakersV2-Loudness.json;
+              ${flatPreset}.output = {
+                blocklist = [ ];
+                plugins_order = [ ];
+              };
+            };
+          };
+
+          # EasyEffects matches autoloads on sink name and route description, so
+          # the headphone jack on the same sink falls through to the flat preset.
+          xdg.dataFile."easyeffects/autoload/output/alsa_output.pci-0000_00_1f.3.analog-stereo:Speakers.json".text =
+            builtins.toJSON {
+              device = "alsa_output.pci-0000_00_1f.3.analog-stereo";
+              device-description = "Built-in Audio";
+              device-profile = "Speakers";
+              preset-name = speakersPreset;
+            };
+
+          # EasyEffects rewrites this file, so it is patched rather than linked.
+          home.activation.easyeffectsFallback = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            run ${kwriteconfig} --file easyeffects/db/easyeffectsrc --group Window \
+              --key outputAutoloadingUsesFallback true
+            run ${kwriteconfig} --file easyeffects/db/easyeffectsrc --group Window \
+              --key outputAutoloadingFallbackPreset ${flatPreset}
+          '';
         };
-      };
 
       # The secure-boot module forces this off in favour of lanzaboote.
       boot.loader.systemd-boot.enable = true;
