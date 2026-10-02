@@ -18,7 +18,8 @@
       home-manager.users.guillaume =
         { lib, ... }:
         let
-          speakersPreset = "FW13SpeakersV2-Loudness";
+          speakersPreset = "Dolby-Music-Balanced";
+          speakersKernel = "Dolby-Music-Balanced-cbb9a4b9";
           flatPreset = "Flat";
           kwriteconfig = "${pkgs.kdePackages.kconfig}/bin/kwriteconfig6";
         in
@@ -29,17 +30,21 @@
             scale = 1.5;
           };
 
-          # Speaker EQ from github.com/stirlingsilver/fw13pro-customizations.
+          # Framework's Windows Dolby tuning for this codec (DEV_0285_SUBSYS_F111000F),
+          # converted by github.com/antoinecellerier/speaker-tuning-to-easyeffects
+          # with `--profile music`.
           services.easyeffects = {
             enable = true;
             extraPresets = {
-              ${speakersPreset} = lib.importJSON ./FW13SpeakersV2-Loudness.json;
+              ${speakersPreset} = lib.importJSON ./${speakersPreset}.json;
               ${flatPreset}.output = {
                 blocklist = [ ];
                 plugins_order = [ ];
               };
             };
           };
+
+          xdg.dataFile."easyeffects/irs/${speakersKernel}.irs".source = ./${speakersKernel}.irs;
 
           # EasyEffects matches autoloads on sink name and route description, so
           # the headphone jack on the same sink falls through to the flat preset.
