@@ -27,7 +27,13 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 
 vim.keymap.set('n', '-', '<CMD>lua MiniFiles.open(vim.api.nvim_buf_get_name(0)); MiniFiles.reveal_cwd()<CR>', { desc = 'Open MiniFiles' })
 
-vim.keymap.set('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
+vim.keymap.set('n', '<leader>bb', function()
+  if vim.fn.bufnr('#') == -1 then
+    vim.notify('No alternate buffer', vim.log.levels.WARN)
+    return
+  end
+  vim.cmd.edit('#')
+end, { desc = 'Switch to Other Buffer' })
 
 vim.keymap.set('n', '<leader>uh', utils.toggle_inlay_hints, { desc = 'Toggle inlay hints' })
 vim.keymap.set('n', '<leader>un', utils.toggle_relative_number, { desc = 'Toggle relative line number' })
@@ -50,7 +56,9 @@ vim.keymap.set('n', '<leader><tab>f', '<cmd>tabfirst<cr>', { desc = 'First tab' 
 vim.keymap.set('n', '<leader><tab><tab>', '<cmd>tab split<cr>', { desc = 'New tab' })
 vim.keymap.set('n', '<leader><tab>]', '<cmd>tabnext<cr>', { desc = 'Next tab' })
 vim.keymap.set('n', '<leader><tab>d', '<cmd>tabclose<cr>', { desc = 'Close tab' })
-vim.keymap.set('n', '<C-c>', '<cmd>tabclose<cr>', { desc = 'Close tab' })
+vim.keymap.set('n', '<C-c>', function()
+  if vim.fn.tabpagenr('$') > 1 then vim.cmd.tabclose() end
+end, { desc = 'Close tab' })
 vim.keymap.set('n', '<leader><tab>o', '<cmd>tabonly<cr>', { desc = 'Close other tabs' })
 vim.keymap.set('n', '<leader><tab>[', '<cmd>tabprevious<cr>', { desc = 'Previous tab' })
 
@@ -70,6 +78,15 @@ vim.keymap.set('v', '>', '>gv')
 vim.keymap.set('n', '<leader>dt', '<CMD>diffthis<CR>', { desc = 'Diff this' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dg', '<CMD>diffget<CR>', { desc = 'Diff get' })
 vim.keymap.set({ 'n', 'v' }, '<leader>dp', '<CMD>diffput<CR>', { desc = 'Diff put' })
+
+-- <C-T> with an empty tag stack warns instead of raising E555
+vim.keymap.set('n', '<C-t>', function()
+  if vim.fn.gettagstack().curidx > 1 then
+    return '<C-t>'
+  end
+  vim.notify('At bottom of tag stack', vim.log.levels.WARN)
+  return ''
+end, { expr = true, desc = 'Pop tag stack' })
 
 -- Copy path
 vim.keymap.set('n', '<leader>yp', function()
