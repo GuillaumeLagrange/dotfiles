@@ -14,7 +14,8 @@ vim.g.rustaceanvim = {
     on_attach = function(client, bufnr)
       vim.api.nvim_create_autocmd({ 'BufEnter' }, {
         desc = 'Automatically reload cargo settings',
-        pattern = { '*.rs' },
+        group = vim.api.nvim_create_augroup('rust_reload_settings_' .. bufnr, { clear = true }),
+        buffer = bufnr,
         callback = function()
           vim.cmd('RustAnalyzer reloadSettings')
         end,
