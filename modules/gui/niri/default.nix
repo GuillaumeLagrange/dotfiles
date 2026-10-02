@@ -151,6 +151,7 @@
               XF86AudioMute allow-when-locked=true { spawn "sh" "-c" "${config.audio.mute}"; }
 
               XF86AudioPlay allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "play-pause"; }
+              XF86AudioPause allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "pause"; }
               XF86AudioStop allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "stop"; }
               XF86AudioPrev allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "previous"; }
               XF86AudioNext allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "next"; }
