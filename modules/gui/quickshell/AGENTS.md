@@ -172,7 +172,9 @@ A node's volume and mute are only tracked while something holds it, hence the
 `PwObjectTracker` over every node, and the peak meters run only while the panel
 is on screen. Streams whose `media.role` is `Notification` or `Event` are left
 out: they are blips, not something playing - `audio.nix` tags the volume-key
-feedback sound that way so it stops flashing a row of its own.
+feedback sound that way so it stops flashing a row of its own. The shell plays
+that same sound (`Config.volumeChime`) when it changes the default sink's
+volume, 150ms after the last step so a drag chimes once it settles.
 EasyEffects' `easyeffects_sink` / `easyeffects_source` (granary) are left out of
 the device lists: EasyEffects moves streams onto them itself, so they are not
 devices to pick.
