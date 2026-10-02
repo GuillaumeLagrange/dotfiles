@@ -29,10 +29,6 @@
       "rev": "14fc3fc79356d6b80462df8dbc8934f293145b9a",
       "src": "https://github.com/rickhowe/diffchar.vim"
     },
-    "diffview.nvim": {
-      "rev": "4516612fe98ff56ae0415a259ff6361a89419b0a",
-      "src": "https://github.com/sindrets/diffview.nvim"
-    },
     "faster.nvim": {
       "rev": "6b7cb8b1a9628d4b87009c4849d510d1a3a14319",
       "src": "https://github.com/pteroctopus/faster.nvim"

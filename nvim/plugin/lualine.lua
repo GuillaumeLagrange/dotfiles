@@ -2,6 +2,11 @@ vim.pack.add({
   'https://github.com/nvim-lualine/lualine.nvim',
 })
 
+-- diffy's blob sides are `fugitive://…/.git//<sha>/<path>` buffers; it leaves a readable name in `b:diffy_title`
+local function diffy_title(name)
+  return vim.b.diffy_title or name
+end
+
 require('lualine').setup({
   options = {
     icons_enabled = true,
@@ -39,7 +44,7 @@ require('lualine').setup({
       'diff',
       'diagnostics',
     },
-    lualine_c = { { 'filename', path = 1, shorting_target = 70 } },
+    lualine_c = { { 'filename', path = 1, shorting_target = 70, fmt = diffy_title } },
     lualine_x = {
       'encoding',
       'filetype',
@@ -50,7 +55,7 @@ require('lualine').setup({
   inactive_sections = {
     lualine_a = {},
     lualine_b = {},
-    lualine_c = { { 'filename', path = 1 } },
+    lualine_c = { { 'filename', path = 1, fmt = diffy_title } },
     lualine_x = { 'location' },
     lualine_y = {},
     lualine_z = {},

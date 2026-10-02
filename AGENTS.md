@@ -146,6 +146,10 @@ Standalone Neovim configuration with:
 - Lua-based configuration
 - AI integrations
 - Tmux integration
+- `nvim/plugin/diffy.lua`: loads diffy, the diff viewer and review plugin (replaces diffview), from its own
+  private repo `GuillaumeLagrange/diffy` checked out at `~/projects/diffy`. Usage, code and tests live there.
+  It adds diffy's `debug_state()` to `:Fixit` snapshots while a diffy session is open, and `:Diffy feedback`
+  sends through `:Fixit`.
 - `:Fixit [text]` (`nvim/lua/fixit/`): hands what should change to an omp, with a snapshot of the nvim taken
   when it ran (keys typed, cmdline history, messages, windows, config and cwd repo state, `add_context`
   providers under `extra`) written to `~/.local/state/nvim/fixit/`. Without text, a float takes it. The omp

@@ -13,7 +13,7 @@ M.delete_all = function()
 end
 
 M.close_ephemeral_buffers = function()
-  local patterns = { 'fugitive://.*', 'term://.*', 'octo://.*', 'OctoChangedFile.*', 'diffview://.*' }
+  local patterns = { 'fugitive://.*', 'term://.*', 'diffy://.*' }
 
   -- close all buffers when the name matches any of the pattern
   for _, pattern in ipairs(patterns) do
