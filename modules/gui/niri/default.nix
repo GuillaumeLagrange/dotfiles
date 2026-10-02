@@ -129,6 +129,7 @@
 
               Mod+Return { spawn ${quoteArgs config.term}; }
               Mod+D { spawn "vicinae" "toggle"; }
+              Mod+Shift+D { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
               Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
               Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
