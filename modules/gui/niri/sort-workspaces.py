@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import time
 
 
 def run_niri_cmd(*args):
@@ -89,5 +90,31 @@ def main():
         )
 
 
+def watch():
+    """Sort whenever the set of outputs holding workspaces changes (hotplug)"""
+    proc = subprocess.Popen(
+        ["niri", "msg", "--json", "event-stream"],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    outputs = None
+    for line in proc.stdout:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        changed = event.get("WorkspacesChanged")
+        if changed is None:
+            continue
+        current = {ws["output"] for ws in changed["workspaces"] if ws.get("output")}
+        if current != outputs:
+            outputs = current
+            # Let niri finish migrating workspaces to the new layout.
+            time.sleep(0.5)
+            main()
+    proc.wait()
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(watch() if sys.argv[1:] == ["--watch"] else main())

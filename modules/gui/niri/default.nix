@@ -7,6 +7,12 @@
       ...
     }:
     let
+      sortWorkspaces = pkgs.writers.writePython3Bin "niri-sort-workspaces" { doCheck = false; } (
+        builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
+          builtins.readFile ./sort-workspaces.py
+        )
+      );
+
       # Only granary has caffeine.service; elsewhere logind suspends on the lid anyway.
       lidClose = pkgs.writeShellScript "niri-lid-close" ''
         ${pkgs.systemd}/bin/systemctl is-active --quiet caffeine.service || exit 0
@@ -18,12 +24,23 @@
       home.packages = with pkgs; [
         niri
         xwayland-satellite
-        (pkgs.writers.writePython3Bin "niri-sort-workspaces" { doCheck = false; } (
-          builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
-            builtins.readFile ./sort-workspaces.py
-          )
-        ))
+        sortWorkspaces
       ];
+
+      systemd.user.services.niri-sort-workspaces = {
+        Unit = {
+          Description = "Sort niri workspaces on monitor hotplug";
+          PartOf = [ "graphical-session.target" ];
+          After = [ "graphical-session.target" ];
+        };
+        Service = {
+          ExecStart = "${sortWorkspaces}/bin/niri-sort-workspaces --watch";
+          Environment = [ "PYTHONUNBUFFERED=1" ];
+          Restart = "on-failure";
+          RestartSec = 2;
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
 
       xdg.configFile."niri/config.kdl".text =
         let
