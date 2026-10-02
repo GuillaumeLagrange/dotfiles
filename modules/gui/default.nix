@@ -53,7 +53,15 @@
         qwerty-fr
         signal-desktop
         slack
-        spotify
+        # Spotify picks X11 whenever DISPLAY is set, and XWayland mis-scales on mixed-scale outputs
+        (symlinkJoin {
+          name = "spotify";
+          paths = [ spotify ];
+          nativeBuildInputs = [ makeWrapper ];
+          postBuild = ''
+            wrapProgram $out/bin/spotify --unset DISPLAY
+          '';
+        })
         telegram-desktop
         transmission-remote-gtk
         transmission_4-gtk

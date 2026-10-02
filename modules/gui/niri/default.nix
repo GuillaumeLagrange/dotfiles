@@ -281,7 +281,7 @@
 
           window-rule {
               match app-id="signal"
-              match app-id="Spotify"
+              match app-id="^spotify$"
 
               open-on-workspace "${ws_perso}"
           }
