@@ -13,6 +13,9 @@ vim.api.nvim_create_autocmd('ColorScheme', {
     vim.api.nvim_set_hl(0, 'TreesitterContext', { bg = palette.bg_dim[1] })
     vim.api.nvim_set_hl(0, 'FloatBorder', { bg = 'NONE' })
     vim.api.nvim_set_hl(0, 'NormalFloat', { bg = 'NONE' })
+    -- explicit fg/bg: diffchar.vim otherwise probes `hi dcCursor guibg=bg`,
+    -- which raises E420 with the transparent Normal
+    vim.api.nvim_set_hl(0, 'TermCursor', { fg = palette.bg0[1], bg = palette.fg0[1] })
   end,
 })
 
