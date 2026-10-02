@@ -104,11 +104,6 @@ while Slack's desktop app hands Electron a notification and forgets it -
 `main.bundle.cjs` closes one only when its list passes ten thousand - so its
 rows only ever go when they are dismissed here.
 
-**`unread` is per row, not a counter.** A notification that was clicked,
-dismissed or actioned is not something to catch up on, so every popup gesture
-marks its row read; a timeout, which nobody looked at, does not. Opening the
-centre still marks everything read.
-
 **`ignoredNotifs` drops a notification outright**, popup and centre alike, for
 things that announce what the user just did - niri's `Screenshot captured`,
 sent right after its own screenshot UI was on screen. It is matched on app

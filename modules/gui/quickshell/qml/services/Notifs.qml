@@ -29,10 +29,8 @@ Singleton {
     readonly property int historyLimit: 100
 
     property bool dnd: false
-    // Snapshots, newest first. `read` is per row: a notification interacted
-    // with is not something to catch up on.
+    // Snapshots, newest first.
     property var history: []
-    readonly property int unread: root.history.reduce((count, entry) => count + (entry.read ? 0 : 1), 0)
 
     readonly property var liveNotifs: Array.from(server.trackedNotifications.values)
     // Ids on the popup stack. A popup is a view of a live notification, not its
@@ -58,10 +56,7 @@ Singleton {
         return notification ? notification.actions : [];
     }
 
-    // Popup gestures. Each one is an interaction, so the row stops counting as
-    // unread - unlike a timeout, which nobody looked at.
     function activate(notification): void {
-        root.markRead(notification.id);
         const fallback = notification.actions.find(action => action.identifier === "default");
         if (fallback)
             root.invokeAction(notification, fallback);
@@ -70,7 +65,6 @@ Singleton {
     }
 
     function invokeAction(notification, action): void {
-        root.markRead(notification.id);
         root.popupIds = root.popupIds.filter(id => id !== notification.id);
         // Closes the notification unless the sender asked to stay resident.
         action.invoke();
@@ -78,7 +72,6 @@ Singleton {
     }
 
     function dismiss(notification): void {
-        root.markRead(notification.id);
         root.release(notification);
     }
 
@@ -138,18 +131,6 @@ Singleton {
         root.sweep();
     }
 
-    function markRead(notifId: int): void {
-        root.history = root.history.map(entry => entry.notifId === notifId && !entry.read ? Object.assign({}, entry, {
-            read: true
-        }) : entry);
-    }
-
-    function markAllRead(): void {
-        root.history = root.history.map(entry => entry.read ? entry : Object.assign({}, entry, {
-            read: true
-        }));
-    }
-
     // Keeps a notification open while a popup or a centre row points at it, and
     // closes it once nothing does. While open, its actions stay callable and its
     // sender can still withdraw it. historyLimit bounds how many are held.
@@ -192,7 +173,6 @@ Singleton {
                 image: notification.image,
                 appIcon: notification.appIcon,
                 critical: notification.urgency === NotificationUrgency.Critical,
-                read: false,
                 time: Date.now()
             },
             // A replaced notification keeps one row, at the top.

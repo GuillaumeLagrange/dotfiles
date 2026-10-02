@@ -40,8 +40,6 @@ ClickPanel {
         return Config.glyph.batLow;
     }
 
-    onShown: Notifs.markAllRead()
-
     // Whole-row click target: icon tile, label + sub-line, track/knob switch.
     // `active` drives every accent (tile tint, icon color, switch fill, knob ink).
     component ToggleRow: Rectangle {
