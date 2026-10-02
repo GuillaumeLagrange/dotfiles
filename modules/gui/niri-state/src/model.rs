@@ -6,7 +6,7 @@ use crate::icons::Icons;
 use crate::json::Json;
 use crate::strip::View;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Window {
     pub id: u64,
     pub title: String,
@@ -147,7 +147,22 @@ impl State {
                 let Some(window) = Window::from_json(body.get("window"), &self.icons) else {
                     return false;
                 };
-                self.windows.insert(window.id, window);
+                let id = window.id;
+                // Only the active window of an active workspace has its title drawn.
+                let shown = self
+                    .workspaces
+                    .values()
+                    .any(|ws| ws.active && ws.active_window == Some(id));
+                let previous = self.windows.insert(id, window);
+                let window = &self.windows[&id];
+                if !shown
+                    && previous.is_some_and(|mut old| {
+                        old.title.clone_from(&window.title);
+                        old == *window
+                    })
+                {
+                    return false;
+                }
             }
             "WindowClosed" => {
                 let Some(id) = body.get("id").u64() else {
@@ -298,6 +313,32 @@ mod tests {
         assert_eq!(window.scroll_pos, Some((3, 2)));
         assert_eq!(window.tile_w, 640.0);
         assert_eq!(window.view_x, None);
+    }
+
+    #[test]
+    fn only_a_drawn_title_triggers_a_repaint() {
+        let mut state = State::default();
+        state.workspaces.insert(
+            1,
+            Workspace {
+                id: 1,
+                active: true,
+                active_window: Some(7),
+                ..Workspace::default()
+            },
+        );
+        let event = |id: u64, title: &str| {
+            Parser::parse(&format!(
+                r#"{{"WindowOpenedOrChanged":{{"window":{{"id":{id},"title":"{title}",
+                   "workspace_id":1,"layout":{{"pos_in_scrolling_layout":[1,1]}}}}}}}}"#
+            ))
+            .unwrap()
+        };
+        assert!(state.apply(&event(7, "a")), "a new window repaints");
+        assert!(state.apply(&event(8, "a")), "a new window repaints");
+        assert!(state.apply(&event(7, "b")), "the active window's title is drawn");
+        assert!(!state.apply(&event(8, "b")), "an inactive window's title is not");
+        assert_eq!(state.windows[&8].title, "b", "the model still takes it");
     }
 
     #[test]
