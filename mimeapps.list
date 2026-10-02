@@ -2,6 +2,7 @@
 application/pdf=firefox.desktop;
 x-scheme-handler/tg=org.telegram.desktop.desktop;
 x-scheme-handler/tonsite=org.telegram.desktop.desktop;
+text/markdown=nvim.desktop;
 
 [Default Applications]
 application/xhtml+xml=firefox.desktop
@@ -15,5 +16,6 @@ application/pdf=firefox.desktop
 x-scheme-handler/tg=org.telegram.desktop.desktop
 x-scheme-handler/tonsite=org.telegram.desktop.desktop
 x-scheme-handler/slack=slack.desktop
+text/markdown=nvim.desktop
 
 [Removed Associations]
