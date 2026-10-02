@@ -80,6 +80,7 @@ actually launches it:
 
 - **flake.nix**: Main Nix flake configuration defining system inputs, outputs, and configurations
 - **README.md**: Basic usage instructions for NixOS and Home Manager configurations
+- **justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`, `just fmt`)
 
 ### Hosts Configuration (`hosts/`)
 
