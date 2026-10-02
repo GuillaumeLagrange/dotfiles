@@ -5,6 +5,7 @@
 //! ships `signal-desktop` — so `.desktop` entries provide the name and the icon
 //! directories are then probed for a file with it.
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -21,6 +22,9 @@ pub struct Icons {
     /// Lowercased `app_id` candidates to the `Icon=` value of their entry.
     names: BTreeMap<String, String>,
     data_dirs: Vec<PathBuf>,
+    /// `path_for` results by `app_id`: a title change re-sends the whole window,
+    /// and a lookup is hundreds of `stat` calls.
+    resolved: RefCell<BTreeMap<String, String>>,
 }
 
 impl Icons {
@@ -75,11 +79,26 @@ impl Icons {
                 }
             }
         }
-        Icons { names, data_dirs }
+        Icons {
+            names,
+            data_dirs,
+            resolved: RefCell::default(),
+        }
     }
 
     /// Absolute path of the icon file, or an empty string when nothing matches.
     pub fn path_for(&self, app_id: &str) -> String {
+        if let Some(path) = self.resolved.borrow().get(app_id) {
+            return path.clone();
+        }
+        let path = self.resolve(app_id);
+        self.resolved
+            .borrow_mut()
+            .insert(app_id.to_string(), path.clone());
+        path
+    }
+
+    fn resolve(&self, app_id: &str) -> String {
         if app_id.is_empty() {
             return String::new();
         }

@@ -55,7 +55,9 @@ onto the block beside it; otherwise the rails run past the focused column.
 
 **Icons are keyed twice.** Each block carries its lowercased `app_id`, which
 the bar looks up in its own glyph table, and the resolved icon file, which it
-falls back to (greyed) for apps the table does not know.
+falls back to (greyed) for apps the table does not know. Resolution is memoised
+per `app_id`: niri re-sends the whole window on every title change (a terminal
+spinner is ~12 a second), and an uncached lookup probes ~550 paths.
 
 **The scale is the output's logical width, and niri has no output event.**
 `SCREEN_PX / view_w` is what makes a block proportional, so the width has to be
