@@ -146,6 +146,12 @@ Standalone Neovim configuration with:
 - Lua-based configuration
 - AI integrations
 - Tmux integration
+- `:Fixit [text]` (`nvim/lua/fixit/`): hands what should change to an omp, with a snapshot of the nvim taken
+  when it ran (keys typed, cmdline history, messages, windows, config and cwd repo state, `add_context`
+  providers under `extra`) written to `~/.local/state/nvim/fixit/`. Without text, a float takes it. The omp
+  side is editor-agnostic: `omp-fixit [-s SESSION] [-c FILE] NAME DIR PROMPT` (`modules/headless/omp-fixit.sh`)
+  starts `omp --auto-approve` in its own tab of the background zellij session `fixit` (attach to watch, or
+  pick it in omp-panel); `ai/omp/extensions/fixit.ts` titles the omp session after NAME.
 
 ## Home Manager Configurations
 

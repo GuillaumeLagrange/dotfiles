@@ -1,4 +1,6 @@
 vim.loader.enable()
+-- first, so the key history `:Fixit` hands over starts at startup
+require('fixit').setup()
 
 -- Set <space> as the leader key
 vim.g.mapleader = ' '

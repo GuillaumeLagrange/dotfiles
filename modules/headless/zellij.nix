@@ -147,6 +147,18 @@
         text = builtins.readFile ./zellij-fzf-url.sh;
       };
 
+      ompFixit = pkgs.writeShellApplication {
+        name = "omp-fixit";
+        runtimeInputs = [
+          config.programs.zellij.package
+          pkgs.jq
+          pkgs.gawk
+          pkgs.coreutils
+          pkgs.util-linux
+        ];
+        text = builtins.readFile ./omp-fixit.sh;
+      };
+
     in
     {
       programs.zellij = {
@@ -188,6 +200,7 @@
         zellijFzfUrl
         zellijAttach
         ompPanel
+        ompFixit
       ];
     };
 }
