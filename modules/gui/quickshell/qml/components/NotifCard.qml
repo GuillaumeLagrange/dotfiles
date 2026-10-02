@@ -158,12 +158,17 @@ Rectangle {
         }
 
         RowLayout {
+            id: actionRow
+
+            // "default" is what clicking the card invokes; senders often leave it unlabeled.
+            readonly property var buttons: root.actions.filter(action => action.identifier !== "default")
+
             Layout.fillWidth: true
-            visible: root.actions.length > 0
+            visible: buttons.length > 0
             spacing: 6
 
             Repeater {
-                model: root.actions
+                model: actionRow.buttons
 
                 Rectangle {
                     id: button
