@@ -6,6 +6,14 @@
       config,
       ...
     }:
+    let
+      # Only granary has caffeine.service; elsewhere logind suspends on the lid anyway.
+      lidClose = pkgs.writeShellScript "niri-lid-close" ''
+        ${pkgs.systemd}/bin/systemctl is-active --quiet caffeine.service || exit 0
+        ${pkgs.procps}/bin/pgrep hyprlock >/dev/null || { ${config.lock} & ${pkgs.coreutils}/bin/sleep 1; }
+        ${pkgs.niri}/bin/niri msg action power-off-monitors
+      '';
+    in
     {
       home.packages = with pkgs; [
         niri
@@ -69,6 +77,10 @@
 
           spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
           spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
+
+          switch-events {
+              lid-close { spawn "${lidClose}"; }
+          }
 
           prefer-no-csd
 

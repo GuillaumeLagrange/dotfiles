@@ -197,7 +197,8 @@
             }
             {
               timeout = suspendTimeout;
-              command = "${pkgs.systemd}/bin/systemctl suspend-then-hibernate";
+              # Caffeine (hosts/granary/caffeine.nix) means idle is expected.
+              command = "${pkgs.systemd}/bin/systemctl is-active --quiet caffeine.service || ${pkgs.systemd}/bin/systemctl suspend-then-hibernate";
             }
           ];
       };

@@ -20,8 +20,8 @@ qml/
                 Tip (hover tooltip), TrayMenu + TrayMenuPanel (the tray's
                 DBusMenu, drawn in QML).
   services/     Singletons: Niri (the IPC tap), Sys (cpu/mem/disk), Claude,
-                Media (mpris), Audio (Pipewire), Quick (idle/power profile),
-                Notifs (the notification server, dnd, history), Net
+                Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
+                power profile), Notifs (the notification server, dnd, history), Net
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in).
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
@@ -37,7 +37,11 @@ its snapshot lines with a `SplitParser`.
 `quickshell.service` is wanted by `graphical-session.target`. It needs no
 companion units: the power profile comes live from `Services.UPower`, dnd is
 the shell's own state now that it serves notifications, and the idle lock is a
-held `Process`.
+held `Process`. Caffeine is the one exception: the bar writes an off/auto/on mode
+to `~/.local/state/caffeine/mode`, granary's `caffeine-auto` user service starts
+and stops the system `caffeine.service` from it (`hosts/granary/caffeine.nix`),
+and the unit keeps `/run/caffeine/active` at 1 while it runs. The bar watches
+both files; the row is hidden on hosts without the second.
 
 ```bash
 systemctl --user restart quickshell

@@ -42,6 +42,8 @@ ClickPanel {
 
     // Whole-row click target: icon tile, label + sub-line, track/knob switch.
     // `active` drives every accent (tile tint, icon color, switch fill, knob ink).
+    // Given `modes`, a segmented selector replaces the switch and the row itself
+    // stops being a click target; `active` then shows the effect, not the mode.
     component ToggleRow: Rectangle {
         id: row
 
@@ -49,8 +51,11 @@ ClickPanel {
         required property string label
         required property string sub
         required property bool active
+        property var modes: []
+        property string mode: ""
 
         signal activated
+        signal picked(string mode)
 
         Layout.fillWidth: true
         implicitHeight: 50
@@ -103,18 +108,71 @@ ClickPanel {
             }
 
             Switch {
+                visible: row.modes.length === 0
                 on: row.active
                 interactive: false
+            }
+
+            Rectangle {
+                visible: row.modes.length > 0
+                implicitWidth: modeSegs.implicitWidth + 6
+                implicitHeight: modeSegs.implicitHeight + 6
+                radius: 7
+                color: Theme.alpha("#000000", 0.22)
+
+                RowLayout {
+                    id: modeSegs
+
+                    anchors.centerIn: parent
+                    spacing: 3
+
+                    Repeater {
+                        model: row.modes
+
+                        Rectangle {
+                            id: modeSeg
+
+                            required property var modelData
+                            readonly property bool selected: row.mode === modelData.value
+
+                            implicitWidth: 40
+                            implicitHeight: 22
+                            radius: 5
+                            color: selected ? Theme.aqua : (segHover.hovered ? Theme.alpha(Theme.fg, 0.08) : "transparent")
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modeSeg.modelData.label
+                                font.family: Theme.ui
+                                font.pixelSize: 10
+                                font.bold: modeSeg.selected
+                                color: modeSeg.selected ? Theme.ink : (segHover.hovered ? Theme.fg : Theme.alpha(Theme.fg, 0.6))
+                            }
+
+                            HoverHandler {
+                                id: segHover
+
+                                cursorShape: Qt.PointingHandCursor
+                            }
+
+                            TapHandler {
+                                onSingleTapped: row.picked(modeSeg.modelData.value)
+                            }
+                        }
+                    }
+                }
             }
         }
 
         HoverHandler {
             id: hover
 
+            enabled: row.modes.length === 0
             cursorShape: Qt.PointingHandCursor
         }
 
         TapHandler {
+            enabled: row.modes.length === 0
             onSingleTapped: row.activated()
         }
     }
@@ -284,6 +342,14 @@ ClickPanel {
         }
 
         ToggleRow {
+            icon: Config.glyph.dnd
+            label: "Do Not Disturb"
+            sub: Notifs.dnd ? "Notifications muted" : "Notifications shown"
+            active: Notifs.dnd
+            onActivated: Notifs.toggleDnd()
+        }
+
+        ToggleRow {
             icon: Config.glyph.idle
             label: "Idle inhibit"
             sub: Quick.idleInhibit ? "Screen stays awake" : "Screen may lock"
@@ -292,11 +358,27 @@ ClickPanel {
         }
 
         ToggleRow {
-            icon: Config.glyph.dnd
-            label: "Do Not Disturb"
-            sub: Notifs.dnd ? "Notifications muted" : "Notifications shown"
-            active: Notifs.dnd
-            onActivated: Notifs.toggleDnd()
+            visible: Quick.caffeineAvailable
+            icon: Config.glyph.caffeine
+            label: "Caffeine"
+            sub: Quick.caffeine ? "Lid close does not suspend" : Quick.caffeineMode === "auto" ? "Triggered automatically" : "Lid close suspends"
+            active: Quick.caffeine
+            modes: [
+                {
+                    value: "off",
+                    label: "Off"
+                },
+                {
+                    value: "auto",
+                    label: "Auto"
+                },
+                {
+                    value: "on",
+                    label: "On"
+                }
+            ]
+            mode: Quick.caffeineMode
+            onPicked: mode => Quick.setCaffeineMode(mode)
         }
 
         ColumnLayout {

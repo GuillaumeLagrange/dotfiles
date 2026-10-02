@@ -1,7 +1,7 @@
 // The system pill: the control centre behind a click, and beside it whatever
 // state is worth carrying. The sliders are the pill's identity and always
-// there - idle inhibit and do-not-disturb are added next to them, never in
-// their place. Notifications leave no trace on it.
+// there - idle inhibit, caffeine and do-not-disturb are added next to them,
+// never in their place. Notifications leave no trace on it.
 //
 // Mod+N reaches every bar through the notifs IPC handler, so the pill answers
 // only on the focused output.
@@ -22,6 +22,8 @@ Pill {
         const badges = [Config.glyph.controls];
         if (Quick.idleInhibit)
             badges.push(Config.glyph.idle);
+        if (Quick.caffeine)
+            badges.push(Config.glyph.caffeine);
         if (Notifs.dnd)
             badges.push(Config.glyph.dnd);
         return badges.join(" ");

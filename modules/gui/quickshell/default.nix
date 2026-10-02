@@ -113,6 +113,7 @@
         gamepad = glyph "F0297";
         device = glyph "F0625";
         idle = glyph "F06E";
+        caffeine = glyph "F0176";
         bell = glyph "F009A";
         dnd = glyph "F1F6";
         saver = glyph "F0F86";
