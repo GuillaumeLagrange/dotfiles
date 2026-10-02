@@ -25,7 +25,6 @@ type Ctx = {
 	hasUI: boolean;
 	cwd: string;
 	ui: Ui;
-	sessionManager?: { getSessionId?: () => string | undefined };
 };
 type Pi = {
 	on: (event: string, handler: (event: unknown, ctx: Ctx) => void) => void;
@@ -113,11 +112,8 @@ export default function nvimBridge(pi: Pi) {
 					pid: process.pid,
 					cwd: ctx.cwd,
 					socket: sockPath,
-					// Lets a client resume this conversation in another terminal.
-					// `omp --resume` only accepts an id whose file already exists,
-					// and the file appears on the first turn.
-					session: ctx.sessionManager?.getSessionId?.() ?? null,
-					file: ctx.sessionManager?.getSessionFile?.() ?? null,
+					// Shown in nvim's session picker.
+					zellij: process.env.ZELLIJ_SESSION_NAME ?? null,
 				}),
 			),
 		);

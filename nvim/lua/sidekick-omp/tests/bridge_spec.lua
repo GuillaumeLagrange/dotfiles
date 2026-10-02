@@ -54,7 +54,7 @@ describe('session discovery', function()
   end)
 
   it('reports a live omp as an attachable session', function()
-    descriptor({ pid = vim.uv.os_getpid(), cwd = '/tmp/project' })
+    descriptor({ pid = vim.uv.os_getpid(), cwd = '/tmp/project', zellij = 'dotfiles' })
     local session = session_for(vim.uv.os_getpid())
     assert.same({
       id = 'omp: ' .. vim.uv.os_getpid(),
@@ -63,6 +63,7 @@ describe('session discovery', function()
       pids = { vim.uv.os_getpid() },
       omp_pid = vim.uv.os_getpid(),
       omp_socket = RUN_DIR .. '/' .. vim.uv.os_getpid() .. '.sock',
+      mux_session = 'dotfiles',
     }, session)
   end)
 
@@ -126,19 +127,15 @@ describe('composer ops', function()
     assert.same({ 'first', 'second' }, { received[1].text, received[2].text })
     assert.equals('submit', received[3].op)
   end)
-end)
 
-describe('handoff command', function()
-  it('resumes the conversation when its session file exists', function()
-    local file = vim.fn.tempname()
-    vim.fn.writefile({ '{}' }, file)
-    assert.same({ 'omp', '--resume', 'sess-1' }, Omp.omp_cmd({ session = 'sess-1', file = file }))
-    vim.fn.delete(file)
-  end)
-
-  it('starts fresh while the session has nothing on disk yet', function()
-    -- omp writes the session file on the first turn; `--resume` errors before that.
-    assert.same({ 'omp' }, Omp.omp_cmd({ session = 'sess-1', file = vim.fn.tempname() }))
-    assert.same({ 'omp' }, Omp.omp_cmd({}))
+  it('holds ops issued while the pane starts up', function()
+    local session = setmetatable({ spawning = true, queue = {} }, Omp)
+    session:send('early')
+    session:submit()
+    vim.wait(100, function()
+      return #received > 0
+    end, 20)
+    assert.same({}, received)
+    assert.same({ { op = 'send', text = 'early' }, { op = 'submit' } }, session.queue)
   end)
 end)

@@ -1,4 +1,4 @@
--- Sidekick session backend for omp TUIs running outside nvim.
+-- Sidekick session backend for omp TUIs running in zellij panes.
 --
 -- The `nvim-bridge` omp extension (dotfiles/ai/omp/extensions) makes every
 -- interactive omp session listen on a unix socket and drop a `<pid>.json`
@@ -6,8 +6,8 @@
 -- `<leader>aa` can attach to an omp already running in another pane, and
 -- `<leader>at` pushes text into its composer.
 --
--- `M.move()` walks a conversation between an nvim terminal and a zellij pane by
--- quitting it on one side and resuming it on the other.
+-- It is also sidekick's backend for new sessions: starting one opens a zellij
+-- pane running omp and attaches to it once its descriptor shows up.
 
 -- Overridable so tests stay out of the real session registry.
 local RUN_DIR = vim.env.OMP_NVIM_BRIDGE_DIR or vim.fs.normalize('~/.omp/run/nvim-bridge')
@@ -16,12 +16,13 @@ local RUN_DIR = vim.env.OMP_NVIM_BRIDGE_DIR or vim.fs.normalize('~/.omp/run/nvim
 ---@field pid integer
 ---@field cwd string
 ---@field socket string
----@field session? string omp session id, for `omp --resume`
----@field file? string session file; absent until the session's first turn
+---@field zellij? string zellij session the omp runs in
 
 ---@class sidekick.cli.omp: sidekick.cli.Session
----@field omp_pid integer
----@field omp_socket string
+---@field omp_pid? integer
+---@field omp_socket? string
+---@field spawning? boolean pane requested, omp not registered yet
+---@field queue? table[] ops issued while spawning
 local M = {}
 M.__index = M
 M.priority = 50
@@ -68,21 +69,42 @@ local function request(socket, msg, cb)
   end)
 end
 
+--- Send `msgs` one after the other, each once the previous one is written.
+---@param socket string
+---@param msgs table[]
+local function request_all(socket, msgs)
+  if #msgs == 0 then
+    return
+  end
+  request(socket, msgs[1], function()
+    request_all(socket, vim.list_slice(msgs, 2))
+  end)
+end
+
 function M:init()
   -- Never opened in an nvim terminal: the TUI lives in its own pane.
   self.external = true
 end
 
 function M:is_running()
-  return self.omp_pid and vim.api.nvim_get_proc(self.omp_pid) ~= nil
+  return self.spawning or (self.omp_pid ~= nil and vim.api.nvim_get_proc(self.omp_pid) ~= nil)
+end
+
+---@param msg table
+function M:request(msg)
+  if self.spawning then
+    table.insert(self.queue, msg)
+  elseif self.omp_socket then
+    request(self.omp_socket, msg)
+  end
 end
 
 function M:send(text)
-  request(self.omp_socket, { op = 'send', text = text })
+  self:request({ op = 'send', text = text })
 end
 
 function M:submit()
-  request(self.omp_socket, { op = 'submit' })
+  self:request({ op = 'submit' })
 end
 
 ---@param info sidekick.omp.Descriptor
@@ -95,6 +117,7 @@ local function state_of(info)
     pids = { info.pid },
     omp_pid = info.pid,
     omp_socket = info.socket,
+    mux_session = info.zellij,
   }
 end
 
@@ -102,51 +125,12 @@ function M.sessions()
   return vim.tbl_map(state_of, descriptors())
 end
 
---- Stop the omp holding a session, then run `cb` once it is gone. SIGTERM makes
---- omp exit cleanly (session file flushed, descriptor removed), which the
---- resumed process needs.
----@param info sidekick.omp.Descriptor
----@param cb fun()
-local function quit(info, cb)
-  vim.uv.kill(info.pid, 'sigterm')
-  local waited = 0
-  local timer = assert(vim.uv.new_timer())
-  timer:start(
-    50,
-    50,
-    vim.schedule_wrap(function()
-      waited = waited + 50
-      if vim.api.nvim_get_proc(info.pid) and waited < 5000 then
-        return
-      end
-      timer:stop()
-      timer:close()
-      if vim.api.nvim_get_proc(info.pid) then
-        vim.notify('omp ' .. info.pid .. ' did not exit; handoff aborted', vim.log.levels.ERROR)
-        return
-      end
-      cb()
-    end)
-  )
-end
-
---- `omp --resume` rejects an id with no file on disk, and omp only writes one
---- once the conversation has a first turn. Nothing to carry over before that.
----@param info sidekick.omp.Descriptor
----@return string[]
-function M.omp_cmd(info)
-  if info.session and info.file and vim.uv.fs_stat(info.file) then
-    return { 'omp', '--resume', info.session }
-  end
-  return { 'omp' }
-end
-
---- The new omp needs a few seconds of startup before it registers, so keep
---- looking for it and attach it: the move should leave the session attached
---- wherever it went.
----@param gone sidekick.omp.Descriptor the omp we just stopped
----@param resumed boolean whether the replacement carries the same session id
-local function attach_when_up(gone, resumed)
+--- The new omp needs a few seconds of startup before it registers. Poll for it,
+--- then swap it in for the placeholder session and replay what was sent meanwhile.
+---@param placeholder sidekick.cli.omp
+---@param known table<integer, boolean> pids registered before the pane opened
+local function attach_when_up(placeholder, known)
+  local Session = require('sidekick.cli.session')
   local waited = 0
   local timer = assert(vim.uv.new_timer())
   timer:start(
@@ -155,102 +139,60 @@ local function attach_when_up(gone, resumed)
     vim.schedule_wrap(function()
       waited = waited + 500
       for _, info in ipairs(descriptors()) do
-        -- A resumed session is identified by its id; a fresh one only by
-        -- being the new omp in that directory.
-        local match = resumed and info.session == gone.session or (not resumed and info.cwd == gone.cwd)
-        if match and info.pid ~= gone.pid then
+        if not known[info.pid] and Session.cwd({ cwd = info.cwd }) == placeholder.cwd then
           timer:stop()
           timer:close()
-          local Session = require('sidekick.cli.session')
+          placeholder.spawning = false
+          Session.detach(placeholder)
           Session.attach(Session.new(vim.tbl_extend('force', state_of(info), { backend = 'omp', started = true })))
+          request_all(info.socket, placeholder.queue)
           return
         end
       end
       if waited >= 30000 then
         timer:stop()
         timer:close()
-        vim.notify('omp did not come back up in ' .. gone.cwd, vim.log.levels.WARN)
+        placeholder.spawning = false
+        Session.detach(placeholder)
+        vim.notify('omp did not come up in ' .. placeholder.cwd, vim.log.levels.WARN)
       end
     end)
   )
 end
 
----@param info sidekick.omp.Descriptor
-local function to_pane(info)
-  -- SIGTERM leaves the terminal sitting on "[Process exited 143]", which
-  -- sidekick keeps open because a non-zero exit usually means a failed start.
-  local terminal
-  for _, candidate in pairs(require('sidekick.cli.terminal').terminals) do
-    if vim.tbl_contains(candidate.pids or {}, info.pid) then
-      terminal = candidate
-    end
+--- Start omp in a new zellij pane. Returns no terminal command: sidekick keeps
+--- this session attached as a placeholder until the real omp registers.
+function M:start()
+  local known = {} ---@type table<integer, boolean>
+  for _, info in ipairs(descriptors()) do
+    known[info.pid] = true
   end
-  quit(info, function()
-    if terminal then
-      terminal:close()
-    end
-    local args = M.omp_cmd(info)
-    local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', info.cwd, '--' }
-    vim.list_extend(cmd, args)
-    vim.system(cmd, { text = true }, function(out)
+  self.spawning = true
+  self.queue = {}
+  local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', self.cwd, '--' }
+  vim.list_extend(cmd, self.tool.cmd)
+  vim.system(cmd, { text = true }, function(out)
+    vim.schedule(function()
       if out.code ~= 0 then
-        vim.schedule(function()
-          vim.notify('omp handoff failed: ' .. (out.stderr or ''), vim.log.levels.ERROR)
-        end)
+        self.spawning = false
+        require('sidekick.cli.session').detach(self)
+        vim.notify('could not open an omp pane: ' .. (out.stderr or ''), vim.log.levels.ERROR)
         return
       end
-      vim.schedule(function()
-        attach_when_up(info, args[2] == '--resume')
-      end)
+      attach_when_up(self, known)
     end)
   end)
 end
 
----@param info sidekick.omp.Descriptor
-local function to_nvim(info)
-  local Session = require('sidekick.cli.session')
-  local tool = require('sidekick.config').get_tool('omp')
-  quit(info, function()
-    require('sidekick.cli.state').attach({
-      tool = tool,
-      session = Session.new({
-        tool = tool:clone({ cmd = M.omp_cmd(info) }),
-        cwd = info.cwd,
-        backend = 'terminal',
-      }),
-    }, { show = true, focus = true })
-  end)
-end
-
---- Move the attached omp session between an nvim terminal and a zellij pane.
-function M.move()
-  local Session = require('sidekick.cli.session')
-  local cwd = Session.cwd()
-  for _, session in pairs(Session.attached()) do
-    if session.cwd == cwd then
-      local info ---@type sidekick.omp.Descriptor?
-      for _, candidate in ipairs(descriptors()) do
-        if vim.tbl_contains(session.pids or {}, candidate.pid) then
-          info = candidate
-        end
-      end
-      if not info or not info.session then
-        vim.notify('no omp bridge for the attached session', vim.log.levels.WARN)
-        return
-      end
-      Session.detach(session)
-      if session.backend == 'omp' then
-        to_nvim(info)
-      else
-        to_pane(info)
-      end
-      return
-    end
-  end
-  vim.notify('no attached omp session in ' .. cwd, vim.log.levels.WARN)
-end
-
 function M.setup()
+  local Config = require('sidekick.config')
+  -- New sessions go through this backend instead of an nvim terminal. Assigned
+  -- on the next tick: sidekick's setup schedules a validation that only knows
+  -- tmux and zellij, and scheduled callbacks run in order.
+  vim.schedule(function()
+    Config.cli.mux.enabled = true
+    Config.cli.mux.backend = 'omp'
+  end)
   local Session = require('sidekick.cli.session')
   Session.setup()
   Session.register('omp', M)

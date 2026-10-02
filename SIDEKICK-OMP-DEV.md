@@ -1,15 +1,16 @@
 # Sidekick ↔ omp bridge (temporary dev notes — delete when done)
 
-Goal: `<leader>aa` toggles either a fresh omp in an nvim terminal, or attaches to an
-omp TUI already running elsewhere (zellij pane). `<leader>at` (`{this}`) must work in
-both cases. Terminal-injection discovery is unusable under zellij (`list-panes` gives
-no cwd/pid), so attach goes through a socket exposed by omp itself.
+Goal: `<leader>aa` either attaches to an omp TUI already running in a zellij pane, or
+opens a fresh omp in a new zellij pane and attaches to it. No omp runs in an nvim
+terminal. `<leader>at` (`{this}`) must work in both cases. Terminal-injection
+discovery is unusable under zellij (`list-panes` gives no cwd/pid), so attach goes
+through a socket exposed by omp itself.
 
 ## Pieces
 
 - `ai/omp/extensions/nvim-bridge.ts` — omp extension. Every interactive session
   listens on `~/.omp/run/nvim-bridge/<pid>.sock` and writes `<pid>.json`
-  (`pid`, `cwd`, `socket`). NDJSON ops: `{"op":"send","text":…}` → `ui.pasteToEditor`
+  (`pid`, `cwd`, `socket`, `zellij` session name). NDJSON ops: `{"op":"send","text":…}` → `ui.pasteToEditor`
   (prefixing a newline when the composer sits mid-line) then focus this omp's zellij
   pane (`zellij action focus-pane-id`, from the `ZELLIJ_*` env of the shell that
   launched it; no-op outside zellij); `{"op":"submit"}` → submit composer via
@@ -20,17 +21,17 @@ no cwd/pid), so attach goes through a socket exposed by omp itself.
 - `modules/headless/ai.nix` — symlinks `ai/omp/extensions` → `~/.omp/agent/extensions`.
 - `nvim/lua/sidekick-omp/init.lua` — sidekick session backend `omp`: `sessions()` reads
   the descriptor dir (dropping dead pids), sessions are `external = true` (no nvim
-  terminal), `send`/`submit` write to the socket. Tests: `cd nvim/lua/sidekick-omp &&
+  terminal), `send`/`submit` write to the socket, `mux_session` = zellij session so the
+  picker shows `[omp:<session>]`. Tests: `cd nvim/lua/sidekick-omp &&
   just test` (plenary busted, same harness as `agent-diff`).
+- New sessions: `setup()` sets `cli.mux = { enabled = true, backend = 'omp' }`, so
+  sidekick creates them through this backend. `M:start()` runs `zellij action new-pane
+  --close-on-exit --cwd <cwd> -- omp`, keeps a placeholder attached (ops issued meanwhile
+  are queued), then polls for a new descriptor in that cwd, attaches it and replays the
+  queue.
 - `nvim/plugin/ai.lua` — `require('sidekick-omp').setup()`, and `Config.cli.tools` is
   replaced by a single `omp` entry so the CLI picker only appears when an omp is
-  already running outside nvim (one candidate auto-attaches).
-- `M.move()` (`<leader>am`) — handoff: SIGTERM the omp
-  holding the attached session, wait for the process to go, then start
-  `omp --resume <id>` on the other side (nvim terminal ↔ zellij pane). The session
-  stays attached: ejecting to a pane polls for the new descriptor and attaches it.
-
-New sessions keep sidekick's default path (`cli.mux.enabled = false` → nvim terminal).
+  already running elsewhere (one candidate auto-attaches).
 
 ## Status
 
@@ -42,11 +43,9 @@ New sessions keep sidekick's default path (`cli.mux.enabled = false` → nvim te
 - [x] Verified: headless nvim lists `omp: <pid>` (backend `omp`, external) and its
       `send` reaches that composer
 - [x] Verified: send into an omp started in a zellij pane focuses that pane
-- [ ] Try it live: `<leader>aa` should offer the running omp next to a fresh in-nvim
-      one, `<leader>at` should reach it
-- [x] Feature 2: round trip verified live — pane omp with a "MANGO" turn moved into
-      an nvim terminal with its transcript, then back out to a zellij pane, same
-      session id throughout
+- [x] Verified: spawning from nvim opens an omp pane in the current zellij session,
+      attaches it, and a `send` issued before it registered lands in its composer
+- [x] Picker shows `[omp:<zellij session>]` for omps started after the extension change
 
 ## Notes
 
@@ -55,7 +54,5 @@ New sessions keep sidekick's default path (`cli.mux.enabled = false` → nvim te
 - Socket callbacks must not throw: an uncaught throw kills the omp session.
 - Ordering: nvim opens one connection per op, so the extension keeps a single
   server-wide promise queue. The `serializes a slow send…` test fails if it goes.
-- `ctx.shutdown()` does not exit the process — the TUI kept running. The handoff
-  uses SIGTERM instead, which exits cleanly and removes the descriptor.
-- `omp --resume <id>` errors out on a session with no file on disk, and the file
-  only appears on the first turn, so a handoff before that starts a plain `omp`.
+- `ctx.shutdown()` does not exit the process — the TUI kept running; SIGTERM exits
+  cleanly and removes the descriptor.

@@ -33,38 +33,16 @@ require('sidekick').setup({
 -- omp is the only CLI worth a picker entry here. Assigning over the defaults
 -- (rather than passing `tools` to setup, which deep-merges) drops the other
 -- eleven, so `<leader>aa` auto-attaches instead of asking — the selection only
--- appears once there is also an omp running outside nvim to choose from.
+-- appears once there is also an omp running in another pane to choose from.
 require('sidekick.config').cli.tools = {
   omp = {
     cmd = { 'omp' },
-    is_proc = '\\<omp\\>',
-    native_scroll = false,
   },
 }
 
--- Attach to omp TUIs running outside nvim (zellij/tmux pane) over the unix
--- socket exposed by the `nvim-bridge` omp extension.
+-- Every omp runs in a zellij pane: attach over the unix socket exposed by the
+-- `nvim-bridge` omp extension, and start new ones in a fresh pane.
 require('sidekick-omp').setup()
-
--- Equalize splits when the sidekick CLI panel opens. The panel reuses a single
--- session across toggles, so SidekickCliAttach only fires on first open; instead
--- we watch for the panel window itself, which sidekick tags with a window var.
-vim.api.nvim_create_autocmd('WinNew', {
-  desc = 'Resize splits when the sidekick panel opens',
-  group = vim.api.nvim_create_augroup('sidekick-resize-splits', { clear = true }),
-  callback = function()
-    -- The panel is opened with enter=false, so it isn't the current window on
-    -- WinNew. Defer (so window-local vars are set) then scan for the panel.
-    vim.schedule(function()
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.w[win].sidekick_cli ~= nil then
-          vim.cmd('wincmd =')
-          return
-        end
-      end
-    end)
-  end,
-})
 
 vim.keymap.set({ 'n', 'i' }, '<tab>', function()
   if not require('sidekick').nes_jump_or_apply() then
@@ -79,10 +57,6 @@ end, { desc = 'Sidekick Toggle' })
 vim.keymap.set('n', '<leader>aa', function()
   require('sidekick.cli').toggle({ focus = true })
 end, { desc = 'Sidekick Toggle CLI' })
-
-vim.keymap.set('n', '<leader>am', function()
-  require('sidekick-omp').move()
-end, { desc = 'Move omp between nvim and a zellij pane' })
 
 vim.keymap.set('n', '<leader>as', function()
   require('sidekick.cli').select()
