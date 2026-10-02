@@ -34,7 +34,11 @@ ClickPanel {
             Layout.fillWidth: true
             spacing: 8
 
+            // Fixed width: volume glyphs differ, and the picker and its
+            // choices line up on what follows.
             Text {
+                Layout.preferredWidth: 16
+                horizontalAlignment: Text.AlignHCenter
                 text: device.side === "output" ? Audio.volumeGlyph(Math.round((device.node?.audio?.volume ?? 0) * 100), !device.active) : (device.active ? Config.glyph.mic : Config.glyph.micMuted)
                 color: device.active ? Theme.orange : Theme.grey
                 font.family: Theme.icon
@@ -50,57 +54,54 @@ ClickPanel {
                 }
             }
 
-            Text {
+            // The device name unfolds the other devices of this side, when
+            // there are any to pick.
+            Rectangle {
+                id: picker
+
+                readonly property bool pickable: device.others.length > 1
+                readonly property bool open: root.picking === device.side
+
                 Layout.fillWidth: true
-                text: Audio.label(device.node) || "None"
-                elide: Text.ElideRight
-                color: Theme.fg
-                font.family: Theme.ui
-                font.pixelSize: 12
-            }
+                implicitHeight: 22
+                radius: 4
+                color: picker.open ? Theme.alpha(Theme.fg, 0.1) : (picker.pickable && pickerHover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent")
 
-            Text {
-                text: `${Math.round((device.node?.audio?.volume ?? 0) * 100)}%`
-                color: Theme.alpha(Theme.fg, 0.6)
-                font.family: Theme.ui
-                font.pixelSize: 10
-            }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    spacing: 8
 
-            // Only worth unfolding when there is something else to pick.
-            Text {
-                visible: device.others.length > 1
-                text: root.picking === device.side ? Config.glyph.chevronUp : Config.glyph.submenu
-                color: Theme.alpha(Theme.fg, 0.5)
-                font.family: Theme.icon
-                font.pixelSize: 12
+                    Text {
+                        Layout.fillWidth: true
+                        text: Audio.label(device.node) || "None"
+                        elide: Text.ElideRight
+                        color: Theme.fg
+                        font.family: Theme.ui
+                        font.pixelSize: 12
+                    }
+
+                    Text {
+                        text: `${Math.round((device.node?.audio?.volume ?? 0) * 100)}%`
+                        color: Theme.alpha(Theme.fg, 0.6)
+                        font.family: Theme.ui
+                        font.pixelSize: 10
+                    }
+                }
 
                 HoverHandler {
+                    id: pickerHover
 
+                    enabled: picker.pickable
                     cursorShape: Qt.PointingHandCursor
                 }
 
                 TapHandler {
-                    onSingleTapped: root.picking = root.picking === device.side ? "" : device.side
+                    enabled: picker.pickable
+                    onSingleTapped: root.picking = picker.open ? "" : device.side
                 }
             }
-        }
-
-        Slider {
-            Layout.fillWidth: true
-            live: device.node !== null
-            value: device.node?.audio?.volume ?? 0
-            peak: meter.peak
-            tint: device.active ? Theme.orange : Theme.grey
-            onMoved: value => Audio.setVolume(device.node, value)
-        }
-
-        PwNodePeakMonitor {
-            id: meter
-
-            node: device.node
-            // The meter is a pipewire stream of its own; it runs while the
-            // panel is on screen and not a moment longer.
-            enabled: root.visible && device.node !== null
         }
 
         // The other devices of this side, folded away until asked for.
@@ -117,7 +118,7 @@ ClickPanel {
                 Layout.leftMargin: 24
                 implicitHeight: 22
                 radius: 4
-                color: hover.hovered ? Theme.alpha(Theme.fg, 0.08) : "transparent"
+                color: hover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent"
 
                 Text {
                     anchors.left: parent.left
@@ -147,6 +148,24 @@ ClickPanel {
                     }
                 }
             }
+        }
+
+        Slider {
+            Layout.fillWidth: true
+            live: device.node !== null
+            value: device.node?.audio?.volume ?? 0
+            peak: meter.peak
+            tint: device.active ? Theme.orange : Theme.grey
+            onMoved: value => Audio.setVolume(device.node, value)
+        }
+
+        PwNodePeakMonitor {
+            id: meter
+
+            node: device.node
+            // The meter is a pipewire stream of its own; it runs while the
+            // panel is on screen and not a moment longer.
+            enabled: root.visible && device.node !== null
         }
     }
 

@@ -84,7 +84,6 @@
         volMuted = glyph "EEE8";
         mic = glyph "F036C";
         micMuted = glyph "F036D";
-        chevronUp = glyph "F0143";
         batHigh = glyph "F12A3";
         batMedium = glyph "F12A2";
         batLow = glyph "F12A1";
