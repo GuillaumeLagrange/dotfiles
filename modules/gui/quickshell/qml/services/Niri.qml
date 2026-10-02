@@ -11,7 +11,14 @@ Singleton {
     id: root
 
     property var workspaces: []
-    property var byOutput: ({})
+    property var strips: ({})
+    property var titles: ({})
+
+    // Serialised copies of the last assigned values. A snapshot is mostly a
+    // title change (a terminal spinner sends ~12 a second), and reassigning an
+    // unchanged array rebuilds every Repeater delegate built from it.
+    property string _workspacesKey: ""
+    property string _stripsKey: ""
 
     // The output a notification or a panel should appear on. It comes from the
     // snapshot rather than from `workspaces`, which holds only named ones -
@@ -31,13 +38,11 @@ Singleton {
     }
 
     function strip(output: string): var {
-        const o = root.byOutput[output];
-        return o ? o.strip : null;
+        return root.strips[output] ?? null;
     }
 
     function title(output: string): string {
-        const o = root.byOutput[output];
-        return o ? o.title : "";
+        return root.titles[output] ?? "";
     }
 
     Process {
@@ -48,8 +53,22 @@ Singleton {
         stdout: SplitParser {
             onRead: line => {
                 const snapshot = JSON.parse(line);
-                root.workspaces = snapshot.workspaces;
-                root.byOutput = snapshot.by_output;
+                const strips = {}, titles = {};
+                for (const output in snapshot.by_output) {
+                    strips[output] = snapshot.by_output[output].strip;
+                    titles[output] = snapshot.by_output[output].title;
+                }
+                const workspacesKey = JSON.stringify(snapshot.workspaces);
+                if (workspacesKey !== root._workspacesKey) {
+                    root._workspacesKey = workspacesKey;
+                    root.workspaces = snapshot.workspaces;
+                }
+                const stripsKey = JSON.stringify(strips);
+                if (stripsKey !== root._stripsKey) {
+                    root._stripsKey = stripsKey;
+                    root.strips = strips;
+                }
+                root.titles = titles;
                 root.focusedOutput = snapshot.focused_output;
             }
         }
