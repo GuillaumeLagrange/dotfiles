@@ -178,7 +178,8 @@
       services.swayidle = {
         enable = true;
         events = {
-          before-sleep = "${config.lock}";
+          # Must not block until unlock: swayidle -w stalls its event loop and replays queued sleep signals after unlock.
+          before-sleep = "${pkgs.procps}/bin/pgrep hyprlock || { ${config.lock} & ${pkgs.coreutils}/bin/sleep 1; }";
         };
         timeouts =
           let
