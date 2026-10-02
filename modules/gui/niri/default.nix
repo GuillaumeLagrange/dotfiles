@@ -306,5 +306,7 @@
 
   flake.modules.nixos.niri = {
     programs.niri.enable = true;
+    # Swapped-out compositor pages stall the main loop when touched again.
+    systemd.user.services.niri.serviceConfig.MemorySwapMax = 0;
   };
 }
