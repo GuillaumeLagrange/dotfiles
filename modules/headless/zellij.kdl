@@ -27,6 +27,16 @@ keybinds clear-defaults=true {
             }
             SwitchToMode "locked"
         }
+        bind "a" {
+            Run "omp-panel" {
+                floating true
+                width "80%"
+                height "70%"
+                close_on_exit true
+                name "omp"
+            }
+            SwitchToMode "locked"
+        }
         bind "w" {
             LaunchOrFocusPlugin "session-manager" {
                 floating true

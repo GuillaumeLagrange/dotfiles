@@ -121,6 +121,8 @@ Desktop environment configuration:
 Server/headless system configuration:
 
 - Tmux terminal multiplexer setup
+- Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
+  zellij session, fed by `ai/omp/extensions/omp-panel.ts`
 - Git push stack utilities
 - GPG public key
 

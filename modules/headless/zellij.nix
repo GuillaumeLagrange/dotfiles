@@ -20,6 +20,36 @@
         echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10
       '';
 
+      # Attach to a session by name, creating it if needed. Shared by zsm and
+      # omp-panel, which opens a window on a session through it.
+      #
+      # Panes inherit the zellij server's environment, and the server inherits
+      # this process's — on creation and on resurrection alike, since both start a
+      # server. So a session that wt knows is attached with its root in the
+      # environment, which is the only way to set it for a whole session that adds
+      # nothing to the zellij config: a layout or a --config file would replace
+      # what it is passed rather than extend it. wt is looked up on PATH rather
+      # than pinned, so this stays usable on a host without it.
+      zellijAttach = pkgs.writeShellScriptBin "zellij-attach" ''
+        session="$1"
+        root=""
+        if command -v wt > /dev/null; then
+          root=$(wt path --exact "$session" 2>/dev/null) || root=""
+        fi
+
+        if [[ -n "$root" ]]; then
+          WORKSPACE_ROOT="$root" exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
+        else
+          exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
+        fi
+      '';
+
+      ompPanel = pkgs.callPackage ./omp-panel/_package.nix {
+        zellij = config.programs.zellij.package;
+        inherit (config) termExec;
+        attach = "${zellijAttach}/bin/zellij-attach";
+      };
+
       zsmScript = pkgs.writeShellScriptBin "zsm" ''
         if [[ "$1" == "-h" || "$1" == "--help" ]]; then
           cat <<EOF
@@ -75,23 +105,7 @@
           exit 0
         fi
 
-        # Panes inherit the zellij server's environment, and the server inherits
-        # this process's — on creation and on resurrection alike, since both start a
-        # server. So a session that wt knows is attached with its root in the
-        # environment, which is the only way to set it for a whole session that adds
-        # nothing to the zellij config: a layout or a --config file would replace
-        # what it is passed rather than extend it. wt is looked up on PATH rather
-        # than pinned, so this stays usable on a host without it.
-        root=""
-        if command -v wt > /dev/null; then
-          root=$(wt path --exact "$session" 2>/dev/null) || root=""
-        fi
-
-        if [[ -n "$root" ]]; then
-          WORKSPACE_ROOT="$root" exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
-        else
-          exec ${config.programs.zellij.package}/bin/zellij attach --create "$session"
-        fi
+        exec ${zellijAttach}/bin/zellij-attach "$session"
       '';
 
       zskScript = pkgs.writeShellScriptBin "zsk" ''
@@ -172,6 +186,8 @@
         muxName
         zellijRenameCurrent
         zellijFzfUrl
+        zellijAttach
+        ompPanel
       ];
     };
 }
