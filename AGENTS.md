@@ -156,7 +156,10 @@ Standalone Neovim configuration with:
   providers under `extra`) written to `~/.local/state/nvim/fixit/`. Without text, a float takes it. The omp
   side is editor-agnostic: `omp-fixit [-s SESSION] [-c FILE] NAME DIR PROMPT` (`modules/headless/omp-fixit.sh`)
   starts `omp --auto-approve` in its own tab of the background zellij session `fixit` (attach to watch, or
-  pick it in omp-panel); `ai/omp/extensions/fixit.ts` titles the omp session after NAME.
+  pick it in omp-panel); `ai/omp/extensions/fixit.ts` titles the omp session after NAME, and makes fixit
+  omps in the same git repo take turns: tools only run while the omp holds the repo's flock
+  (`~/.local/state/omp-fixit/locks/`), taken on its turn's first tool call and released when the turn ends; a
+  blocked omp calls `fixit_lock` to wait.
 
 ## Home Manager Configurations
 
