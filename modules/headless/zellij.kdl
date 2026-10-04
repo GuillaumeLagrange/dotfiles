@@ -602,7 +602,9 @@ mouse_hover_effects false
 // can be useful for removing wrappers around commands
 // Note: be sure to escape backslashes and similar characters properly
 // post_command_discovery_hook "echo $RESURRECT_COMMAND | sed <your_regex_here>"
-post_command_discovery_hook "$HOME/.config/zellij/resurrect-wrap.sh"
+// Discovered commands become the default shell, which zellij serializes as a plain shell pane:
+// resurrection restores cwds without offering to rerun anything.
+post_command_discovery_hook "echo \"$SHELL\""
 
 // Number of async worker tasks to spawn per active client.
 //

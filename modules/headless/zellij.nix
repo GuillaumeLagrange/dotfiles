@@ -168,14 +168,6 @@
       };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
-      xdg.configFile."zellij/resurrect-wrap.sh" = {
-        source = ./zellij-resurrect-wrap.sh;
-        executable = true;
-      };
-      xdg.configFile."zellij/resurrect-launch.sh" = {
-        source = ./zellij-resurrect-launch.sh;
-        executable = true;
-      };
 
       home.shellAliases = {
         z = "zellij";
