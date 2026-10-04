@@ -322,6 +322,9 @@ local function ask(snapshot)
     footer = ' <C-s> send · q cancel ',
     footer_pos = 'right',
   })
+  -- a new window inherits the current one's options, and diffy's windows don't wrap
+  vim.wo[win].wrap = true
+  vim.wo[win].linebreak = true
   local function close()
     vim.cmd.stopinsert()
     if vim.api.nvim_win_is_valid(win) then
