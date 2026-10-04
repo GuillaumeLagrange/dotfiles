@@ -82,6 +82,36 @@
         };
       };
 
+      # Obsidian opens another window on every launch; focus the running one instead.
+      # URIs (%u) still go to obsidian so obsidian:// links keep working.
+      xdg.desktopEntries.obsidian = {
+        name = "Obsidian";
+        comment = "Knowledge base";
+        icon = "obsidian";
+        categories = [ "Office" ];
+        mimeType = [ "x-scheme-handler/obsidian" ];
+        settings.StartupWMClass = "md.Obsidian";
+        exec = "${
+          pkgs.writeShellApplication {
+            name = "obsidian-focus";
+            runtimeInputs = [
+              pkgs.jq
+              pkgs.obsidian
+            ];
+            text = ''
+              if [[ $# -eq 0 ]] && command -v niri > /dev/null; then
+                window=$(niri msg -j windows 2>/dev/null | jq -r \
+                  'first(.[] | select(.app_id // "" | ascii_downcase == "md.obsidian.obsidian") | .id) // empty')
+                if [[ -n "$window" ]]; then
+                  exec niri msg action focus-window --id "$window"
+                fi
+              fi
+              exec obsidian "$@"
+            '';
+          }
+        }/bin/obsidian-focus %u";
+      };
+
       xdg.terminal-exec = {
         enable = true;
         settings.default = [ config.termDesktopEntry ];
