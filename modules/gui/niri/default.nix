@@ -155,6 +155,7 @@
               XF86AudioStop allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "stop"; }
               XF86AudioPrev allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "previous"; }
               XF86AudioNext allow-when-locked=true { spawn "${pkgs.playerctl}/bin/playerctl" "next"; }
+              XF86AudioMedia { spawn "vicinae" "deeplink" "vicinae://launch/applications/spotify"; }
 
               XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightness.up}"; }
               Shift+XF86MonBrightnessUp allow-when-locked=true { spawn "sh" "-c" "${config.brightness.max}"; }
