@@ -170,7 +170,16 @@ function M:start()
   end
   self.spawning = true
   self.queue = {}
+  -- An interactive zsh that runs its chpwd hooks as if it had just cd-ed here:
+  -- direnv loads the flake devshell and fnm switches node.
   local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', self.cwd, '--' }
+  vim.list_extend(cmd, {
+    'zsh',
+    '-i',
+    '-c',
+    'for f in $chpwd_functions; do "$f"; done; exec "$@"',
+    'zsh',
+  })
   vim.list_extend(cmd, self.tool.cmd)
   vim.system(cmd, { text = true }, function(out)
     vim.schedule(function()
