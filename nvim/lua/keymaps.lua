@@ -43,6 +43,10 @@ vim.keymap.set('n', '<leader>uv', require('diagnostics').toggle_diagnostic_virtu
 vim.keymap.set('n', '<leader>um', function()
   utils.toggle_option('modifiable')
 end, { desc = 'Toggle modifiable' })
+vim.keymap.set('n', '<leader>uw', function()
+  vim.wo.wrap = not vim.wo.wrap
+  vim.notify('wrap ' .. (vim.wo.wrap and 'enabled' or 'disabled'))
+end, { desc = 'Toggle wrap' })
 
 vim.keymap.set('n', '[q', vim.cmd.cprev, { desc = 'Previous quickfix' })
 vim.keymap.set('n', ']q', vim.cmd.cnext, { desc = 'Next quickfix' })
