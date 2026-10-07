@@ -30,4 +30,5 @@ vim.keymap.set('n', '<leader>dvc', '<cmd>Diffy close<CR>', { desc = 'Close diffy
 vim.keymap.set('n', '<leader>dvm', '<cmd>Diffy branch<CR>', { desc = 'Open diffy on the branch' })
 vim.keymap.set('n', '<leader>dvf', '<cmd>Diffy file<CR>', { desc = 'Open diffy file history for current file' })
 vim.keymap.set('n', '<leader>dvp', '<cmd>Diffy pr<CR>', { desc = 'Open diffy PR review' })
-vim.keymap.set('n', '<leader>dvrs', '<cmd>Diffy pr<CR>', { desc = 'Submit diffy review' })
+vim.keymap.set('n', '<leader>dvra', '<cmd>Diffy review agent<CR>', { desc = 'Send diffy review to the agent' })
+vim.keymap.set('n', '<leader>dvrg', '<cmd>Diffy review github<CR>', { desc = 'Submit diffy review to GitHub' })
