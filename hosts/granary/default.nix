@@ -92,9 +92,11 @@
       zramSwap = {
         enable = true;
         algorithm = "zstd";
-        memoryPercent = 150;
+        memoryPercent = 50;
         priority = 100;
       };
+      # Swap readahead only pays off on disk; on zram it decompresses 8 pages per fault for 1.
+      boot.kernel.sysctl."vm.page-cluster" = 0;
 
       networking.hostName = "granary";
       networking.networkmanager.enable = true;
