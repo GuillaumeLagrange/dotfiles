@@ -124,6 +124,10 @@ Server/headless system configuration:
 - Tmux terminal multiplexer setup
 - Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
   zellij session, fed by `ai/omp/extensions/omp-panel.ts`
+- `reviews/`: ratatui picker over the open PRs awaiting my review (one `gh api graphql` search; list and
+  avatars cached in `~/.cache/reviews/`). Not on PATH: the zsh `review` function is the entrypoint; it runs
+  the picker by store path, then cds into the repo under `workspace_root` like `cdr` (`wt add` first when it
+  is a session's symlink) and runs `gh pr checkout`
 - Git push stack utilities
 - GPG public key
 

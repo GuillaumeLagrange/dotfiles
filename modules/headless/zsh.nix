@@ -6,6 +6,10 @@
       lib,
       ...
     }:
+    let
+      # Off PATH: `review` below is its only entrypoint.
+      reviewsPicker = pkgs.callPackage ./reviews/_package.nix { };
+    in
     {
       programs.zsh = {
         enable = true;
@@ -160,6 +164,31 @@
               fi
             }
             compdef '_files -W "$(workspace_root)" -/' cdr
+
+            # Pick an open PR awaiting my review in the reviews TUI, cd into its
+            # repo under the workspace root (as cdr would), fetch every remote so
+            # origin/<base> matches what the PR is diffed against, check its
+            # branch out reset to the PR's head (a local branch left from an
+            # earlier review diverges after a force-push) and open it in diffy.
+            # In a wt session a non-member repo is a symlink to the main
+            # checkout, so it is turned into a worktree first rather than moving
+            # that checkout.
+            review() {
+              local root out repo url
+              root=$(workspace_root)
+              out=$(mktemp) || return
+              ${reviewsPicker}/bin/reviews --out "$out" "$@" && IFS=$'\t' read -r repo url < "$out"
+              rm -f -- "$out"
+              [[ -n "$url" ]] || return
+              if [[ ! -e "$root/$repo" ]]; then
+                echo "review: $repo is not checked out in $root" >&2
+                return 1
+              fi
+              if [[ -L "$root/$repo" && -f "$root/.wt/session.json" ]]; then
+                (builtin cd -- "$root" && wt add "$repo") || return
+              fi
+              cdr "$repo" && git fetch --all && gh pr checkout --force "$url" && nvim -c 'Diffy branch'
+            }
 
             # Fuzzy-pick a worktree of the current repo and cd into it. The
             # displayed line carries the path in a trailing tab-delimited field so
