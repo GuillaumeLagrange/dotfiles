@@ -25,10 +25,8 @@ vim.api.nvim_create_autocmd('User', {
   end,
 })
 
-vim.keymap.set('n', '<leader>dvo', '<cmd>Diffy<CR>', { desc = 'Open diffy' })
-vim.keymap.set('n', '<leader>dvc', '<cmd>Diffy close<CR>', { desc = 'Close diffy' })
-vim.keymap.set('n', '<leader>dvm', '<cmd>Diffy branch<CR>', { desc = 'Open diffy on the branch' })
-vim.keymap.set('n', '<leader>dvf', '<cmd>Diffy file<CR>', { desc = 'Open diffy file history for current file' })
-vim.keymap.set('n', '<leader>dvp', '<cmd>Diffy pr<CR>', { desc = 'Open diffy PR review' })
-vim.keymap.set('n', '<leader>dvra', '<cmd>Diffy review agent<CR>', { desc = 'Send diffy review to the agent' })
-vim.keymap.set('n', '<leader>dvrg', '<cmd>Diffy review github<CR>', { desc = 'Submit diffy review to GitHub' })
+vim.keymap.set('n', '<leader>do', '<cmd>Diffy<CR>', { desc = 'Open diffy' })
+vim.keymap.set('n', '<leader>db', '<cmd>Diffy branch<CR>', { desc = 'Open diffy on the branch' })
+vim.keymap.set('n', '<leader>df', '<cmd>Diffy file<CR>', { desc = 'Open diffy file history for current file' })
+vim.keymap.set('n', '<leader>dra', '<cmd>Diffy review agent<CR>', { desc = 'Send diffy review to the agent' })
+vim.keymap.set('n', '<leader>drg', '<cmd>Diffy review github<CR>', { desc = 'Submit diffy review to GitHub' })
