@@ -9,6 +9,7 @@ require('blink.cmp').setup({
     preset = 'default',
     ['<C-l>'] = { 'snippet_forward', 'fallback' },
     ['<C-h>'] = { 'snippet_backward', 'fallback' },
+    ['<C-n>'] = { 'select_next', 'show', 'fallback_to_mappings' },
   },
 
   snippets = { preset = 'luasnip' },
@@ -17,6 +18,12 @@ require('blink.cmp').setup({
     list = { selection = { preselect = false, auto_insert = false } },
     documentation = { auto_show = true, auto_show_delay_ms = 200 },
     menu = {
+      auto_show = function(_, items)
+        for _, item in ipairs(items) do
+          if item.source_id ~= 'buffer' then return true end
+        end
+        return false
+      end,
       draw = {
         columns = {
           { 'label', 'label_description', gap = 1 },
