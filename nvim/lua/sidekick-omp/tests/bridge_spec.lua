@@ -80,6 +80,11 @@ describe('session discovery', function()
     session:init()
     assert.is_true(session.external)
   end)
+
+  it('reports no zellij session for an omp started outside zellij', function()
+    descriptor({ pid = vim.uv.os_getpid(), zellij = vim.NIL })
+    assert.is_nil(session_for(vim.uv.os_getpid()).mux_session)
+  end)
 end)
 
 describe('composer ops', function()

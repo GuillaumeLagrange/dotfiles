@@ -34,7 +34,8 @@ local function descriptors()
     if kind == 'file' and name:match('%.json$') then
       local path = RUN_DIR .. '/' .. name
       local ok, info = pcall(function()
-        return vim.json.decode(table.concat(vim.fn.readfile(path), '\n'))
+        -- `zellij` is null outside zellij; vim.NIL would crash sidekick's picker
+        return vim.json.decode(table.concat(vim.fn.readfile(path), '\n'), { luanil = { object = true } })
       end)
       if ok and info.pid and vim.api.nvim_get_proc(info.pid) then
         ret[#ret + 1] = info
