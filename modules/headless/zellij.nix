@@ -132,6 +132,16 @@
         text = builtins.readFile ./zellij-rename-current.sh;
       };
 
+      # Bound to a zellij keybind: runs with the zellij server's PATH.
+      zellijCloseOtherTabs = pkgs.writeShellApplication {
+        name = "zellij-close-other-tabs";
+        runtimeInputs = [
+          config.programs.zellij.package
+          pkgs.jq
+        ];
+        text = builtins.readFile ./zellij-close-other-tabs.sh;
+      };
+
       zellijFzfUrl = pkgs.writeShellApplication {
         name = "zellij-fzf-url";
         runtimeInputs = [
@@ -189,6 +199,7 @@
         zskScript
         muxName
         zellijRenameCurrent
+        zellijCloseOtherTabs
         zellijFzfUrl
         zellijAttach
         ompPanel
