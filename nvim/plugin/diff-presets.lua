@@ -1,5 +1,6 @@
--- Experiment: switch diff display presets on the fly. `:DiffPreset` / `<leader>dx` cycles,
--- `:DiffPreset <name>` picks one. The choice applies to every diff tab; nvim starts on github-simple.
+-- Experiment: switch diff display presets on the fly. `:DiffPreset` cycles through all of them,
+-- `:DiffPreset <name>` picks one, `<leader>dx` toggles github-simple and github-none. The choice
+-- applies to every diff tab; nvim starts on github-simple.
 local base = 'internal,filler,closeoff'
 local presets = {
   { name = 'current', diffopt = base .. ',linematch:60,iwhite', diffchar = true },
@@ -124,7 +125,9 @@ end, {
     end, presets)
   end,
 })
-vim.keymap.set('n', '<leader>dx', cycle, { desc = 'Cycle diff preset' })
+vim.keymap.set('n', '<leader>dx', function()
+  choose(by_name[current.name == 'github-simple' and 'github-none' or 'github-simple'])
+end, { desc = 'Toggle diff preset github-simple/github-none' })
 
 local group = vim.api.nvim_create_augroup('diff_presets', { clear = true })
 set_hl()
