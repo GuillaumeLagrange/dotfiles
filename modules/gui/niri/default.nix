@@ -136,7 +136,7 @@
               Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
-              Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "tsm"; }
+              Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "review"; }
 
               Mod+W { spawn "${config.firefox.main}"; }
               Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }

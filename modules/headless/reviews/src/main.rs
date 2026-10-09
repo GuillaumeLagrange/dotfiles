@@ -3,8 +3,7 @@
 //!   reviews [--out FILE] [QUERY...]
 //!
 //! The pick is written as `<repo>\t<url>` to FILE (stdout without one), for the
-//! zsh `review` function to cd into the repo and check the branch out: a child
-//! process cannot move its shell.
+//! `review` script (`review.sh`) to open the PR in a tab of the reviews session.
 
 mod github;
 mod kitty;

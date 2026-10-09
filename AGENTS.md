@@ -125,9 +125,12 @@ Server/headless system configuration:
 - Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
   zellij session, fed by `ai/omp/extensions/omp-panel.ts`
 - `reviews/`: ratatui picker over the open PRs awaiting my review (one `gh api graphql` search; list and
-  avatars cached in `~/.cache/reviews/`). Not on PATH: the zsh `review` function is the entrypoint; it runs
-  the picker by store path, then cds into the repo under `workspace_root` like `cdr` (`wt add` first when it
-  is a session's symlink) and runs `gh pr checkout`
+  avatars cached in `~/.cache/reviews/`), off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
+  the entrypoint. It opens the pick in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
+  session I create (`wt add` the repo there when it is still a symlink), checks the PR out and opens diffy,
+  then attaches to the session, focuses the window showing it, or switches to it from inside zellij. The
+  zellij session is ephemeral: `review` starts it with `--session-serialization false` and deletes a
+  resurrectable leftover instead of resurrecting it
 - Git push stack utilities
 - GPG public key
 

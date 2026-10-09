@@ -169,6 +169,21 @@
         text = builtins.readFile ./omp-fixit.sh;
       };
 
+      review = pkgs.writeShellApplication {
+        name = "review";
+        runtimeInputs = [
+          config.programs.zellij.package
+          zellijAttach
+          (pkgs.callPackage ./reviews/_package.nix { })
+          pkgs.jq
+          pkgs.gawk
+          pkgs.gnugrep
+          pkgs.coreutils
+          pkgs.util-linux
+        ];
+        text = builtins.readFile ./reviews/review.sh;
+      };
+
     in
     {
       programs.zellij = {
@@ -204,6 +219,7 @@
         zellijAttach
         ompPanel
         ompFixit
+        review
       ];
     };
 }
