@@ -390,8 +390,8 @@ default_layout "guiom"
 //   - true (default, enabled)
 //   - false
 // 
-pane_frames true
-pane_frame_style "none"
+pane_frames false
+pane_frame_style "full"
  
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
