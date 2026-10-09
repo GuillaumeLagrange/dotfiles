@@ -7,6 +7,12 @@ local function diffy_title(name)
   return vim.b.diffy_title or name
 end
 
+-- 'cmdheight' is 0 and 'showmode' off, so nvim's own "recording @x" never shows
+local function recording()
+  local reg = vim.fn.reg_recording()
+  return reg ~= '' and ('recording @' .. reg) or ''
+end
+
 require('lualine').setup({
   options = {
     icons_enabled = true,
@@ -28,7 +34,7 @@ require('lualine').setup({
     },
   },
   sections = {
-    lualine_a = { 'mode' },
+    lualine_a = { 'mode', recording },
     lualine_b = {
       {
         'branch',
