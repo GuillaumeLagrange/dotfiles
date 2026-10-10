@@ -10,7 +10,7 @@ through a socket exposed by omp itself.
 
 - `ai/omp/extensions/nvim-bridge.ts` — omp extension. Every interactive session
   listens on `~/.omp/run/nvim-bridge/<pid>.sock` and writes `<pid>.json`
-  (`pid`, `cwd`, `socket`, `zellij` session name). NDJSON ops: `{"op":"send","text":…}` → `ui.pasteToEditor`
+  (`pid`, `cwd`, `socket`, `zellij` session name, `pane` id). NDJSON ops: `{"op":"send","text":…}` → `ui.pasteToEditor`
   (prefixing a newline when the composer sits mid-line) then focus this omp's zellij
   pane (`zellij action focus-pane-id`, from the `ZELLIJ_*` env of the shell that
   launched it; no-op outside zellij); `{"op":"submit"}` → submit composer via
@@ -26,9 +26,15 @@ through a socket exposed by omp itself.
   just test` (plenary busted, same harness as `agent-diff`).
 - New sessions: `setup()` sets `cli.mux = { enabled = true, backend = 'omp' }`, so
   sidekick creates them through this backend. `M:start()` runs `zellij action new-pane
-  --close-on-exit --cwd <cwd> -- omp`, keeps a placeholder attached (ops issued meanwhile
-  are queued), then polls for a new descriptor in that cwd, attaches it and replays the
-  queue.
+  --close-on-exit --cwd <cwd> --name omp -- zsh -i -c … omp`, keeps a placeholder attached
+  (ops issued meanwhile are queued), then polls for a new descriptor in that cwd, attaches
+  it and replays the queue. `--name`: a command pane is titled after its command and
+  ignores the titles omp sets.
+- `<leader>aa` / `<c-.>` → `M.toggle()`: attaches (or starts) an omp, then shows its pane
+  or hides it. From `list-panes`: shown = same tab as nvim's pane and nvim not fullscreen.
+  Hide = `toggle-fullscreen` on nvim's (focused) pane; show = leave fullscreen, then
+  `focus-pane-id` the omp (switches tab if it lives in another). An omp in another zellij
+  session only gets a warning.
 - `nvim/plugin/ai.lua` — `require('sidekick-omp').setup()`, and `Config.cli.tools` is
   replaced by a single `omp` entry so the CLI picker only appears when an omp is
   already running elsewhere (one candidate auto-attaches).

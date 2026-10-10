@@ -54,7 +54,7 @@ describe('session discovery', function()
   end)
 
   it('reports a live omp as an attachable session', function()
-    descriptor({ pid = vim.uv.os_getpid(), cwd = '/tmp/project', zellij = 'dotfiles' })
+    descriptor({ pid = vim.uv.os_getpid(), cwd = '/tmp/project', zellij = 'dotfiles', pane = '7' })
     local session = session_for(vim.uv.os_getpid())
     assert.same({
       id = 'omp: ' .. vim.uv.os_getpid(),
@@ -63,6 +63,7 @@ describe('session discovery', function()
       pids = { vim.uv.os_getpid() },
       omp_pid = vim.uv.os_getpid(),
       omp_socket = RUN_DIR .. '/' .. vim.uv.os_getpid() .. '.sock',
+      omp_pane = '7',
       mux_session = 'dotfiles',
     }, session)
   end)

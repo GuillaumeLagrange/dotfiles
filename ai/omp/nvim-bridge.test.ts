@@ -78,12 +78,13 @@ describe("nvim-bridge", () => {
 		fs.rmSync(RUN_DIR, { recursive: true, force: true });
 	});
 
-	it("advertises the session with its cwd and zellij session", () => {
+	it("advertises the session with its cwd and zellij pane", () => {
 		assert.deepEqual(JSON.parse(fs.readFileSync(metaPath, "utf8")), {
 			pid: process.pid,
 			cwd: "/tmp/project",
 			socket: sockPath,
 			zellij: null,
+			pane: null,
 		});
 	});
 

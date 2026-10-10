@@ -114,6 +114,8 @@ export default function nvimBridge(pi: Pi) {
 					socket: sockPath,
 					// Shown in nvim's session picker.
 					zellij: process.env.ZELLIJ_SESSION_NAME ?? null,
+					// Lets nvim show or hide this omp's pane next to its own.
+					pane: process.env.ZELLIJ_PANE_ID ?? null,
 				}),
 			),
 		);

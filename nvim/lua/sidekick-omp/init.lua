@@ -4,7 +4,8 @@
 -- interactive omp session listen on a unix socket and drop a `<pid>.json`
 -- descriptor in ~/.omp/run/nvim-bridge. This backend lists those sessions so
 -- `<leader>aa` can attach to an omp already running in another pane, and
--- `<leader>at` pushes text into its composer.
+-- `<leader>at` pushes text into its composer. `M.toggle` shows or hides the
+-- attached omp's pane: hiding makes nvim's pane fullscreen.
 --
 -- It is also sidekick's backend for new sessions: starting one opens a zellij
 -- pane running omp and attaches to it once its descriptor shows up.
@@ -17,10 +18,12 @@ local RUN_DIR = vim.env.OMP_NVIM_BRIDGE_DIR or vim.fs.normalize('~/.omp/run/nvim
 ---@field cwd string
 ---@field socket string
 ---@field zellij? string zellij session the omp runs in
+---@field pane? string zellij pane id the omp runs in
 
 ---@class sidekick.cli.omp: sidekick.cli.Session
 ---@field omp_pid? integer
 ---@field omp_socket? string
+---@field omp_pane? string
 ---@field spawning? boolean pane requested, omp not registered yet
 ---@field queue? table[] ops issued while spawning
 local M = {}
@@ -118,12 +121,76 @@ local function state_of(info)
     pids = { info.pid },
     omp_pid = info.pid,
     omp_socket = info.socket,
+    omp_pane = info.pane,
     mux_session = info.zellij,
   }
 end
 
 function M.sessions()
   return vim.tbl_map(state_of, descriptors())
+end
+
+---@param args string[]
+---@return string? stdout
+local function zellij(args)
+  local out = vim.system(vim.list_extend({ 'zellij', 'action' }, args), { text = true }):wait()
+  if out.code ~= 0 then
+    vim.notify(('zellij %s: %s'):format(args[1], vim.trim(out.stderr or '')), vim.log.levels.WARN)
+    return nil
+  end
+  return out.stdout
+end
+
+--- Show this omp's pane next to nvim's, or hide it behind a fullscreen nvim.
+---@param show? boolean nil toggles
+function M:toggle_pane(show)
+  if self.spawning then
+    return
+  end
+  local here = vim.env.ZELLIJ_PANE_ID
+  if not (here and self.omp_pane and self.mux_session == vim.env.ZELLIJ_SESSION_NAME) then
+    vim.notify(('omp %d has no pane in this zellij session'):format(self.omp_pid), vim.log.levels.WARN)
+    return
+  end
+  local out = zellij({ 'list-panes', '--json', '--state', '--tab' })
+  if not out then
+    return
+  end
+  local panes = {} ---@type table<string, {tab_id: integer, is_fullscreen: boolean}>
+  for _, pane in ipairs(vim.json.decode(out)) do
+    if not pane.is_plugin then
+      panes[tostring(pane.id)] = pane
+    end
+  end
+  local nvim, omp = panes[here], panes[self.omp_pane]
+  if not (nvim and omp) then
+    vim.notify(('omp %d: pane %s is gone'):format(self.omp_pid, self.omp_pane), vim.log.levels.WARN)
+    return
+  end
+  local shown = omp.tab_id == nvim.tab_id and not nvim.is_fullscreen
+  if show == nil then
+    show = not shown
+  end
+  if show then
+    -- Focusing another pane would carry the fullscreen over to it.
+    if nvim.is_fullscreen then
+      zellij({ 'toggle-fullscreen' })
+    end
+    zellij({ 'focus-pane-id', 'terminal_' .. self.omp_pane })
+  elseif shown then
+    -- The keymap ran in nvim, so its pane has the focus `toggle-fullscreen` acts on.
+    zellij({ 'toggle-fullscreen' })
+  end
+end
+
+--- Attach to an omp (or start one), then show its pane, or toggle it once attached.
+function M.toggle()
+  require('sidekick.cli.state').with(function(state, attached)
+    local session = state.session
+    if session and session.backend == 'omp' then
+      session:toggle_pane(attached or nil)
+    end
+  end, { attach = true })
 end
 
 --- The new omp needs a few seconds of startup before it registers. Poll for it,
@@ -170,9 +237,12 @@ function M:start()
   end
   self.spawning = true
   self.queue = {}
+  -- Named after the omp command: zellij titles a command pane after its
+  -- command, here the zsh wrapper below, and ignores the titles omp sets.
+  local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', self.cwd }
+  vim.list_extend(cmd, { '--name', table.concat(self.tool.cmd, ' '), '--' })
   -- An interactive zsh that runs its chpwd hooks as if it had just cd-ed here:
   -- direnv loads the flake devshell and fnm switches node.
-  local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', self.cwd, '--' }
   vim.list_extend(cmd, {
     'zsh',
     '-i',

@@ -50,13 +50,9 @@ vim.keymap.set({ 'n', 'i' }, '<tab>', function()
   end
 end, { expr = true, desc = 'Goto/Apply Next Edit Suggestion' })
 
-vim.keymap.set({ 'n', 't', 'i', 'x' }, '<c-.>', function()
-  require('sidekick.cli').toggle({ focus = true })
-end, { desc = 'Sidekick Toggle' })
-
-vim.keymap.set('n', '<leader>aa', function()
-  require('sidekick.cli').toggle({ focus = true })
-end, { desc = 'Sidekick Toggle CLI' })
+-- Show the attached omp's pane next to nvim, or hide it by making nvim fullscreen.
+vim.keymap.set({ 'n', 't', 'i', 'x' }, '<c-.>', require('sidekick-omp').toggle, { desc = 'Toggle omp pane' })
+vim.keymap.set('n', '<leader>aa', require('sidekick-omp').toggle, { desc = 'Toggle omp pane' })
 
 vim.keymap.set('n', '<leader>as', function()
   require('sidekick.cli').select()
