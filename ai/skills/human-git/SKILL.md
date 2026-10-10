@@ -1,5 +1,5 @@
 ---
-name: commit-human
+name: human-git
 description: >-
   Write commit messages the way a human writes them in this repo: conventional
   subject, at most two lines of body, no AI attribution. Use for every commit
