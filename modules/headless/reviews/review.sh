@@ -1,6 +1,6 @@
 usage() {
   cat <<EOF
-review - pick a pull request awaiting my review and open it in its own tab of the reviews session
+review - pick a pull request awaiting my review, or one I reviewed lately, and open it in its own tab of the reviews session
 
 Usage:
   review [QUERY...]

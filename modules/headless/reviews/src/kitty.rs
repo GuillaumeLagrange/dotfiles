@@ -6,6 +6,7 @@ use std::io::{self, Write};
 
 use base64::Engine;
 use image::RgbaImage;
+use ratatui::layout::Rect;
 
 /// Responses would arrive as key events.
 const QUIET: &str = "q=2";
@@ -27,22 +28,20 @@ pub fn upload(out: &mut impl Write, id: u32, image: &RgbaImage) -> io::Result<()
     Ok(())
 }
 
-/// Show image `id` over `cols`×`rows` cells from (`x`, `y`), leaving the
-/// cursor where it was.
-pub fn place(
-    out: &mut impl Write,
-    id: u32,
-    x: u16,
-    y: u16,
-    cols: u16,
-    rows: u16,
-) -> io::Result<()> {
+/// Show image `id`, or its `crop` (x, y, width, height in pixels), over
+/// `area`, leaving the cursor where it was.
+pub fn place(out: &mut impl Write, id: u32, area: Rect, crop: Option<[u32; 4]>) -> io::Result<()> {
+    let (x, y, cols, rows) = (area.x, area.y, area.width, area.height);
     write!(
         out,
-        "\x1b[{};{}H\x1b_Ga=p,i={id},c={cols},r={rows},C=1,{QUIET}\x1b\\",
+        "\x1b[{};{}H\x1b_Ga=p,i={id},c={cols},r={rows},C=1,{QUIET}",
         y + 1,
         x + 1
-    )
+    )?;
+    if let Some([x, y, w, h]) = crop {
+        write!(out, ",x={x},y={y},w={w},h={h}")?;
+    }
+    write!(out, "\x1b\\")
 }
 
 /// Remove every placement, keeping the uploaded images.

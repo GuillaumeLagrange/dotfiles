@@ -1,4 +1,4 @@
-//! reviews: pick a pull request awaiting my review.
+//! reviews: pick a pull request awaiting my review, or one I reviewed lately.
 //!
 //!   reviews [--out FILE] [QUERY...]
 //!
@@ -7,6 +7,7 @@
 
 mod github;
 mod kitty;
+mod markdown;
 mod tui;
 
 use anyhow::{bail, Context, Result};

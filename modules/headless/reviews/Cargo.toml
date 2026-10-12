@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 base64 = "0.22"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = "0.30"
 # chafa-dyn would link libchafa; halfblocks, sixel and kitty need nothing.
 ratatui-image = { version = "11", default-features = false, features = ["crossterm"] }

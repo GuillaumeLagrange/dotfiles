@@ -1,5 +1,6 @@
-//! The picker: pull requests awaiting my review, newest activity first, the
-//! selected one's description below, Enter to check it out.
+//! The picker: pull requests awaiting my review, or those I reviewed lately,
+//! newest activity first, the selected one's description below, Enter to check
+//! it out.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -18,26 +19,31 @@ use ratatui::crossterm::execute;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Padding, Paragraph, Wrap};
+use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use ratatui_image::picker::{Picker, ProtocolType};
 use ratatui_image::protocol::Protocol;
 use ratatui_image::{FilterType, Image, Resize};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-use crate::github::{self, Cache, Checks, Decision, Pr, Snapshot, State};
+use crate::github::{self, Cache, Checks, Decision, Lists, Pr, Query, Snapshot, State};
 use crate::kitty;
+use crate::markdown::{self, ImageState};
 
-const ACCENT: Color = Color::Blue;
-const DIM: Style = Style::new().fg(Color::DarkGray);
+pub const ACCENT: Color = Color::Blue;
+pub const DIM: Style = Style::new().fg(Color::DarkGray);
 /// Cells an avatar takes, inline before the author's login.
 const AVATAR: Size = Size::new(2, 1);
 /// Widest the picker gets: past it, centered.
 const MAX_WIDTH: u16 = 100;
+/// Largest side an image from a description is kept at.
+const IMAGE_PIXELS: u32 = 1600;
 
 enum Msg {
-    Prs(Result<Vec<Pr>, String>),
+    Prs(Tab, Result<Vec<Pr>, String>),
     Avatar(String, DynamicImage),
+    /// `None` when it could not be fetched or decoded.
+    Image(String, Option<DynamicImage>),
 }
 
 enum Avatar {
@@ -45,6 +51,62 @@ enum Avatar {
     Kitty(u32),
     /// Drawn into the cells by ratatui-image: sixel, halfblocks.
     Cells(Protocol),
+}
+
+enum Img {
+    Loading,
+    Failed,
+    Ready(DynamicImage),
+}
+
+/// A description's image as uploaded to kitty, at its size in cells.
+struct KittyImage {
+    id: u32,
+    cols: u16,
+    rows: u16,
+}
+
+/// A description's image drawn into cells: its size, and the rows of it shown.
+struct CellImage {
+    key: [u16; 4],
+    protocol: Protocol,
+}
+
+/// Image id, cells, and the part of the image shown there, in pixels.
+type Placement = (u32, Rect, Option<[u32; 4]>);
+
+struct ImageRequest {
+    repo_full: String,
+    number: u64,
+    srcs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Requested,
+    Reviewed,
+}
+
+const TABS: [Tab; 2] = [Tab::Requested, Tab::Reviewed];
+
+impl Tab {
+    fn index(self) -> usize {
+        self as usize
+    }
+
+    fn query(self) -> Query {
+        match self {
+            Tab::Requested => Query::Requested,
+            Tab::Reviewed => Query::Reviewed,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Tab::Requested => "needs your review",
+            Tab::Reviewed => "reviewed",
+        }
+    }
 }
 
 fn age(at: u64, now: u64) -> String {
@@ -129,7 +191,7 @@ enum Row {
 
 /// `shown` (indices into `prs`) with each GitHub stack gathered under a
 /// heading at the place of its first member, top of the stack first. A stack
-/// with nothing requested shown is dropped.
+/// with nothing listed shown is dropped.
 fn stacks(prs: &[Pr], shown: Vec<usize>) -> Vec<Row> {
     let key = |i: usize| {
         prs[i]
@@ -149,7 +211,7 @@ fn stacks(prs: &[Pr], shown: Vec<usize>) -> Vec<Row> {
     }
     let mut rows = Vec::new();
     for mut members in groups {
-        if !members.iter().any(|&i| prs[i].requested) {
+        if !members.iter().any(|&i| prs[i].listed) {
             continue;
         }
         if key(members[0]).is_none() {
@@ -171,32 +233,49 @@ fn stacks(prs: &[Pr], shown: Vec<usize>) -> Vec<Row> {
 }
 
 struct App {
-    prs: Vec<Pr>,
+    lists: Lists,
+    tab: Tab,
     fetched_at: Option<u64>,
-    refreshing: bool,
-    error: Option<String>,
+    /// Per tab, its search is in flight.
+    refreshing: [bool; 2],
+    errors: [Option<String>; 2],
     filter: String,
     filtering: bool,
-    /// Kept by URL so a refresh that reorders the list does not move it.
-    selected: Option<String>,
+    /// Per tab, kept by URL so a refresh that reorders the list does not move it.
+    selected: [Option<String>; 2],
     picker: Picker,
     avatars: HashMap<String, Avatar>,
+    images: HashMap<String, Img>,
+    image_tx: mpsc::Sender<ImageRequest>,
+    kitty_images: RefCell<HashMap<String, KittyImage>>,
+    cell_images: RefCell<HashMap<String, CellImage>>,
+    /// Kitty images the last frame needs uploaded.
+    uploads: RefCell<Vec<(u32, RgbaImage)>>,
+    next_id: Cell<u32>,
     /// Kitty placements the last frame asked for, and those on screen.
-    wanted: RefCell<Vec<(u32, Rect)>>,
-    placed: Vec<(u32, Rect)>,
-    /// First item drawn in the list, kept between frames so moving the
+    wanted: RefCell<Vec<Placement>>,
+    placed: Vec<Placement>,
+    /// First item drawn in each tab's list, kept between frames so moving the
     /// selection only scrolls when it leaves the window.
-    offset: Cell<usize>,
+    offset: [Cell<usize>; 2],
     scroll: Cell<u16>,
     page: Cell<u16>,
 }
 
 impl App {
-    fn visible(&self) -> Vec<Row> {
+    fn list(&self, tab: Tab) -> &[Pr] {
+        self.lists.get(tab.query())
+    }
+
+    fn prs(&self) -> &[Pr] {
+        self.list(self.tab)
+    }
+
+    fn rows(&self, tab: Tab) -> Vec<Row> {
         let filter = self.filter.to_lowercase();
         let terms: Vec<&str> = filter.split_whitespace().collect();
-        let shown = self
-            .prs
+        let prs = self.list(tab);
+        let shown = prs
             .iter()
             .enumerate()
             .filter(|(_, pr)| {
@@ -209,38 +288,60 @@ impl App {
             })
             .map(|(i, _)| i)
             .collect();
-        stacks(&self.prs, shown)
+        stacks(prs, shown)
     }
 
-    /// Rows that take the selection: open pull requests.
-    fn selectable(&self, row: &Row) -> bool {
-        matches!(row, Row::Pr { pr, .. } if self.prs[*pr].state == State::Open)
+    fn visible(&self) -> Vec<Row> {
+        self.rows(self.tab)
     }
 
-    fn position(&self, visible: &[Row]) -> Option<usize> {
-        let url = self.selected.as_ref()?;
+    /// Rows that take the selection: those the tab's search found, and open
+    /// pull requests of their stacks.
+    fn selectable(prs: &[Pr], row: &Row) -> bool {
+        matches!(row, Row::Pr { pr, .. } if prs[*pr].listed || prs[*pr].state == State::Open)
+    }
+
+    fn position(&self, tab: Tab, visible: &[Row]) -> Option<usize> {
+        let url = self.selected[tab.index()].as_ref()?;
+        let prs = self.list(tab);
         visible.iter().position(|row| {
-            self.selectable(row) && matches!(row, Row::Pr { pr, .. } if &self.prs[*pr].url == url)
+            Self::selectable(prs, row) && matches!(row, Row::Pr { pr, .. } if &prs[*pr].url == url)
         })
     }
 
-    /// Keep the selection on something shown.
+    /// Keep each tab's selection on something shown.
     fn settle(&mut self) {
-        let visible = self.visible();
-        if self.position(&visible).is_none() {
-            self.selected = visible.iter().find_map(|row| match row {
-                Row::Pr { pr, .. } if self.selectable(row) => Some(self.prs[*pr].url.clone()),
+        for tab in TABS {
+            let visible = self.rows(tab);
+            if self.position(tab, &visible).is_some() {
+                continue;
+            }
+            let prs = self.list(tab);
+            let first = visible.iter().find_map(|row| match row {
+                Row::Pr { pr, .. } if Self::selectable(prs, row) => Some(prs[*pr].url.clone()),
                 _ => None,
             });
-            self.scroll.set(0);
+            self.selected[tab.index()] = first;
+            if tab == self.tab {
+                self.scroll.set(0);
+            }
         }
+    }
+
+    fn switch(&mut self) {
+        self.tab = match self.tab {
+            Tab::Requested => Tab::Reviewed,
+            Tab::Reviewed => Tab::Requested,
+        };
+        self.scroll.set(0);
     }
 
     fn step(&mut self, delta: isize) {
         let visible = self.visible();
+        let prs = self.prs();
         let choices: Vec<usize> = visible
             .iter()
-            .filter(|row| self.selectable(row))
+            .filter(|row| Self::selectable(prs, row))
             .filter_map(|row| match row {
                 Row::Pr { pr, .. } => Some(*pr),
                 Row::Stack { .. } => None,
@@ -249,17 +350,17 @@ impl App {
         if choices.is_empty() {
             return;
         }
-        let at = self
-            .selected
+        let selected = &self.selected[self.tab.index()];
+        let at = selected
             .as_ref()
-            .and_then(|url| choices.iter().position(|&i| &self.prs[i].url == url))
+            .and_then(|url| choices.iter().position(|&i| &prs[i].url == url))
             .unwrap_or(0) as isize;
         let next = (at + delta).clamp(0, choices.len() as isize - 1) as usize;
-        let url = self.prs[choices[next]].url.clone();
-        if self.selected.as_ref() != Some(&url) {
+        let url = prs[choices[next]].url.clone();
+        if selected.as_ref() != Some(&url) {
             self.scroll.set(0);
         }
-        self.selected = Some(url);
+        self.selected[self.tab.index()] = Some(url);
     }
 
     fn scroll_by(&self, halves: i32) {
@@ -269,8 +370,16 @@ impl App {
     }
 
     fn selected_pr(&self) -> Option<&Pr> {
-        let url = self.selected.as_ref()?;
-        self.prs.iter().find(|pr| &pr.url == url)
+        let url = self.selected[self.tab.index()].as_ref()?;
+        self.prs().iter().find(|pr| &pr.url == url)
+    }
+
+    /// A kitty image id; from the pid, so another program in the window keeps
+    /// its own.
+    fn new_id(&self) -> u32 {
+        let id = self.next_id.get();
+        self.next_id.set(id.wrapping_add(1));
+        id
     }
 
     fn add_avatar(&mut self, login: String, image: DynamicImage) -> io::Result<()> {
@@ -288,12 +397,9 @@ impl App {
             }
             return Ok(());
         }
-        // Ids from the pid, so another program in the window keeps its own.
-        let next =
-            (std::process::id().wrapping_mul(1000)).wrapping_add(self.avatars.len() as u32 + 1);
         let id = match self.avatars.get(&login) {
             Some(Avatar::Kitty(id)) => *id,
-            _ => next,
+            _ => self.new_id(),
         };
         let mut out = io::stdout().lock();
         kitty::upload(&mut out, id, &pixels)?;
@@ -304,16 +410,44 @@ impl App {
         Ok(())
     }
 
-    /// Bring the kitty placements in line with the frame just drawn.
-    fn place_avatars(&mut self) -> io::Result<()> {
+    /// Ask for the selected description's images not asked for yet.
+    fn request_images(&mut self) {
+        let Some(pr) = self.selected_pr() else {
+            return;
+        };
+        let srcs: Vec<String> = markdown::images(&pr.body)
+            .into_iter()
+            .filter(|src| !self.images.contains_key(src))
+            .collect();
+        if srcs.is_empty() {
+            return;
+        }
+        let request = ImageRequest {
+            repo_full: pr.repo_full.clone(),
+            number: pr.number,
+            srcs: srcs.clone(),
+        };
+        for src in srcs {
+            self.images.insert(src, Img::Loading);
+        }
+        let _ = self.image_tx.send(request);
+    }
+
+    /// Bring kitty in line with the frame just drawn: upload what it needs,
+    /// then place.
+    fn place_images(&mut self) -> io::Result<()> {
+        let uploads = self.uploads.take();
         let wanted = self.wanted.take();
-        if wanted == self.placed {
+        if uploads.is_empty() && wanted == self.placed {
             return Ok(());
         }
         let mut out = io::stdout().lock();
+        for (id, pixels) in &uploads {
+            kitty::upload(&mut out, *id, pixels)?;
+        }
         kitty::clear(&mut out)?;
-        for &(id, area) in &wanted {
-            kitty::place(&mut out, id, area.x, area.y, area.width, area.height)?;
+        for &(id, area, crop) in &wanted {
+            kitty::place(&mut out, id, area, crop)?;
         }
         out.flush()?;
         self.placed = wanted;
@@ -321,7 +455,7 @@ impl App {
     }
 
     fn status(&self, now: u64) -> Line<'static> {
-        if let Some(err) = &self.error {
+        if let Some(err) = self.errors.iter().flatten().next() {
             return Line::styled(
                 format!(" {} ", truncate(err, 60)),
                 Style::new().fg(Color::Red),
@@ -332,7 +466,7 @@ impl App {
             Some(at) => format!("updated {} ago", age(at, now)),
             None => String::new(),
         };
-        if !self.refreshing {
+        if !self.refreshing.contains(&true) {
             return Line::styled(format!(" {shown} "), DIM);
         }
         let mut line = Line::from(Span::styled(
@@ -344,6 +478,27 @@ impl App {
         }
         line
     }
+
+    /// The tabs, each with how many pull requests it lists.
+    fn tabs(&self) -> Line<'static> {
+        let mut line = Line::default();
+        for tab in TABS {
+            let prs = self.list(tab);
+            let count = self
+                .rows(tab)
+                .iter()
+                .filter(|row| matches!(row, Row::Pr { pr, .. } if prs[*pr].listed))
+                .count();
+            let style = if tab == self.tab {
+                Style::new().fg(ACCENT).add_modifier(Modifier::BOLD)
+            } else {
+                DIM
+            };
+            line.push_span(Span::styled(format!(" {} · {count} ", tab.label()), style));
+        }
+        line
+    }
+
     fn draw(&self, frame: &mut Frame) {
         let now = github::now();
         let visible = self.visible();
@@ -372,25 +527,22 @@ impl App {
                 .title(title)
         };
 
-        let requested = visible
-            .iter()
-            .filter(|row| matches!(row, Row::Pr { pr, .. } if self.prs[*pr].requested))
-            .count();
-        let list_block = boxed(Line::styled(
-            format!(" needs your review · {requested} "),
-            Style::new().add_modifier(Modifier::BOLD),
-        ))
-        .title(self.status(now).right_aligned());
+        let list_block = boxed(self.tabs()).title(self.status(now).right_aligned());
         let inner = list_block.inner(list_area);
         frame.render_widget(list_block, list_area);
         if visible.is_empty() {
             let text = match (
-                self.prs.is_empty(),
-                self.refreshing || self.fetched_at.is_none(),
+                self.prs().is_empty(),
+                self.refreshing[self.tab.index()],
+                self.tab,
             ) {
-                (true, true) => format!("{} Loading…", spinner()),
-                (true, false) => "Nothing awaits your review.".to_owned(),
-                (false, _) => "No pull request matches the filter.".to_owned(),
+                (true, true, _) => format!("{} Loading…", spinner()),
+                (true, false, Tab::Requested) => "Nothing awaits your review.".to_owned(),
+                (true, false, Tab::Reviewed) => format!(
+                    "Nothing reviewed in the last {} days.",
+                    github::REVIEWED_DAYS
+                ),
+                (false, _, _) => "No pull request matches the filter.".to_owned(),
             };
             frame.render_widget(Paragraph::new(text).style(DIM), inner);
         } else {
@@ -416,7 +568,7 @@ impl App {
             ])
         } else {
             Line::styled(
-                "enter checkout · shift+enter open · / filter · r refresh · j/k move · ^d/^u scroll · q quit",
+                "enter checkout · shift+enter open · tab switch · / filter · r refresh · j/k move · ^d/^u scroll · q quit",
                 DIM,
             )
         };
@@ -424,28 +576,33 @@ impl App {
     }
 
     fn draw_list(&self, frame: &mut Frame, area: Rect, visible: &[Row], now: u64) {
+        let prs = self.prs();
         let fit = usize::from(area.height / 2).max(1);
-        let selected = self.position(visible);
+        let selected = self.position(self.tab, visible);
         let at = selected.unwrap_or(0);
-        let mut offset = self.offset.get().min(visible.len().saturating_sub(fit));
+        let kept = &self.offset[self.tab.index()];
+        let mut offset = kept.get().min(visible.len().saturating_sub(fit));
         if at < offset {
             offset = at;
             // with the heading and merged rows above it, when they fit
-            while offset > 0 && !self.selectable(&visible[offset - 1]) && at - offset + 1 < fit {
+            while offset > 0
+                && !Self::selectable(prs, &visible[offset - 1])
+                && at - offset + 1 < fit
+            {
                 offset -= 1;
             }
         } else if at >= offset + fit {
             offset = at + 1 - fit;
         }
-        self.offset.set(offset);
+        kept.set(offset);
 
         for (line, row) in visible.iter().skip(offset).take(fit).enumerate() {
             let item = Rect::new(area.x, area.y + 2 * line as u16, area.width, 2);
             match *row {
-                Row::Stack { pr } => self.draw_stack(frame, item, &self.prs[pr]),
+                Row::Stack { pr } => self.draw_stack(frame, item, &prs[pr]),
                 Row::Pr { pr, place } => {
                     let is_selected = selected == Some(line + offset);
-                    self.draw_pr(frame, item, &self.prs[pr], place, is_selected, now)
+                    self.draw_pr(frame, item, &prs[pr], place, is_selected, now)
                 }
             }
         }
@@ -526,7 +683,7 @@ impl App {
         );
 
         let mut title_style = Style::new();
-        if pr.requested {
+        if pr.listed {
             title_style = title_style.add_modifier(Modifier::BOLD);
         }
         if !open {
@@ -552,13 +709,16 @@ impl App {
             sub.push(Span::raw("  "));
             sub.push(decision);
         }
+        let unlisted = match self.tab {
+            Tab::Requested => "  not requested",
+            Tab::Reviewed => "  not reviewed",
+        };
         match pr.state {
             State::Merged => sub.push(Span::styled("  merged", state_style)),
             State::Closed => sub.push(Span::styled("  closed", state_style)),
-            State::Open if !pr.requested => sub.push(Span::styled(
-                "  not requested",
-                DIM.add_modifier(Modifier::ITALIC),
-            )),
+            State::Open if !pr.listed => {
+                sub.push(Span::styled(unlisted, DIM.add_modifier(Modifier::ITALIC)))
+            }
             State::Open => {}
         }
         frame.render_widget(
@@ -573,7 +733,7 @@ impl App {
             Some((Avatar::Cells(protocol), slot)) => {
                 frame.render_widget(Image::new(protocol), slot)
             }
-            Some((Avatar::Kitty(id), slot)) => self.wanted.borrow_mut().push((*id, slot)),
+            Some((Avatar::Kitty(id), slot)) => self.wanted.borrow_mut().push((*id, slot, None)),
             None => {}
         }
 
@@ -593,6 +753,15 @@ impl App {
         pr: &Pr,
         boxed: &dyn Fn(Line<'static>) -> Block<'static>,
     ) {
+        let block = boxed(Line::styled(
+            format!(" {}#{} ", pr.repo_full, pr.number),
+            Style::new().add_modifier(Modifier::BOLD),
+        ))
+        .padding(Padding::horizontal(1));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let width = usize::from(inner.width);
+
         let mut meta = vec![
             Span::styled(pr.branch.clone(), Style::new().fg(Color::Magenta)),
             Span::raw("  "),
@@ -608,47 +777,151 @@ impl App {
             meta.push(Span::raw("  "));
             meta.push(decision);
         }
-        let mut lines = vec![
-            Line::styled(pr.title.clone(), Style::new().add_modifier(Modifier::BOLD)),
-            Line::from(meta),
-            Line::raw(""),
-        ];
+        let title = [Span::styled(
+            pr.title.clone(),
+            Style::new().add_modifier(Modifier::BOLD),
+        )];
+        let mut lines: Vec<Line<'static>> = markdown::wrap(&title, width)
+            .into_iter()
+            .chain(markdown::wrap(&meta, width))
+            .map(Line::from)
+            .collect();
+        lines.push(Line::raw(""));
+        let header = lines.len();
+
         let body = pr.body.replace('\r', "");
+        let font = self.picker.font_size();
+        let state = |src: &str| match self.images.get(src) {
+            Some(Img::Ready(image)) => ImageState::Ready(image.width(), image.height()),
+            Some(Img::Failed) => ImageState::Failed,
+            Some(Img::Loading) | None => ImageState::Loading,
+        };
+        let doc = markdown::render(
+            &body,
+            &markdown::Ctx {
+                width: inner.width,
+                font: (font.width, font.height),
+                max_rows: inner.height.saturating_sub(2).max(3),
+                image: &state,
+            },
+        );
         if body.trim().is_empty() {
             lines.push(Line::styled(
                 "No description.",
                 DIM.add_modifier(Modifier::ITALIC),
             ));
-        } else {
-            lines.extend(body.lines().map(|l| Line::raw(l.to_owned())));
         }
+        lines.extend(doc.lines);
 
-        let block = boxed(Line::styled(
-            format!(" {}#{} ", pr.repo_full, pr.number),
-            Style::new().add_modifier(Modifier::BOLD),
-        ))
-        .padding(Padding::horizontal(1));
-        let page = block.inner(area).height;
-        // Wrapped lines are not counted: scrolling stops at the last source
-        // line rather than the last screen line.
+        let page = inner.height;
         let scroll = self
             .scroll
             .get()
-            .min((lines.len() as u16).saturating_sub(1));
+            .min((lines.len() as u16).saturating_sub(page));
         self.scroll.set(scroll);
         self.page.set(page);
-        frame.render_widget(
-            Paragraph::new(lines)
-                .block(block)
-                .wrap(Wrap { trim: false })
-                .scroll((scroll, 0)),
-            area,
-        );
+        frame.render_widget(Paragraph::new(lines).scroll((scroll, 0)), inner);
+
+        let (top, bottom) = (usize::from(scroll), usize::from(scroll) + usize::from(page));
+        for placed in &doc.images {
+            let start = header + placed.line;
+            let end = start + usize::from(placed.rows);
+            let (from, to) = (start.max(top), end.min(bottom));
+            if from >= to {
+                continue;
+            }
+            let Some(Img::Ready(image)) = self.images.get(&placed.src) else {
+                continue;
+            };
+            let slot = Rect::new(
+                inner.x + placed.col,
+                inner.y + (from - top) as u16,
+                placed.cols,
+                (to - from) as u16,
+            );
+            self.draw_image(
+                frame,
+                &placed.src,
+                image,
+                placed,
+                (from - start) as u16,
+                slot,
+            );
+        }
+    }
+
+    /// Rows `skip..` of a description's image, into `slot`.
+    fn draw_image(
+        &self,
+        frame: &mut Frame,
+        src: &str,
+        image: &DynamicImage,
+        placed: &markdown::Placed,
+        skip: u16,
+        slot: Rect,
+    ) {
+        let font = self.picker.font_size();
+        let (fw, fh) = (u32::from(font.width), u32::from(font.height));
+        let (cols, rows) = (placed.cols, placed.rows);
+        let (width, height) = (u32::from(cols) * fw, u32::from(rows) * fh);
+        if self.picker.protocol_type() == ProtocolType::Kitty {
+            let mut kitty = self.kitty_images.borrow_mut();
+            let entry = kitty.entry(src.to_owned()).or_insert_with(|| KittyImage {
+                id: self.new_id(),
+                cols: 0,
+                rows: 0,
+            });
+            if (entry.cols, entry.rows) != (cols, rows) {
+                self.uploads
+                    .borrow_mut()
+                    .push((entry.id, fit(image, width, height)));
+                (entry.cols, entry.rows) = (cols, rows);
+            }
+            let crop = [0, u32::from(skip) * fh, width, u32::from(slot.height) * fh];
+            self.wanted.borrow_mut().push((entry.id, slot, Some(crop)));
+            return;
+        }
+        let key = [cols, rows, skip, slot.height];
+        let mut cells = self.cell_images.borrow_mut();
+        if cells.get(src).is_none_or(|c| c.key != key) {
+            let shown = image::imageops::crop_imm(
+                &fit(image, width, height),
+                0,
+                u32::from(skip) * fh,
+                width,
+                u32::from(slot.height) * fh,
+            )
+            .to_image();
+            let resize = Resize::Scale(Some(FilterType::Triangle));
+            let size = Size::new(slot.width, slot.height);
+            match self
+                .picker
+                .new_protocol(DynamicImage::ImageRgba8(shown), size, resize)
+            {
+                Ok(protocol) => {
+                    cells.insert(src.to_owned(), CellImage { key, protocol });
+                }
+                Err(_) => return,
+            }
+        }
+        if let Some(cell) = cells.get(src) {
+            frame.render_widget(Image::new(&cell.protocol), slot);
+        }
     }
 }
 
 fn decode(bytes: &[u8]) -> Option<DynamicImage> {
     image::load_from_memory(bytes).ok()
+}
+
+/// `image` scaled into a `width`×`height` canvas, top left, transparent around.
+fn fit(image: &DynamicImage, width: u32, height: u32) -> RgbaImage {
+    let scaled = image
+        .resize(width.max(1), height.max(1), FilterType::Triangle)
+        .to_rgba8();
+    let mut canvas = RgbaImage::new(width.max(1), height.max(1));
+    image::imageops::overlay(&mut canvas, &scaled, 0, 0);
+    canvas
 }
 
 /// `image` as a disc filling the height of a `width`×`height` canvas,
@@ -712,6 +985,53 @@ fn avatar_worker(rx: mpsc::Receiver<Vec<(String, String)>>, tx: mpsc::Sender<Msg
     }
 }
 
+/// The images of descriptions, from the cache or fetched; uploads to GitHub
+/// through the signed URLs of the rendered description, asked for once per
+/// request.
+fn image_worker(rx: mpsc::Receiver<ImageRequest>, tx: mpsc::Sender<Msg>) {
+    let cache = Cache::from_env();
+    cache.prune_images();
+    for request in rx {
+        let mut signed: Option<Vec<String>> = None;
+        for src in &request.srcs {
+            let image = load_image(&cache, &request, src, &mut signed).map(|image| {
+                if image.width().max(image.height()) > IMAGE_PIXELS {
+                    image.resize(IMAGE_PIXELS, IMAGE_PIXELS, FilterType::Triangle)
+                } else {
+                    image
+                }
+            });
+            if tx.send(Msg::Image(src.clone(), image)).is_err() {
+                return;
+            }
+        }
+    }
+}
+
+fn load_image(
+    cache: &Cache,
+    request: &ImageRequest,
+    src: &str,
+    signed: &mut Option<Vec<String>>,
+) -> Option<DynamicImage> {
+    if let Some(image) = cache.image(src).as_deref().and_then(decode) {
+        return Some(image);
+    }
+    let url = if github::needs_signing(src) {
+        let signed = signed.get_or_insert_with(|| {
+            github::signed_images(&request.repo_full, request.number).unwrap_or_default()
+        });
+        let id = github::asset_id(src)?;
+        signed.iter().find(|s| s.contains(id))?.clone()
+    } else {
+        src.to_owned()
+    };
+    let bytes = github::curl(&url).ok()?;
+    let image = decode(&bytes)?;
+    let _ = cache.store_image(src, &bytes);
+    Some(image)
+}
+
 fn authors(prs: &[Pr]) -> Vec<(String, String)> {
     prs.iter()
         .filter_map(|pr| Some((pr.author.clone(), pr.avatar_url.clone()?)))
@@ -725,29 +1045,46 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
 
     let (tx, rx) = mpsc::channel();
     let (avatar_tx, avatar_rx) = mpsc::channel();
+    let (image_tx, image_rx) = mpsc::channel();
     let (poke_tx, poke_rx) = mpsc::channel::<()>();
     {
         let tx = tx.clone();
         std::thread::spawn(move || avatar_worker(avatar_rx, tx));
     }
+    {
+        let tx = tx.clone();
+        std::thread::spawn(move || image_worker(image_rx, tx));
+    }
     if let Some(snapshot) = &cached {
-        let _ = avatar_tx.send(authors(&snapshot.prs));
+        let _ = avatar_tx.send(authors(&snapshot.lists.requested));
+        let _ = avatar_tx.send(authors(&snapshot.lists.reviewed));
     }
     std::thread::spawn(move || {
         for () in poke_rx {
-            let result = github::fetch();
-            if let Ok(prs) = &result {
+            // Each tab shows as soon as its search is in.
+            let fetch = |tab: Tab| match github::fetch(tab.query()) {
+                Ok(prs) => {
+                    let _ = avatar_tx.send(authors(&prs));
+                    let _ = tx.send(Msg::Prs(tab, Ok(prs.clone())));
+                    Some(prs)
+                }
+                Err(err) => {
+                    let _ = tx.send(Msg::Prs(tab, Err(format!("{err:#}"))));
+                    None
+                }
+            };
+            let (requested, reviewed) = std::thread::scope(|s| {
+                let reviewed = s.spawn(|| fetch(Tab::Reviewed));
+                (fetch(Tab::Requested), reviewed.join().ok().flatten())
+            });
+            if let (Some(requested), Some(reviewed)) = (requested, reviewed) {
+                let mut lists = Lists::default();
+                lists.set(Query::Requested, requested);
+                lists.set(Query::Reviewed, reviewed);
                 let _ = cache.store(&Snapshot {
                     fetched_at: github::now(),
-                    prs: prs.clone(),
+                    lists,
                 });
-                let _ = avatar_tx.send(authors(prs));
-            }
-            if tx
-                .send(Msg::Prs(result.map_err(|e| format!("{e:#}"))))
-                .is_err()
-            {
-                return;
             }
         }
     });
@@ -764,23 +1101,30 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
     )
     .is_ok();
-    let (prs, fetched_at) = match cached {
-        Some(s) => (s.prs, Some(s.fetched_at)),
-        None => (Vec::new(), None),
+    let (lists, fetched_at) = match cached {
+        Some(s) => (s.lists, Some(s.fetched_at)),
+        None => (Lists::default(), None),
     };
     let mut app = App {
-        prs,
+        lists,
+        tab: Tab::Requested,
         fetched_at,
-        refreshing: true,
-        error: None,
+        refreshing: [true; 2],
+        errors: [None, None],
         filter: query,
         filtering: false,
-        selected: None,
+        selected: [None, None],
         picker,
         avatars: HashMap::new(),
+        images: HashMap::new(),
+        image_tx,
+        kitty_images: RefCell::new(HashMap::new()),
+        cell_images: RefCell::new(HashMap::new()),
+        uploads: RefCell::new(Vec::new()),
+        next_id: Cell::new(std::process::id().wrapping_mul(1000).wrapping_add(1)),
         wanted: RefCell::new(Vec::new()),
         placed: Vec::new(),
-        offset: Cell::new(0),
+        offset: [Cell::new(0), Cell::new(0)],
         scroll: Cell::new(0),
         page: Cell::new(0),
     };
@@ -799,18 +1143,28 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
 
 fn handle(app: &mut App, msg: Msg) -> io::Result<()> {
     match msg {
-        Msg::Prs(Ok(prs)) => {
-            app.prs = prs;
-            app.fetched_at = Some(github::now());
-            app.refreshing = false;
-            app.error = None;
-            app.settle();
-        }
-        Msg::Prs(Err(err)) => {
-            app.refreshing = false;
-            app.error = Some(err);
+        Msg::Prs(tab, result) => {
+            app.refreshing[tab.index()] = false;
+            match result {
+                Ok(prs) => {
+                    app.lists.set(tab.query(), prs);
+                    app.errors[tab.index()] = None;
+                    app.fetched_at = Some(github::now());
+                    app.settle();
+                }
+                Err(err) => {
+                    app.errors[tab.index()] = Some(match tab {
+                        Tab::Requested => err,
+                        Tab::Reviewed => format!("reviewed: {err}"),
+                    })
+                }
+            }
         }
         Msg::Avatar(login, image) => app.add_avatar(login, image)?,
+        Msg::Image(src, image) => {
+            app.images
+                .insert(src, image.map_or(Img::Failed, Img::Ready));
+        }
     }
     Ok(())
 }
@@ -825,8 +1179,9 @@ fn event_loop(
         while let Ok(msg) = rx.try_recv() {
             handle(app, msg)?;
         }
+        app.request_images();
         terminal.draw(|frame| app.draw(frame))?;
-        app.place_avatars()?;
+        app.place_images()?;
 
         if !event::poll(Duration::from_millis(100))? {
             continue;
@@ -854,6 +1209,7 @@ fn event_loop(
             KeyCode::Up => app.step(-1),
             KeyCode::PageDown => app.scroll_by(2),
             KeyCode::PageUp => app.scroll_by(-2),
+            KeyCode::Tab | KeyCode::BackTab => app.switch(),
             KeyCode::Enter
                 if key
                     .modifiers
@@ -882,8 +1238,8 @@ fn event_loop(
             KeyCode::Char('k') => app.step(-1),
             KeyCode::Char('g') | KeyCode::Home => app.step(isize::MIN / 2),
             KeyCode::Char('G') | KeyCode::End => app.step(isize::MAX / 2),
-            KeyCode::Char('r') if !app.refreshing => {
-                app.refreshing = true;
+            KeyCode::Char('r') if !app.refreshing.contains(&true) => {
+                app.refreshing = [true; 2];
                 let _ = poke.send(());
             }
             KeyCode::Char('o') => open_web(app.selected_pr()),
@@ -909,7 +1265,7 @@ mod tests {
     use crate::github::Stack;
 
     /// `stack`: (number, position) in a stack of 3.
-    fn pr(number: u64, stack: Option<(u64, u64)>, requested: bool, state: State) -> Pr {
+    fn pr(number: u64, stack: Option<(u64, u64)>, listed: bool, state: State) -> Pr {
         Pr {
             number,
             title: String::new(),
@@ -919,7 +1275,7 @@ mod tests {
             draft: false,
             updated_at: 0,
             branch: String::new(),
-            requested,
+            listed,
             stack: stack.map(|(number, position)| Stack {
                 number,
                 size: 3,
@@ -966,11 +1322,27 @@ mod tests {
     }
 
     #[test]
-    fn stack_without_a_requested_member_shown_is_dropped() {
+    fn stack_without_a_listed_member_shown_is_dropped() {
         let prs = [
             pr(2, Some((9, 2)), true, State::Open),
             pr(1, Some((9, 1)), false, State::Merged),
         ];
         assert!(stacks(&prs, vec![1]).is_empty());
+    }
+
+    #[test]
+    fn listed_merged_pull_requests_take_the_selection_unlike_merged_stack_members() {
+        let prs = [
+            pr(1, None, true, State::Merged),
+            pr(2, Some((9, 1)), false, State::Merged),
+            pr(3, Some((9, 2)), false, State::Open),
+        ];
+        let row = |pr| Row::Pr {
+            pr,
+            place: Place::Alone,
+        };
+        assert!(App::selectable(&prs, &row(0)));
+        assert!(!App::selectable(&prs, &row(1)));
+        assert!(App::selectable(&prs, &row(2)));
     }
 }
