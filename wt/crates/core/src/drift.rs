@@ -192,7 +192,7 @@ pub fn fix(cfg: &Config, session: &Session, item: &Drift) -> Result<()> {
             session::write_marker(&session.path, &session.id, &cfg.workspace)?;
         }
         Drift::TabMissing { repo } => {
-            zellij::new_tab(&session.id, &session.path.join(repo), repo)?;
+            zellij::open_tab(session, repo, &cfg.repos)?;
         }
         Drift::WorktreeRecordStale { repo, path } => {
             git::prune_record(&cfg.workspace.join(repo), std::path::Path::new(path))?;

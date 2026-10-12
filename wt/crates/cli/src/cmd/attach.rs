@@ -62,7 +62,7 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
     // session keeps the tabs it has, and a member without one gets it here.
     match here {
         Some(_) if inside => {
-            for repo in zellij::ensure_tabs(&session)? {
+            for repo in zellij::ensure_tabs(&session, &cfg.repos)? {
                 println!("{id}: opened a tab for {repo}");
             }
             println!("{id}: already here");
@@ -70,7 +70,7 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         }
         Some(_) => {
             zellij::switch_to(&id)?;
-            tabs_behind_the_client(&session);
+            tabs_behind_the_client(&session, &cfg.repos);
             Ok(())
         }
         // This process owns the terminal, so it is the one that can rebuild the
@@ -78,7 +78,7 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         // client exits, and the loop starts the session again and reattaches.
         None => loop {
             let mut child = zellij::attach_child(&id, &session.path)?;
-            tabs_behind_the_client(&session);
+            tabs_behind_the_client(&session, &cfg.repos);
             let status = child.wait().context("waiting for zellij to exit")?;
             if !session.take_recreate() {
                 std::process::exit(status.code().unwrap_or(1));
@@ -93,9 +93,9 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
 ///
 /// Nothing is printed and nothing fails: the screen belongs to zellij by now, and
 /// `wt sync` reports the members left without a tab.
-fn tabs_behind_the_client(session: &Session) {
+fn tabs_behind_the_client(session: &Session, order: &[String]) {
     if zellij::wait_for_client(&session.id).unwrap_or(false) {
-        let _ = zellij::ensure_tabs(session);
+        let _ = zellij::ensure_tabs(session, order);
     }
 }
 

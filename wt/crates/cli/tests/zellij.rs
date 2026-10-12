@@ -110,18 +110,16 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
         );
 
         let _attached = Attached::to("proj-tabs");
-        let mut added = zellij::ensure_tabs(&session).unwrap();
+        let mut added = zellij::ensure_tabs(&session, &[]).unwrap();
         added.sort();
         assert_eq!(added, vec!["app".to_string(), "lib".to_string()]);
 
-        let tabs = zellij::tabs("proj-tabs").unwrap();
-        let mut names: Vec<String> = tabs.iter().map(|t| t.name.clone()).collect();
-        names.sort();
         assert_eq!(
-            names,
-            vec!["app".to_string(), "lib".to_string()],
+            tab_repos("proj-tabs"),
+            ["app", "lib"],
             "zellij's own tab should have been closed once the members had theirs"
         );
+        let tabs = zellij::tabs("proj-tabs").unwrap();
         for tab in &tabs {
             assert!(!tab.is_empty(), "`{}` came up with no pane", tab.name);
         }
@@ -147,23 +145,19 @@ fn tabs_are_only_added_for_members_that_have_none() {
         let _live = Live("proj-idem".into());
         zellij::start_detached("proj-idem", &session.path).unwrap();
         let _attached = Attached::to("proj-idem");
-        zellij::ensure_tabs(&session).unwrap();
+        zellij::ensure_tabs(&session, &[]).unwrap();
 
         assert!(
-            zellij::ensure_tabs(&session).unwrap().is_empty(),
+            zellij::ensure_tabs(&session, &[]).unwrap().is_empty(),
             "a second pass should add nothing"
         );
         assert!(zellij::untabbed(&session).unwrap().is_empty());
 
-        // Nor should the shell having renamed a tab to the repo behind an icon.
-        let app = zellij::tabs("proj-idem")
-            .unwrap()
-            .into_iter()
-            .find(|t| t.name == "app")
-            .expect("app tab");
+        // Nor should the tab having been renamed to the repo behind an icon.
+        let app = tab_for("proj-idem", "app");
         rename_tab("proj-idem", app.tab_id, "\u{e702} app");
         assert!(
-            zellij::ensure_tabs(&session).unwrap().is_empty(),
+            zellij::ensure_tabs(&session, &[]).unwrap().is_empty(),
             "a decorated tab is still its member's"
         );
         assert!(zellij::untabbed(&session).unwrap().is_empty());
@@ -174,17 +168,42 @@ fn tabs_are_only_added_for_members_that_have_none() {
         assert_eq!(zellij::untabbed(&session).unwrap(), Vec::<String>::new());
 
         // And one whose tab was closed comes back.
-        let docs = zellij::tabs("proj-idem")
-            .unwrap()
-            .into_iter()
-            .find(|t| t.name == "docs")
-            .expect("docs tab");
+        let docs = tab_for("proj-idem", "docs");
         zellij::close_tab("proj-idem", docs.tab_id).unwrap();
         assert_eq!(zellij::untabbed(&session).unwrap(), vec!["docs".to_string()]);
 
         f.wt(&["sync", "proj-idem"]).ok().says("`docs` has no tab");
         f.wt(&["sync", "proj-idem", "--fix"]).ok();
         assert!(zellij::untabbed(&session).unwrap().is_empty());
+    });
+}
+
+/// Members' tabs follow the configured `repos`, wherever a member joins from.
+#[test]
+fn tabs_follow_the_configured_order() {
+    if !have("zellij") || !have("script") {
+        return;
+    }
+    let f = Fixture::new();
+    f.configure(&["lib", "docs", "app"], None);
+    f.wt(&["new", "proj-order", "--repo", "app", "--repo", "lib"]).ok();
+    let order = ["lib", "docs", "app"].map(String::from);
+
+    with_env(&f, || {
+        let session = load("proj-order");
+        let _live = Live("proj-order".into());
+        zellij::start_detached("proj-order", &session.path).unwrap();
+        let _attached = Attached::to("proj-order");
+        zellij::ensure_tabs(&session, &order).unwrap();
+        assert_eq!(tab_repos("proj-order"), ["lib", "app"]);
+
+        f.wt(&["add", "docs", "--session", "proj-order"]).ok();
+        assert_eq!(tab_repos("proj-order"), ["lib", "docs", "app"]);
+
+        // Restored by `sync`, a closed tab goes back where it was.
+        zellij::close_tab("proj-order", tab_for("proj-order", "lib").tab_id).unwrap();
+        f.wt(&["sync", "proj-order", "--fix"]).ok();
+        assert_eq!(tab_repos("proj-order"), ["lib", "docs", "app"]);
     });
 }
 
@@ -209,15 +228,11 @@ fn tabs_wait_for_a_client() {
 
         let _attached = Attached::to("proj-wait");
         assert_eq!(
-            zellij::ensure_tabs(&session).unwrap(),
+            zellij::ensure_tabs(&session, &[]).unwrap(),
             vec!["app".to_string()],
             "the client is what the member's tab was waiting for"
         );
-        let app = zellij::tabs("proj-wait")
-            .unwrap()
-            .into_iter()
-            .find(|t| t.name == "app")
-            .expect("app tab");
+        let app = tab_for("proj-wait", "app");
         assert!(!app.is_empty(), "`app` came up with no pane");
     });
 }
@@ -235,7 +250,7 @@ fn a_session_with_no_members_keeps_the_tab_zellij_made() {
         let _live = Live("proj-empty".into());
         zellij::start_detached("proj-empty", &session.path).unwrap();
 
-        assert!(zellij::ensure_tabs(&session).unwrap().is_empty());
+        assert!(zellij::ensure_tabs(&session, &[]).unwrap().is_empty());
         let names: Vec<String> = zellij::tabs("proj-empty")
             .unwrap()
             .into_iter()
@@ -297,13 +312,13 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
         let _live = Live("proj-fresh".into());
         let _supervisor = Supervised::on("proj-fresh");
         assert!(
-            wait_for(|| tab_names("proj-fresh") == ["app"]),
+            wait_for(|| tab_repos("proj-fresh") == ["app"]),
             "the member never got its tab: {:?}",
-            tab_names("proj-fresh")
+            tab_repos("proj-fresh")
         );
 
         zellij::new_tab("proj-fresh", &f.workspace, "scratch").unwrap();
-        assert!(tab_names("proj-fresh").contains(&"scratch".to_string()));
+        assert!(tab_repos("proj-fresh").contains(&"scratch".to_string()));
 
         f.wt_with(
             &["recreate"],
@@ -316,9 +331,9 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
             "nobody was handed the terminal back"
         );
         assert!(
-            wait_for(|| tab_names("proj-fresh") == ["app"]),
+            wait_for(|| tab_repos("proj-fresh") == ["app"]),
             "the old session came back instead of a new one: {:?}",
-            tab_names("proj-fresh")
+            tab_repos("proj-fresh")
         );
         // Consumed, not merely acted on: a request left behind would throw the
         // session away again the next time anyone attaches.
@@ -373,10 +388,21 @@ impl Drop for Supervised {
     }
 }
 
-fn tab_names(session: &str) -> Vec<String> {
+/// The repo each tab is for, left to right; none while the session is down.
+fn tab_repos(session: &str) -> Vec<String> {
+    let mut tabs = zellij::tabs(session).unwrap_or_default();
+    tabs.sort_by_key(|t| t.position);
+    tabs.into_iter()
+        .map(|t| t.name.split_whitespace().last().unwrap_or_default().to_string())
+        .collect()
+}
+
+fn tab_for(session: &str, repo: &str) -> zellij::Tab {
     zellij::tabs(session)
-        .map(|tabs| tabs.into_iter().map(|t| t.name).collect())
-        .unwrap_or_default()
+        .unwrap()
+        .into_iter()
+        .find(|t| zellij::tab_is_for(&t.name, repo))
+        .unwrap_or_else(|| panic!("no `{repo}` tab"))
 }
 
 /// Poll a state the multiplexer reaches on its own time. False once it has had
@@ -391,8 +417,8 @@ fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
     false
 }
 
-/// Stand in for what the shell's rename hook does to a tab. wt has no reason to
-/// rename one, so this is a test-only reach for `zellij action`.
+/// Stand in for renaming a tab by hand. wt has no reason to rename one, so this
+/// is a test-only reach for `zellij action`.
 fn rename_tab(session: &str, id: u32, name: &str) {
     let out = std::process::Command::new("zellij")
         .args([

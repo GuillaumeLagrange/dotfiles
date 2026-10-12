@@ -56,9 +56,14 @@ every other key has a default:
 ```toml
 workspace = "~/work"                 # the multi-repo checkout to mirror; else $WT_WORKSPACE
 default_root = "~/work/sessions"     # default: <workspace>/sessions
-repos = ["app", "docs", "lib"]       # the picker's pre-approved list; default: every repo
+repos = ["app", "docs", "lib"]       # the picker's pre-approved list, and the tabs' order; default: every repo
 hydrate = [".envrc", ".env*"]        # git-ignored paths a worktree needs; see below
 ```
+
+Members' tabs sit in `repos` order, unlisted ones after by name; a tab wt opens
+mid-session is moved into place, and tabs that are nobody's are left where they
+are. Tabs are named by `mux-name`, as the zellij rename keybind names them, or
+after the bare repo where it is not on PATH.
 
 Unknown keys are an error rather than a shrug, so a typo says so.
 

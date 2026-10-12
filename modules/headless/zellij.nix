@@ -198,6 +198,9 @@
         z = "zellij";
       };
 
+      # wt names the tabs it opens the way the rename keybind does.
+      programs.wt.extraRuntimeInputs = [ muxName ];
+
       programs.zsh.initContent = ''
         # Keep SSH agent working across Zellij reattaches via a stable symlink
         if [ -n "$SSH_CONNECTION" ] && [ -n "$SSH_AUTH_SOCK" ]; then

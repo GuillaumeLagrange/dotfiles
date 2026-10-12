@@ -33,7 +33,7 @@ pub fn run(cfg: &Config, repo: &str, session_id: Option<&str>) -> Result<()> {
     // and attaching lays out the missing ones anyway. Either way a tab is not
     // worth failing an `add` that has already produced the worktree.
     if zellij::available() && zellij::has_client(&session.id).unwrap_or(false) {
-        if let Err(err) = zellij::new_tab(&session.id, &session.path.join(repo), repo) {
+        if let Err(err) = zellij::open_tab(&session, repo, &cfg.repos) {
             eprintln!("wt: {err:#}");
         }
     }

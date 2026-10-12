@@ -16,6 +16,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
+use crate::session::Session;
 use crate::util;
 
 /// The variable a session's panes are meant to inherit.
@@ -27,6 +28,7 @@ const BIN: &str = "zellij";
 #[derive(Debug, Clone, Deserialize)]
 pub struct Tab {
     pub tab_id: u32,
+    pub position: usize,
     pub name: String,
     pub selectable_tiled_panes_count: u32,
     pub selectable_floating_panes_count: u32,
@@ -140,7 +142,8 @@ pub fn tabs(name: &str) -> Result<Vec<Tab>> {
     serde_json::from_str(&out.stdout).context("could not read zellij's tab list")
 }
 
-pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<()> {
+/// Opens a tab and returns its id.
+pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
     let cwd = cwd.to_string_lossy();
     let out = run(
         &[
@@ -153,6 +156,26 @@ pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<()> {
             "could not add a `{tab}` tab to `{name}`: {}",
             out.stderr.trim()
         ));
+    }
+    out.stdout
+        .trim()
+        .parse()
+        .with_context(|| format!("zellij gave no id for the new `{tab}` tab"))
+}
+
+fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
+    let id = id.to_string();
+    for _ in 0..times {
+        let out = run(
+            &["--session", name, "action", "move-tab", "--tab-id", &id, direction],
+            None,
+        )?;
+        if !out.ok() {
+            return Err(anyhow!(
+                "could not move tab {id} of `{name}`: {}",
+                out.stderr.trim()
+            ));
+        }
     }
     Ok(())
 }
@@ -199,34 +222,92 @@ pub fn is_default_tab_name(name: &str) -> bool {
 
 /// Whether a tab is a member's.
 ///
-/// Compared on the last word of the name, since a tab can be decorated: the shell
-/// renames the focused one to the repo behind an icon, and that is still its tab.
+/// Compared on the last word of the name, since `mux-name` puts an icon before
+/// the repo, and a tab renamed by hand may lack it.
 pub fn tab_is_for(tab: &str, repo: &str) -> bool {
     tab.split_whitespace().last() == Some(repo)
 }
 
-/// One tab per member, named after the repo and opened in it, for a session a
+/// What the shell's rename keybind would call the tab: `mux-name`'s answer, else
+/// the bare repo where that helper is not installed.
+fn tab_name(path: &Path, repo: &str) -> String {
+    Command::new("mux-name")
+        .arg(path)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .and_then(|out| String::from_utf8(out.stdout).ok())
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| repo.to_string())
+}
+
+/// Where a repo sorts among the tabs: the configured `repos` order, then the
+/// unlisted ones by name.
+fn rank<'a>(order: &[String], repo: &'a str) -> (usize, &'a str) {
+    let index = order.iter().position(|r| r == repo);
+    (index.unwrap_or(order.len()), repo)
+}
+
+/// Open a member's tab, moved among the other members' tabs to where `order`
+/// puts it. Tabs that are nobody's stay where they are.
+pub fn open_tab(session: &Session, repo: &str, order: &[String]) -> Result<()> {
+    let path = session.path.join(repo);
+    let id = new_tab(&session.id, &path, &tab_name(&path, repo))?;
+
+    let members = session.member_names()?;
+    let mine = rank(order, repo);
+    let tabs = tabs(&session.id)?;
+    let pos = tabs
+        .iter()
+        .find(|t| t.tab_id == id)
+        .ok_or_else(|| anyhow!("the new `{repo}` tab is not in `{}`", session.id))?
+        .position;
+    let mut last_before = None;
+    let mut first_after = None;
+    for tab in tabs.iter().filter(|t| t.tab_id != id) {
+        let Some(other) = members.iter().find(|m| tab_is_for(&tab.name, m)) else {
+            continue;
+        };
+        let theirs = rank(order, other);
+        if theirs < mine {
+            last_before = last_before.max(Some(tab.position));
+        } else if theirs > mine {
+            first_after = Some(first_after.map_or(tab.position, |p: usize| p.min(tab.position)));
+        }
+    }
+    match (last_before, first_after) {
+        (_, Some(after)) if after < pos => move_tab(&session.id, id, "left", pos - after),
+        (Some(before), _) if before > pos => move_tab(&session.id, id, "right", before - pos),
+        _ => Ok(()),
+    }
+}
+
+/// One tab per member, opened in it, in the configured order, for a session a
 /// client is attached to.
 ///
 /// Idempotent, and it leaves whatever tabs are already there — including however
 /// the panes inside them have been split, which is not wt's business.
-pub fn ensure_tabs(session: &crate::session::Session) -> Result<Vec<String>> {
-    let members = session.members()?;
+pub fn ensure_tabs(session: &Session, order: &[String]) -> Result<Vec<String>> {
+    let mut members = session.member_names()?;
     if members.is_empty() {
         return Ok(Vec::new());
     }
+    members.sort_by(|a, b| rank(order, a).cmp(&rank(order, b)));
 
     let before = tabs(&session.id)?;
     let mut added = Vec::new();
-    for member in &members {
+    for repo in members {
         if before
             .iter()
-            .any(|tab| tab_is_for(&tab.name, &member.repo) && !tab.is_empty())
+            .any(|tab| tab_is_for(&tab.name, &repo) && !tab.is_empty())
         {
             continue;
         }
-        new_tab(&session.id, &member.path, &member.repo)?;
-        added.push(member.repo.clone());
+        open_tab(session, &repo, order)?;
+        added.push(repo);
     }
 
     // Closed after the members' tabs exist, so the session is never left without
@@ -246,7 +327,7 @@ pub fn ensure_tabs(session: &crate::session::Session) -> Result<Vec<String>> {
 }
 
 /// The members a running session has no usable tab for.
-pub fn untabbed(session: &crate::session::Session) -> Result<Vec<String>> {
+pub fn untabbed(session: &Session) -> Result<Vec<String>> {
     let tabs = tabs(&session.id)?;
     Ok(session
         .members()?
