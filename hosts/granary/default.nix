@@ -100,6 +100,8 @@
 
       networking.hostName = "granary";
       networking.networkmanager.enable = true;
+      networking.nftables.enable = true;
+
       services.resolved.enable = true;
 
       i18n.defaultLocale = "en_US.UTF-8";
