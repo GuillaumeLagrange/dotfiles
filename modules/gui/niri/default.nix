@@ -288,6 +288,44 @@
               open-on-workspace "${ws_perso}"
           }
 
+          window-rule {
+              match app-id="firefox$" title="^Picture-in-Picture$"
+
+              open-floating true
+              default-column-width { fixed 480; }
+              default-window-height { fixed 270; }
+              default-floating-position x=32 y=32 relative-to="bottom-right"
+          }
+
+          // Steam's friends list and chats (titled after the friend) tile as narrow
+          // columns; only known dialogs float.
+          // Games have app-id steam_app_<id>, so they are unaffected.
+          window-rule {
+              match app-id="^steam$"
+              exclude app-id="^steam$" title="^(Steam|Special Offers)$"
+
+              default-column-width { proportion 0.25; }
+          }
+
+          window-rule {
+              match app-id="^steam$" title="^(Steam Settings|Sign in to Steam|Steam Guard.*|Screenshot Manager|Install - .*|Uninstall - .*|.* - Properties)$"
+
+              open-floating true
+          }
+
+          window-rule {
+              match app-id="^steam$" title=r#"^notificationtoasts_\d+_desktop$"#
+
+              default-floating-position x=10 y=10 relative-to="bottom-right"
+              open-focused false
+          }
+
+          window-rule {
+              match app-id="^xdg-desktop-portal-gtk$"
+
+              open-floating true
+          }
+
           // Disable alt tab
           recent-windows {
             off

@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 const QUERY: &str = r#"
 fragment Fields on PullRequest {
-  number title url body state isDraft updatedAt headRefName additions deletions changedFiles reviewDecision
+  number title url body state isDraft updatedAt headRefName additions deletions changedFiles
+  viewerLatestReview { state }
   repository { name nameWithOwner }
   author { login avatarUrl(size: 64) }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
@@ -49,7 +50,6 @@ pub enum Checks {
 pub enum Decision {
     Approved,
     ChangesRequested,
-    ReviewRequired,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,6 +93,7 @@ pub struct Pr {
     pub repo_full: String,
     pub author: String,
     pub avatar_url: Option<String>,
+    /// My latest review's verdict, not the pull request's review decision.
     pub decision: Option<Decision>,
     pub checks: Option<Checks>,
 }
@@ -191,7 +192,7 @@ struct Node {
     additions: u64,
     deletions: u64,
     changed_files: u64,
-    review_decision: Option<String>,
+    viewer_latest_review: Option<Review>,
     repository: Repository,
     /// Null for a deleted account.
     author: Option<Author>,
@@ -208,6 +209,11 @@ struct Node {
 struct Repository {
     name: String,
     name_with_owner: String,
+}
+
+#[derive(Deserialize)]
+struct Review {
+    state: String,
 }
 
 #[derive(Deserialize)]
@@ -289,10 +295,9 @@ impl Node {
                 "FAILURE" | "ERROR" => Checks::Failure,
                 _ => Checks::Pending,
             });
-        let decision = n.review_decision.as_deref().and_then(|d| match d {
+        let decision = n.viewer_latest_review.and_then(|r| match r.state.as_str() {
             "APPROVED" => Some(Decision::Approved),
             "CHANGES_REQUESTED" => Some(Decision::ChangesRequested),
-            "REVIEW_REQUIRED" => Some(Decision::ReviewRequired),
             _ => None,
         });
         let (author, avatar_url) = match n.author {

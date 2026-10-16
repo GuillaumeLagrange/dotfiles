@@ -151,14 +151,12 @@ fn checks_span(checks: Option<Checks>) -> Span<'static> {
 }
 
 fn decision_span(decision: Option<Decision>) -> Option<Span<'static>> {
-    match decision? {
-        Decision::Approved => Some(Span::styled("approved", Style::new().fg(Color::Green))),
-        Decision::ChangesRequested => Some(Span::styled(
-            "changes requested",
-            Style::new().fg(Color::Red),
-        )),
-        Decision::ReviewRequired => None,
-    }
+    Some(match decision? {
+        Decision::Approved => Span::styled("approved", Style::new().fg(Color::Green)),
+        Decision::ChangesRequested => {
+            Span::styled("changes requested", Style::new().fg(Color::Red))
+        }
+    })
 }
 
 /// Frame of a spinner turning with the clock; the event loop redraws every 100ms.
