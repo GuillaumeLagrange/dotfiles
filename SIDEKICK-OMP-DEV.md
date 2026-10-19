@@ -8,7 +8,7 @@ through a socket exposed by omp itself.
 
 ## Pieces
 
-- `ai/omp/extensions/nvim-bridge.ts` — omp extension. Every interactive session
+- `ai/omp/extensions/nvim-bridge/index.ts` — omp extension. Every interactive session
   listens on `~/.omp/run/nvim-bridge/<pid>.sock` and writes `<pid>.json`
   (`pid`, `cwd`, `socket`, `zellij` session name, `pane` id). NDJSON ops: `{"op":"send","text":…}` → `ui.pasteToEditor`
   (prefixing a newline when the composer sits mid-line) then focus this omp's zellij

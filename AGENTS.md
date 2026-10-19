@@ -172,6 +172,14 @@ Standalone Neovim configuration with:
   omps in the same git repo take turns: tools only run while the omp holds the repo's flock
   (`~/.local/state/omp-fixit/locks/`), taken on its turn's first tool call and released when the turn ends; a
   blocked omp calls `fixit_lock` to wait.
+- omp's LSP is nvim's (`nvim/lua/omp-lsp/`, `ai/omp/extensions/nvim-bridge/lsp.ts`): omp runs no language
+  server (`lsp.enabled: false`). Every nvim connects to the nvim-bridge socket of each omp whose cwd overlaps
+  its own and serves that omp's `lsp` tool from its LSP clients; files nvim hasn't opened are loaded into
+  hidden, unlisted buffers, wiped after 5 idle minutes. After an omp `edit`/`write`, nvim reloads the buffer
+  (never one with unsaved changes), sends the didSave `:w` would (rust-analyzer runs its check), and the
+  diagnostics are appended to the tool result once settled: pull answered, no `$/progress` work, no change for
+  a quiet window, within a 10 s budget. No nvim, no LSP. E2E suite against a real headless nvim:
+  `just test-omp-e2e`.
 
 ## Home Manager Configurations
 

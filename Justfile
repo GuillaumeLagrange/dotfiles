@@ -31,3 +31,7 @@ test-rust:
 
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test
+
+# omp's LSP through a real headless nvim (rust-analyzer, ts_ls); slow, needs nix
+test-omp-e2e:
+    cd ai/omp && { [ -d node_modules ] || npm ci; } && npm run test:e2e

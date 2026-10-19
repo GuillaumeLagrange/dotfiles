@@ -1,4 +1,5 @@
-// Lets an editor push text into this session's composer over a unix socket.
+// Lets an editor push text into this session's composer over a unix socket, and serve this
+// session's LSP (see lsp.ts).
 //
 // Every interactive session listens on ~/.omp/run/nvim-bridge/<pid>.sock and
 // writes a <pid>.json descriptor next to it, carrying the cwd so a client can
@@ -6,12 +7,15 @@
 //
 //   {"op":"send","text":"..."} -> paste into the composer, no submit
 //   {"op":"submit"}            -> submit whatever the composer holds
+//   {"op":"lsp_provide",...}   -> this connection now serves LSP requests,
+//                                 {"id","method","params"} out, {"id","result"|"error"} back
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { addProvider, handleReply, isProvider, type LspPi, registerLsp } from "./lsp.ts";
 
 // Overridable so tests stay out of the real session registry.
 const RUN_DIR = process.env.OMP_NVIM_BRIDGE_DIR ?? path.join(os.homedir(), ".omp", "run", "nvim-bridge");
@@ -26,7 +30,7 @@ type Ctx = {
 	cwd: string;
 	ui: Ui;
 };
-type Pi = {
+type Pi = LspPi & {
 	on: (event: string, handler: (event: unknown, ctx: Ctx) => void) => void;
 	sendUserMessage: (text: string) => unknown;
 	logger?: { error?: (message: string) => void };
@@ -46,14 +50,14 @@ function focusPane(): void {
 }
 
 export default function nvimBridge(pi: Pi) {
+	registerLsp(pi);
 	let server: net.Server | undefined;
 	const sockPath = path.join(RUN_DIR, `${process.pid}.sock`);
 	const metaPath = path.join(RUN_DIR, `${process.pid}.json`);
 
-	async function dispatch(ctx: Ctx, line: string): Promise<string> {
-		const msg: unknown = JSON.parse(line);
-		const op = msg && typeof msg === "object" && "op" in msg ? msg.op : undefined;
-		const text = msg && typeof msg === "object" && "text" in msg ? String(msg.text) : "";
+	async function dispatch(ctx: Ctx, msg: { op?: unknown; text?: unknown }): Promise<string> {
+		const op = msg.op;
+		const text = msg.text !== undefined ? String(msg.text) : "";
 		if (op === "send") {
 			// Don't glue the payload onto whatever the user was typing: break the
 			// line first, unless the composer already sits on a fresh one.
@@ -92,10 +96,27 @@ export default function nvimBridge(pi: Pi) {
 				buf = lines.pop() ?? "";
 				for (const line of lines) {
 					if (!line.trim()) continue;
+					let msg: Record<string, unknown>;
+					try {
+						const parsed: unknown = JSON.parse(line);
+						msg = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+					} catch (err) {
+						sock.write(`${JSON.stringify({ ok: false, error: String(err) })}\n`);
+						continue;
+					}
+					if (isProvider(sock)) {
+						handleReply(sock, msg);
+						continue;
+					}
+					if (msg.op === "lsp_provide") {
+						addProvider(sock, msg);
+						sock.write(`${JSON.stringify({ ok: true })}\n`);
+						continue;
+					}
 					// A throw escaping here is a fatal uncaughtException: socket
 					// callbacks run outside extension dispatch.
 					queue = queue
-						.then(() => dispatch(ctx, line))
+						.then(() => dispatch(ctx, msg))
 						.catch((err: unknown) => JSON.stringify({ ok: false, error: String(err) }))
 						.then((reply) => {
 							sock.write(`${reply}\n`);

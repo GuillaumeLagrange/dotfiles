@@ -8,6 +8,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, assert, beforeAll, describe, it } from "vitest";
+import { fakePi } from "./fake-pi.ts";
 
 const RUN_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nvim-bridge-test-"));
 process.env.OMP_NVIM_BRIDGE_DIR = RUN_DIR;
@@ -17,22 +18,13 @@ delete process.env.ZELLIJ_PANE_ID;
 
 // Dynamic: the extension reads OMP_NVIM_BRIDGE_DIR at import time, so the env
 // above has to be set first.
-const { default: nvimBridge } = await import("./extensions/nvim-bridge.ts");
+const { default: nvimBridge } = await import("./extensions/nvim-bridge/index.ts");
 
 const pastes: string[] = [];
-const prompts: string[] = [];
 let editorText = "";
 let pasteDelayMs = 0;
 
-const handlers = new Map<string, (event: unknown, ctx: unknown) => void>();
-const pi = {
-	on(event: string, handler: (event: unknown, ctx: unknown) => void) {
-		handlers.set(event, handler);
-	},
-	async sendUserMessage(text: string) {
-		prompts.push(text);
-	},
-};
+const { pi, handlers, prompts } = fakePi();
 const ctx = {
 	hasUI: true,
 	cwd: "/tmp/project",

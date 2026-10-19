@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run --exclude '**/*.e2e.test.ts'",
+    "test:e2e": "vitest run e2e"
   },
   "devDependencies": {
     "vitest": "^3.2.4"

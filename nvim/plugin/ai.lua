@@ -44,6 +44,9 @@ require('sidekick.config').cli.tools = {
 -- `nvim-bridge` omp extension, and start new ones in a fresh pane.
 require('sidekick-omp').setup()
 
+-- omp runs no language server: it uses this nvim's, through the same socket.
+require('omp-lsp').setup()
+
 vim.keymap.set({ 'n', 'i' }, '<tab>', function()
   if not require('sidekick').nes_jump_or_apply() then
     return '<Tab>'
