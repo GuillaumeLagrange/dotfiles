@@ -16,11 +16,11 @@ in
       type = types.package;
       default = pkgs.stdenv.mkDerivation {
         name = "oneleet";
-        version = "2.2.8";
+        version = "2.3.5";
 
         src = pkgs.fetchurl {
-          url = "https://downloads.oneleet.com/agent/linux/Oneleet_2.2.8_amd64.deb";
-          sha256 = "sha256-daB5mwlBNGx0vTxD4N12WmS/R80seQWt6UKKYy4xyHs=";
+          url = "https://downloads.oneleet.com/agent/linux/Oneleet_2.3.5_amd64.deb";
+          sha256 = "sha256-u9r2arf0HKXKpoj+CFmNwELGN8uwhfGHhXpEsSzJoPw=";
         };
 
         nativeBuildInputs = with pkgs; [
@@ -54,8 +54,9 @@ in
           libxrandr
         ];
 
+        # chrome-sandbox is setuid in the deb, which the Nix sandbox rejects.
         unpackPhase = ''
-          dpkg-deb -x $src . &> /dev/null
+          dpkg-deb --fsys-tarfile $src | tar -x --no-same-owner --no-same-permissions
         '';
 
         installPhase = ''
@@ -106,6 +107,11 @@ in
   config = mkIf cfg.enable {
     environment.systemPackages = [ cfg.package ];
 
+    # The firewall check only passes on an input-hook chain with a drop/reject
+    # policy; it does not follow jumps, so the iptables firewall (INPUT accept
+    # + jump nixos-fw) fails. The nftables one has `policy drop` on its input chain.
+    networking.nftables.enable = true;
+
     # Create direct executables in /usr/bin
     system.activationScripts = {
       createOneLeetLinks = {
@@ -131,7 +137,11 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
-      path = with pkgs; [ util-linux ];
+      # nft: the firewall check runs `nft --json list ruleset` from PATH.
+      path = with pkgs; [
+        util-linux
+        nftables
+      ];
 
       serviceConfig = {
         ExecStart = "${cfg.package}/opt/Oneleet/oneleet-daemon";
