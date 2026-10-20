@@ -36,3 +36,21 @@ require('gitsigns').setup({
     map('n', '<leader>ghp', gs.preview_hunk_inline, 'Preview Hunk Inline')
   end,
 })
+
+-- Gitsigns blame keeps its cursor-sync autocmds after the blame window closes: entering the
+-- blamed buffer anywhere (e.g. a diffy tab) then moves the cursor of the window it was blamed
+-- in, which errors once that window shows a shorter buffer.
+vim.api.nvim_create_autocmd('WinClosed', {
+  group = vim.api.nvim_create_augroup('gitsigns_blame_cleanup', {}),
+  callback = function(args)
+    if vim.bo[args.buf].filetype ~= 'gitsigns-blame' then
+      return
+    end
+    -- After gitsigns' own WinClosed handler, which restores the source window options.
+    vim.schedule(function()
+      if vim.fn.exists('#GitsignsBlame') == 1 then
+        vim.api.nvim_clear_autocmds({ group = 'GitsignsBlame', event = { 'BufEnter', 'BufLeave' } })
+      end
+    end)
+  end,
+})
