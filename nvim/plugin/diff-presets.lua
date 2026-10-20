@@ -1,6 +1,6 @@
 -- Experiment: switch diff display presets on the fly. `:DiffPreset` cycles through all of them,
 -- `:DiffPreset <name>` picks one, `<leader>dx` toggles github-simple and github-none. The choice
--- applies to every diff tab; nvim starts on github-simple.
+-- applies to every diff tab; nvim starts on github-none.
 local base = 'internal,filler,closeoff'
 local presets = {
   { name = 'current', diffopt = base .. ',linematch:60,iwhite', diffchar = true },
@@ -19,7 +19,7 @@ for i, p in ipairs(presets) do
   by_name[p.name] = p
 end
 
-local current = by_name['github-simple']
+local current = by_name['github-none']
 
 local function set_hl()
   vim.api.nvim_set_hl(0, 'DiffPresetOld', { bg = '#402120' })
