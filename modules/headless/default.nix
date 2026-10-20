@@ -92,6 +92,38 @@
           source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nvim";
         };
 
+        # eBPF sources have no compile command (libbpf-cargo builds them from build.rs), so clangd
+        # parses them as host C without vmlinux.h. Give them the flags libbpf-cargo compiles with.
+        "clangd/config.yaml" = lib.mkIf pkgs.stdenv.isLinux (
+          let
+            cpu = pkgs.stdenv.hostPlatform.parsed.cpu.name;
+            bpfArch =
+              {
+                x86_64 = "x86";
+                aarch64 = "arm64";
+              }
+              .${cpu};
+            vmlinux-h = pkgs.fetchFromGitHub {
+              owner = "libbpf";
+              repo = "vmlinux.h";
+              rev = "991dd4b8dfd8c9d62ce8999521b24f61d9b7fc52";
+              hash = "sha256-IeuQPxrOa16+q0TPYAdyXbXpaWSGVGm7E1q8NZOPRVE=";
+            };
+          in
+          {
+            text = ''
+              If:
+                PathMatch: '.*\.bpf\.[ch]'
+              CompileFlags:
+                Add:
+                  - --target=bpf
+                  - -D__TARGET_ARCH_${bpfArch}
+                  - -I${vmlinux-h}/include/${cpu}
+                  - -I${lib.getDev pkgs.libbpf}/include
+            '';
+          }
+        );
+
         "tig/config" = {
           text = ''
             color cursor black green bold

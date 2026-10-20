@@ -135,6 +135,8 @@ Server/headless system configuration:
   zellij session is ephemeral: `review` starts it with `--session-serialization false` and deletes a
   resurrectable leftover instead of resurrecting it
 - Git push stack utilities
+- clangd user config (`~/.config/clangd/config.yaml`): `*.bpf.c`/`*.bpf.h` get the flags libbpf-cargo compiles
+  them with (`--target=bpf`, `__TARGET_ARCH_*`, vmlinux.h from `libbpf/vmlinux.h`, libbpf headers)
 - GPG public key
 
 #### `modules/stockly/`
