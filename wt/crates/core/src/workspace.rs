@@ -23,7 +23,8 @@ pub struct Entry {
 }
 
 /// Entries a session mirror is built from. `.direnv` is skipped because it caches
-/// paths, and `.git` because a session is not a checkout of the workspace.
+/// paths, `.git` because a session is not a checkout of the workspace, and
+/// `Session.vim` because it would restore the workspace's nvim, cwd included.
 pub fn entries(cfg: &Config) -> Result<Vec<Entry>> {
     let mut out = Vec::new();
     let dir = std::fs::read_dir(&cfg.workspace)
@@ -31,7 +32,7 @@ pub fn entries(cfg: &Config) -> Result<Vec<Entry>> {
     for entry in dir {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name == ".git" || name == ".direnv" {
+        if matches!(name.as_str(), ".git" | ".direnv" | "Session.vim") {
             continue;
         }
         let path = entry.path();

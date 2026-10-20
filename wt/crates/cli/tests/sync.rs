@@ -12,6 +12,19 @@ fn a_fresh_session_is_clean() {
 }
 
 #[test]
+fn the_workspaces_nvim_session_stays_out_of_the_mirror() {
+    let f = Fixture::new();
+    f.write("Session.vim", &format!("cd {}\n", f.workspace.display()));
+    f.wt(&["new", "proj-1", "--repo", "app"]).ok();
+
+    assert!(
+        f.session("proj-1").join("Session.vim").symlink_metadata().is_err(),
+        "Session.vim was mirrored"
+    );
+    f.wt(&["sync", "proj-1"]).ok().says("clean");
+}
+
+#[test]
 fn a_stripped_envrc_and_a_missing_marker_are_both_repaired() {
     let f = Fixture::new();
     f.wt(&["new", "proj-1", "--repo", "app"]).ok();

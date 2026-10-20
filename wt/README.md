@@ -85,7 +85,7 @@ any run of characters within a single name. An empty list is taken at its word.
 Keep it to *environment*. Anything heavier — installed dependencies, generated code
 — belongs in the repo's own `post-checkout` hook, and state does not travel at all:
 a `Session.vim` records a cwd and absolute paths, so a copy restores the checkout it
-was written in.
+was written in. For the same reason the mirror leaves out the workspace's own.
 
 ## The session root
 
