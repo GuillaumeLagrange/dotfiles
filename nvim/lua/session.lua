@@ -65,17 +65,21 @@ H.is_something_shown = function()
   return false
 end
 
+-- A `.git` dir, or the `.git` file of a worktree or submodule
+H.is_git_root = function()
+  return vim.uv.fs_stat(vim.fn.getcwd() .. '/.git') ~= nil
+end
+
+-- Reads the local session, or starts one, only at the root of a git checkout
 M.ensure_session = function()
-  -- Avoid creating a session file when called with an argument
-  if H.is_something_shown() then
+  if H.is_something_shown() or not H.is_git_root() then
     return
   end
 
-  local f = io.open(M.session_file, 'r')
-  if f == nil then
-    vim.cmd('silent! mksession ' .. M.session_file)
+  if vim.uv.fs_stat(M.session_file) then
+    MiniSessions.read(M.session_file)
   else
-    f:close()
+    MiniSessions.write(M.session_file)
   end
 end
 

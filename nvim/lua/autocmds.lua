@@ -21,7 +21,8 @@ vim.api.nvim_create_autocmd('VimResized', {
   end,
 })
 
--- Make sure session file is created when necessary
+-- Read or create the local session; nested so the restored buffers get their autocmds
 vim.api.nvim_create_autocmd('VimEnter', {
+  nested = true,
   callback = require('session').ensure_session,
 })

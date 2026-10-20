@@ -48,7 +48,7 @@ vim.keymap.set('n', '<leader>bD', function()
 end, { desc = 'Delete Buffer (force)' })
 
 require('mini.sessions').setup({
-  autoread = true,
+  autoread = false, -- session.ensure_session reads it, at git roots only
   autowrite = true,
   file = 'Session.vim',
   verbose = { read = false, write = false, delete = true },
