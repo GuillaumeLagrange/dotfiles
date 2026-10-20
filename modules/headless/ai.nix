@@ -71,5 +71,8 @@
       '';
 
       home.sessionVariables.PI_CONFIG_FILES = "${aiDir}/omp/config.yml";
+      # zellij drops kitty unicode placeholders but shows direct placements:
+      # https://github.com/zellij-org/zellij/issues/5530 (fix: PR #5531).
+      home.sessionVariables.PI_NO_KITTY_PLACEHOLDERS = "1";
     };
 }
