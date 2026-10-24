@@ -15,9 +15,11 @@
       };
 
       overlayAttrs = {
+        # quickshell's own `packages` re-instantiate nixpkgs-unstable with its overlay.
         unstable = import inputs.nixpkgs-unstable {
           inherit system;
           config.allowUnfree = true;
+          overlays = [ inputs.quickshell.overlays.default ];
         };
       };
     };

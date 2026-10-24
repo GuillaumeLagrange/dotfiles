@@ -1,9 +1,9 @@
-{ inputs, ... }:
+{ ... }:
 {
   flake.modules.homeManager.quickshell =
     { pkgs, config, lib, ... }:
     let
-      quickshell = inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      quickshell = pkgs.unstable.quickshell;
 
       # Glyphs are decoded from JSON escapes here so the QML sources stay ASCII:
       # a literal nerd-font glyph gets stripped by some edits, leaving a

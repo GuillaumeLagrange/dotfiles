@@ -1,9 +1,9 @@
-{ inputs, ... }:
+{ ... }:
 {
   flake.modules.homeManager.screen-tools =
     { pkgs, lib, ... }:
     let
-      quickshell = inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      quickshell = pkgs.unstable.quickshell;
       # Push recording state into the bar. The state is explicit at each call
       # site because the start push happens before wl-screenrec is up, so probing
       # for the process would still read "off".
