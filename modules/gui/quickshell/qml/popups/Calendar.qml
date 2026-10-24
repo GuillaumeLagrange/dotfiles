@@ -1,6 +1,7 @@
 // Two-month calendar with ISO week numbers, computed from JS Date.
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs
 import qs.components
 
@@ -10,14 +11,25 @@ PopupPanel {
     // Months from the current one; both panes move together off one offset.
     property int offset: 0
 
-    readonly property var leftGrid: monthGrid(offset)
-    readonly property var rightGrid: monthGrid(offset + 1)
+    // Refreshed on open too: the hourly timer is late after a suspend.
+    property date now: new Date()
 
-    onOpenChanged: if (!root.open)
-        root.offset = 0
+    readonly property var leftGrid: monthGrid(now, offset)
+    readonly property var rightGrid: monthGrid(now, offset + 1)
 
-    function monthGrid(delta: int): var {
-        const now = new Date();
+    SystemClock {
+        precision: SystemClock.Hours
+        onDateChanged: root.now = new Date()
+    }
+
+    onOpenChanged: {
+        if (root.open)
+            root.now = new Date();
+        else
+            root.offset = 0;
+    }
+
+    function monthGrid(now: date, delta: int): var {
         const first = new Date(now.getFullYear(), now.getMonth() + delta, 1);
         // ISO weekday: Monday=0 .. Sunday=6.
         const dow = (first.getDay() + 6) % 7;
