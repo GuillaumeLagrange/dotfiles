@@ -110,7 +110,13 @@
 
       home.packages = with pkgs; [
         kdePackages.kcachegrind
-        dbeaver-bin
+        # SWT reads adw-gtk3 as a light theme under stylix's dark colors: dark text on dark bg
+        (dbeaver-bin.overrideAttrs (old: {
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ makeWrapper ];
+          postFixup = (old.postFixup or "") + ''
+            wrapProgram $out/bin/dbeaver --set GTK_THEME Adwaita:dark
+          '';
+        }))
       ];
     };
 }
