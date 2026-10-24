@@ -1,6 +1,3 @@
 result
 __pycache__
-ai/claude/settings.local.json
-ai/skills/synced
 node_modules
-ai/private/
