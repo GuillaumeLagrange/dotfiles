@@ -112,6 +112,19 @@ Shared configuration modules:
 Desktop environment configuration:
 
 - Niri (primary) / Sway window manager setup
+- niri stall tracing (`modules/gui/niri/stall-tracing.nix`), for stutters with no known trigger:
+  `niri-stall.service` runs `niri-stall.bt` (bpftrace) and logs each niri event-loop iteration over 30 ms,
+  split into on CPU / blocked / waiting for a CPU, with the kernel stack of the longest block, niri's direct
+  reclaim/compaction, who held the locks it waited on and what they did, and sampled on-CPU stacks; every 5 s
+  of reclaim, who woke kswapd at which order, the xe GPU buffer shrinker, evictions/rebinds and buddyinfo
+  (see the script's header); plus an hourly histogram of all iterations. `below` records cgroup/process
+  memory, swap, PSI and IO every 5s for 14 days
+  (`below replay -t <time>`). Mod+Ctrl+S logs a felt stutter with the PSI of the moment.
+  `journalctl -t niri-stall -t stutter` shows both. What it found on granary: on fragmented memory, xe's 2 MB
+  GPU allocations wake kswapd, whose xe shrinker evicts every app's GPU buffers; restoring them holds the
+  buffer locks niri composites with. `hosts/granary/ttm-reclaim.nix` builds a patched `ttm.ko` out of tree
+  with a live `max_reclaim_order` parameter (`/sys/module/ttm/parameters/`) that stops such allocations
+  from reclaiming.
 - quickshell status bar (`modules/gui/quickshell/`) — see `modules/gui/quickshell/AGENTS.md`.
 - Firefox browser config
 - Wallpapers collection

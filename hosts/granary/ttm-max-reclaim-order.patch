@@ -1,0 +1,25 @@
+--- a/drivers/gpu/drm/ttm/ttm_pool.c
++++ b/drivers/gpu/drm/ttm/ttm_pool.c
+@@ -134,6 +134,12 @@
+ MODULE_PARM_DESC(page_pool_size, "Number of pages in the WC/UC/DMA pool per NUMA node");
+ module_param(page_pool_size, ulong, 0644);
+ 
++static unsigned int max_reclaim_order = MAX_PAGE_ORDER;
++
++MODULE_PARM_DESC(max_reclaim_order,
++		 "Highest page order whose allocations may reclaim or wake kswapd");
++module_param(max_reclaim_order, uint, 0644);
++
+ static unsigned long pool_node_limit[MAX_NUMNODES];
+ static atomic_long_t allocated_pages[MAX_NUMNODES];
+ 
+@@ -188,6 +194,9 @@
+ 		gfp_flags |= __GFP_RETRY_MAYFAIL;
+ 	}
+ 
++	if (order > READ_ONCE(max_reclaim_order))
++		gfp_flags &= ~__GFP_RECLAIM;
++
+ 	if (!ttm_pool_uses_dma_alloc(pool)) {
+ 		p = alloc_pages_node(pool->nid, gfp_flags, order);
+ 		if (p) {
