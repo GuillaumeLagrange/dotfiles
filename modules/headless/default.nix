@@ -19,7 +19,9 @@
       home.packages =
         with pkgs;
         [
+          bear
           btop
+          compiledb
           fastfetch
           fd
           fnm
@@ -295,6 +297,9 @@
           ".nvim.lua"
           ".claude/settings.local.json"
           ".claude/worktrees"
+          "compile_commands.json"
+          "compile_flags.txt"
+          ".cache/clangd/"
         ];
       };
 
@@ -323,6 +328,8 @@
       home.sessionVariables = {
         RUSTC_WRAPPER = "sccache";
         SCCACHE_CACHE_SIZE = "100G";
+        # Read by CMake (>= 3.17) on the first configure of a build dir.
+        CMAKE_EXPORT_COMPILE_COMMANDS = "ON";
       };
     };
 }
