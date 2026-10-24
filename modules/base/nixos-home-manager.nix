@@ -7,5 +7,7 @@
     home-manager.useUserPackages = true;
     home-manager.backupFileExtension = "backup";
     home-manager.users.guillaume.stylix.overlays.enable = false;
+    # Better eval perf
+    home-manager.users.guillaume.manual.manpages.enable = false;
   };
 }
