@@ -96,6 +96,16 @@
         priority = 100;
       };
 
+      # ArchWiki's values for swap on zram: reclaim anon pages into zram rather than
+      # dropping file pages that then refault from the encrypted disk, swap in one
+      # page at a time, and wake kswapd earlier so fewer allocations reclaim directly.
+      boot.kernel.sysctl = {
+        "vm.swappiness" = 180;
+        "vm.page-cluster" = 0;
+        "vm.watermark_scale_factor" = 125;
+        "vm.watermark_boost_factor" = 0;
+      };
+
       networking.hostName = "granary";
       networking.networkmanager.enable = true;
       networking.nftables.enable = true;
