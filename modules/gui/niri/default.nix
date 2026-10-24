@@ -19,6 +19,14 @@
         ${pkgs.procps}/bin/pgrep hyprlock >/dev/null || { ${config.lock} & ${pkgs.coreutils}/bin/sleep 1; }
         ${pkgs.niri}/bin/niri msg action power-off-monitors
       '';
+
+      # Mod+Ctrl+S: timestamps a felt stutter next to niri-stall's reports (stall-tracing.nix).
+      stutterMark = pkgs.writeShellScript "stutter-mark" ''
+        avg10() { read -r _ avg _ <"$1"; echo "''${avg#avg10=}"; }
+        ${pkgs.util-linux}/bin/logger -t stutter \
+          "mark, psi some avg10: memory $(avg10 /proc/pressure/memory) io $(avg10 /proc/pressure/io) cpu $(avg10 /proc/pressure/cpu)"
+        ${pkgs.libnotify}/bin/notify-send -t 2000 "Stutter marked"
+      '';
     in
     {
       home.packages = with pkgs; [
@@ -221,6 +229,7 @@
               Mod+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-next && niri-sort-workspaces"; }
 
               Mod+Shift+S { spawn "niri-sort-workspaces"; }
+              Mod+Ctrl+S hotkey-overlay-title="Mark a Stutter in the Journal" { spawn "${stutterMark}"; }
 
               Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
               Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }

@@ -1,0 +1,382 @@
+// Reports each iteration of niri's event loop longer than --threshold_ms: from
+// its wakeup out of epoll_wait to its next epoll_wait, split into time on CPU,
+// blocked, and runnable but waiting for a CPU, with:
+// - the kernel stack of the longest block;
+// - time niri spent in direct reclaim and direct compaction, and the largest
+//   allocation order that sent it there;
+// - for its lock waits, who held the lock and what the holder did meanwhile:
+//   kernel stacks sampled on CPU, and where it blocked;
+// - niri's kernel stacks sampled on CPU once past the threshold (an empty
+//   stack is niri's own userspace code);
+// - /proc/buddyinfo right after.
+// Every 5 s with a stall, direct reclaim or xe shrinking: who woke kswapd and
+// for which allocation order, direct reclaim and compaction per task and order,
+// the xe GPU buffer shrinker's runs, page block fallbacks, and buddyinfo.
+// Every hour, a histogram of all iterations.
+//
+// @loop is the tid of the "niri" main thread last seen in epoll_wait; `niri msg`
+// has the same name but never waits in epoll. Durations use CLOCK_MONOTONIC, so
+// a suspend does not count as a stall. Holder data is only kept past the
+// threshold, so that only reported iterations fill (and clear) those maps.
+
+config = {
+  print_maps_on_exit = 0;
+}
+
+tracepoint:syscalls:sys_exit_epoll_wait,
+tracepoint:syscalls:sys_exit_epoll_pwait,
+tracepoint:syscalls:sys_exit_epoll_pwait2
+/comm == "niri" && pid == tid/
+{
+  @loop = tid;
+  @waiting = 0;
+  // The wait for a CPU after the wakeup is part of this iteration.
+  $wake = (uint64)@wake_wait;
+  @wake_wait = (uint64)0;
+  @start = nsecs(monotonic) - $wake;
+  @runq = $wake;
+  @runq_max = $wake;
+  @runq_max_cpu = @wake_cpu;
+  @runq_max_prev = @wake_prev;
+  @blocked = (uint64)0;
+  @block_max = (uint64)0;
+  @reclaim = (uint64)0;
+  @compact = (uint64)0;
+  @alloc_order = (int64)-1;
+  @lock_wait = (uint64)0;
+  @moved = (uint64)0;
+  @rebinds = (uint64)0;
+}
+
+tracepoint:syscalls:sys_enter_epoll_wait,
+tracepoint:syscalls:sys_enter_epoll_pwait,
+tracepoint:syscalls:sys_enter_epoll_pwait2
+/comm == "niri" && pid == tid/
+{
+  @loop = tid;
+  $start = (uint64)@start;
+  @start = (uint64)0;
+  @waiting = 1;
+  if ($start > 0) {
+    $dur = nsecs(monotonic) - $start;
+    @iter_us = hist($dur / 1000);
+
+    $ms = (uint64)1000000;
+    if ($dur > (uint64)getopt("threshold_ms", 30, "report iterations longer than this") * $ms) {
+      @window = 1;
+      $blocked = (uint64)@blocked;
+      $runq = (uint64)@runq;
+      $oncpu = $dur > $blocked + $runq ? $dur - $blocked - $runq : (uint64)0;
+      printf("stall %d ms from %s: on cpu %d ms, blocked %d ms, waiting for a cpu %d ms\n",
+        $dur / $ms, strftime("%H:%M:%S.%f", nsecs(boot) - $dur),
+        $oncpu / $ms, $blocked / $ms, $runq / $ms);
+      printf("  direct reclaim %d ms, direct compaction %d ms, largest order %d, lock waits %d ms\n",
+        (uint64)@reclaim / $ms, (uint64)@compact / $ms, @alloc_order, (uint64)@lock_wait / $ms);
+      printf("  xe buffers niri moved %d MiB, vmas it rebound %d\n", (uint64)@moved >> 20, (uint64)@rebinds);
+
+      if (@block_max > 0) {
+        $st = @block_max_state;
+        $state = "?";
+        if ($st == 1) { $state = "S"; }
+        if ($st == 2) { $state = "D"; }
+        if ($st == 4) { $state = "T"; }
+        if ($st == 0x80) { $state = "I"; }
+        printf("  longest block %d ms, state %s, at:%s\n",
+          (uint64)@block_max / $ms, $state, @block_max_stack);
+      }
+      if (@runq_max > 0) {
+        printf("  longest wait for a cpu %d ms, on cpu %d, which ran %s before\n",
+          (uint64)@runq_max / $ms, @runq_max_cpu, @runq_max_prev);
+      }
+      if (@lock_wait > 0) {
+        printf("  lock waits past the threshold by holder (process, thread, tid), in µs:\n");
+        print(@lock_holders, 5);
+        printf("  holders on cpu, samples every 2 ms:\n");
+        print(@holder_oncpu, 5);
+        printf("  holders blocked, in µs:\n");
+        print(@holder_off, 5);
+      }
+      printf("  niri on cpu past the threshold, samples every 2 ms:\n");
+      print(@stall_oncpu, 8);
+      cat("/proc/buddyinfo");
+      clear(@lock_holders);
+      clear(@holder_oncpu);
+      clear(@holder_off);
+      clear(@stall_oncpu);
+    }
+  }
+}
+
+tracepoint:sched:sched_switch
+/@loop != 0 && (args.prev_pid == @loop || args.next_pid == @loop || (@holder != 0 && args.prev_pid == @holder))/
+{
+  $now = nsecs(monotonic);
+  // prev_state is 0 or TASK_REPORT_MAX (0x100) when preempted.
+  $st = args.prev_state;
+  $preempted = $st == 0 || $st >= 0x100;
+
+  if (args.prev_pid == @loop) {
+    @runnable_since = (uint64)0;
+    if ($preempted) {
+      if (@start > 0 || @waiting) {
+        @runnable_since = $now;
+      }
+    } else if (@start > 0) {
+      @blocked_since = $now;
+      @blocked_state = $st;
+      @blocked_stack = kstack(32);
+    }
+  } else if (@holder != 0 && args.prev_pid == @holder && !$preempted) {
+    @holder_off_since = $now;
+    @holder_off_stack = kstack(24);
+  }
+
+  if (args.next_pid == @loop) {
+    $since = (uint64)@runnable_since;
+    @runnable_since = (uint64)0;
+    if ($since > 0) {
+      $wait = $now - $since;
+      if (@waiting) {
+        @wake_wait = (uint64)@wake_wait + $wait;
+        @wake_cpu = cpu;
+        @wake_prev = args.prev_comm;
+      } else {
+        @runq = (uint64)@runq + $wait;
+        if ($wait > @runq_max) {
+          @runq_max = $wait;
+          @runq_max_cpu = cpu;
+          @runq_max_prev = args.prev_comm;
+        }
+      }
+    }
+  }
+}
+
+tracepoint:sched:sched_wakeup
+/@loop != 0 && (args.pid == @loop || (@holder != 0 && args.pid == @holder))/
+{
+  $now = nsecs(monotonic);
+  if (args.pid == @loop) {
+    $since = (uint64)@blocked_since;
+    @blocked_since = (uint64)0;
+    if ($since > 0) {
+      $b = $now - $since;
+      @blocked = (uint64)@blocked + $b;
+      if ($b > @block_max) {
+        @block_max = $b;
+        @block_max_state = @blocked_state;
+        @block_max_stack = @blocked_stack;
+      }
+    }
+    @runnable_since = $now;
+  } else {
+    $off = (uint64)@holder_off_since;
+    @holder_off_since = (uint64)0;
+    $thr = (uint64)getopt("threshold_ms", 30, "report iterations longer than this") * 1000000;
+    if ($off > 0 && @start > 0 && $now - @start > $thr) {
+      @holder_off[@holder_comm, @holder_off_stack] = sum(($now - $off) / 1000);
+    }
+  }
+}
+
+// The first contention_begin of a mutex wait is before optimistic spinning, while
+// the owner is still set.
+tracepoint:lock:contention_begin
+/@loop != 0 && tid == @loop/
+{
+  if (@lock_since == 0) {
+    @lock_since = nsecs(monotonic);
+    @holder = (uint32)0;
+    @holder_comm = "unknown";
+    @holder_proc = "unknown";
+    // LCB_F_MUTEX: a struct mutex, whose owner is a task pointer with 3 flag bits.
+    if (args.flags & 0x20) {
+      $owner = (struct task_struct *)((uint64)((struct mutex *)args.lock_addr)->owner.counter & ~(uint64)7);
+      if ((uint64)$owner != 0) {
+        @holder = (uint32)$owner->pid;
+        @holder_comm = $owner->comm;
+        @holder_proc = $owner->group_leader->comm;
+      }
+    }
+  }
+}
+
+tracepoint:lock:contention_end
+/@loop != 0 && tid == @loop/
+{
+  $now = nsecs(monotonic);
+  $since = (uint64)@lock_since;
+  @lock_since = (uint64)0;
+  if ($since > 0) {
+    $w = $now - $since;
+    @lock_wait = (uint64)@lock_wait + $w;
+    $thr = (uint64)getopt("threshold_ms", 30, "report iterations longer than this") * 1000000;
+    if (@start > 0 && $now - @start > $thr) {
+      @lock_holders[@holder_proc, @holder_comm, @holder] = sum($w / 1000);
+      $off = (uint64)@holder_off_since;
+      if ($off > 0) {
+        @holder_off[@holder_comm, @holder_off_stack] = sum(($now - $off) / 1000);
+      }
+    }
+  }
+  @holder_off_since = (uint64)0;
+  @holder = (uint32)0;
+}
+
+profile:hz:499
+/@loop != 0 && @start > 0 && (tid == @loop || (@holder != 0 && tid == @holder))/
+{
+  $thr = (uint64)getopt("threshold_ms", 30, "report iterations longer than this") * 1000000;
+  if (nsecs(monotonic) - @start > $thr) {
+    if (tid == @loop) {
+      @stall_oncpu[kstack(24)] = count();
+    } else {
+      @holder_oncpu[@holder_comm, kstack(24)] = count();
+    }
+  }
+}
+
+tracepoint:vmscan:mm_vmscan_direct_reclaim_begin
+{
+  @dr_since[tid] = nsecs(monotonic);
+  @dr_order[tid] = (int64)args.order;
+}
+
+tracepoint:vmscan:mm_vmscan_direct_reclaim_end
+{
+  let $since;
+  if (find(@dr_since, tid, $since)) {
+    $d = nsecs(monotonic) - $since;
+    $order = @dr_order[tid];
+    $deleted = delete(@dr_since, tid) && delete(@dr_order, tid);
+    @w_direct_reclaim_us[comm, $order] = stats($d / 1000);
+    @window = 1;
+    if (tid == @loop) {
+      @reclaim = (uint64)@reclaim + $d;
+      if ($order > @alloc_order) { @alloc_order = $order; }
+    }
+  }
+}
+
+kprobe:try_to_compact_pages
+{
+  @dc_since[tid] = nsecs(monotonic);
+  @dc_order[tid] = (int64)arg1;
+}
+
+kretprobe:try_to_compact_pages
+{
+  let $since;
+  if (find(@dc_since, tid, $since)) {
+    $d = nsecs(monotonic) - $since;
+    $order = @dc_order[tid];
+    $deleted = delete(@dc_since, tid) && delete(@dc_order, tid);
+    @w_direct_compact_us[comm, $order] = stats($d / 1000);
+    if (tid == @loop) {
+      @compact = (uint64)@compact + $d;
+      if ($order > @alloc_order) { @alloc_order = $order; }
+    }
+  }
+}
+
+tracepoint:vmscan:mm_vmscan_wakeup_kswapd
+{
+  @w_kswapd_wakers[comm, args.order, args.gfp_flags] = count();
+  @w_kswapd_waker_stacks[kstack(12)] = count();
+}
+
+kprobe:xe_shrinker_scan
+{
+  @xs_since[tid] = nsecs(monotonic);
+}
+
+kretprobe:xe_shrinker_scan
+{
+  let $since;
+  if (find(@xs_since, tid, $since)) {
+    $deleted = delete(@xs_since, tid);
+    @w_xe_shrink_us[comm] = stats((nsecs(monotonic) - $since) / 1000);
+    // SHRINK_STOP is ~0UL.
+    if ((int64)retval > 0) {
+      @w_xe_shrunk_pages[comm] = sum((int64)retval);
+    }
+    @window = 1;
+  }
+}
+
+tracepoint:xe:xe_bo_move
+{
+  @w_xe_moved_kib[comm, str(args.old_placement_name), str(args.new_placement_name)] = sum(args.size >> 10);
+  if (tid == @loop) {
+    @moved = (uint64)@moved + args.size;
+  }
+}
+
+tracepoint:xe:xe_vma_evict,
+tracepoint:xe:xe_vma_rebind_exec
+{
+  @w_xe_vma[probe, comm] = count();
+  if (tid == @loop && probe == "tracepoint:xe:xe_vma_rebind_exec") {
+    @rebinds = (uint64)@rebinds + 1;
+  }
+}
+
+tracepoint:kmem:mm_page_alloc_extfrag
+{
+  @w_extfrag[args.alloc_order] = count();
+}
+
+tracepoint:sched:sched_process_exit
+/@loop != 0 && tid == @loop/
+{
+  @loop = 0;
+  @waiting = 0;
+  @start = (uint64)0;
+  @runnable_since = (uint64)0;
+  @blocked_since = (uint64)0;
+  @lock_since = (uint64)0;
+  @holder = (uint32)0;
+}
+
+interval:s:5
+{
+  if (@window) {
+    printf("memory reclaim over the last 5 s:\n");
+    printf("  kswapd woken by (task, allocation order, gfp flags):\n");
+    print(@w_kswapd_wakers);
+    printf("  from:\n");
+    print(@w_kswapd_waker_stacks, 3);
+    printf("  direct reclaim (task, order), in µs:\n");
+    print(@w_direct_reclaim_us);
+    printf("  direct compaction (task, order), in µs:\n");
+    print(@w_direct_compact_us);
+    printf("  xe GPU buffer shrinker runs (task), in µs:\n");
+    print(@w_xe_shrink_us);
+    printf("  pages it freed:\n");
+    print(@w_xe_shrunk_pages);
+    printf("  xe buffer moves (task, from, to), in KiB:\n");
+    print(@w_xe_moved_kib);
+    printf("  xe vma evictions and rebinds (event, task):\n");
+    print(@w_xe_vma);
+    printf("  page block fallbacks (allocation order):\n");
+    print(@w_extfrag);
+    cat("/proc/buddyinfo");
+    @window = 0;
+  }
+  clear(@w_kswapd_wakers);
+  clear(@w_kswapd_waker_stacks);
+  clear(@w_direct_reclaim_us);
+  clear(@w_direct_compact_us);
+  clear(@w_xe_shrink_us);
+  clear(@w_xe_shrunk_pages);
+  clear(@w_extfrag);
+  clear(@w_xe_moved_kib);
+  clear(@w_xe_vma);
+}
+
+interval:s:3600
+{
+  printf("niri event-loop iterations over the last hour, in µs:\n");
+  print(@iter_us);
+  clear(@iter_us);
+}
