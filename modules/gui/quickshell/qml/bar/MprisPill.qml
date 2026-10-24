@@ -1,5 +1,5 @@
 // Bar pill: source glyph + title + play/pause, in the active player's colour.
-// Hovering it opens the now-playing panel.
+// Hovering it opens the now-playing panel; clicking it raises the player.
 import QtQuick
 import QtQuick.Layouts
 import qs
@@ -84,9 +84,23 @@ Rectangle {
 
     HoverHandler {
         id: hover
+
+        cursorShape: Qt.PointingHandCursor
+    }
+
+    TapHandler {
+        onSingleTapped: {
+            // The play/pause glyph has its own tap.
+            if (root.player === null || toggleHover.hovered)
+                return;
+            root.player.raise();
+            panel.close();
+        }
     }
 
     NowPlaying {
+        id: panel
+
         target: root
         triggerHovered: hover.hovered
     }
