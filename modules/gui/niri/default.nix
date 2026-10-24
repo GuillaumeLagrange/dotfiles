@@ -95,6 +95,7 @@
 
               touchpad {
                   tap
+                  drag-lock
                   natural-scroll
                   click-method "clickfinger"
               }
