@@ -4,10 +4,10 @@
 setupVersion: 2
 modelRoles:
   default: anthropic/claude-opus-5-5
-  advisor: anthropic/claude-sonnet-5:medium
+  advisor: anthropic/claude-opus-5-5:off
   task: anthropic/claude-opus-5-5:low
-  slow: anthropic/claude-fable-5-1:medium
-  smol: anthropic/claude-sonnet-5:low
+  slow: anthropic/claude-opus-5-5:xhigh
+  smol: anthropic/claude-opus-5-5:low
 theme:
   dark: dark-gruvbox
 symbolPreset: nerd
@@ -30,4 +30,3 @@ display:
   cacheMissMarker: true
 disabledProviders:
   - claude-plugins
-
