@@ -20,6 +20,11 @@
          "name": "stylix"
       }
    },
+   "launcher_window": {
+      "layer_shell": {
+         "layer": "overlay"
+      }
+   },
    "providers": {
       "calculator": {
          "enabled": false
