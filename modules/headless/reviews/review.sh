@@ -89,7 +89,13 @@ open_tab() {
   elif act query-tab-names | grep -qxF -- "$tab"; then
     act go-to-tab-name "$tab" >/dev/null
   else
+    # Another PR of the repo shares its worktree: its tab is closed once the new one exists, so the
+    # session never runs out of tabs, which would end it.
+    stale=$(act list-tabs --json | jq -r --arg repo "$repo#" '.[] | select(.name | startswith($repo)) | .tab_id')
     act new-tab --name "$tab" "${cmd[@]}" >/dev/null
+    for id in $stale; do
+      act close-tab-by-id "$id" >/dev/null
+    done
   fi
 }
 

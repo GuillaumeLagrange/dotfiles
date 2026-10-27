@@ -143,7 +143,8 @@ Server/headless system configuration:
   HTML of templates) with images drawn inline; uploads are fetched through the signed URLs of the PR's
   `bodyHTML`. List, avatars and images cached in `~/.cache/reviews/`. Off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
   the entrypoint. It opens the pick in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
-  session I create (`wt add` the repo there when it is still a symlink), checks the PR out and opens diffy,
+  session I create (`wt add` the repo there when it is still a symlink), checks the PR out and opens diffy
+  (closing the tab of another PR of the same repo, after the new one exists so the session never empties),
   then attaches to the session, focuses the window showing it, or switches to it from inside zellij. The
   zellij session is ephemeral: `review` starts it with `--session-serialization false` and deletes a
   resurrectable leftover instead of resurrecting it
