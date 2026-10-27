@@ -14,8 +14,12 @@ through a socket exposed by omp itself.
   (prefixing a newline when the composer sits mid-line) then focus this omp's zellij
   pane (`zellij action focus-pane-id`, from the `ZELLIJ_*` env of the shell that
   launched it; no-op outside zellij); `{"op":"submit"}` → submit composer via
-  `pi.sendUserMessage`. All ops run through one server-wide promise queue, so `send`
-  and `submit` can't overlap.
+  `pi.sendUserMessage`; `{"op":"release"}` → replay held input (below). All ops run
+  through one server-wide promise queue, so `send` and `submit` can't overlap.
+  With `OMP_NVIM_BRIDGE_HOLD` set, `session_start` moves what the composer holds (typed
+  before extensions started) aside and holds every key (`ui.onTerminalInput`, terminal
+  replies pass) until `release` or 10 s; then pastes the former and replays the keys via
+  `process.stdin.emit("data")`.
 - `ai/omp/nvim-bridge.test.ts` — vitest over the socket protocol; `cd ai/omp && npm test`.
   Outside `extensions/` because omp loads every `.ts` there as an extension.
 - `modules/headless/ai.nix` — symlinks `ai/omp/extensions` → `~/.omp/agent/extensions`.
@@ -26,10 +30,11 @@ through a socket exposed by omp itself.
   just test` (plenary busted, same harness as `agent-diff`).
 - New sessions: `setup()` sets `cli.mux = { enabled = true, backend = 'omp' }`, so
   sidekick creates them through this backend. `M:start()` runs `zellij action new-pane
-  --close-on-exit --cwd <cwd> --name omp -- zsh -i -c … omp`, keeps a placeholder attached
-  (ops issued meanwhile are queued), then polls for a new descriptor in that cwd, attaches
-  it and replays the queue. `--name`: a command pane is titled after its command and
-  ignores the titles omp sets.
+  --close-on-exit --cwd <cwd> --name omp -- env OMP_NVIM_BRIDGE_HOLD=1 zsh -i -c … omp`,
+  keeps a placeholder attached (ops issued meanwhile are queued), then polls for a new
+  descriptor in that cwd, attaches it and replays the queue followed by `release`, so
+  what was typed in the new pane lands after `<leader>at`'s text. `--name`: a command
+  pane is titled after its command and ignores the titles omp sets.
 - `<leader>aa` / `<c-.>` → `M.toggle()`: attaches (or starts) an omp, then shows its pane
   or hides it. From `list-panes`: shown = same tab as nvim's pane and nvim not fullscreen.
   Hide = `toggle-fullscreen` on nvim's (focused) pane; show = leave fullscreen, then

@@ -6,6 +6,11 @@
 //
 //   {"op":"send","text":"..."} -> paste into the composer, no submit
 //   {"op":"submit"}            -> submit whatever the composer holds
+//   {"op":"release"}           -> replay the keys held since startup
+//
+// An omp nvim spawns to receive text gets OMP_NVIM_BRIDGE_HOLD: keys typed
+// before that text lands are held, then replayed after it, so they neither
+// split it nor submit without it.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -16,10 +21,12 @@ import path from "node:path";
 // Overridable so tests stay out of the real session registry.
 const RUN_DIR = process.env.OMP_NVIM_BRIDGE_DIR ?? path.join(os.homedir(), ".omp", "run", "nvim-bridge");
 
+type InputResult = { consume?: boolean; data?: string } | undefined;
 type Ui = {
 	pasteToEditor: (text: string) => unknown;
 	getEditorText: () => unknown;
 	setEditorText: (text: string) => unknown;
+	onTerminalInput: (handler: (data: string) => InputResult) => () => void;
 };
 type Ctx = {
 	hasUI: boolean;
@@ -45,8 +52,47 @@ function focusPane(): void {
 	proc.unref();
 }
 
+// Releases on its own if nvim never says so, e.g. it quit while omp started.
+const HOLD_MS = 10_000;
+
+// Replies to the terminal queries omp sends at startup: DCS, OSC, APC, and CSI
+// private reports. Keys never start like that.
+const TERMINAL_REPLY = /^\x1b(P|\]|_|\[\?)/;
+
+/** Hold what is typed from now on, until the returned function stops it. */
+function holdInput(ui: Ui): (replay: boolean) => Promise<void> {
+	let held = "";
+	const stop = ui.onTerminalInput((data) => {
+		if (TERMINAL_REPLY.test(data)) return undefined;
+		held += data;
+		return { consume: true };
+	});
+	// omp reads the terminal before extensions start: what was typed in the
+	// pane until now already sits in the composer.
+	const early = (async () => {
+		const text = String((await ui.getEditorText()) ?? "");
+		if (text) await ui.setEditorText("");
+		return text;
+	})().catch(() => "");
+	let released = false;
+	const release = async (replay: boolean) => {
+		if (released) return;
+		released = true;
+		clearTimeout(timer);
+		stop();
+		const typed = await early;
+		if (!replay) return;
+		if (typed) await ui.pasteToEditor(typed);
+		// Back through omp's own stdin handling, now that nothing holds it.
+		if (held) process.stdin.emit("data", held);
+	};
+	const timer = setTimeout(() => release(true).catch(() => {}), HOLD_MS);
+	return release;
+}
+
 export default function nvimBridge(pi: Pi) {
 	let server: net.Server | undefined;
+	let release = async (_replay: boolean) => {};
 	const sockPath = path.join(RUN_DIR, `${process.pid}.sock`);
 	const metaPath = path.join(RUN_DIR, `${process.pid}.json`);
 
@@ -67,6 +113,8 @@ export default function nvimBridge(pi: Pi) {
 				await ctx.ui.setEditorText("");
 				await pi.sendUserMessage(pending);
 			}
+		} else if (op === "release") {
+			await release(true);
 		} else {
 			return JSON.stringify({ ok: false, error: `unknown op: ${String(op)}` });
 		}
@@ -76,6 +124,11 @@ export default function nvimBridge(pi: Pi) {
 	pi.on("session_start", (_event, ctx) => {
 		// Only a session with a live composer has anywhere to put the text.
 		if (!ctx.hasUI || server) return;
+		if (process.env.OMP_NVIM_BRIDGE_HOLD) {
+			// Not for the tools' subprocesses, nor a later omp they start.
+			delete process.env.OMP_NVIM_BRIDGE_HOLD;
+			release = holdInput(ctx.ui);
+		}
 		fs.mkdirSync(RUN_DIR, { recursive: true });
 		fs.rmSync(sockPath, { force: true });
 
@@ -123,6 +176,7 @@ export default function nvimBridge(pi: Pi) {
 	});
 
 	pi.on("session_shutdown", () => {
+		release(false).catch(() => {});
 		server?.close();
 		server = undefined;
 		fs.rmSync(sockPath, { force: true });

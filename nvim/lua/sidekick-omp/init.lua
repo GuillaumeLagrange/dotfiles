@@ -194,7 +194,8 @@ function M.toggle()
 end
 
 --- The new omp needs a few seconds of startup before it registers. Poll for it,
---- then swap it in for the placeholder session and replay what was sent meanwhile.
+--- then swap it in for the placeholder session, replay what was sent meanwhile,
+--- and let the keys it held since startup through after that.
 ---@param placeholder sidekick.cli.omp
 ---@param known table<integer, boolean> pids registered before the pane opened
 local function attach_when_up(placeholder, known)
@@ -213,7 +214,7 @@ local function attach_when_up(placeholder, known)
           placeholder.spawning = false
           Session.detach(placeholder)
           Session.attach(Session.new(vim.tbl_extend('force', state_of(info), { backend = 'omp', started = true })))
-          request_all(info.socket, placeholder.queue)
+          request_all(info.socket, vim.list_extend(placeholder.queue, { { op = 'release' } }))
           return
         end
       end
@@ -241,9 +242,13 @@ function M:start()
   -- command, here the zsh wrapper below, and ignores the titles omp sets.
   local cmd = { 'zellij', 'action', 'new-pane', '--close-on-exit', '--cwd', self.cwd }
   vim.list_extend(cmd, { '--name', table.concat(self.tool.cmd, ' '), '--' })
+  -- OMP_NVIM_BRIDGE_HOLD: the omp holds what is typed in its pane until the
+  -- release sent after the queue, so it lands after the text sent meanwhile.
   -- An interactive zsh that runs its chpwd hooks as if it had just cd-ed here:
   -- direnv loads the flake devshell and fnm switches node.
   vim.list_extend(cmd, {
+    'env',
+    'OMP_NVIM_BRIDGE_HOLD=1',
     'zsh',
     '-i',
     '-c',

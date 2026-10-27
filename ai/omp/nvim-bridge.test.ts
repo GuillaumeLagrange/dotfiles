@@ -7,7 +7,7 @@ import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, assert, beforeAll, describe, it } from "vitest";
+import { afterAll, assert, beforeAll, describe, it, type MockInstance, vi } from "vitest";
 
 const RUN_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nvim-bridge-test-"));
 process.env.OMP_NVIM_BRIDGE_DIR = RUN_DIR;
@@ -23,6 +23,13 @@ const pastes: string[] = [];
 const prompts: string[] = [];
 let editorText = "";
 let pasteDelayMs = 0;
+let inputHandler: ((data: string) => { consume?: boolean } | undefined) | undefined;
+
+/** A key reaching omp's TUI: extension listeners first, then the composer. */
+function type(data: string) {
+	if (inputHandler?.(data)?.consume) return;
+	editorText += data;
+}
 
 const handlers = new Map<string, (event: unknown, ctx: unknown) => void>();
 const pi = {
@@ -45,6 +52,12 @@ const ctx = {
 		getEditorText: () => editorText,
 		setEditorText(text: string) {
 			editorText = text;
+		},
+		onTerminalInput(handler: (data: string) => { consume?: boolean } | undefined) {
+			inputHandler = handler;
+			return () => {
+				inputHandler = undefined;
+			};
 		},
 	},
 };
@@ -137,5 +150,52 @@ describe("nvim-bridge", () => {
 		handlers.get("session_shutdown")?.({}, ctx);
 		assert.equal(fs.existsSync(sockPath), false);
 		assert.equal(fs.existsSync(metaPath), false);
+	});
+});
+
+describe("nvim-bridge spawned by nvim", () => {
+	let emit: MockInstance<typeof process.stdin.emit>;
+
+	beforeAll(async () => {
+		// omp's stdin handling, where held keys are replayed.
+		emit = vi.spyOn(process.stdin, "emit").mockImplementation((event, data) => {
+			if (event === "data") type(String(data));
+			return true;
+		});
+		process.env.OMP_NVIM_BRIDGE_HOLD = "1";
+		// Typed in the pane before omp started its extensions.
+		editorText = "explain ";
+		nvimBridge(pi);
+		handlers.get("session_start")?.({}, ctx);
+		for (let i = 0; i < 100 && !fs.existsSync(metaPath); i++) {
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+	});
+
+	afterAll(() => {
+		emit.mockRestore();
+		handlers.get("session_shutdown")?.({}, ctx);
+		fs.rmSync(RUN_DIR, { recursive: true, force: true });
+	});
+
+	it("puts what was typed before the text after it", async () => {
+		assert.equal(editorText, "");
+		type("why");
+		type("\r");
+		type("\x1b[?62c"); // a terminal's reply, not a key
+		assert.equal(editorText, "\x1b[?62c");
+		editorText = "";
+		await request({ op: "send", text: "@src/foo.ts:12\n" });
+		await request({ op: "release" });
+		assert.equal(editorText, "@src/foo.ts:12\nexplain why\r");
+	});
+
+	it("stops holding once released", () => {
+		type("!");
+		assert.equal(editorText, "@src/foo.ts:12\nexplain why\r!");
+	});
+
+	it("keeps the hold from the processes omp starts", () => {
+		assert.equal(process.env.OMP_NVIM_BRIDGE_HOLD, undefined);
 	});
 });
