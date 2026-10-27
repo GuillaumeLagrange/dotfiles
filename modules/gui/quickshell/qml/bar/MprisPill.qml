@@ -34,6 +34,35 @@ Rectangle {
         color: root.railColor
     }
 
+    // The play/pause target is the pill's whole right end, not just the glyph.
+    Item {
+        id: toggleZone
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        width: toggleGlyph.width + layout.anchors.rightMargin + layout.spacing
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 2
+            radius: Theme.pillRadius - 1
+            color: toggleHover.hovered ? Theme.alpha(root.railColor, 0.2) : "transparent"
+        }
+
+        HoverHandler {
+            id: toggleHover
+
+            cursorShape: Qt.PointingHandCursor
+        }
+
+        TapHandler {
+            onSingleTapped: {
+                if (root.player !== null)
+                    root.player.togglePlaying();
+            }
+        }
+    }
+
     RowLayout {
         id: layout
         anchors.left: rail.right
@@ -61,24 +90,13 @@ Rectangle {
         }
 
         Text {
+            id: toggleGlyph
+
             Layout.alignment: Qt.AlignVCenter
             text: root.playing ? Config.glyph.pause : Config.glyph.play
             color: toggleHover.hovered ? root.railColor : Theme.alpha(Theme.fg, 0.85)
             font.family: Theme.icon
             font.pixelSize: 11
-
-            HoverHandler {
-                id: toggleHover
-
-                cursorShape: Qt.PointingHandCursor
-            }
-
-            TapHandler {
-                onSingleTapped: {
-                    if (root.player !== null)
-                        root.player.togglePlaying();
-                }
-            }
         }
     }
 
@@ -90,7 +108,7 @@ Rectangle {
 
     TapHandler {
         onSingleTapped: {
-            // The play/pause glyph has its own tap.
+            // The play/pause zone has its own tap.
             if (root.player === null || toggleHover.hovered)
                 return;
             root.player.raise();
