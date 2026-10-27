@@ -27,6 +27,7 @@ Singleton {
     // mako's default-timeout, for clients that send -1 (server decides).
     readonly property int defaultTimeout: 10000
     readonly property int historyLimit: 100
+    readonly property int popupLimit: 5
 
     property bool dnd: false
     // Snapshots, newest first.
@@ -37,6 +38,18 @@ Singleton {
     // lifetime: a timeout drops the id and leaves the notification open.
     property var popupIds: []
     readonly property var popups: root.liveNotifs.filter(notification => root.popupIds.includes(notification.id))
+    // Newest first, nearest the corner, and only the tail of a burst is on screen.
+    readonly property var shown: root.popups.slice(-root.popupLimit).reverse()
+
+    // Each popup's timeout counts only while it is on screen and not hovered:
+    // a burst queued behind the stack gets its full time once it shows. Kept
+    // here rather than in the popup, whose delegate is recreated when it is
+    // pushed off the stack and exists once per output.
+    // id -> { left: ms still to show, since: when it last started counting, or null }
+    property var clocks: ({})
+    property var hovered: []
+
+    onShownChanged: root.sync()
 
     // Mod+N reaches every bar; the one on the focused output answers.
     signal centerToggleRequested
@@ -77,6 +90,77 @@ Singleton {
 
     function expire(notification): void {
         root.release(notification);
+    }
+
+    // -1 asks for the server default, 0 means it never expires. The value is
+    // milliseconds, whatever quickshell's docs say.
+    function timeoutFor(notification): int {
+        const requested = notification.expireTimeout;
+        if (requested === 0)
+            return 0;
+        return requested > 0 ? requested : root.defaultTimeout;
+    }
+
+    // Hovering pauses a popup; leaving it gives it its full time again.
+    function hover(notifId: int, on: bool): void {
+        if (on === root.hovered.includes(notifId))
+            return;
+        if (on) {
+            root.hovered = [...root.hovered, notifId];
+        } else {
+            root.hovered = root.hovered.filter(id => id !== notifId);
+            delete root.clocks[notifId];
+        }
+        root.sync();
+    }
+
+    // Starts the clocks of the popups that are showing, stops the others, and
+    // aims the timer at the earliest deadline.
+    function sync(): void {
+        const now = Date.now();
+        const shownIds = root.shown.map(notification => notification.id);
+        root.hovered = root.hovered.filter(id => root.popupIds.includes(id));
+        for (const id of Object.keys(root.clocks))
+            if (!root.popupIds.includes(Number(id)))
+                delete root.clocks[id];
+
+        let next = Infinity;
+        for (const notification of root.popups) {
+            const timeout = root.timeoutFor(notification);
+            if (timeout === 0)
+                continue;
+            const clock = root.clocks[notification.id] ?? (root.clocks[notification.id] = {
+                    left: timeout,
+                    since: null
+                });
+            const counting = shownIds.includes(notification.id) && !root.hovered.includes(notification.id);
+            if (counting && clock.since === null) {
+                clock.since = now;
+            } else if (!counting && clock.since !== null) {
+                clock.left -= now - clock.since;
+                clock.since = null;
+            }
+            if (clock.since !== null)
+                next = Math.min(next, clock.since + clock.left - now);
+        }
+
+        if (next === Infinity) {
+            expiry.stop();
+        } else {
+            expiry.interval = Math.max(next, 1);
+            expiry.restart();
+        }
+    }
+
+    function expireDue(): void {
+        const now = Date.now();
+        const due = root.popups.filter(notification => {
+            const clock = root.clocks[notification.id];
+            return clock && clock.since !== null && clock.since + clock.left <= now;
+        });
+        for (const notification of due)
+            root.expire(notification);
+        root.sync();
     }
 
     // Clears the screen. What it leaves behind is a centre row, still carrying
@@ -162,6 +246,8 @@ Singleton {
 
         if (popup && !root.popupIds.includes(notification.id))
             root.popupIds = [...root.popupIds, notification.id];
+        // A replaced notification shows for its full time again.
+        delete root.clocks[notification.id];
 
         root.history = [
             {
@@ -183,6 +269,7 @@ Singleton {
         // once this handler returns, and a sweep that cannot see it there
         // takes it for an id with nothing behind it.
         Qt.callLater(root.sweep);
+        Qt.callLater(root.sync);
     }
 
     // The notification's own image first, then the sending application's icon,
@@ -213,6 +300,12 @@ Singleton {
     }
 
     property int nextKey: 1
+
+    Timer {
+        id: expiry
+
+        onTriggered: root.expireDue()
+    }
 
     NotificationServer {
         id: server

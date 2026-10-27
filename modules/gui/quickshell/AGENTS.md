@@ -90,6 +90,14 @@ JS copy and the popup stack is just the ids the bar is currently drawing. A
 popup timing out therefore does not have to close anything, which is what makes
 a centre row actionable.
 
+**Popup timeouts are per notification and count screen time.** `Notifs` keeps a
+clock per popup that runs only while it is among the `popupLimit` cards on
+screen and not hovered, so a burst queued behind the stack gets its full time
+once it shows, and one card expiring leaves the others' clocks alone. The clocks
+live in the service, not the card: the stack exists once per output, and a
+card's delegate is recreated when it is pushed off the stack. Leaving a card
+with the pointer, or the sender replacing it, restarts its full time.
+
 **A notification is held open for as long as its centre row lives** (`sweep()`),
 which is what the history limit bounds. Two things need it. An action is a live
 D-Bus call: `NotificationAction.invoke()` sends `ActionInvoked(id, key)` to the

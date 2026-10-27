@@ -18,8 +18,7 @@ PanelWindow {
 
     readonly property int cardWidth: 380
     readonly property int pad: 8
-    // Newest first, nearest the corner, and only the tail of a burst is on screen.
-    readonly property var shown: Notifs.popups.slice(-5).reverse()
+    readonly property var shown: Notifs.shown
 
     screen: modelData
     // Notifications follow the focus, the way mako's default output does.
@@ -47,21 +46,17 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: root.shown
+            // Keeps a card's delegate, and its hover, while others come and go.
+            model: ScriptModel {
+                values: root.shown
+            }
 
             Item {
                 id: entry
 
                 required property var modelData
-
-                // -1 asks for the server default, 0 means it never expires.
-                // The value is milliseconds, whatever quickshell's docs say.
-                readonly property int timeout: {
-                    const requested = entry.modelData.expireTimeout;
-                    if (requested === 0)
-                        return 0;
-                    return requested > 0 ? requested : Notifs.defaultTimeout;
-                }
+                // Read up front: the notification may be gone by destruction.
+                readonly property int notifId: entry.modelData.id
 
                 width: stack.width
                 implicitHeight: card.implicitHeight
@@ -84,18 +79,18 @@ PanelWindow {
                     onActionInvoked: action => Notifs.invokeAction(entry.modelData, action)
                 }
 
-                // Paused while the pointer is on the card, so a notification
-                // being read does not vanish mid-sentence. Expiry only takes
-                // the popup down: what it leaves is the service's to decide.
-                Timer {
-                    running: entry.timeout > 0 && !cardHover.hovered
-                    interval: entry.timeout
-                    onTriggered: Notifs.expire(entry.modelData)
-                }
-
+                // Hovering pauses the expiry, so a notification being read
+                // does not vanish mid-sentence. Expiry only takes the popup
+                // down: what it leaves is the service's to decide.
                 HoverHandler {
                     id: cardHover
+
+                    onHoveredChanged: Notifs.hover(entry.notifId, cardHover.hovered)
                 }
+
+                // A card pushed off the stack under the pointer never reports
+                // the pointer leaving.
+                Component.onDestruction: Notifs.hover(entry.notifId, false)
             }
         }
     }
