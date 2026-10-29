@@ -153,8 +153,24 @@
             # Rename the zellij tab after the repo. Only `cdr` does this: a chpwd
             # hook that renamed on every `cd` clobbered hand-set tab names and was
             # removed (e7ce169).
+            # The first path component falls back to the only directory whose name
+            # contains it, then to an fzf pick.
             cdr() {
-              cd "$(workspace_root)/$@" || return
+              local root=$(workspace_root)
+              if (( $# == 0 )) || [[ -d "$root/$1" ]]; then
+                cd "$root/$@" || return
+              else
+                local first=''${1%%/*} rest= pick
+                [[ "$1" == */* ]] && rest=/''${1#*/}
+                local -a matches=( "$root"/*''${(b)first}*(-/N:t) )
+                if (( $#matches == 1 )); then
+                  pick=$matches[1]
+                else
+                  pick=$(print -rl -- "$root"/*(-/N:t) | ${pkgs.fzf}/bin/fzf --query="$first" \
+                    --prompt='repo> ' --height='40%' --reverse) || return
+                fi
+                cd "$root/$pick$rest" || return
+              fi
               if [[ -n "$ZELLIJ" ]] && (( $+commands[mux-name] )); then
                 zellij action rename-tab "$(mux-name "$PWD")"
               fi
