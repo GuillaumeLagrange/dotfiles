@@ -9,6 +9,11 @@ alwaysApply: true
 
 # Browser testing
 
+- Never open a browser (managed, relay, or any other) without the user's explicit
+  go-ahead in this conversation. This overrides any default verification step.
+  You may propose a browser check and say what it would cover, then wait for a
+  yes. Until then, verify through tests, `curl` or the CLI, and tell the user
+  what is still unchecked in the browser.
 - Reach for an API or CLI first (`gh api`, `curl`, `read` on a URL). Use the
   browser only for what the web page alone shows: rendering, layout, UI-only state.
 - Two ways to get a browser:
