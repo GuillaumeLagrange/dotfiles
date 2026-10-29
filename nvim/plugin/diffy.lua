@@ -6,6 +6,19 @@ end
 
 vim.opt.rtp:prepend(dir)
 vim.cmd.runtime('plugin/diffy.lua')
+-- `gG` / `:Diffy guide`: omp writes the branch's review guide, and on its own
+-- the first time a pull request without one is opened
+require('diffy').setup({
+  guide = { agent = 'omp', auto = true },
+  -- `<leader>da` (lines, guide sections) and `:Diffy review agent` go to the sidekick pane;
+  -- as `text` lines, not `msg`, which would expand `{file}`-like placeholders in the code
+  send_to_agent = function(text)
+    local lines = vim.tbl_map(function(l)
+      return { { l } }
+    end, vim.split(text, '\n', { plain = true }))
+    require('sidekick.cli').send({ text = lines })
+  end,
+})
 
 local fixit = require('fixit')
 -- diffy's sessions, in any tab, join every `:Fixit` snapshot
