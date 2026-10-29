@@ -60,25 +60,62 @@ Singleton {
     }
 
     // BlueZ reports a freedesktop icon name; the bar draws nerd-font glyphs.
-    function deviceGlyph(dev): string {
+    // Returns a key of Config.glyph.
+    function bluezGlyphKey(dev): string {
         const icon = dev?.icon ?? "";
         if (icon.includes("headset") || icon.includes("headphone"))
-            return Config.glyph.headphones;
+            return "headphones";
         if (icon.includes("audio") || icon.includes("speaker"))
-            return Config.glyph.speaker;
+            return "speaker";
         if (icon.includes("mouse"))
-            return Config.glyph.mouse;
+            return "mouse";
         if (icon.includes("keyboard"))
-            return Config.glyph.keyboard;
+            return "keyboard";
         if (icon.includes("phone"))
-            return Config.glyph.phone;
+            return "phone";
         if (icon.includes("watch"))
-            return Config.glyph.watch;
+            return "watch";
         if (icon.includes("gaming") || icon.includes("gamepad"))
-            return Config.glyph.gamepad;
+            return "gamepad";
         if (icon.includes("computer"))
-            return Config.glyph.device;
-        return Config.glyph.bluetooth;
+            return "device";
+        return "bluetooth";
+    }
+
+    // Glyph keys picked in the panel, by device address.
+    property var glyphOverrides: ({})
+
+    function glyphKey(dev): string {
+        return root.glyphOverrides[dev?.address ?? ""] ?? root.bluezGlyphKey(dev);
+    }
+
+    function deviceGlyph(dev): string {
+        return Config.glyph[root.glyphKey(dev)] ?? Config.glyph.bluetooth;
+    }
+
+    // Picking BlueZ's own glyph drops the override.
+    function setGlyph(dev, key: string) {
+        const overrides = Object.assign({}, root.glyphOverrides);
+        if (key === root.bluezGlyphKey(dev))
+            delete overrides[dev.address];
+        else
+            overrides[dev.address] = key;
+        root.glyphOverrides = overrides;
+        overridesFile.setText(JSON.stringify(overrides, null, 2) + "\n");
+    }
+
+    FileView {
+        id: overridesFile
+
+        path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/quickshell/bt-glyphs.json"
+        printErrors: false
+        onLoaded: {
+            try {
+                root.glyphOverrides = JSON.parse(overridesFile.text());
+            } catch (e) {
+                // Keep the last good state.
+            }
+        }
     }
 
     function batteryOf(dev): string {

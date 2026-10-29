@@ -104,7 +104,11 @@
         bluetoothOff = glyph "F00B2";
         bluetoothOn = glyph "F00B1";
         headphones = glyph "F02CB";
+        headphonesBt = glyph "F0970";
+        headset = glyph "F02CE";
+        earbuds = glyph "F184F";
         speaker = glyph "F04C3";
+        speakerBt = glyph "F09A2";
         mouse = glyph "F037D";
         keyboard = glyph "F030C";
         phone = glyph "F011C";
@@ -191,6 +195,8 @@
             readonly property var volumeChime: ["${pkgs.pulseaudio}/bin/paplay", "--property=media.role=event", "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga"]
 
             readonly property var glyph: ${builtins.toJSON glyphs}
+            // The glyphs a bluetooth device's icon can be set to from its panel row.
+            readonly property var btDeviceGlyphs: ["headphones", "headphonesBt", "headset", "earbuds", "speaker", "speakerBt", "mouse", "keyboard", "phone", "watch", "gamepad", "device", "bluetooth"]
             readonly property var appGlyph: ${builtins.toJSON appGlyphs}
 
             // Outline bounds, in em fractions, for the glyphs Qt measures wrong;

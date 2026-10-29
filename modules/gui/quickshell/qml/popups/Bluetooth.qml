@@ -195,6 +195,46 @@ ClickPanel {
                 }
             }
 
+            Flow {
+                Layout.fillWidth: true
+                visible: row.open && row.known
+                spacing: 2
+
+                Repeater {
+                    model: Config.btDeviceGlyphs
+
+                    Rectangle {
+                        id: choice
+
+                        required property string modelData
+                        readonly property bool current: Bt.glyphKey(row.dev) === choice.modelData
+
+                        width: 22
+                        height: 22
+                        radius: 4
+                        color: choice.current ? Theme.alpha(Theme.blue, 0.35) : (choiceHover.hovered ? Theme.alpha(Theme.fg, 0.1) : "transparent")
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: Config.glyph[choice.modelData]
+                            color: choice.current ? Theme.fg : Theme.alpha(Theme.fg, 0.7)
+                            font.family: Theme.icon
+                            font.pixelSize: 14
+                        }
+
+                        HoverHandler {
+                            id: choiceHover
+
+                            cursorShape: Qt.PointingHandCursor
+                        }
+
+                        TapHandler {
+                            onSingleTapped: Bt.setGlyph(row.dev, choice.modelData)
+                        }
+                    }
+                }
+            }
+
             Text {
                 Layout.fillWidth: true
                 visible: row.open
