@@ -112,7 +112,7 @@ Shared configuration modules:
 Desktop environment configuration:
 
 - Niri window manager setup
-- niri stall tracing (`modules/gui/niri/stall-tracing.nix`), for stutters with no known trigger:
+- niri stall tracing (`modules/gui/niri/stall-tracing.nix`, off since the ttm fix below: flip its `enable`), for stutters with no known trigger:
   `niri-stall.service` runs `niri-stall.bt` (bpftrace) and logs each niri event-loop iteration over 30 ms,
   split into on CPU / blocked / waiting for a CPU, with the kernel stack of the longest block, niri's direct
   reclaim/compaction, who held the locks it waited on and what they did, and sampled on-CPU stacks; every 5 s

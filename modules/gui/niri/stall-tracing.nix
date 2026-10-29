@@ -7,9 +7,14 @@
   # - below records cgroup and process memory, swap, PSI and IO every 5s, the
   #   context of a stall (`below replay -t "<time>"`);
   # - Mod+Ctrl+S (default.nix) logs a `stutter` mark when one is felt.
+  # Off since ttm-reclaim.nix (hosts/granary) fixed the stalls; set `enable` to
+  # turn the recording back on.
   flake.modules.nixos.niri =
-    { pkgs, ... }:
-    {
+    { lib, pkgs, ... }:
+    let
+      enable = false;
+    in
+    lib.mkIf enable {
       systemd.services.niri-stall = {
         description = "Log niri event-loop stalls";
         wantedBy = [ "multi-user.target" ];
