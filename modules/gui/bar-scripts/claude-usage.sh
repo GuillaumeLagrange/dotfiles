@@ -12,7 +12,7 @@ case "${1:-}" in
 esac
 
 if ! data=$("$OMP_BIN" usage -j --provider anthropic 2>/dev/null); then
-  printf '{"text":"󰜡 Err","tooltip":"omp usage failed","class":"critical"}\n'
+  printf '{"text":"󰜡 Err","tooltip":"omp usage failed"}\n'
   exit 0
 fi
 
@@ -58,7 +58,6 @@ jq -c '
       tooltip: (["Claude Code Usage", "━━━━━━━━━━━━━━━━━━━━━━━━"]
         + [$ws[] | "\(.label + ":" | rpad(7))\("\(.pct)%" | lpad(4))  \(.eta) (\(.at))"]
         | join("\n")),
-      class: (if $pct >= 80 then "high" elif $pct >= 50 then "mid" else "low" end),
       percentage: $pct,
     }
 ' <<<"$data"

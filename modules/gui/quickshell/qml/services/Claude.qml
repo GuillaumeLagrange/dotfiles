@@ -11,7 +11,6 @@ Singleton {
 
     property string text: `${Config.glyph.claude} --`
     property string tooltip: ""
-    property string cls: "low"
 
     function refresh(arg: string): void {
         invalidate.command = [Config.claudeUsage, arg];
@@ -23,7 +22,6 @@ Singleton {
             const data = JSON.parse(json);
             root.text = data.text;
             root.tooltip = data.tooltip ?? "";
-            root.cls = data.class;
         } catch (e) {
             // Malformed output from a transient failure: keep the last good state.
         }
