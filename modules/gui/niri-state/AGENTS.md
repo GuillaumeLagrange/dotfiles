@@ -40,13 +40,13 @@ position, so columns opening, closing or resizing elsewhere do not drag the
 view.
 
 **Geometry is emitted in final pixels**, so the bar does no arithmetic: the
-strip is `SCREEN_PX` per screenful, grows behind a fixed frame up to `MAX_PX`,
-and is cropped around the frame past that. A column that straddles the frame
-edge stays one block with `dim_left`/`dim_right` pixels for the bar to shade -
-splitting it into two boxes would read as a cut. A cropped strip also carries a
-`thumb`: the screen's place in the whole workspace, scaled onto the strip's
-width, which the bar draws as a minimap under it. Blocks cut by the crop are
-flagged `cut` and lose their icon.
+strip is `SCREEN_PX` per screenful, grows behind a fixed frame up to `MAX_PX`
+(three screenfuls), and is cropped around the frame past that. A column that
+straddles the frame edge stays one block with `dim_left`/`dim_right` pixels for
+the bar to shade - splitting it into two boxes would read as a cut. A cropped
+strip also carries a `thumb`: the screen's place in the whole workspace, scaled
+onto the strip's width, which the bar draws as a minimap under it. Blocks cut by
+the crop are flagged `cut` and keep an icon sized to the part still drawn.
 
 **The frame is snapped onto block edges.** Separation is carved out of the left
 block of each pair, so a frame edge that lands in that `SEP_PX` gap is pulled

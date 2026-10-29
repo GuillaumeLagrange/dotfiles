@@ -8,9 +8,9 @@ use crate::model::{State, Window};
 /// One screenful of workspace, in pixels. The frame is therefore a constant-size
 /// reference and the strip grows behind it as columns are added.
 pub const SCREEN_PX: i64 = 32;
-/// Past this the strip is cropped around the frame rather than rescaled: beyond
-/// ~2.5 screenfuls the blocks stop being distinguishable anyway.
-pub const MAX_PX: i64 = 80;
+/// Past this the strip is cropped around the frame rather than rescaled: three
+/// screenfuls keep every block wide enough to read.
+pub const MAX_PX: i64 = 3 * SCREEN_PX;
 /// Gap between distinct columns, carved out of the left one. This is the only
 /// break in the strip, so it must dominate the shading seam inside a column that
 /// straddles the frame edge.
@@ -60,8 +60,8 @@ pub struct Block {
     pub tooltip: String,
     pub app_id: String,
     pub icon: String,
-    /// Side of the square the icon is drawn at; 0 when the block is too narrow
-    /// to carry one or is cut by the crop.
+    /// Side of the square the icon is drawn at; 0 when the drawn block, cropped
+    /// or not, is too narrow to carry one.
     pub icon_px: i64,
 }
 
@@ -232,16 +232,6 @@ pub fn build_strip(
         }
     }
 
-    // After the carve, so the size is chosen against the drawn width. The icon
-    // stays inside its block, which is what keeps it from spilling over a
-    // neighbour: the widget draws it as an unclipped overlay.
-    for block in &mut blocks {
-        block.icon_px = ICON_MAX_PX.min(block.w - 2);
-        if block.icon_px < ICON_MIN_PX {
-            block.icon_px = 0;
-        }
-    }
-
     let mut frame_x = to_px(start);
     let mut strip_w = blocks.last().map_or(0, |b| b.x + b.w).max(SCREEN_PX);
     let mut drawn_floats: Vec<Float> = floats
@@ -278,7 +268,12 @@ pub fn build_strip(
         };
         block.cut_left = x > block.x - offset;
         block.cut_right = x + w < block.x - offset + block.w;
-        if block.cut_left || block.cut_right {
+        // Sized against the drawn width: after the carve, and after the crop, so
+        // a cut block still shows its app in what is left of it. The icon stays
+        // inside its block, which is what keeps it from spilling over a
+        // neighbour: the widget draws it as an unclipped overlay.
+        block.icon_px = ICON_MAX_PX.min(w - 2);
+        if block.icon_px < ICON_MIN_PX {
             block.icon_px = 0;
         }
         (block.x, block.w, block.pad) = (x, w, x - cursor);
@@ -653,13 +648,18 @@ mod tests {
     }
 
     #[test]
-    fn blocks_cut_by_the_crop_are_flagged_and_lose_their_icon() {
-        let strip = build(&row(12), 6);
+    fn blocks_cut_by_the_crop_are_flagged_and_keep_an_icon_that_fits() {
+        let columns: Vec<_> = (1..=12).map(|i| column(i, 1400.0, &[i as u64])).collect();
+        let strip = build(&columns, 6);
         let (first, last) = (&strip.columns[0], strip.columns.last().unwrap());
-        assert!(first.cut_left && !first.cut_right && first.icon_px == 0);
-        assert!(last.cut_right && !last.cut_left && last.icon_px == 0);
+        assert!(first.cut_left && !first.cut_right);
+        assert!(last.cut_right && !last.cut_left);
         let inner = &strip.columns[1..strip.columns.len() - 1];
-        assert!(inner.iter().all(|b| !b.cut_left && !b.cut_right && b.icon_px > 0));
+        assert!(inner.iter().all(|b| !b.cut_left && !b.cut_right));
+        for block in &strip.columns {
+            assert!(block.icon_px <= block.w - 2, "icon spills out of {block:?}");
+            assert_eq!(block.icon_px > 0, block.w - 2 >= ICON_MIN_PX, "{block:?}");
+        }
     }
 
     #[test]
