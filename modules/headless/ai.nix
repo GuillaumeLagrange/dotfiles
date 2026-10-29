@@ -12,7 +12,8 @@
       # ~/.omp/agent/config.yml, which stays local. Skills that must not be
       # committed here (work, private) are registered there per machine with
       # `skills.customDirectories`; ai/omp/config.yml must not set that key,
-      # or it shadows the local list.
+      # or it shadows the local list. Likewise, private MCP servers go in the
+      # unlinked ~/.omp/agent/.mcp.json, which omp loads after mcp.json.
       home.activation.aiLinks = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         run mkdir -p "${ompAgentDir}"
         run ln -sfn "${aiDir}/omp/mcp.json" "${ompAgentDir}/mcp.json"
