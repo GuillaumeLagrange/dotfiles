@@ -18,7 +18,7 @@ use crate::state::{now_ms, Group, Row, Status, Store};
 use crate::zellij;
 
 const REFRESH: Duration = Duration::from_secs(1);
-const ACCENT: Color = Color::Blue;
+pub const ACCENT: Color = Color::Blue;
 
 fn style(status: Status) -> (&'static str, Style) {
     match status {
@@ -53,7 +53,7 @@ fn summary(row: &Row) -> Vec<Span<'static>> {
     }
 }
 
-fn home_relative(path: &str) -> String {
+pub fn home_relative(path: &str) -> String {
     match std::env::var("HOME") {
         Ok(home) if !home.is_empty() && path.starts_with(&home) => {
             format!("~{}", &path[home.len()..])

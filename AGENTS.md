@@ -136,7 +136,9 @@ Server/headless system configuration:
 
 - Tmux terminal multiplexer setup
 - Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
-  zellij session, fed by `ai/omp/extensions/omp-panel.ts`
+  zellij session, fed by `ai/omp/extensions/omp-panel.ts`. `omp-panel panes` (normal-mode `z`) lists every
+  pane of every session with the command in its foreground, read from /proc (the pane's process carries
+  `ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`, its terminal's foreground group is what runs), filtered as you type
 - `reviews/`: ratatui picker over PRs, in two tabs (Tab switches): open ones awaiting my review, and those
   I reviewed updated in the last 14 days, merged/closed included (two concurrent `gh api graphql` searches).
   The description pane renders GitHub markdown itself (`src/markdown.rs`: tables, alerts, task lists, the

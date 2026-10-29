@@ -1,12 +1,17 @@
 //! omp-panel: every omp running in a zellij session, with its state and last
-//! message, and a jump to the one you pick.
+//! message, and a jump to the one you pick. `panes` does the same for every
+//! pane, by the command running in it.
 //!
 //!   omp-panel                     the picker (meant for a floating pane)
 //!   omp-panel list [--json]       what the picker shows, once
 //!   omp-panel jump <session> <pane>
+//!   omp-panel panes               the pane finder (meant for a floating pane)
+//!   omp-panel panes list [--json] every pane and its command, once
 
 mod jump;
 mod markdown;
+mod pane_picker;
+mod panes;
 mod state;
 mod tui;
 mod zellij;
@@ -60,6 +65,21 @@ fn label(status: Status) -> &'static str {
     }
 }
 
+fn list_panes(json: bool) -> Result<()> {
+    let rows = panes::collect();
+    if json {
+        println!("{}", serde_json::to_string_pretty(&rows)?);
+        return Ok(());
+    }
+    for row in &rows {
+        println!(
+            "{}\t{}\t{}\t{}\t{}",
+            row.session, row.pane_id, row.tab, row.command, row.cwd
+        );
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -73,6 +93,16 @@ fn main() -> Result<()> {
         ["list"] => list(false),
         ["list", "--json"] => list(true),
         ["jump", session, pane] => go(session, pane.parse().context("pane must be a number")?),
-        _ => bail!("usage: omp-panel [list [--json] | jump <session> <pane>]"),
+        ["panes"] => {
+            if let Some((session, pane)) = pane_picker::pick()? {
+                jump::jump(&session, pane, &jump::Launcher::from_env()?)?;
+            }
+            Ok(())
+        }
+        ["panes", "list"] => list_panes(false),
+        ["panes", "list", "--json"] => list_panes(true),
+        _ => bail!(
+            "usage: omp-panel [list [--json] | jump <session> <pane> | panes [list [--json]]]"
+        ),
     }
 }

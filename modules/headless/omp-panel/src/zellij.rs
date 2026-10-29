@@ -39,29 +39,36 @@ pub fn live_sessions() -> Vec<String> {
         .collect()
 }
 
+/// A terminal pane, as `list-panes --all` describes it.
 #[derive(Deserialize)]
-struct ListedPane {
-    id: u32,
+pub struct Pane {
+    pub id: u32,
     is_plugin: bool,
     exited: bool,
-    tab_name: Option<String>,
-    tab_position: Option<u32>,
+    pub title: Option<String>,
+    pub tab_name: Option<String>,
+    pub tab_position: Option<u32>,
+    /// What the pane was started with, not what runs in it now.
+    pub pane_command: Option<String>,
+    pub pane_cwd: Option<String>,
+    /// The command of a pane started with one, kept after it exits when held.
+    pub terminal_command: Option<String>,
+    pub is_held: bool,
 }
 
-pub fn panes(session: &str) -> Result<HashMap<u32, PaneInfo>> {
-    let json = run(&[
-        "-s",
-        session,
-        "action",
-        "list-panes",
-        "--json",
-        "--tab",
-        "--state",
-    ])?;
-    let listed: Vec<ListedPane> = serde_json::from_str(&json).context("parsing list-panes")?;
+/// The session's running terminal panes.
+pub fn terminal_panes(session: &str) -> Result<Vec<Pane>> {
+    let json = run(&["-s", session, "action", "list-panes", "--json", "--all"])?;
+    let listed: Vec<Pane> = serde_json::from_str(&json).context("parsing list-panes")?;
     Ok(listed
         .into_iter()
         .filter(|p| !p.is_plugin && !p.exited)
+        .collect())
+}
+
+pub fn panes(session: &str) -> Result<HashMap<u32, PaneInfo>> {
+    Ok(terminal_panes(session)?
+        .into_iter()
         .map(|p| {
             let info = PaneInfo {
                 tab_name: p.tab_name.unwrap_or_default(),

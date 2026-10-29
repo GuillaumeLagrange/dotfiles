@@ -281,6 +281,42 @@ fn list_shows_live_panes_rolled_up_and_prunes_the_rest() {
 }
 
 #[test]
+fn panes_lists_what_runs_in_each_pane() {
+    let Some(f) = Fixture::new() else { return };
+    f.start("panes-test");
+    let busy = f.new_pane("panes-test");
+    let target = format!("terminal_{busy}");
+    f.zellij(&[
+        "-s",
+        "panes-test",
+        "action",
+        "write-chars",
+        "-p",
+        &target,
+        "cd /tmp && sleep 4242\n",
+    ]);
+
+    let row = |pane: u32| {
+        let rows = json(&f.panel(&["panes", "list", "--json"], &[]));
+        rows.as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["session"] == "panes-test" && r["pane_id"] == pane)
+            .cloned()
+    };
+    assert!(
+        wait_for(|| row(busy).is_some_and(|r| r["command"] == "sleep 4242")),
+        "{:?}",
+        row(busy)
+    );
+    let busy_row = row(busy).unwrap();
+    assert_eq!(busy_row["idle"], false);
+    assert_eq!(busy_row["cwd"], "/tmp", "the foreground process's cwd");
+    let shell = row(0).unwrap();
+    assert_eq!(shell["idle"], true, "{shell:?}");
+}
+
+#[test]
 fn jump_focuses_the_window_showing_the_session_then_the_pane() {
     let Some(mut f) = Fixture::new() else { return };
     f.start("alpha");
