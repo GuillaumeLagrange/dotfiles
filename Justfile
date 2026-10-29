@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-crates := "wt modules/gui/niri-state modules/headless/omp-panel modules/headless/reviews modules/headless/zellij-minimap"
+crates := "wt modules/gui/niri-state modules/headless/omp-panel modules/headless/reviews"
 
 # Lint and test everything
 check: lint test

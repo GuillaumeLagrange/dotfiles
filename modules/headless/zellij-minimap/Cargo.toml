@@ -1,8 +1,0 @@
-[package]
-name = "zellij-minimap"
-version = "0.1.0"
-# zellij's tab-bar, which compiles these files as a module, is edition 2021.
-edition = "2021"
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-zellij-tile = "0.45.1"

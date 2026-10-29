@@ -84,16 +84,6 @@
         attach = "${zellijAttach}/bin/zellij-attach";
       };
 
-      # zellij drops the kitty graphics its plugins print, which the tab bar's minimap is.
-      zellijUnwrapped = pkgs.unstable.zellij-unwrapped.overrideAttrs (old: {
-        patches = (old.patches or [ ]) ++ [ ./zellij-minimap/zellij-plugin-kitty-graphics.patch ];
-      });
-      # Built from the source of programs.zellij.package.
-      tabBar = pkgs.unstable.callPackage ./zellij-minimap/_package.nix {
-        zellij-unwrapped = zellijUnwrapped;
-      };
-      tabBarPath = "${config.xdg.configHome}/zellij/plugins/tab-bar.wasm";
-
       zsmScript = pkgs.writeShellScriptBin "zsm" ''
         if [[ "$1" == "-h" || "$1" == "--help" ]]; then
           cat <<EOF
@@ -228,24 +218,11 @@
     {
       programs.zellij = {
         enable = true;
-        package = pkgs.unstable.zellij.override { zellij-unwrapped = zellijUnwrapped; };
+        package = pkgs.unstable.zellij;
         layouts.guiom = ./zellij-layout-guiom.kdl;
       };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
-      # The `tab-bar` alias in zellij.kdl points here.
-      xdg.configFile."zellij/plugins/tab-bar.wasm".source = "${tabBar}/tab-bar.wasm";
-      # A plugin loaded from a file, unlike a built-in one, needs its permissions granted, and
-      # the tab bar is not selectable to answer the prompt. zellij reads this file on every
-      # request and merges into it, so an entry added here is kept.
-      home.activation.zellijTabBarPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        perms="${config.xdg.cacheHome}/zellij/permissions.kdl"
-        if [ -z "''${DRY_RUN:-}" ] && ! grep -qF '"${tabBarPath}"' "$perms" 2>/dev/null; then
-          mkdir -p "$(dirname "$perms")"
-          printf '"%s" {\n    ReadApplicationState\n    ChangeApplicationState\n}\n' \
-            '${tabBarPath}' >> "$perms"
-        fi
-      '';
 
       home.shellAliases = {
         z = "zellij";
