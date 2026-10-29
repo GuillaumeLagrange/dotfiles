@@ -1,5 +1,5 @@
-// Bluetooth badge: tinted when something is connected, click opens the
-// device panel.
+// Bluetooth badge: tinted when something is connected, click or Mod+B opens
+// the device panel.
 import QtQuick
 import qs
 import qs.components
@@ -8,6 +8,8 @@ import qs.popups
 
 Pill {
     id: root
+
+    required property string monitor
 
     visible: Bt.present
     interactive: true
@@ -21,5 +23,14 @@ Pill {
         id: panel
 
         target: root
+    }
+
+    Connections {
+        target: Bt
+
+        function onPanelToggleRequested(): void {
+            if (root.visible && root.monitor === Niri.focusedOutput)
+                panel.toggle();
+        }
     }
 }

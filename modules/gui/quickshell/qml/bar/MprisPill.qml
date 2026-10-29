@@ -1,5 +1,5 @@
 // Bar pill: source glyph + title + play/pause, in the active player's colour.
-// Hovering it opens the now-playing panel; clicking it raises the player.
+// Hovering it or Mod+P opens the now-playing panel; clicking it raises the player.
 import QtQuick
 import QtQuick.Layouts
 import qs
@@ -9,6 +9,7 @@ import qs.services
 Rectangle {
     id: root
 
+    required property string monitor
     readonly property var player: Media.active
     readonly property bool playing: root.player !== null && root.player.isPlaying
     readonly property color railColor: root.player !== null ? Media.colorFor(root.player) : Theme.grey
@@ -121,5 +122,14 @@ Rectangle {
 
         target: root
         triggerHovered: hover.hovered
+    }
+
+    Connections {
+        target: Media
+
+        function onPanelToggleRequested(): void {
+            if (root.visible && root.monitor === Niri.focusedOutput)
+                panel.toggle();
+        }
     }
 }

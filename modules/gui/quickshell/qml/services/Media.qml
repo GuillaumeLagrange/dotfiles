@@ -4,6 +4,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Services.Mpris
+import Quickshell.Io
 import qs
 
 Singleton {
@@ -58,5 +59,16 @@ Singleton {
         const m = Math.floor(s / 60);
         const r = s % 60;
         return `${m}:${r < 10 ? "0" : ""}${r}`;
+    }
+
+    // Mod+P reaches every bar; the one on the focused output answers.
+    signal panelToggleRequested
+
+    IpcHandler {
+        target: "media"
+
+        function panel(): void {
+            root.panelToggleRequested();
+        }
     }
 }

@@ -71,6 +71,7 @@ PanelWindow {
 
             MprisPill {
                 Layout.alignment: Qt.AlignVCenter
+                monitor: bar.monitor
             }
 
             Tray {
@@ -102,7 +103,9 @@ PanelWindow {
 
                 NetPill {}
 
-                BtPill {}
+                BtPill {
+                    monitor: bar.monitor
+                }
 
                 AudioPill {}
 

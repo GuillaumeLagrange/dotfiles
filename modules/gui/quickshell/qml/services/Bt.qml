@@ -158,4 +158,15 @@ Singleton {
         value: root.scanning && root.enabled
         when: root.present
     }
+
+    // Mod+B reaches every bar; the one on the focused output answers.
+    signal panelToggleRequested
+
+    IpcHandler {
+        target: "bt"
+
+        function panel(): void {
+            root.panelToggleRequested();
+        }
+    }
 }

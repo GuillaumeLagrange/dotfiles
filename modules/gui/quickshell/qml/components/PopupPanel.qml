@@ -28,6 +28,14 @@ PanelWindow {
         gate.open = false;
     }
 
+    // Opened from a key it stays up until toggled again, or until the pointer
+    // passes over it and leaves.
+    function toggle(): void {
+        if (!gate.open)
+            root.place();
+        gate.open = !gate.open;
+    }
+
     default property alias content: holder.data
     readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
 
