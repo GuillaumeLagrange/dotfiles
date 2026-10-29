@@ -3,10 +3,9 @@
 // It takes plain values rather than a Notification, because the centre outlives
 // the objects the server destroys when a client closes its notification.
 //
-// Left click activates, right click dismisses - mako's gestures, and it keeps
-// the card free of a close button: a tap handler on the card is also told about
-// taps its own buttons took, so the action row is a sibling of the tap area
-// rather than a child of it.
+// Left click activates, right click dismisses - mako's gestures. A tap handler
+// on the card is also told about taps its own buttons took, so the action row
+// is a sibling of the tap area rather than a child of it.
 import QtQuick
 import QtQuick.Layouts
 import qs
@@ -23,17 +22,32 @@ Rectangle {
     property string time: ""
     // Live NotificationActions; the centre has none.
     property var actions: []
-    property color surface: Theme.alpha("#000000", 0.18)
+    property color surface: Theme.well
 
     signal activated
     signal dismissed
     signal actionInvoked(var action)
 
-    implicitHeight: column.implicitHeight + 24
-    radius: 10
-    color: hover.hovered ? Qt.lighter(root.surface, 1.3) : root.surface
-    border.width: 1
-    border.color: root.critical ? Theme.alpha(Theme.red, 0.65) : Theme.border
+    implicitHeight: column.implicitHeight + 20
+    radius: Theme.rowRadius
+    color: root.surface
+    clip: true
+
+    Rectangle {
+        anchors.fill: parent
+        radius: parent.radius
+        color: hover.hovered ? Theme.hoverFill : "transparent"
+    }
+
+    // Urgent rail.
+    Rectangle {
+        visible: root.critical
+        width: 3
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        color: Theme.red
+    }
 
     HoverHandler {
         id: hover
@@ -45,12 +59,11 @@ Rectangle {
         id: column
 
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: 10
+        anchors.leftMargin: 12
         spacing: 8
 
         Item {
-            id: head
-
             Layout.fillWidth: true
             // A Rectangle takes no size from an anchor-filled child.
             implicitWidth: headRow.implicitWidth
@@ -64,14 +77,14 @@ Rectangle {
 
                 Rectangle {
                     Layout.alignment: Qt.AlignTop
-                    Layout.preferredWidth: 34
-                    Layout.preferredHeight: 34
-                    radius: 8
-                    color: root.critical ? Theme.alpha(Theme.red, 0.22) : Theme.alpha(Theme.fg, 0.08)
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    radius: Theme.rowRadius
+                    color: root.critical ? Theme.alpha(Theme.red, 0.2) : Theme.alpha(Theme.fg, 0.08)
 
                     Image {
                         anchors.fill: parent
-                        anchors.margins: 5
+                        anchors.margins: 4
                         visible: root.iconSource !== ""
                         source: root.iconSource
                         fillMode: Image.PreserveAspectFit
@@ -84,8 +97,8 @@ Rectangle {
                         anchors.centerIn: parent
                         visible: root.iconSource === ""
                         text: Config.glyph.bell
-                        size: 15
-                        color: root.critical ? Theme.red : Theme.alpha(Theme.fg, 0.55)
+                        size: 13
+                        color: root.critical ? Theme.red : Theme.dim
                     }
                 }
 
@@ -101,18 +114,19 @@ Rectangle {
                             Layout.fillWidth: true
                             text: root.appName
                             elide: Text.ElideRight
-                            color: root.critical ? Theme.red : Theme.alpha(Theme.fg, 0.45)
+                            color: root.critical ? Theme.red : Theme.dim
                             font.family: Theme.ui
                             font.pixelSize: 10
-                            font.bold: true
+                            font.weight: Font.DemiBold
                         }
 
                         Text {
                             visible: root.time !== ""
                             text: root.time
-                            color: Theme.alpha(Theme.fg, 0.35)
+                            color: Theme.faint
                             font.family: Theme.ui
                             font.pixelSize: 10
+                            font.features: { "tnum": 1 }
                         }
                     }
 
@@ -123,25 +137,23 @@ Rectangle {
                         elide: Text.ElideRight
                         color: Theme.fg
                         font.family: Theme.ui
-                        font.pixelSize: 13
-                        font.bold: true
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
                     }
 
                     Text {
                         Layout.fillWidth: true
                         visible: root.body !== ""
-                        // The server advertises markup, so bodies arrive as the
-                        // spec's HTML subset - in which a newline is whitespace,
-                        // not a break. Senders mean them as breaks: a Slack
-                        // digest is one bullet per line.
+                        // Bodies arrive as the spec's HTML subset, where a
+                        // newline is whitespace; senders mean them as breaks.
                         text: root.body.replace(/\n/g, "<br/>")
                         textFormat: Text.StyledText
                         wrapMode: Text.Wrap
                         maximumLineCount: 4
                         elide: Text.ElideRight
-                        color: Theme.alpha(Theme.fg, 0.75)
+                        color: Theme.dim
                         font.family: Theme.ui
-                        font.pixelSize: 12
+                        font.pixelSize: 11
                     }
                 }
             }
@@ -164,6 +176,7 @@ Rectangle {
             readonly property var buttons: root.actions.filter(action => action.identifier !== "default")
 
             Layout.fillWidth: true
+            Layout.leftMargin: 38
             visible: buttons.length > 0
             spacing: 6
 
@@ -175,20 +188,22 @@ Rectangle {
 
                     required property var modelData
 
-                    Layout.fillWidth: true
-                    implicitHeight: 28
-                    radius: 6
-                    color: buttonHover.hovered ? Theme.alpha(Theme.fg, 0.18) : Theme.alpha(Theme.fg, 0.09)
+                    implicitWidth: Math.min(buttonLabel.implicitWidth + 20, 160)
+                    implicitHeight: 24
+                    radius: Theme.rowRadius
+                    color: buttonHover.hovered ? Theme.alpha(Theme.fg, 0.14) : Theme.alpha(Theme.fg, 0.07)
 
                     Text {
+                        id: buttonLabel
+
                         anchors.centerIn: parent
-                        width: parent.width - 16
+                        width: Math.min(implicitWidth, parent.width - 20)
                         text: button.modelData.text
-                        horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
                         color: Theme.fg
                         font.family: Theme.ui
                         font.pixelSize: 11
+                        font.weight: Font.Medium
                     }
 
                     HoverHandler {
@@ -201,6 +216,10 @@ Rectangle {
                         onSingleTapped: root.actionInvoked(button.modelData)
                     }
                 }
+            }
+
+            Item {
+                Layout.fillWidth: true
             }
         }
     }

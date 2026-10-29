@@ -14,6 +14,9 @@ PanelWindow {
     id: root
 
     required property Item target
+
+    // The colour of the pill that opens the panel; every accent inside uses it.
+    property color accent: Theme.blue
     property bool triggerHovered: false
     property int pad: Theme.popupPad
     // Rows that fill the width report no implicit width of their own, so a

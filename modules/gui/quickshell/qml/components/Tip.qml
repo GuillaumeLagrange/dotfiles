@@ -11,7 +11,7 @@ BubbleWindow {
     property string text: ""
 
     pad: 8
-    bodyRadius: 6
+    bodyRadius: Theme.rowRadius
     visible: true
 
     Text {
@@ -22,7 +22,8 @@ BubbleWindow {
         // up columns with padding); centring each line separately shears it.
         horizontalAlignment: root.text.includes("\n") ? Text.AlignLeft : Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        font.family: Theme.mono
+        font.family: Theme.ui
+        font.features: { "tnum": 1 }
         font.pixelSize: 11
         textFormat: Text.PlainText
     }

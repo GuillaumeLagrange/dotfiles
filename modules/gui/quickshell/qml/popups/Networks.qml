@@ -11,6 +11,7 @@ ClickPanel {
     id: root
 
     panelWidth: 320
+    accent: Theme.purple
 
     // The network whose actions are showing, the one being asked a passphrase,
     // and the last connect failure.
@@ -35,21 +36,24 @@ ClickPanel {
         id: btn
 
         required property string label
-        property color tint: Theme.alpha(Theme.fg, 0.1)
+        // "accent", "danger" or "plain".
+        property string kind: "plain"
+        readonly property color tint: btn.kind === "accent" ? root.accent : (btn.kind === "danger" ? Theme.alpha(Theme.red, 0.22) : Theme.well)
 
         signal activated
 
         implicitWidth: caption.implicitWidth + 16
         implicitHeight: 22
-        radius: 4
-        color: hover.hovered ? Qt.lighter(btn.tint, 1.4) : btn.tint
+        radius: Theme.rowRadius
+        color: btn.tint
+        opacity: hover.hovered ? 0.85 : 1
 
         Text {
             id: caption
 
             anchors.centerIn: parent
             text: btn.label
-            color: Theme.fg
+            color: btn.kind === "accent" ? Theme.ink : (btn.kind === "danger" ? Theme.soften(Theme.red) : Theme.fg)
             font.family: Theme.ui
             font.pixelSize: 11
         }
@@ -79,7 +83,7 @@ ClickPanel {
         Text {
             Layout.preferredWidth: 46
             text: detail.label
-            color: Theme.alpha(Theme.fg, 0.4)
+            color: Theme.faint
             font.family: Theme.ui
             font.pixelSize: 10
         }
@@ -88,9 +92,10 @@ ClickPanel {
             Layout.fillWidth: true
             text: detail.value
             elide: Text.ElideRight
-            color: Theme.alpha(Theme.fg, 0.75)
-            font.family: Theme.mono
+            color: Theme.dim
+            font.family: Theme.ui
             font.pixelSize: 10
+            font.features: { "tnum": 1 }
         }
     }
 
@@ -121,8 +126,8 @@ ClickPanel {
         width: ListView.view.width
         implicitHeight: lines.implicitHeight + 8
         height: implicitHeight
-        radius: 6
-        color: row.open ? Theme.alpha(Theme.fg, 0.1) : (hover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent")
+        radius: Theme.rowRadius
+        color: row.open || row.connected ? Theme.well : (hover.hovered ? Theme.hoverFill : "transparent")
 
         ColumnLayout {
             id: lines
@@ -130,11 +135,14 @@ ClickPanel {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: 4
+            anchors.margins: 6
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
             spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.minimumHeight: 18
                 spacing: 8
 
                 // On the header only: a handler on the whole row would also
@@ -156,7 +164,7 @@ ClickPanel {
 
                 Text {
                     text: Net.strengthGlyph(row.net?.signalStrength ?? 0)
-                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
+                    color: row.connected ? Theme.soften(root.accent) : Theme.dim
                     font.family: Theme.icon
                     font.pixelSize: 14
                 }
@@ -168,22 +176,23 @@ ClickPanel {
                     color: Theme.fg
                     font.family: Theme.ui
                     font.pixelSize: 12
-                    font.bold: row.connected
+                    font.weight: row.connected ? Font.DemiBold : Font.Normal
                 }
 
                 Text {
                     visible: row.secured
                     text: Config.glyph.lock
-                    color: Theme.alpha(Theme.fg, 0.4)
+                    color: Theme.faint
                     font.family: Theme.icon
                     font.pixelSize: 11
                 }
 
                 Text {
                     text: row.net?.state === ConnectionState.Connecting ? "connecting" : (row.connected ? Net.formatRate(row.rate.rx) + " " + Config.glyph.down : (row.known ? "saved" : ""))
-                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
+                    color: row.connected ? Theme.soften(root.accent) : Theme.faint
                     font.family: Theme.ui
                     font.pixelSize: 10
+                    font.features: { "tnum": 1 }
                 }
             }
 
@@ -196,10 +205,10 @@ ClickPanel {
                     Layout.fillWidth: true
                     visible: row.askPsk
                     implicitHeight: 22
-                    radius: 4
-                    color: Theme.alpha("#000000", 0.25)
+                    radius: Theme.rowRadius
+                    color: Theme.well
                     border.width: 1
-                    border.color: psk.activeFocus ? Theme.blue : Theme.border
+                    border.color: psk.activeFocus ? root.accent : Theme.border
 
                     TextInput {
                         id: psk
@@ -217,7 +226,7 @@ ClickPanel {
                 Btn {
                     visible: !row.connected
                     label: row.askPsk ? "Join" : "Connect"
-                    tint: Theme.alpha(Theme.blue, 0.35)
+                    kind: "accent"
                     onActivated: {
                         root.error = "";
                         if (row.askPsk)
@@ -236,7 +245,7 @@ ClickPanel {
                 Btn {
                     visible: row.known
                     label: "Forget"
-                    tint: Theme.alpha(Theme.red, 0.3)
+                    kind: "danger"
                     onActivated: {
                         row.net.forget();
                         root.selected = null;
@@ -273,12 +282,13 @@ ClickPanel {
                 Text {
                     Layout.fillWidth: true
                     text: "Connect automatically"
-                    color: Theme.alpha(Theme.fg, 0.7)
+                    color: Theme.dim
                     font.family: Theme.ui
                     font.pixelSize: 11
                 }
 
                 Switch {
+                    accent: root.accent
                     on: row.profile !== null && row.profile.autoconnect
                     onToggled: Net.setAutoconnect(row.profile.uuid, !row.profile.autoconnect)
                 }
@@ -318,15 +328,18 @@ ClickPanel {
         readonly property var rate: Net.rateOf(wiredRow.dev.name)
 
         Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
         spacing: 2
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.minimumHeight: 26
             spacing: 8
 
             Text {
                 text: wiredRow.dev.hasLink ? Config.glyph.ethernet : Config.glyph.ethernetOff
-                color: wiredRow.dev.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.5)
+                color: wiredRow.dev.connected ? Theme.soften(root.accent) : Theme.dim
                 font.family: Theme.icon
                 font.pixelSize: 14
             }
@@ -342,12 +355,14 @@ ClickPanel {
 
             Text {
                 text: wiredRow.dev.connected ? `${Config.glyph.down} ${Net.formatRate(wiredRow.rate.rx)}` : (wiredRow.dev.hasLink ? "off" : "no cable")
-                color: Theme.alpha(Theme.fg, 0.45)
+                color: Theme.faint
                 font.family: Theme.ui
                 font.pixelSize: 10
+                font.features: { "tnum": 1 }
             }
 
             Switch {
+                accent: root.accent
                 on: wiredRow.dev.connected
                 live: wiredRow.dev.hasLink
                 onToggled: Net.setWiredEnabled(wiredRow.dev, !wiredRow.dev.connected)
@@ -374,11 +389,14 @@ ClickPanel {
         readonly property var vpn: vpnRow.modelData
 
         Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        Layout.minimumHeight: 26
         spacing: 8
 
         Text {
             text: Config.glyph.vpn
-            color: vpnRow.vpn.active ? Theme.purple : Theme.alpha(Theme.fg, 0.5)
+            color: vpnRow.vpn.active ? Theme.soften(root.accent) : Theme.dim
             font.family: Theme.icon
             font.pixelSize: 14
         }
@@ -393,6 +411,7 @@ ClickPanel {
         }
 
         Switch {
+            accent: root.accent
             on: vpnRow.vpn.active
             onToggled: Net.toggleVpn(vpnRow.vpn)
         }
@@ -404,36 +423,15 @@ ClickPanel {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 8
+        spacing: 10
 
-        Text {
-            Layout.fillWidth: true
-            visible: Net.wiredDevices.length > 0
-            text: "Wired"
-            color: Theme.grey
-            font.family: Theme.ui
-            font.pixelSize: 12
-        }
-
-        Repeater {
-            model: Net.wiredDevices
-            delegate: WiredRow {}
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: Net.wiredDevices.length > 0 ? 4 : 0
-            spacing: 8
+        PanelTitle {
+            glyph: Net.linkGlyph
+            text: "Wi-Fi"
+            accent: root.accent
 
             Text {
-                Layout.fillWidth: true
-                text: "Wi-Fi"
-                color: Theme.grey
-                font.family: Theme.ui
-                font.pixelSize: 12
-            }
-
-            Text {
+                anchors.verticalCenter: parent.verticalCenter
                 visible: Net.wifiBlocked
                 text: "blocked"
                 color: Theme.red
@@ -442,17 +440,36 @@ ClickPanel {
             }
 
             Switch {
+                anchors.verticalCenter: parent.verticalCenter
+                accent: root.accent
                 on: Net.wifiEnabled
                 live: !Net.wifiBlocked
                 onToggled: Networking.wifiEnabled = !Networking.wifiEnabled
             }
         }
 
+        SectionLabel {
+            Layout.fillWidth: true
+            visible: Net.wiredDevices.length > 0
+            text: "Wired"
+        }
+
+        Repeater {
+            model: Net.wiredDevices
+            delegate: WiredRow {}
+        }
+
+        SectionLabel {
+            Layout.fillWidth: true
+            visible: Net.wiredDevices.length > 0
+            text: "Networks"
+        }
+
         Text {
             Layout.fillWidth: true
             visible: Net.networks.length === 0
             text: Net.wifiEnabled ? "Scanning..." : "Wi-Fi is off"
-            color: Theme.alpha(Theme.fg, 0.45)
+            color: Theme.dim
             font.family: Theme.ui
             font.pixelSize: 11
         }
@@ -471,14 +488,10 @@ ClickPanel {
             delegate: NetRow {}
         }
 
-        Text {
+        SectionLabel {
             Layout.fillWidth: true
-            Layout.topMargin: 4
             visible: Net.vpns.length > 0
             text: "VPN"
-            color: Theme.grey
-            font.family: Theme.ui
-            font.pixelSize: 12
         }
 
         Repeater {
@@ -486,21 +499,21 @@ ClickPanel {
             delegate: VpnRow {}
         }
 
-        Rectangle {
+        SectionLabel {
             Layout.fillWidth: true
-            Layout.topMargin: 4
             visible: Net.publicPending || Net.publicV4 !== "" || Net.publicV6 !== ""
-            implicitHeight: 1
-            color: Theme.border
+            text: "Public IP"
         }
 
         Detail {
-            label: "Public"
+            Layout.leftMargin: 8
+            label: "IPv4"
             value: Net.publicPending && Net.publicV4 === "" ? "checking..." : Net.publicV4
         }
 
         Detail {
-            label: ""
+            Layout.leftMargin: 8
+            label: "IPv6"
             value: Net.publicV6
         }
 

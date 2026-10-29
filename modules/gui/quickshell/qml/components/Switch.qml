@@ -12,6 +12,7 @@ Rectangle {
     // Off when the whole row is the click target: a handler on the row would
     // otherwise also see the tap this one took, and toggle twice.
     property bool interactive: true
+    property color accent: Theme.blue
 
     signal toggled
 
@@ -19,7 +20,7 @@ Rectangle {
     implicitHeight: 18
     radius: 99
     opacity: root.live ? 1 : 0.4
-    color: root.on ? Theme.blue : Theme.alpha(Theme.fg, 0.14)
+    color: root.on ? root.accent : Theme.alpha(Theme.fg, 0.14)
 
     Rectangle {
         width: 14

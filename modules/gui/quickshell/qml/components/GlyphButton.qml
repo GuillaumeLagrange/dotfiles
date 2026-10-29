@@ -22,14 +22,14 @@ Rectangle {
     color: {
         if (root.filled)
             return root.hovered ? Qt.lighter(root.tint, 1.15) : root.tint;
-        return root.hovered ? Theme.alpha(Theme.fg, 0.14) : "transparent";
+        return root.hovered ? Theme.hoverFill : "transparent";
     }
 
     Glyph {
         anchors.centerIn: parent
         text: root.glyph
         size: root.glyphSize
-        color: root.filled ? Theme.ink : (root.hovered ? Theme.fg : Theme.alpha(Theme.fg, 0.75))
+        color: root.filled ? Theme.ink : (root.hovered ? Theme.fg : Theme.dim)
     }
 
     HoverHandler {

@@ -27,7 +27,7 @@ Rectangle {
     implicitWidth: Math.max(160, list.implicitWidth) + pad * 2
     implicitHeight: list.implicitHeight + pad * 2
 
-    radius: 8
+    radius: Theme.panelRadius
     color: Theme.drawerBg
     border.width: 1
     border.color: Theme.border
@@ -48,8 +48,8 @@ Rectangle {
         // has to be read off the layout or every label ends up elided.
         implicitWidth: holder.implicitWidth + 16
         implicitHeight: panel.rowHeight
-        radius: 5
-        color: hover.hovered && rowBg.live ? Theme.alpha(Theme.fg, 0.1) : "transparent"
+        radius: Theme.rowRadius
+        color: hover.hovered && rowBg.live ? Theme.hoverFill : "transparent"
 
         RowLayout {
             id: holder
@@ -93,7 +93,7 @@ Rectangle {
                 text: Config.glyph.larrow
                 font.family: Theme.icon
                 font.pixelSize: 13
-                color: Theme.aqua
+                color: Theme.fg
             }
 
             Text {
@@ -103,8 +103,8 @@ Rectangle {
                 elide: Text.ElideRight
                 font.family: Theme.ui
                 font.pixelSize: 12
-                font.bold: true
-                color: Theme.aqua
+                font.weight: Font.DemiBold
+                color: Theme.fg
             }
         }
 
@@ -161,7 +161,7 @@ Rectangle {
                         opacity: entry.modelData.checkState !== Qt.Unchecked ? 1 : 0
                         font.family: Theme.icon
                         font.pixelSize: entry.modelData.buttonType === QsMenuButtonType.RadioButton ? 8 : 11
-                        color: Theme.aqua
+                        color: Theme.fg
                     }
 
                     IconImage {
@@ -177,7 +177,7 @@ Rectangle {
                         elide: Text.ElideRight
                         font.family: Theme.ui
                         font.pixelSize: 12
-                        color: entry.modelData.enabled ? Theme.fg : Theme.grey
+                        color: entry.modelData.enabled ? Theme.fg : Theme.faint
                     }
 
                     Text {
@@ -185,7 +185,7 @@ Rectangle {
                         text: Config.glyph.submenu
                         font.family: Theme.icon
                         font.pixelSize: 10
-                        color: Theme.alpha(Theme.fg, 0.55)
+                        color: Theme.dim
                     }
                 }
             }

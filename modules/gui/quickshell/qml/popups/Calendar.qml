@@ -7,6 +7,7 @@ import qs.components
 
 PopupPanel {
     id: root
+    accent: Theme.aqua
 
     // Months from the current one; both panes move together off one offset.
     property int offset: 0
@@ -126,9 +127,9 @@ PopupPanel {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 6
-                    visible: cell.modelData.kind === "day"
-                    color: cell.modelData.today ? Theme.aqua : (cell.modelData.weekend ? Theme.alpha(Theme.orange, 0.10) : "transparent")
+                    radius: Theme.rowRadius
+                    visible: cell.modelData.today === true && !cell.modelData.other
+                    color: root.accent
                 }
 
                 Text {
@@ -136,19 +137,18 @@ PopupPanel {
                     visible: cell.modelData.kind !== "corner"
                     text: cell.modelData.kind === "wday" ? cell.modelData.label : cell.modelData.kind === "wknum" ? cell.modelData.num : (cell.modelData.day ?? "")
                     font.family: Theme.ui
-                    font.pixelSize: cell.modelData.kind === "day" ? 12 : 11
-                    font.bold: cell.modelData.kind === "wday" || cell.modelData.today === true
+                    font.pixelSize: cell.modelData.kind === "day" ? 12 : 10
+                    font.features: { "tnum": 1 }
+                    font.weight: cell.modelData.kind === "wday" || (cell.modelData.today === true && !cell.modelData.other) ? Font.DemiBold : Font.Normal
                     color: {
-                        if (cell.modelData.kind === "wday")
-                            return cell.modelData.weekend ? Theme.orange : Theme.grey;
-                        if (cell.modelData.kind === "wknum")
-                            return Theme.grey;
-                        if (cell.modelData.today)
+                        if (cell.modelData.kind === "wday" || cell.modelData.kind === "wknum")
+                            return Theme.faint;
+                        if (cell.modelData.today && !cell.modelData.other)
                             return Theme.ink;
                         if (cell.modelData.other)
-                            return Theme.grey;
+                            return Theme.faint;
                         if (cell.modelData.weekend)
-                            return Theme.orange;
+                            return Theme.dim;
                         return Theme.fg;
                     }
                 }
@@ -156,78 +156,74 @@ PopupPanel {
         }
     }
 
+    component Arrow: Text {
+        id: arrow
+
+        signal clicked
+
+        color: arrowHover.hovered ? Theme.soften(root.accent) : Theme.dim
+        font.family: Theme.icon
+        font.pixelSize: 14
+
+        HoverHandler {
+            id: arrowHover
+
+            cursorShape: Qt.PointingHandCursor
+        }
+        TapHandler {
+            onSingleTapped: arrow.clicked()
+        }
+    }
+
+    component MonthTitle: Text {
+        Layout.fillWidth: true
+        leftPadding: 26
+        color: Theme.fg
+        font.family: Theme.ui
+        font.weight: Font.DemiBold
+        font.pixelSize: 12
+    }
+
     ColumnLayout {
         spacing: 10
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 0
+        PanelTitle {
+            glyph: Config.glyph.calendar
+            text: "Calendar"
+            accent: root.accent
 
-            Text {
+            Arrow {
                 text: Config.glyph.larrow
-                color: leftArrow.hovered ? Theme.orange : Theme.aqua
-                font.family: Theme.icon
-                font.pixelSize: 16
-
-                HoverHandler {
-                    id: leftArrow
-
-                    cursorShape: Qt.PointingHandCursor
-                }
-                TapHandler {
-                    onSingleTapped: root.offset -= 1
-                }
+                onClicked: root.offset -= 1
             }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 0
-
-                Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: root.leftGrid.title + " " + root.leftGrid.year
-                    color: Theme.yellow
-                    font.family: Theme.ui
-                    font.bold: true
-                    font.pixelSize: 15
-                }
-                Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: root.rightGrid.title + " " + root.rightGrid.year
-                    color: Theme.yellow
-                    font.family: Theme.ui
-                    font.bold: true
-                    font.pixelSize: 15
-                }
-            }
-
-            Text {
+            Arrow {
                 text: Config.glyph.rarrow
-                color: rightArrow.hovered ? Theme.orange : Theme.aqua
-                font.family: Theme.icon
-                font.pixelSize: 16
-
-                HoverHandler {
-                    id: rightArrow
-
-                    cursorShape: Qt.PointingHandCursor
-                }
-                TapHandler {
-                    onSingleTapped: root.offset += 1
-                }
+                onClicked: root.offset += 1
             }
         }
 
         RowLayout {
             spacing: 20
 
-            MonthColumn {
-                grid: root.leftGrid
+            ColumnLayout {
+                spacing: 6
+
+                MonthTitle {
+                    text: root.leftGrid.title + " " + root.leftGrid.year
+                }
+                MonthColumn {
+                    grid: root.leftGrid
+                }
             }
-            MonthColumn {
-                grid: root.rightGrid
+            ColumnLayout {
+                spacing: 6
+
+                MonthTitle {
+                    text: root.rightGrid.title + " " + root.rightGrid.year
+                }
+                MonthColumn {
+                    grid: root.rightGrid
+                }
             }
         }
     }

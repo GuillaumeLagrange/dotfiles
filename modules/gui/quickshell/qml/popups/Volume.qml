@@ -10,6 +10,7 @@ ClickPanel {
     id: root
 
     panelWidth: 340
+    accent: Theme.orange
 
     onHidden: root.picking = ""
 
@@ -40,7 +41,7 @@ ClickPanel {
                 Layout.preferredWidth: 16
                 horizontalAlignment: Text.AlignHCenter
                 text: device.side === "output" ? Audio.volumeGlyph(Math.round((device.node?.audio?.volume ?? 0) * 100), !device.active) : (device.active ? Config.glyph.mic : Config.glyph.micMuted)
-                color: device.active ? Theme.orange : Theme.grey
+                color: device.active ? Theme.soften(root.accent) : Theme.faint
                 font.family: Theme.icon
                 font.pixelSize: 15
 
@@ -64,8 +65,8 @@ ClickPanel {
 
                 Layout.fillWidth: true
                 implicitHeight: 22
-                radius: 4
-                color: picker.open ? Theme.alpha(Theme.fg, 0.1) : (picker.pickable && pickerHover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent")
+                radius: Theme.rowRadius
+                color: picker.open ? Theme.well : (picker.pickable && pickerHover.hovered ? Theme.hoverFill : "transparent")
 
                 RowLayout {
                     anchors.fill: parent
@@ -84,9 +85,10 @@ ClickPanel {
 
                     Text {
                         text: `${Math.round((device.node?.audio?.volume ?? 0) * 100)}%`
-                        color: Theme.alpha(Theme.fg, 0.6)
+                        color: Theme.dim
                         font.family: Theme.ui
-                        font.pixelSize: 10
+                        font.pixelSize: 11
+                        font.features: { "tnum": 1 }
                     }
                 }
 
@@ -117,8 +119,8 @@ ClickPanel {
                 Layout.fillWidth: true
                 Layout.leftMargin: 24
                 implicitHeight: 22
-                radius: 4
-                color: hover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent"
+                radius: Theme.rowRadius
+                color: choice.current ? root.accent : (hover.hovered ? Theme.hoverFill : "transparent")
 
                 Text {
                     anchors.left: parent.left
@@ -127,7 +129,8 @@ ClickPanel {
                     anchors.verticalCenter: parent.verticalCenter
                     text: (choice.current ? Config.glyph.check + " " : "") + Audio.label(choice.modelData)
                     elide: Text.ElideRight
-                    color: choice.current ? Theme.orange : Theme.alpha(Theme.fg, 0.8)
+                    color: choice.current ? Theme.ink : Theme.fg
+                    font.weight: choice.current ? Font.DemiBold : Font.Normal
                     font.family: Theme.ui
                     font.pixelSize: 11
                 }
@@ -155,7 +158,7 @@ ClickPanel {
             live: device.node !== null
             value: device.node?.audio?.volume ?? 0
             peak: meter.peak
-            tint: device.active ? Theme.orange : Theme.grey
+            tint: device.active ? root.accent : Theme.grey
             onMoved: value => Audio.setVolume(device.node, value)
         }
 
@@ -184,8 +187,10 @@ ClickPanel {
             spacing: 8
 
             Text {
+                Layout.preferredWidth: 16
+                horizontalAlignment: Text.AlignHCenter
                 text: Audio.volumeGlyph(Math.round((stream.node.audio?.volume ?? 0) * 100), !stream.active)
-                color: stream.active ? Theme.orange : Theme.grey
+                color: stream.active ? Theme.soften(root.accent) : Theme.faint
                 font.family: Theme.icon
                 font.pixelSize: 13
 
@@ -201,18 +206,19 @@ ClickPanel {
 
             Text {
                 Layout.fillWidth: true
+                Layout.leftMargin: 6
                 text: Audio.appName(stream.node)
                 elide: Text.ElideRight
                 color: Theme.fg
                 font.family: Theme.ui
-                font.pixelSize: 11
+                font.pixelSize: 12
             }
 
             Text {
                 text: Audio.streamTitle(stream.node)
                 Layout.maximumWidth: 140
                 elide: Text.ElideRight
-                color: Theme.alpha(Theme.fg, 0.45)
+                color: Theme.dim
                 font.family: Theme.ui
                 font.pixelSize: 10
             }
@@ -220,10 +226,9 @@ ClickPanel {
 
         Slider {
             Layout.fillWidth: true
-            Layout.leftMargin: 21
             value: stream.node.audio?.volume ?? 0
             peak: meter.peak
-            tint: stream.active ? Theme.orange : Theme.grey
+            tint: stream.active ? root.accent : Theme.grey
             onMoved: value => Audio.setVolume(stream.node, value)
         }
 
@@ -239,14 +244,16 @@ ClickPanel {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 8
+        spacing: 10
 
-        Text {
-            Layout.fillWidth: true
+        PanelTitle {
+            glyph: Audio.glyph
+            text: "Sound"
+            accent: root.accent
+        }
+
+        SectionLabel {
             text: "Output"
-            color: Theme.grey
-            font.family: Theme.ui
-            font.pixelSize: 12
         }
 
         DeviceRow {
@@ -255,13 +262,8 @@ ClickPanel {
             others: Audio.sinks
         }
 
-        Text {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
+        SectionLabel {
             text: "Input"
-            color: Theme.grey
-            font.family: Theme.ui
-            font.pixelSize: 12
         }
 
         DeviceRow {
@@ -270,14 +272,9 @@ ClickPanel {
             others: Audio.sources
         }
 
-        Text {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
+        SectionLabel {
             visible: Audio.streams.length > 0
             text: "Playing"
-            color: Theme.grey
-            font.family: Theme.ui
-            font.pixelSize: 12
         }
 
         Repeater {
@@ -289,7 +286,7 @@ ClickPanel {
             Layout.fillWidth: true
             visible: Audio.streams.length === 0
             text: "Nothing playing"
-            color: Theme.alpha(Theme.fg, 0.45)
+            color: Theme.faint
             font.family: Theme.ui
             font.pixelSize: 11
         }

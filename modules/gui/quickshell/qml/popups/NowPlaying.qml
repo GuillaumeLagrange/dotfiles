@@ -8,6 +8,7 @@ import qs.services
 
 PopupPanel {
     id: root
+    accent: Media.active !== null ? Media.colorFor(Media.active) : Theme.grey
 
     minContentWidth: 540
 
@@ -36,14 +37,12 @@ PopupPanel {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 10
 
-        Text {
-            Layout.fillWidth: true
-            text: "Now Playing"
-            color: Theme.grey
-            font.family: Theme.mono
-            font.pixelSize: 12
+        PanelTitle {
+            glyph: Media.active !== null ? Media.iconFor(Media.active) : Config.glyph.music
+            text: "Now playing"
+            accent: root.accent
         }
 
         ColumnLayout {
@@ -77,8 +76,8 @@ PopupPanel {
 
                     Layout.fillWidth: true
                     implicitHeight: inner.implicitHeight + 20
-                    radius: 8
-                    color: row.playing ? Theme.alpha("#000000", 0.18) : Theme.alpha("#000000", 0.10)
+                    radius: Theme.rowRadius
+                    color: Theme.well
 
                     Timer {
                         interval: 180
@@ -105,7 +104,7 @@ PopupPanel {
                             Layout.preferredWidth: 52
                             Layout.preferredHeight: 52
                             Layout.alignment: Qt.AlignVCenter
-                            radius: 6
+                            radius: Theme.rowRadius
                             color: "transparent"
                             clip: true
 
@@ -121,7 +120,7 @@ PopupPanel {
                                 anchors.centerIn: parent
                                 visible: row.modelData.trackArtUrl === ""
                                 text: Media.iconFor(row.modelData)
-                                color: Theme.alpha(Theme.fg, 0.5)
+                                color: Theme.faint
                                 font.family: Theme.icon
                                 font.pixelSize: 26
                             }
@@ -145,17 +144,17 @@ PopupPanel {
                                 // frame's content changes width (glyphs are wider than
                                 // an average char).
                                 Item {
-                                    Layout.preferredWidth: 280
+                                    Layout.preferredWidth: 300
                                     implicitHeight: title.implicitHeight
                                     clip: true
 
                                     Text {
                                         id: title
                                         text: row.frames[row.frameIdx]
-                                        color: row.playing ? Theme.fg : Theme.alpha(Theme.fg, 0.55)
-                                        font.family: Theme.mono
-                                        font.pixelSize: 14
-                                        font.weight: Font.Bold
+                                        color: row.playing ? Theme.fg : Theme.dim
+                                        font.family: Theme.ui
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
 
                                         HoverHandler {
                                             cursorShape: Qt.PointingHandCursor
@@ -178,9 +177,9 @@ PopupPanel {
                                 Layout.fillWidth: true
                                 visible: row.modelData.trackArtist !== ""
                                 text: row.modelData.trackArtist
-                                color: Theme.alpha(Theme.fg, 0.6)
-                                font.family: Theme.mono
-                                font.pixelSize: 12
+                                color: Theme.dim
+                                font.family: Theme.ui
+                                font.pixelSize: 11
                                 elide: Text.ElideRight
                             }
 
@@ -191,8 +190,9 @@ PopupPanel {
 
                                 Text {
                                     text: Media.format(row.position)
-                                    color: Theme.alpha(Theme.fg, 0.55)
-                                    font.family: Theme.mono
+                                    color: Theme.dim
+                                    font.family: Theme.ui
+                                    font.features: { "tnum": 1 }
                                     font.pixelSize: 10
                                 }
 
@@ -205,7 +205,7 @@ PopupPanel {
                                     Rectangle {
                                         anchors.fill: parent
                                         radius: 99
-                                        color: Theme.alpha(Theme.fg, 0.16)
+                                        color: Theme.track
                                     }
 
                                     Rectangle {
@@ -214,7 +214,7 @@ PopupPanel {
                                         anchors.bottom: parent.bottom
                                         radius: 99
                                         width: parent.width * row.progress
-                                        color: Theme.fg
+                                        color: row.rail
                                     }
                                 }
 
@@ -229,8 +229,9 @@ PopupPanel {
                                 Text {
                                     visible: row.hasLength
                                     text: Media.format(row.length)
-                                    color: Theme.alpha(Theme.fg, 0.55)
-                                    font.family: Theme.mono
+                                    color: Theme.dim
+                                    font.family: Theme.ui
+                                    font.features: { "tnum": 1 }
                                     font.pixelSize: 10
                                 }
                             }
@@ -270,9 +271,9 @@ PopupPanel {
             Layout.fillWidth: true
             visible: Media.players.length === 0
             text: "Nothing playing"
-            color: Theme.grey
+            color: Theme.dim
             horizontalAlignment: Text.AlignHCenter
-            font.family: Theme.mono
+            font.family: Theme.ui
             font.pixelSize: 12
         }
     }

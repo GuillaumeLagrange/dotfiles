@@ -67,6 +67,9 @@ PanelWindow {
 
                     width: parent.width
                     surface: Theme.drawerBg
+                    radius: Theme.panelRadius
+                    border.width: 1
+                    border.color: Theme.border
                     appName: entry.modelData.appName
                     summary: entry.modelData.summary
                     body: entry.modelData.body

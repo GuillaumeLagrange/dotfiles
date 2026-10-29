@@ -10,6 +10,7 @@ import qs.services
 
 PopupPanel {
     id: root
+    accent: Theme.green
 
     minContentWidth: 540
 
@@ -42,26 +43,26 @@ PopupPanel {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 10
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            Text {
-                Layout.fillWidth: true
-                text: "Review requested"
-                color: Theme.grey
-                font.family: Theme.mono
-                font.pixelSize: 12
-            }
+        PanelTitle {
+            glyph: Config.glyph.pullRequest
+            text: "Review requests"
+            accent: root.accent
 
             Text {
                 text: `updated ${root.age(Reviews.fetchedAt)} ago`
-                color: Theme.grey
-                font.family: Theme.mono
+                color: Theme.faint
+                font.family: Theme.ui
+                font.features: { "tnum": 1 }
                 font.pixelSize: 10
             }
         }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
 
         Repeater {
             model: Reviews.prs
@@ -73,8 +74,14 @@ PopupPanel {
 
                 Layout.fillWidth: true
                 implicitHeight: inner.implicitHeight + 16
-                radius: 8
-                color: cardHover.hovered ? Theme.alpha("#000000", 0.24) : Theme.alpha("#000000", 0.14)
+                radius: Theme.rowRadius
+                color: Theme.well
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: cardHover.hovered ? Theme.hoverFill : "transparent"
+                }
 
                 HoverHandler {
                     id: cardHover
@@ -109,7 +116,7 @@ PopupPanel {
                         Layout.preferredHeight: 32
                         Layout.alignment: Qt.AlignVCenter
                         radius: 16
-                        color: Theme.alpha(Theme.fg, 0.1)
+                        color: Theme.hoverFill
 
                         // The picker's on-disk copy, else GitHub's.
                         Image {
@@ -131,8 +138,8 @@ PopupPanel {
                         Text {
                             Layout.fillWidth: true
                             text: `${card.modelData.repo} #${card.modelData.number}` + (card.modelData.draft ? "  draft" : "")
-                            color: Theme.alpha(Theme.fg, 0.55)
-                            font.family: Theme.mono
+                            color: Theme.faint
+                            font.family: Theme.ui
                             font.pixelSize: 10
                         }
 
@@ -141,9 +148,9 @@ PopupPanel {
                             text: card.modelData.title
                             color: Theme.fg
                             elide: Text.ElideRight
-                            font.family: Theme.mono
-                            font.pixelSize: 13
-                            font.weight: Font.Bold
+                            font.family: Theme.ui
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
                         }
 
                         RowLayout {
@@ -151,35 +158,39 @@ PopupPanel {
 
                             Text {
                                 text: card.modelData.author
-                                color: Theme.alpha(Theme.fg, 0.6)
-                                font.family: Theme.mono
+                                color: Theme.dim
+                                font.family: Theme.ui
                                 font.pixelSize: 11
                             }
 
                             Text {
                                 text: `+${card.modelData.additions}`
                                 color: Theme.green
-                                font.family: Theme.mono
+                                font.family: Theme.ui
+                                font.features: { "tnum": 1 }
                                 font.pixelSize: 11
                             }
 
                             Text {
                                 text: `-${card.modelData.deletions}`
                                 color: Theme.red
-                                font.family: Theme.mono
+                                font.family: Theme.ui
+                                font.features: { "tnum": 1 }
                                 font.pixelSize: 11
                             }
 
                             Text {
                                 text: root.age(card.modelData.updated_at)
-                                color: Theme.alpha(Theme.fg, 0.45)
-                                font.family: Theme.mono
+                                color: Theme.faint
+                                font.family: Theme.ui
+                                font.features: { "tnum": 1 }
                                 font.pixelSize: 11
                             }
                         }
                     }
                 }
             }
+        }
         }
     }
 }

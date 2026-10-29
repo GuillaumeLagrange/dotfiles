@@ -28,6 +28,12 @@ PanelWindow {
         anchors.topMargin: Theme.windowHeight - Theme.barHeight
         color: Theme.barBg
 
+        Rectangle {
+            width: parent.width
+            height: 1
+            color: Theme.alpha(Theme.fg, 0.07)
+        }
+
         RowLayout {
             id: leftRow
 
@@ -86,16 +92,8 @@ PanelWindow {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            PillGroup {
+            SysGroup {
                 Layout.alignment: Qt.AlignVCenter
-
-                DiskPill {}
-
-                CpuPill {}
-
-                MemPill {}
-
-                BatteryPill {}
             }
 
             PillGroup {

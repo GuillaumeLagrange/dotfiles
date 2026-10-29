@@ -12,7 +12,7 @@ import qs
 Shape {
     id: root
 
-    property real bodyRadius: 8
+    property real bodyRadius: Theme.panelRadius
     property real tailWidth: 14
     property real tailHeight: 7
     // Where the tip lands, in this item's coordinates.

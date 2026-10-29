@@ -15,7 +15,7 @@ PopupWindow {
 
     required property Item target
     property int pad: Theme.popupPad
-    property real bodyRadius: 8
+    property real bodyRadius: Theme.panelRadius
     // Rows that fill the width report no implicit width of their own, so
     // content that is all fill-width rows would collapse without a floor.
     property int minContentWidth: 0

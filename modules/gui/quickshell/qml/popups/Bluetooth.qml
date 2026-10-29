@@ -12,6 +12,7 @@ ClickPanel {
     id: root
 
     panelWidth: 320
+    accent: Theme.blue
 
     // The device whose actions are showing.
     property var selected: null
@@ -28,21 +29,24 @@ ClickPanel {
         id: btn
 
         required property string label
-        property color tint: Theme.alpha(Theme.fg, 0.1)
+        // "accent", "danger" or "plain".
+        property string kind: "plain"
+        readonly property color tint: btn.kind === "accent" ? root.accent : (btn.kind === "danger" ? Theme.alpha(Theme.red, 0.22) : Theme.well)
 
         signal activated
 
         implicitWidth: caption.implicitWidth + 16
         implicitHeight: 22
-        radius: 4
-        color: hover.hovered ? Qt.lighter(btn.tint, 1.4) : btn.tint
+        radius: Theme.rowRadius
+        color: btn.tint
+        opacity: hover.hovered ? 0.85 : 1
 
         Text {
             id: caption
 
             anchors.centerIn: parent
             text: btn.label
-            color: Theme.fg
+            color: btn.kind === "accent" ? Theme.ink : (btn.kind === "danger" ? Theme.soften(Theme.red) : Theme.fg)
             font.family: Theme.ui
             font.pixelSize: 11
         }
@@ -75,8 +79,8 @@ ClickPanel {
         width: ListView.view.width
         implicitHeight: lines.implicitHeight + 8
         height: implicitHeight
-        radius: 6
-        color: row.open ? Theme.alpha(Theme.fg, 0.1) : (hover.hovered ? Theme.alpha(Theme.fg, 0.06) : "transparent")
+        radius: Theme.rowRadius
+        color: row.open || row.connected ? Theme.well : (hover.hovered ? Theme.hoverFill : "transparent")
 
         ColumnLayout {
             id: lines
@@ -84,11 +88,14 @@ ClickPanel {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: 4
+            anchors.margins: 6
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
             spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.minimumHeight: 18
                 spacing: 8
 
                 // On the header only: a handler on the whole row would also
@@ -100,7 +107,7 @@ ClickPanel {
 
                 Text {
                     text: Bt.deviceGlyph(row.dev)
-                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.7)
+                    color: row.connected ? Theme.soften(root.accent) : Theme.dim
                     font.family: Theme.icon
                     font.pixelSize: 14
                 }
@@ -112,19 +119,20 @@ ClickPanel {
                     color: Theme.fg
                     font.family: Theme.ui
                     font.pixelSize: 12
-                    font.bold: row.connected
+                    font.weight: row.connected ? Font.DemiBold : Font.Normal
                 }
 
                 Text {
                     text: Bt.batteryOf(row.dev)
-                    color: Theme.alpha(Theme.fg, 0.6)
+                    color: Theme.dim
                     font.family: Theme.ui
                     font.pixelSize: 10
+                    font.features: { "tnum": 1 }
                 }
 
                 Text {
                     text: row.pairing ? "pairing" : (row.dev?.state === BluetoothDeviceState.Connecting ? "connecting" : (row.connected ? "connected" : (row.known ? "paired" : "")))
-                    color: row.connected ? Theme.blue : Theme.alpha(Theme.fg, 0.45)
+                    color: row.connected ? Theme.soften(root.accent) : Theme.faint
                     font.family: Theme.ui
                     font.pixelSize: 10
                 }
@@ -138,7 +146,7 @@ ClickPanel {
                 Btn {
                     visible: row.known && !row.connected
                     label: "Connect"
-                    tint: Theme.alpha(Theme.blue, 0.35)
+                    kind: "accent"
                     onActivated: row.dev.connect()
                 }
 
@@ -151,7 +159,7 @@ ClickPanel {
                 Btn {
                     visible: !row.known && !row.pairing && Bt.pairingDevice === null
                     label: "Pair"
-                    tint: Theme.alpha(Theme.blue, 0.35)
+                    kind: "accent"
                     onActivated: Bt.pair(row.dev)
                 }
 
@@ -168,7 +176,7 @@ ClickPanel {
                 Btn {
                     visible: row.known
                     label: "Forget"
-                    tint: Theme.alpha(Theme.red, 0.3)
+                    kind: "danger"
                     onActivated: {
                         row.dev.forget();
                         root.selected = null;
@@ -184,12 +192,13 @@ ClickPanel {
                 Text {
                     Layout.fillWidth: true
                     text: "Connect automatically"
-                    color: Theme.alpha(Theme.fg, 0.7)
+                    color: Theme.dim
                     font.family: Theme.ui
                     font.pixelSize: 11
                 }
 
                 Switch {
+                    accent: root.accent
                     on: row.dev?.trusted ?? false
                     onToggled: row.dev.trusted = !row.dev.trusted
                 }
@@ -211,13 +220,13 @@ ClickPanel {
 
                         width: 22
                         height: 22
-                        radius: 4
-                        color: choice.current ? Theme.alpha(Theme.blue, 0.35) : (choiceHover.hovered ? Theme.alpha(Theme.fg, 0.1) : "transparent")
+                        radius: Theme.pillRadius
+                        color: choice.current ? root.accent : (choiceHover.hovered ? Theme.hoverFill : "transparent")
 
                         Text {
                             anchors.centerIn: parent
                             text: Config.glyph[choice.modelData]
-                            color: choice.current ? Theme.fg : Theme.alpha(Theme.fg, 0.7)
+                            color: choice.current ? Theme.ink : Theme.dim
                             font.family: Theme.icon
                             font.pixelSize: 14
                         }
@@ -239,9 +248,10 @@ ClickPanel {
                 Layout.fillWidth: true
                 visible: row.open
                 text: row.dev?.address ?? ""
-                color: Theme.alpha(Theme.fg, 0.4)
-                font.family: Theme.mono
+                color: Theme.faint
+                font.family: Theme.ui
                 font.pixelSize: 10
+                font.features: { "tnum": 1 }
             }
         }
 
@@ -256,28 +266,24 @@ ClickPanel {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 8
+        spacing: 10
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Text {
-                Layout.fillWidth: true
-                text: "Bluetooth"
-                color: Theme.grey
-                font.family: Theme.ui
-                font.pixelSize: 12
-            }
+        PanelTitle {
+            glyph: Bt.glyph
+            text: "Bluetooth"
+            accent: root.accent
 
             Btn {
+                anchors.verticalCenter: parent.verticalCenter
                 visible: Bt.enabled
                 label: Bt.discovering ? "Stop" : "Scan"
-                tint: Bt.discovering ? Theme.alpha(Theme.blue, 0.35) : Theme.alpha(Theme.fg, 0.1)
+                kind: Bt.discovering ? "accent" : "plain"
                 onActivated: Bt.scanning = !Bt.scanning
             }
 
             Switch {
+                anchors.verticalCenter: parent.verticalCenter
+                accent: root.accent
                 on: Bt.enabled
                 live: Bt.present
                 onToggled: Bt.adapter.enabled = !Bt.adapter.enabled
@@ -288,7 +294,7 @@ ClickPanel {
             Layout.fillWidth: true
             visible: !Bt.present || !Bt.enabled || Bt.devices.length === 0
             text: !Bt.present ? "No adapter" : (!Bt.enabled ? "Bluetooth is off" : (Bt.discovering ? "Looking for devices..." : "No devices - hit Scan"))
-            color: Theme.alpha(Theme.fg, 0.45)
+            color: Theme.dim
             font.family: Theme.ui
             font.pixelSize: 11
         }

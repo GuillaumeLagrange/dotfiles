@@ -15,6 +15,9 @@ PanelWindow {
     id: root
 
     required property Item target
+
+    // The colour of the pill that opens the panel; every accent inside uses it.
+    property color accent: Theme.blue
     property int pad: Theme.popupPad
     // A fixed width for panels whose rows all fill it and so report no width
     // of their own; 0 sizes the bubble to its content.

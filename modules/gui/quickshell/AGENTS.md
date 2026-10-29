@@ -18,7 +18,8 @@ qml/
                 BubbleWindow (tooltip chrome), PopupPanel + HoverGate (hover
                 panels), ClickPanel (click-driven, keyboard-capable panels),
                 Tip (hover tooltip), TrayMenu + TrayMenuPanel (the tray's
-                DBusMenu, drawn in QML).
+                DBusMenu, drawn in QML), PanelTitle + SectionLabel (panel
+                headings).
   services/     Singletons: Niri (the IPC tap), Sys (cpu/mem/disk), Claude,
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
@@ -64,6 +65,19 @@ one closed `Shape` path, because the drawer background is translucent and a
 separate triangle would double its alpha along the seam and draw the border
 across the body. `BubbleWindow.qml` wraps it for tooltips, `PopupPanel.qml`
 and `ClickPanel.qml` for panels.
+
+**Panels share one visual language.** Each panel has a single accent, the
+colour of the pill that opens it (`accent` on `PopupPanel`/`ClickPanel`): its
+`PanelTitle` chip, switches, sliders, the selected row and today all use it, and
+no other hue appears except red for errors and the diff counts. Text is
+`Theme.ui` (tabular figures for numbers) in three shades, `fg`, `dim` and
+`faint`; grouped rows and segmented controls sit on `Theme.well`, with
+`rowRadius` corners and `hoverFill` on hover. A new panel should be built from
+those tokens rather than literal colours.
+
+**Disk, CPU, RAM and battery are one `SysGroup`**: a level bar per segment
+instead of digits, the figures in each segment's tooltip; battery keeps its
+number.
 
 **Two kinds of panel, both layer surfaces.** `PopupPanel` opens on hover and is
 exactly its bubble, so the rest of the screen stays hoverable: now-playing,
