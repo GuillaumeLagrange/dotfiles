@@ -3,7 +3,6 @@
   flake.modules.nixos.gui = {
     imports = with self.modules.nixos; [
       niri
-      sway
     ];
 
     services.pulseaudio.enable = false;
@@ -32,7 +31,6 @@
         quickshell
         vicinae
         niri
-        sway
       ];
 
       home.packages = with pkgs; [
@@ -216,8 +214,7 @@
             lockTimeout = 60 * 10;
             screenOffTimeout = 10;
             suspendTimeout = 2 * lockTimeout;
-            screenOffCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms off' || ${pkgs.niri}/bin/niri msg action power-off-monitors";
-            screenOnCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on'";
+            screenOffCommand = "${pkgs.niri}/bin/niri msg action power-off-monitors";
           in
           [
             {
@@ -227,12 +224,10 @@
             {
               timeout = lockTimeout + screenOffTimeout;
               command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
-              resumeCommand = "${screenOnCommand}";
             }
             {
               timeout = screenOffTimeout;
               command = "if ${pkgs.procps}/bin/pgrep hyprlock; then ${screenOffCommand}; fi";
-              resumeCommand = "${screenOnCommand}";
             }
             {
               timeout = suspendTimeout;

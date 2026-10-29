@@ -183,7 +183,6 @@
         "tss"
       ];
 
-      programs.hyprland.enable = false;
       programs.steam.enable = true;
 
       nixpkgs.config.allowUnfree = true;

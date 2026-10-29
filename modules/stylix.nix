@@ -39,7 +39,6 @@
 
       stylix.targets = {
         neovim.enable = false;
-        hyprland.enable = false;
         wofi.enable = false;
         firefox.enable = false;
         vscode.enable = false;
