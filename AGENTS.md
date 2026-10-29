@@ -141,9 +141,13 @@ Server/headless system configuration:
   I reviewed updated in the last 14 days, merged/closed included (two concurrent `gh api graphql` searches).
   The description pane renders GitHub markdown itself (`src/markdown.rs`: tables, alerts, task lists, the
   HTML of templates) with images drawn inline; uploads are fetched through the signed URLs of the PR's
-  `bodyHTML`. List, avatars and images cached in `~/.cache/reviews/`. Off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
+  `bodyHTML`. List, avatars and images cached in `~/.cache/reviews/`; the `reviews-refresh` user timer runs
+  `reviews --refresh` every 5 minutes while the graphical session is up, so the list opens fresh. The bar's
+  PR pill (left of Claude) counts the requested ones from that cache; hovering lists them, clicking the pill
+  runs what Mod+Shift+\ does and clicking a PR runs `review --pr URL` without a terminal, as if it were picked:
+  `zellij-attach --focus` (also zsm's Enter) focuses the window showing the session or opens one. Off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
   the entrypoint. It opens the pick in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
-  session I create (`wt add` the repo there when it is still a symlink), checks the PR out and opens diffy
+  session I create (`wt add` the repo there when it is still a symlink or missing from the mirror; run without a terminal, failures are notifications), checks the PR out and opens diffy
   (closing the tab of another PR of the same repo, after the new one exists so the session never empties),
   then attaches to the session, focuses the window showing it, or switches to it from inside zellij. The
   zellij session is ephemeral: `review` starts it with `--session-serialization false` and deletes a

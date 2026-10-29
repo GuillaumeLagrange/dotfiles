@@ -34,8 +34,8 @@ pub const REVIEWED_DAYS: u64 = 14;
 /// An avatar older than this is fetched again, after showing the cached one.
 const AVATAR_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 /// A list older than this is not shown while the fresh one loads: it only
-/// bridges successive opens.
-const SNAPSHOT_TTL: Duration = Duration::from_secs(5 * 60);
+/// bridges successive opens, and the background refresh every 5 minutes.
+const SNAPSHOT_TTL: Duration = Duration::from_secs(15 * 60);
 /// Images are fetched again after this, to keep the cache from growing.
 const IMAGE_TTL: Duration = Duration::from_secs(30 * 24 * 3600);
 
@@ -551,6 +551,22 @@ fn collect(nodes: Vec<Node>) -> Vec<Pr> {
 pub fn fetch(query: Query) -> Result<Vec<Pr>> {
     let data: Data = graphql(QUERY, &[("q", query.search())])?;
     Ok(collect(data.search.nodes))
+}
+
+/// Fetch both lists and cache them, for the picker to open on.
+pub fn refresh(cache: &Cache) -> Result<()> {
+    let (requested, reviewed) = std::thread::scope(|s| {
+        let reviewed = s.spawn(|| fetch(Query::Reviewed));
+        let requested = fetch(Query::Requested);
+        (requested, reviewed.join().unwrap_or_else(|e| std::panic::resume_unwind(e)))
+    });
+    let mut lists = Lists::default();
+    lists.set(Query::Requested, requested.context("requested")?);
+    lists.set(Query::Reviewed, reviewed.context("reviewed")?);
+    cache.store(&Snapshot {
+        fetched_at: now(),
+        lists,
+    })
 }
 
 /// Uploads to GitHub (`github.com/user-attachments/...`, `*user-images.githubusercontent.com`)

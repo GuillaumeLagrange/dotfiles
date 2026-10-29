@@ -4,11 +4,12 @@ review - pick a pull request awaiting my review, or one I reviewed lately, and o
 
 Usage:
   review [QUERY...]
+  review --pr URL
 
-QUERY pre-fills the picker's filter. The session is the wt session "$session" (create it with
-wt new): the PR's repo is turned into a worktree there if it is still a mirror symlink, and a tab
-named <repo>#<number> checks the PR out and opens it in diffy. Picking a PR whose tab exists goes to
-that tab.
+QUERY pre-fills the picker's filter; --pr skips the picker and opens URL as if it were picked. The
+session is the wt session "$session" (create it with wt new): the PR's repo is turned into a
+worktree there if it is still a mirror symlink or missing from the mirror, and a tab named <repo>#<number> checks the PR out
+and opens it in diffy. Picking a PR whose tab exists goes to that tab.
 EOF
 }
 
@@ -33,24 +34,47 @@ if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
   exit 0
 fi
 
+# Run from the bar, there is no terminal to print a failure in: it becomes a notification.
+errors=""
+if [[ ! -t 2 ]]; then
+  errors=$(mktemp)
+  exec 2>"$errors"
+fi
+finish() {
+  local status=$?
+  kill "${client:-}" 2>/dev/null || true
+  if [[ -n "$errors" ]]; then
+    if ((status != 0)); then
+      notify-send -a review "review failed" "$(tail -n 5 -- "$errors")"
+    fi
+    rm -f -- "$errors"
+  fi
+}
+trap finish EXIT
+
 root=$(wt path --exact "$session") || {
   echo "review: no wt session $session, create it with wt new" >&2
   exit 1
 }
 
-out=$(mktemp)
-reviews --out "$out" "$@" || {
+if [[ "${1:-}" == --pr ]]; then
+  url=${2:?review: --pr needs a URL}
+  # https://github.com/<owner>/<repo>/pull/<number>
+  repo=${url#https://github.com/*/}
+  repo=${repo%%/*}
+else
+  out=$(mktemp)
+  reviews --out "$out" "$@" || {
+    rm -f -- "$out"
+    exit 0
+  }
+  IFS=$'\t' read -r repo url <"$out"
   rm -f -- "$out"
-  exit 0
-}
-IFS=$'\t' read -r repo url <"$out"
-rm -f -- "$out"
-
-if [[ ! -e "$root/$repo" ]]; then
-  echo "review: $repo is not in the $session session ($root)" >&2
-  exit 1
 fi
-if [[ -L "$root/$repo" ]]; then
+
+# A mirror symlink, or a repo the mirror lacks (cloned after the session was made), becomes a
+# worktree; wt refuses a name the workspace has no repo for.
+if [[ -L "$root/$repo" || ! -e "$root/$repo" ]]; then
   (cd -- "$root" && wt add "$repo")
 fi
 
@@ -115,28 +139,20 @@ if ! has_client; then
   # session's root with it in its environment, as zellij-attach does.
   (cd -- "$root" && WORKSPACE_ROOT="$root" exec script -q -c "stty rows 50 cols 160; exec zellij attach --create $session options --session-serialization false" /dev/null </dev/null >/dev/null 2>&1) &
   client=$!
-  trap 'kill "$client" 2>/dev/null || true' EXIT
   for _ in $(seq 50); do
     has_client && break
     sleep 0.1
   done
 fi
 open_tab
-kill "${client:-}" 2>/dev/null || true
+# What follows execs, which skips the EXIT trap.
 trap - EXIT
+finish
 
 if [[ ${#pane_env[@]} -gt 0 ]]; then
   exec env "${pane_env[@]}" zellij action switch-session "$session"
 fi
 
-# zellij titles the terminal "<session> | <pane>": a window already showing the session is focused
-# rather than attached to a second time. niri is looked up on PATH: headless hosts have none.
-if command -v niri >/dev/null; then
-  window=$(niri msg -j windows 2>/dev/null | jq -r --arg s "$session" \
-    'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
-  if [[ -n "$window" ]]; then
-    exec niri msg action focus-window --id "$window"
-  fi
-fi
-
-exec zellij-attach "$session"
+# A window already showing the session is focused rather than attached to a second time, and run
+# without a terminal (a PR clicked in the bar), the session opens in a window of its own.
+exec zellij-attach --focus "$session"

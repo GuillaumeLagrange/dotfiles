@@ -77,6 +77,10 @@ PanelWindow {
                 Layout.alignment: Qt.AlignVCenter
             }
 
+            ReviewsPill {
+                Layout.alignment: Qt.AlignVCenter
+            }
+
             ClaudePill {
                 Layout.alignment: Qt.AlignVCenter
             }

@@ -1,9 +1,11 @@
 //! reviews: pick a pull request awaiting my review, or one I reviewed lately.
 //!
 //!   reviews [--out FILE] [QUERY...]
+//!   reviews --refresh
 //!
 //! The pick is written as `<repo>\t<url>` to FILE (stdout without one), for the
 //! `review` script (`review.sh`) to open the PR in a tab of the reviews session.
+//! `--refresh` only fetches the lists into the cache, for a timer to run.
 
 mod github;
 mod kitty;
@@ -19,8 +21,9 @@ fn main() -> Result<()> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--out" => out = Some(args.next().context("--out needs a file")?),
+            "--refresh" => return github::refresh(&github::Cache::from_env()),
             "-h" | "--help" => {
-                println!("usage: reviews [--out FILE] [QUERY...]");
+                println!("usage: reviews [--out FILE] [QUERY...] | reviews --refresh");
                 return Ok(());
             }
             flag if flag.starts_with('-') => bail!("unknown option {flag}"),

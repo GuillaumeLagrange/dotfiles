@@ -13,15 +13,20 @@
   };
 
   flake.modules.homeManager.zellij =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     let
       zellijFzfGetSession = pkgs.writeShellScriptBin "zellij-fzf-get-session" ''
         sessions=$(${config.programs.zellij.package}/bin/zellij list-sessions --short 2>/dev/null)
         echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10
       '';
 
-      # Attach to a session by name, creating it if needed. Shared by zsm and
-      # omp-panel, which opens a window on a session through it.
+      # Attach to a session by name, creating it if needed. Shared by zsm, review
+      # and omp-panel, which opens a window on a session through it.
       #
       # Panes inherit the zellij server's environment, and the server inherits
       # this process's — on creation and on resurrection alike, since both start a
@@ -30,8 +35,37 @@
       # nothing to the zellij config: a layout or a --config file would replace
       # what it is passed rather than extend it. wt is looked up on PATH rather
       # than pinned, so this stays usable on a host without it.
+      #
+      # With --focus, a window already showing the session is focused instead, and
+      # without a terminal to attach in (run from the bar), a new window is opened
+      # on it. zellij titles the terminal "<session> | <pane>", but only once a
+      # pane sets a title: until then the window keeps the title of whatever
+      # launched it (`zsh` for a `zsh -c`), so it is named after the session here,
+      # which is what the lookup matches. niri is looked up on PATH: headless hosts
+      # have none and always attach.
       zellijAttach = pkgs.writeShellScriptBin "zellij-attach" ''
+        focus=""
+        if [[ "$1" == --focus ]]; then
+          focus=1
+          shift
+        fi
         session="$1"
+
+        if [[ -n "$focus" ]] && command -v niri > /dev/null; then
+          window=$(niri msg -j windows 2>/dev/null | ${pkgs.jq}/bin/jq -r --arg s "$session" \
+            'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
+          if [[ -n "$window" ]]; then
+            exec niri msg action focus-window --id "$window"
+          fi
+          if [[ ! -t 0 ]]; then
+            exec niri msg action spawn -- ${lib.escapeShellArgs config.termExec} "$0" "$session"
+          fi
+        fi
+
+        if [[ -t 1 ]]; then
+          printf '\033]2;%s\007' "$session"
+        fi
+
         root=""
         if command -v wt > /dev/null; then
           root=$(wt path --exact "$session" 2>/dev/null) || root=""
@@ -80,21 +114,14 @@
           exit 1
         fi
 
+        focus=""
         if [[ -z "$1" ]]; then
           sessions=$(${config.programs.zellij.package}/bin/zellij list-sessions --short 2>/dev/null)
           picked=$(echo "$sessions" | ${pkgs.fzf}/bin/fzf --exit-0 --height 10 \
             --expect=alt-enter --header $'enter      go to session\nalt-enter  duplicate here')
           { read -r key; read -r session; } <<< "$picked"
-
-          # zellij titles the terminal "<session> | <pane>", so a window showing the
-          # session is found by that prefix. niri is looked up on PATH: headless
-          # hosts have none and always attach.
-          if [[ -n "$session" && "$key" != alt-enter ]] && command -v niri > /dev/null; then
-            window=$(niri msg -j windows 2>/dev/null | ${pkgs.jq}/bin/jq -r --arg s "$session" \
-              'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
-            if [[ -n "$window" ]]; then
-              exec niri msg action focus-window --id "$window"
-            fi
+          if [[ "$key" != alt-enter ]]; then
+            focus=--focus
           fi
         else
           session="$1"
@@ -105,7 +132,7 @@
           exit 0
         fi
 
-        exec ${zellijAttach}/bin/zellij-attach "$session"
+        exec ${zellijAttach}/bin/zellij-attach $focus "$session"
       '';
 
       zskScript = pkgs.writeShellScriptBin "zsk" ''
@@ -188,11 +215,24 @@
     {
       programs.zellij = {
         enable = true;
-        package = pkgs.unstable.zellij;
+        package = pkgs.unstable.zellij.override { zellij-unwrapped = zellijUnwrapped; };
         layouts.guiom = ./zellij-layout-guiom.kdl;
       };
 
       xdg.configFile."zellij/config.kdl".source = ./zellij.kdl;
+      # The `tab-bar` alias in zellij.kdl points here.
+      xdg.configFile."zellij/plugins/tab-bar.wasm".source = "${tabBar}/tab-bar.wasm";
+      # A plugin loaded from a file, unlike a built-in one, needs its permissions granted, and
+      # the tab bar is not selectable to answer the prompt. zellij reads this file on every
+      # request and merges into it, so an entry added here is kept.
+      home.activation.zellijTabBarPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        perms="${config.xdg.cacheHome}/zellij/permissions.kdl"
+        if [ -z "''${DRY_RUN:-}" ] && ! grep -qF '"${tabBarPath}"' "$perms" 2>/dev/null; then
+          mkdir -p "$(dirname "$perms")"
+          printf '"%s" {\n    ReadApplicationState\n    ChangeApplicationState\n}\n' \
+            '${tabBarPath}' >> "$perms"
+        fi
+      '';
 
       home.shellAliases = {
         z = "zellij";

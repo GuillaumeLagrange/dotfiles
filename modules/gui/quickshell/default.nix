@@ -73,6 +73,7 @@
         cpu = glyph "F035B";
         ram = glyph "F061A";
         claude = glyph "F0721";
+        pullRequest = glyph "F04C2";
         gear = glyph "F0493";
         # Sliders, not a gear: the pill opens a dashboard of toggles.
         controls = glyph "F1542";
@@ -184,6 +185,10 @@
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
             readonly property string btPair: "${btPair}/bin/bt-pair"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
+            // Mod+Shift+\, spawned through niri so it runs in the same environment as the bind.
+            readonly property var review: ${builtins.toJSON ([ "${pkgs.niri}/bin/niri" "msg" "action" "spawn" "--" ] ++ lib.splitString " " config.term ++ [ "-e" "zsh" "-i" "-c" "review" ])}
+            // A PR's URL is appended: no picker, so no terminal; `review` opens or focuses the view.
+            readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--pr"]
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"
             readonly property string df: "${pkgs.coreutils}/bin/df"

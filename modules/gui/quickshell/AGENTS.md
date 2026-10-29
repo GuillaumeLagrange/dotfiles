@@ -22,10 +22,11 @@ qml/
   services/     Singletons: Niri (the IPC tap), Sys (cpu/mem/disk), Claude,
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
-                (NetworkManager), Bt (BlueZ), Recorder (IPC in).
+                (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (PRs
+                awaiting my review, from the reviews picker's cache).
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
-                Bluetooth, Volume.
+                Bluetooth, Volume, ReviewRequests.
 ```
 
 `niri-state` lives beside the bar
