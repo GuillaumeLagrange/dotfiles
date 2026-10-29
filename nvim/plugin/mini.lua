@@ -118,6 +118,7 @@ require('mini.notify').setup({
     enable = false,
   },
 })
+vim.notify = MiniNotify.make_notify()
 vim.keymap.set('n', '<leader>un', function()
   MiniNotify.clear()
 end, { desc = 'Delete All Notifications' })
