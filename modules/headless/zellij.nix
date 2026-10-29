@@ -84,6 +84,16 @@
         attach = "${zellijAttach}/bin/zellij-attach";
       };
 
+      # zellij drops the kitty graphics its plugins print, which the tab bar's minimap is.
+      zellijUnwrapped = pkgs.unstable.zellij-unwrapped.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ./zellij-minimap/zellij-plugin-kitty-graphics.patch ];
+      });
+      # Built from the source of programs.zellij.package.
+      tabBar = pkgs.unstable.callPackage ./zellij-minimap/_package.nix {
+        zellij-unwrapped = zellijUnwrapped;
+      };
+      tabBarPath = "${config.xdg.configHome}/zellij/plugins/tab-bar.wasm";
+
       zsmScript = pkgs.writeShellScriptBin "zsm" ''
         if [[ "$1" == "-h" || "$1" == "--help" ]]; then
           cat <<EOF
@@ -196,17 +206,20 @@
         text = builtins.readFile ./omp-fixit.sh;
       };
 
+      reviews = pkgs.callPackage ./reviews/_package.nix { };
+
       review = pkgs.writeShellApplication {
         name = "review";
         runtimeInputs = [
           config.programs.zellij.package
           zellijAttach
-          (pkgs.callPackage ./reviews/_package.nix { })
+          reviews
           pkgs.jq
           pkgs.gawk
           pkgs.gnugrep
           pkgs.coreutils
           pkgs.util-linux
+          pkgs.libnotify
         ];
         text = builtins.readFile ./reviews/review.sh;
       };
@@ -264,5 +277,28 @@
         ompFixit
         review
       ];
+
+      # Keeps the reviews cache fresh so the picker opens on a recent list. Tied to the
+      # graphical session: gh's token is in its keyring.
+      systemd.user.services.reviews-refresh = {
+        Unit.Description = "Refresh the reviews picker cache";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${lib.getExe reviews} --refresh";
+        };
+      };
+      systemd.user.timers.reviews-refresh = {
+        Unit = {
+          Description = "Refresh the reviews picker cache every 5 minutes";
+          PartOf = [ "graphical-session.target" ];
+          After = [ "graphical-session.target" ];
+        };
+        Timer = {
+          OnActiveSec = "0";
+          OnUnitActiveSec = "5min";
+          RandomizedDelaySec = "30s";
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
     };
 }

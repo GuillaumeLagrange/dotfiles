@@ -137,6 +137,14 @@ Server/headless system configuration:
 - Tmux terminal multiplexer setup
 - Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
   zellij session, fed by `ai/omp/extensions/omp-panel.ts`
+- `zellij-minimap/`: the `tab-bar` alias runs zellij's own tab-bar, built to wasm from the source of the zellij
+  in use (`zellij-unwrapped.src`/`cargoDeps`) with `tab-bar.patch`, which compiles the crate's `src/` as its
+  `minimap` module and gives it the right 6 columns: an image of the tab's panes sent with the kitty graphics
+  protocol (focused one in the selected tab's colour, a fullscreen pane drawn where it sits in the layout,
+  floating panes as boxes when shown and outlines when hidden). zellij drops the kitty graphics plugins print,
+  so it is built with `zellij-plugin-kitty-graphics.patch` (no binary cache: a zellij bump compiles it). Terminals
+  without kitty graphics show no map. `cargo test` covers the renderer natively. On a zellij bump both patches
+  must still apply. Loaded from a file, the bar needs permissions; activation seeds them in `permissions.kdl`
 - `reviews/`: ratatui picker over PRs, in two tabs (Tab switches): open ones awaiting my review, and those
   I reviewed updated in the last 14 days, merged/closed included (two concurrent `gh api graphql` searches).
   The description pane renders GitHub markdown itself (`src/markdown.rs`: tables, alerts, task lists, the

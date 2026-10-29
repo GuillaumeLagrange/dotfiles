@@ -334,7 +334,8 @@ plugins {
     session-manager location="zellij:session-manager"
     status-bar location="zellij:status-bar"
     strider location="zellij:strider"
-    tab-bar location="zellij:tab-bar"
+    // zellij's tab-bar with the pane minimap, from modules/headless/zellij-minimap.
+    tab-bar location="file:~/.config/zellij/plugins/tab-bar.wasm"
     welcome-screen location="zellij:session-manager" {
         welcome_screen true
     }

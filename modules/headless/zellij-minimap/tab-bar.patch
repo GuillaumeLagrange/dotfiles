@@ -1,0 +1,64 @@
+--- a/default-plugins/tab-bar/src/main.rs
++++ b/default-plugins/tab-bar/src/main.rs
+@@ -1,4 +1,6 @@
+ mod line;
++#[path = "minimap/lib.rs"]
++mod minimap;
+ mod tab;
+ 
+ use std::cmp::{max, min};
+@@ -40,6 +42,7 @@
+     hovered_new_tab_button: bool,
+     hint_text: Option<BTreeMap<usize, StyledText>>,
+     outstanding_hint_timeouts: usize,
++    minimap: minimap::tab_bar::Minimap,
+ }
+ 
+ static ARROW_SEPARATOR: &str = "";
+@@ -63,6 +66,7 @@
+             EventType::Timer,
+             EventType::InputReceived,
+         ]);
++        self.minimap.load();
+     }
+ 
+     fn update(&mut self, event: Event) -> bool {
+@@ -132,6 +136,9 @@
+                     should_render = true;
+                 }
+             },
++            Event::PaneUpdate(panes) => {
++                should_render = self.minimap.update(panes);
++            },
+             Event::Mouse(me) => match me {
+                 Mouse::LeftClick(_, col) => {
+                     if let Some((start, end)) = self.breadcrumb_range {
+@@ -244,7 +251,7 @@
+             self.mode_info.session_name.as_deref(),
+             all_tabs,
+             active_tab_index,
+-            cols.saturating_sub(1),
++            cols.saturating_sub(1 + minimap::tab_bar::WIDTH),
+             self.mode_info.style.colors,
+             self.mode_info.capabilities,
+             self.mode_info.style.hide_session_name,
+@@ -268,12 +275,17 @@
+             .iter()
+             .fold(String::new(), |output, part| output + &part.part);
+ 
++        let minimap = format!(
++            "\u{1b}[{}G{}",
++            cols.saturating_sub(minimap::tab_bar::WIDTH) + 1,
++            self.minimap.render(&self.tabs, &self.mode_info.style.colors)
++        );
+         match background {
+             PaletteColor::Rgb((r, g, b)) => {
+-                print!("{}\u{1b}[48;2;{};{};{}m\u{1b}[0K", output, r, g, b);
++                print!("{}\u{1b}[48;2;{};{};{}m\u{1b}[0K{}", output, r, g, b, minimap);
+             },
+             PaletteColor::EightBit(color) => {
+-                print!("{}\u{1b}[48;5;{}m\u{1b}[0K", output, color);
++                print!("{}\u{1b}[48;5;{}m\u{1b}[0K{}", output, color, minimap);
+             },
+         }
+     }
