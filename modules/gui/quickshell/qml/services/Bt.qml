@@ -16,22 +16,59 @@ Singleton {
     readonly property bool discovering: root.present && root.adapter.discovering
 
     // Connected first, then remembered, then whatever the scan turned up; each
-    // group by name so the list does not reshuffle as signal strengths move.
-    // A scan hit with no advertised name (BlueZ then aliases it to its address)
-    // is one of the anonymous LE beacons around and is left out.
+    // group most recently connected first, then by name. A scan hit with no
+    // advertised name (BlueZ then aliases it to its address) is one of the
+    // anonymous LE beacons around and is left out.
     readonly property var devices: {
         if (!root.present)
             return [];
         const known = dev => dev.paired || dev.bonded;
         const rank = dev => dev.connected ? 0 : (known(dev) ? 1 : 2);
+        const last = dev => root.lastConnected[dev.address] ?? 0;
         return root.adapter.devices.values.filter(dev => known(dev) || dev.connected || dev.deviceName !== "").sort((a, b) => {
             if (rank(a) !== rank(b))
                 return rank(a) - rank(b);
+            if (last(a) !== last(b))
+                return last(b) - last(a);
             return (a.name || a.address).localeCompare(b.name || b.address);
         });
     }
 
     readonly property var connectedDevices: root.devices.filter(dev => dev.connected)
+
+    // Epoch ms by address, stamped when a device connects or disconnects.
+    // BlueZ does not expose it. Watched off the adapter, not `devices`, which
+    // sorts by it.
+    property var lastConnected: ({})
+    property var connectedAddresses: []
+    readonly property string connectedKey: root.present ? root.adapter.devices.values.filter(dev => dev.connected).map(dev => dev.address).join(" ") : ""
+
+    onConnectedKeyChanged: {
+        const now = root.connectedKey === "" ? [] : root.connectedKey.split(" ");
+        const changed = now.filter(a => !root.connectedAddresses.includes(a)).concat(root.connectedAddresses.filter(a => !now.includes(a)));
+        root.connectedAddresses = now;
+        if (changed.length === 0)
+            return;
+        const stamps = Object.assign({}, root.lastConnected);
+        for (const a of changed)
+            stamps[a] = Date.now();
+        root.lastConnected = stamps;
+        lastConnectedFile.setText(JSON.stringify(stamps, null, 2) + "\n");
+    }
+
+    FileView {
+        id: lastConnectedFile
+
+        path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/quickshell/bt-last-connected.json"
+        printErrors: false
+        onLoaded: {
+            try {
+                root.lastConnected = Object.assign(JSON.parse(lastConnectedFile.text()), root.lastConnected);
+            } catch (e) {
+                // Keep the last good state.
+            }
+        }
+    }
 
     // Pairing runs `bt-pair` rather than the device's pair(): see bt-pair.py.
     property var pairingDevice: null

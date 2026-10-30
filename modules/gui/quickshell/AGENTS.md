@@ -216,9 +216,13 @@ battery percentage when the device publishes one. BlueZ's freedesktop icon name
 picks the row's glyph unless one was picked in the open row's glyph strip
 (`Config.btDeviceGlyphs`): picks are kept by address in
 `~/.local/state/quickshell/bt-glyphs.json`, and picking BlueZ's own glyph
-drops the entry. Discovery is a button, not a side effect of opening the
-panel: it is a radio duty cycle, it stutters A2DP, and the devices worth
-connecting to are the paired ones, which are listed either way.
+drops the entry. Rows sort connected, paired, then scan hits, each most
+recently connected first: BlueZ does not expose that time, so `Bt` stamps an
+address whenever it connects or disconnects, in
+`~/.local/state/quickshell/bt-last-connected.json`. Discovery is a button, not
+a side effect of opening the panel: it is a radio duty cycle, it stutters A2DP,
+and the devices worth connecting to are the paired ones, which are listed
+either way.
 
 **Pairing goes through `bt-pair`** (`bt-pair.py`, `Config.btPair`), not the
 device's `pair()`. BlueZ puts a pairing's prompts (confirm the passkey,
