@@ -149,10 +149,29 @@
       };
 
       # Show asterisks while typing the sudo password (the keyboard fallback
-      # when fingerprint auth is unavailable).
+      # when fingerprint auth is unavailable). !pam_silent: sudo silences PAM
+      # modules by default, pam_echo included.
       security.sudo.extraConfig = ''
         Defaults pwfeedback
+        Defaults !pam_silent
       '';
+
+      # pam_fprintd is silent on success: on a match, pam_echo then pam_permit
+      # (pam_echo's PAM_IGNORE can't end the stack); otherwise skip both.
+      security.pam.services.sudo.rules.auth = {
+        fprintd.control = lib.mkForce "[success=ok default=2]";
+        fprintd-accepted = {
+          order = 11450;
+          control = "[default=ignore]";
+          modulePath = "${pkgs.linux-pam}/lib/security/pam_echo.so";
+          args = [ "Fingerprint accepted" ];
+        };
+        fprintd-done = {
+          order = 11460;
+          control = "[default=done]";
+          modulePath = "${pkgs.linux-pam}/lib/security/pam_permit.so";
+        };
+      };
 
       services.usbmuxd.enable = true;
       services.avahi = {
