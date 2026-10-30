@@ -2,14 +2,18 @@
 //!
 //!   reviews [--out FILE] [QUERY...]
 //!   reviews --refresh
+//!   reviews --json
 //!
 //! The pick is written as `<repo>\t<url>` to FILE (stdout without one), for the
 //! `review` script (`review.sh`) to open the PR in a tab of the reviews session.
 //! `--refresh` only fetches the lists into the cache, for a timer to run.
+//! `--json` prints the cached requested list with its stacks, for the bar.
 
+mod feed;
 mod github;
 mod kitty;
 mod markdown;
+mod stacks;
 mod tui;
 
 use anyhow::{bail, Context, Result};
@@ -22,8 +26,11 @@ fn main() -> Result<()> {
         match arg.as_str() {
             "--out" => out = Some(args.next().context("--out needs a file")?),
             "--refresh" => return github::refresh(&github::Cache::from_env()),
+            "--json" => return feed::print(&github::Cache::from_env()),
             "-h" | "--help" => {
-                println!("usage: reviews [--out FILE] [QUERY...] | reviews --refresh");
+                println!(
+                    "usage: reviews [--out FILE] [QUERY...] | reviews --refresh | reviews --json"
+                );
                 return Ok(());
             }
             flag if flag.starts_with('-') => bail!("unknown option {flag}"),

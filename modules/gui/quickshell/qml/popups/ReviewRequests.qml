@@ -1,5 +1,7 @@
-// Pull requests awaiting my review: one card per PR, railed by its checks.
-// Clicking one opens it the way picking it in the reviews picker does.
+// Pull requests awaiting my review, as the reviews picker lists them: one card
+// per PR, railed by its checks, a GitHub stack's members gathered under its
+// heading, top first. Clicking a card opens it the way picking it in the picker
+// does; the title's buttons refresh the list and open the picker itself.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -41,6 +43,10 @@ PopupPanel {
         }
     }
 
+    // Where the tree's line runs, left of a stack's cards.
+    readonly property int treeX: 7
+    readonly property int indent: 18
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
@@ -51,48 +57,172 @@ PopupPanel {
             accent: root.accent
 
             Text {
-                text: `updated ${root.age(Reviews.fetchedAt)} ago`
+                anchors.verticalCenter: parent.verticalCenter
+                text: Reviews.refreshing ? "refreshing" : Reviews.fetchedAt > 0 ? `updated ${root.age(Reviews.fetchedAt)} ago` : "never fetched"
                 color: Theme.faint
                 font.family: Theme.ui
                 font.features: { "tnum": 1 }
                 font.pixelSize: 10
             }
+
+            GlyphButton {
+                anchors.verticalCenter: parent.verticalCenter
+                glyph: Config.glyph.refresh
+                glyphSize: 12
+                opacity: Reviews.refreshing ? 0.4 : 1
+                onClicked: {
+                    Reviews.refresh();
+                    root.now = Date.now() / 1000;
+                }
+            }
+
+            GlyphButton {
+                anchors.verticalCenter: parent.verticalCenter
+                glyph: Config.glyph.terminal
+                glyphSize: 12
+                onClicked: {
+                    root.close();
+                    Quickshell.execDetached(Config.review);
+                }
+            }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: Reviews.error !== ""
+            text: Reviews.error
+            color: Theme.red
+            wrapMode: Text.Wrap
+            font.family: Theme.ui
+            font.pixelSize: 11
         }
 
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 6
 
+            Repeater {
+                model: Reviews.rows
 
-        Repeater {
-            model: Reviews.prs
+                delegate: Loader {
+                    id: row
 
-            delegate: Rectangle {
-                id: card
+                    required property var modelData
 
-                required property var modelData
+                    Layout.fillWidth: true
+                    sourceComponent: modelData.kind === "stack" ? stackHead : prCard
+                }
+            }
+        }
+    }
 
+    Component {
+        id: stackHead
+
+        RowLayout {
+            readonly property var stack: parent.modelData
+
+            spacing: 8
+
+            Item {
+                Layout.preferredWidth: root.indent - 4
+                Layout.fillHeight: true
+
+                Glyph {
+                    anchors.centerIn: parent
+                    text: Config.glyph.stack
+                    color: root.accent
+                    size: 12
+                }
+
+                Rectangle {
+                    x: root.treeX
+                    y: parent.height / 2 + 9
+                    width: 1
+                    height: parent.height / 2 - 9 + 6
+                    color: Theme.faint
+                }
+            }
+
+            Text {
+                text: `Stack of ${parent.stack.size}`
+                color: Theme.fg
+                font.family: Theme.ui
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+            }
+
+            Text {
                 Layout.fillWidth: true
+                text: `${parent.stack.repo} \u2192 ${parent.stack.base}`
+                color: Theme.faint
+                elide: Text.ElideRight
+                font.family: Theme.ui
+                font.pixelSize: 11
+            }
+        }
+    }
+
+    Component {
+        id: prCard
+
+        Item {
+            id: card
+
+            readonly property var pr: parent.modelData
+            readonly property bool inStack: pr.place !== "alone"
+            readonly property bool open: pr.state === "Open"
+            // As in the picker: the PRs asked of me, and open members of their stacks.
+            readonly property bool pickable: pr.listed || open
+
+            implicitHeight: body.implicitHeight
+
+            // The tree: down the whole card to the next member, half of it for the last.
+            Rectangle {
+                visible: card.inStack
+                x: root.treeX
+                y: -6
+                width: 1
+                height: card.pr.place === "last" ? body.height / 2 + 6 : card.height + 6
+                color: Theme.faint
+            }
+
+            Rectangle {
+                visible: card.inStack
+                x: root.treeX
+                y: body.height / 2
+                width: root.indent - root.treeX - 2
+                height: 1
+                color: Theme.faint
+            }
+
+            Rectangle {
+                id: body
+
+                x: card.inStack ? root.indent : 0
+                width: card.width - x
                 implicitHeight: inner.implicitHeight + 16
                 radius: Theme.rowRadius
                 color: Theme.well
+                opacity: card.open ? 1 : 0.6
 
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
-                    color: cardHover.hovered ? Theme.hoverFill : "transparent"
+                    color: card.pickable && cardHover.hovered ? Theme.hoverFill : "transparent"
                 }
 
                 HoverHandler {
                     id: cardHover
 
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: card.pickable ? Qt.PointingHandCursor : Qt.ArrowCursor
                 }
 
                 TapHandler {
+                    enabled: card.pickable
                     onSingleTapped: {
                         root.close();
-                        Quickshell.execDetached(Config.reviewPr.concat([card.modelData.url]));
+                        Quickshell.execDetached(Config.reviewPr.concat([card.pr.url]));
                     }
                 }
 
@@ -108,7 +238,7 @@ PopupPanel {
                         Layout.preferredWidth: 3
                         Layout.fillHeight: true
                         radius: 3
-                        color: root.rail(card.modelData.checks)
+                        color: root.rail(card.pr.checks)
                     }
 
                     ClippingRectangle {
@@ -118,12 +248,9 @@ PopupPanel {
                         radius: 16
                         color: Theme.hoverFill
 
-                        // The picker's on-disk copy, else GitHub's.
                         Image {
                             anchors.fill: parent
-                            source: `file://${Reviews.dir}/avatars/${card.modelData.author}`
-                            onStatusChanged: if (status === Image.Error && card.modelData.avatar_url)
-                                source = card.modelData.avatar_url
+                            source: card.pr.avatar ?? ""
                             sourceSize.width: 64
                             sourceSize.height: 64
                             fillMode: Image.PreserveAspectCrop
@@ -137,7 +264,16 @@ PopupPanel {
 
                         Text {
                             Layout.fillWidth: true
-                            text: `${card.modelData.repo} #${card.modelData.number}` + (card.modelData.draft ? "  draft" : "")
+                            text: {
+                                let t = `${card.pr.repo} #${card.pr.number}`;
+                                if (card.pr.draft && card.open)
+                                    t += "  draft";
+                                if (!card.open)
+                                    t += `  ${card.pr.state.toLowerCase()}`;
+                                else if (!card.pr.listed)
+                                    t += "  not requested";
+                                return t;
+                            }
                             color: Theme.faint
                             font.family: Theme.ui
                             font.pixelSize: 10
@@ -145,26 +281,26 @@ PopupPanel {
 
                         Text {
                             Layout.fillWidth: true
-                            text: card.modelData.title
-                            color: Theme.fg
+                            text: card.pr.title
+                            color: card.pr.listed ? Theme.fg : Theme.dim
                             elide: Text.ElideRight
                             font.family: Theme.ui
                             font.pixelSize: 12
-                            font.weight: Font.DemiBold
+                            font.weight: card.pr.listed ? Font.DemiBold : Font.Normal
                         }
 
                         RowLayout {
                             spacing: 8
 
                             Text {
-                                text: card.modelData.author
+                                text: card.pr.author
                                 color: Theme.dim
                                 font.family: Theme.ui
                                 font.pixelSize: 11
                             }
 
                             Text {
-                                text: `+${card.modelData.additions}`
+                                text: `+${card.pr.additions}`
                                 color: Theme.green
                                 font.family: Theme.ui
                                 font.features: { "tnum": 1 }
@@ -172,7 +308,7 @@ PopupPanel {
                             }
 
                             Text {
-                                text: `-${card.modelData.deletions}`
+                                text: `-${card.pr.deletions}`
                                 color: Theme.red
                                 font.family: Theme.ui
                                 font.features: { "tnum": 1 }
@@ -180,7 +316,7 @@ PopupPanel {
                             }
 
                             Text {
-                                text: root.age(card.modelData.updated_at)
+                                text: root.age(card.pr.updated_at)
                                 color: Theme.faint
                                 font.family: Theme.ui
                                 font.features: { "tnum": 1 }
@@ -190,7 +326,6 @@ PopupPanel {
                     }
                 }
             }
-        }
         }
     }
 }

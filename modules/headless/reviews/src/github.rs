@@ -389,22 +389,27 @@ impl Cache {
         }
     }
 
-    fn snapshot_path(&self) -> PathBuf {
+    pub fn snapshot_path(&self) -> PathBuf {
         self.dir.join("prs.json")
+    }
+
+    /// The cached list, however old.
+    pub fn read(&self) -> Option<Snapshot> {
+        let bytes = std::fs::read(self.snapshot_path()).ok()?;
+        serde_json::from_slice(&bytes).ok()
     }
 
     /// The cached list, unless it is too old to show.
     pub fn load(&self) -> Option<Snapshot> {
-        let bytes = std::fs::read(self.snapshot_path()).ok()?;
-        let snapshot: Snapshot = serde_json::from_slice(&bytes).ok()?;
-        (now().saturating_sub(snapshot.fetched_at) < SNAPSHOT_TTL.as_secs()).then_some(snapshot)
+        self.read()
+            .filter(|s| now().saturating_sub(s.fetched_at) < SNAPSHOT_TTL.as_secs())
     }
 
     pub fn store(&self, snapshot: &Snapshot) -> Result<()> {
         write_atomic(&self.snapshot_path(), &serde_json::to_vec(snapshot)?)
     }
 
-    fn avatar_path(&self, login: &str) -> PathBuf {
+    pub fn avatar_path(&self, login: &str) -> PathBuf {
         self.dir.join("avatars").join(login)
     }
 

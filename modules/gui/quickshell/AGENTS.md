@@ -24,7 +24,7 @@ qml/
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (PRs
-                awaiting my review, from the reviews picker's cache).
+                awaiting my review and their stacks, from `reviews --json`).
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
                 Bluetooth, Volume, ReviewRequests.

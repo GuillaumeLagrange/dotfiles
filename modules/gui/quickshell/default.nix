@@ -31,6 +31,9 @@
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
       '';
 
+      # The derivation zellij.nix installs: the bar reads the picker's data through it.
+      reviews = pkgs.callPackage ../../headless/reviews/_package.nix { };
+
       # Pairing needs an agent to answer BlueZ's prompts, and QML cannot export
       # one. See bt-pair.py.
       btPair = pkgs.writers.writePython3Bin "bt-pair" {
@@ -74,6 +77,9 @@
         ram = glyph "F061A";
         claude = glyph "F0721";
         pullRequest = glyph "F04C2";
+        refresh = glyph "F0450";
+        terminal = glyph "F018D";
+        stack = glyph "F0328";
         gear = glyph "F0493";
         # Sliders, not a gear: the pill opens a dashboard of toggles.
         controls = glyph "F1542";
@@ -190,6 +196,8 @@
             readonly property var review: ${builtins.toJSON ([ "${pkgs.niri}/bin/niri" "msg" "action" "spawn" "--" ] ++ lib.splitString " " config.term ++ [ "-e" "zsh" "-i" "-c" "review" ])}
             // A PR's URL is appended: no picker, so no terminal; `review` opens or focuses the view.
             readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--pr"]
+            // The pill's data (`--json`) and its refresh, from the picker's own binary.
+            readonly property string reviews: "${lib.getExe reviews}"
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"
             readonly property string df: "${pkgs.coreutils}/bin/df"
