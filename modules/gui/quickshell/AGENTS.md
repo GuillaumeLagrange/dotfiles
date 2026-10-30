@@ -19,7 +19,7 @@ qml/
                 panels), ClickPanel (click-driven, keyboard-capable panels),
                 Tip (hover tooltip), TrayMenu + TrayMenuPanel (the tray's
                 DBusMenu, drawn in QML), PanelTitle + SectionLabel (panel
-                headings).
+                headings), FindBar (type-to-filter for a panel's list).
   services/     Singletons: Niri (the IPC tap), Sys (cpu/mem/disk), Claude,
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
@@ -237,6 +237,16 @@ the list several times a second, and a plain array model rebuilt every row each
 time, dropping a click between press and release and a half-typed passphrase
 with its focus. Wifi rows sort by signal bar rather than raw strength, so they
 do not reshuffle under the pointer.
+
+Both lists take the keyboard: the panel focuses its `ListView` when it opens
+(niri hands an on-demand layer surface focus as it maps, so Mod+B needs no
+click), Up/Down move a cursor kept on the panel by item (`cursor`, outlined in
+the accent), and Enter is the row's Connect - Pair for an unpaired device, the
+passphrase field for an unknown secured network. A connected row just opens.
+Typing filters the list fuzzily (`components/FindBar.qml`: the query's
+characters in order, ranked by gaps and word starts) and puts the cursor on the
+best match; Backspace edits the query, and Escape clears it before it closes the
+panel. An open passphrase field keeps its keys, Backspace on an empty one too.
 
 **Tray menus are drawn in QML** rather than handed to `QsMenuAnchor`, which
 renders them as a `QMenu` and therefore needs `//@ pragma UseQApplication` — see

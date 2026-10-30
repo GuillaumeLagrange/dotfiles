@@ -14,14 +14,44 @@ ClickPanel {
     panelWidth: 320
     accent: Theme.blue
 
-    // The device whose actions are showing.
+    // The device whose actions are showing, and the one the arrow keys are on.
     property var selected: null
+    property var cursor: null
+
+    // The devices whose name the typed filter matches, best first.
+    readonly property var matching: find.filter(Bt.devices, dev => dev.name || dev.address)
+
+    function step(delta: int): void {
+        const devs = root.matching;
+        if (devs.length === 0)
+            return;
+        const i = devs.indexOf(root.cursor);
+        const next = i < 0 ? (delta > 0 ? 0 : devs.length - 1) : Math.max(0, Math.min(devs.length - 1, i + delta));
+        root.cursor = devs[next];
+        deviceList.positionViewAtIndex(next, ListView.Contain);
+    }
+
+    // What Enter does: the row's Connect, or Pair for a device that is not.
+    function activate(dev: var): void {
+        root.cursor = dev;
+        root.selected = dev;
+        if (dev.connected)
+            return;
+        if (dev.paired || dev.bonded)
+            dev.connect();
+        else if (Bt.pairingDevice === null)
+            Bt.pair(dev);
+    }
+
+    onShown: deviceList.forceActiveFocus()
 
     // Opening the panel only shows what is already known - paired devices are
     // there whether or not the radio is sweeping. Discovery is asked for.
     onHidden: {
         Bt.scanning = false;
         root.selected = null;
+        root.cursor = null;
+        find.query = "";
         Bt.pairError = "";
     }
 
@@ -72,6 +102,7 @@ ClickPanel {
         // out of the list.
         readonly property var dev: row.modelData
         readonly property bool open: root.selected === row.dev
+        readonly property bool current: root.cursor !== null && root.cursor === row.dev
         readonly property bool known: !!(row.dev?.paired || row.dev?.bonded)
         readonly property bool connected: row.dev?.connected ?? false
         readonly property bool pairing: Bt.pairingDevice !== null && Bt.pairingDevice === row.dev
@@ -80,7 +111,9 @@ ClickPanel {
         implicitHeight: lines.implicitHeight + 8
         height: implicitHeight
         radius: Theme.rowRadius
-        color: row.open || row.connected ? Theme.well : (hover.hovered ? Theme.hoverFill : "transparent")
+        color: row.open || row.connected ? Theme.well : (hover.hovered || row.current ? Theme.hoverFill : "transparent")
+        border.width: row.current ? 1 : 0
+        border.color: Theme.alpha(root.accent, 0.6)
 
         ColumnLayout {
             id: lines
@@ -102,7 +135,10 @@ ClickPanel {
                 // take the taps its own action buttons got, and collapse the
                 // row out from under the click.
                 TapHandler {
-                    onSingleTapped: root.selected = row.open ? null : row.dev
+                    onSingleTapped: {
+                        root.cursor = row.dev;
+                        root.selected = row.open ? null : row.dev;
+                    }
                 }
 
                 Text {
@@ -299,8 +335,38 @@ ClickPanel {
             font.pixelSize: 11
         }
 
+        FindBar {
+            id: find
+
+            accent: root.accent
+            empty: root.matching.length === 0
+            // Typing puts the cursor on the best guess, so Enter takes it.
+            onQueryChanged: {
+                root.cursor = find.filter(Bt.devices, dev => dev.name || dev.address)[0] ?? null;
+                deviceList.positionViewAtBeginning();
+            }
+        }
+
         ListView {
+            id: deviceList
+
             Layout.fillWidth: true
+            keyNavigationEnabled: false
+            Keys.onUpPressed: root.step(-1)
+            Keys.onDownPressed: root.step(1)
+            Keys.onReturnPressed: if (root.cursor !== null)
+                root.activate(root.cursor)
+            Keys.onEnterPressed: if (root.cursor !== null)
+                root.activate(root.cursor)
+            Keys.onEscapePressed: event => {
+                if (find.query !== "")
+                    find.query = "";
+                else
+                    event.accepted = false;
+            }
+            Keys.onPressed: event => {
+                event.accepted = find.type(event);
+            }
             implicitHeight: Math.min(contentHeight, 300)
             clip: true
             spacing: 2
@@ -308,7 +374,7 @@ ClickPanel {
             // second, and a plain array model rebuilds every row each time,
             // dropping a click on Pair between its press and its release.
             model: ScriptModel {
-                values: Bt.devices
+                values: root.matching
             }
             delegate: DeviceRow {}
         }

@@ -99,6 +99,7 @@
         ethernetOff = glyph "F0202";
         vpn = glyph "F0582";
         lock = glyph "F033E";
+        search = glyph "F0349";
         down = glyph "F0045";
         up = glyph "F005D";
         bluetooth = glyph "F00AF";

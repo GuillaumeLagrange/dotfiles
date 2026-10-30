@@ -14,21 +14,53 @@ ClickPanel {
     accent: Theme.purple
 
     // The network whose actions are showing, the one being asked a passphrase,
-    // and the last connect failure.
+    // the one the arrow keys are on, and the last connect failure.
     property var selected: null
     property var pskFor: null
+    property var cursor: null
     property string error: ""
+
+    // The networks whose name the typed filter matches, best first.
+    readonly property var matching: find.filter(Net.networks, net => net.name)
+
+    function step(delta: int): void {
+        const nets = root.matching;
+        if (nets.length === 0)
+            return;
+        const i = nets.indexOf(root.cursor);
+        const next = i < 0 ? (delta > 0 ? 0 : nets.length - 1) : Math.max(0, Math.min(nets.length - 1, i + delta));
+        root.cursor = nets[next];
+        networkList.positionViewAtIndex(next, ListView.Contain);
+    }
+
+    // What Enter does: the row's Connect, or its passphrase prompt.
+    function activate(net: var): void {
+        root.cursor = net;
+        root.error = "";
+        root.selected = net;
+        if (net.connected)
+            return;
+        if (!net.known && Net.secured(net)) {
+            root.pskFor = net;
+            return;
+        }
+        root.pskFor = null;
+        net.connect();
+    }
 
     onShown: {
         Net.scanning = true;
         Net.refresh();
         Net.refreshPublicIp();
+        networkList.forceActiveFocus();
     }
 
     onHidden: {
         Net.scanning = false;
         root.selected = null;
         root.pskFor = null;
+        root.cursor = null;
+        find.query = "";
         root.error = "";
     }
 
@@ -110,6 +142,7 @@ ClickPanel {
         // out of the list.
         readonly property var net: row.modelData
         readonly property bool open: root.selected === row.net
+        readonly property bool current: root.cursor !== null && root.cursor === row.net
         // A network the bar has to ask a passphrase for. Kept on the panel, which
         // is where a failed connect (below) reopens the prompt from.
         readonly property bool askPsk: root.pskFor === row.net
@@ -122,12 +155,16 @@ ClickPanel {
 
         // Never carry a typed passphrase over to another network.
         onNetChanged: psk.text = ""
+        onAskPskChanged: if (row.askPsk)
+            psk.forceActiveFocus()
 
         width: ListView.view.width
         implicitHeight: lines.implicitHeight + 8
         height: implicitHeight
         radius: Theme.rowRadius
-        color: row.open || row.connected ? Theme.well : (hover.hovered ? Theme.hoverFill : "transparent")
+        color: row.open || row.connected ? Theme.well : (hover.hovered || row.current ? Theme.hoverFill : "transparent")
+        border.width: row.current ? 1 : 0
+        border.color: Theme.alpha(root.accent, 0.6)
 
         ColumnLayout {
             id: lines
@@ -150,6 +187,7 @@ ClickPanel {
                 // row out from under the click.
                 TapHandler {
                     onSingleTapped: {
+                        root.cursor = row.net;
                         if (row.open) {
                             root.selected = null;
                             return;
@@ -157,8 +195,6 @@ ClickPanel {
                         root.error = "";
                         root.selected = row.net;
                         root.pskFor = !row.net.known && Net.secured(row.net) ? row.net : null;
-                        if (row.askPsk)
-                            psk.forceActiveFocus();
                     }
                 }
 
@@ -220,6 +256,11 @@ ClickPanel {
                         font.family: Theme.ui
                         font.pixelSize: 11
                         onAccepted: row.net.connectWithPsk(psk.text)
+                        // A Backspace on an empty field is not the list filter's.
+                        Keys.priority: Keys.AfterItem
+                        Keys.onPressed: event => {
+                            event.accepted = event.key === Qt.Key_Backspace;
+                        }
                     }
                 }
 
@@ -311,8 +352,6 @@ ClickPanel {
                 root.error = `${row.net.name}: ${ConnectionFailReason.toString(reason)}`;
                 root.selected = row.net;
                 root.pskFor = Net.secured(row.net) ? row.net : null;
-                if (row.askPsk)
-                    psk.forceActiveFocus();
             }
         }
     }
@@ -474,8 +513,38 @@ ClickPanel {
             font.pixelSize: 11
         }
 
+        FindBar {
+            id: find
+
+            accent: root.accent
+            empty: root.matching.length === 0
+            // Typing puts the cursor on the best guess, so Enter takes it.
+            onQueryChanged: {
+                root.cursor = find.filter(Net.networks, net => net.name)[0] ?? null;
+                networkList.positionViewAtBeginning();
+            }
+        }
+
         ListView {
+            id: networkList
+
             Layout.fillWidth: true
+            keyNavigationEnabled: false
+            Keys.onUpPressed: root.step(-1)
+            Keys.onDownPressed: root.step(1)
+            Keys.onReturnPressed: if (root.cursor !== null)
+                root.activate(root.cursor)
+            Keys.onEnterPressed: if (root.cursor !== null)
+                root.activate(root.cursor)
+            Keys.onEscapePressed: event => {
+                if (find.query !== "")
+                    find.query = "";
+                else
+                    event.accepted = false;
+            }
+            Keys.onPressed: event => {
+                event.accepted = find.type(event);
+            }
             implicitHeight: Math.min(contentHeight, 260)
             clip: true
             spacing: 2
@@ -483,7 +552,7 @@ ClickPanel {
             // and a plain array model rebuilds every row each time, taking a
             // half-typed passphrase and its focus with it.
             model: ScriptModel {
-                values: Net.networks
+                values: root.matching
             }
             delegate: NetRow {}
         }
