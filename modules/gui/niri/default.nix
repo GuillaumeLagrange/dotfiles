@@ -233,20 +233,20 @@
               Mod+Shift+S { spawn "niri-sort-workspaces"; }
               Mod+Ctrl+S hotkey-overlay-title="Mark a Stutter in the Journal" { spawn "${stutterMark}"; }
 
-              Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
-              Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
-              Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
-              Mod+Ctrl+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
+              Mod+WheelScrollDown      { focus-column-right; }
+              Mod+WheelScrollUp        { focus-column-left; }
+              Mod+Ctrl+WheelScrollDown { move-column-right; }
+              Mod+Ctrl+WheelScrollUp   { move-column-left; }
 
               Mod+WheelScrollRight      { focus-column-right; }
               Mod+WheelScrollLeft       { focus-column-left; }
               Mod+Ctrl+WheelScrollRight { move-column-right; }
               Mod+Ctrl+WheelScrollLeft  { move-column-left; }
 
-              Mod+Shift+WheelScrollDown      { focus-column-right; }
-              Mod+Shift+WheelScrollUp        { focus-column-left; }
-              Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
-              Mod+Ctrl+Shift+WheelScrollUp   { move-column-left; }
+              Mod+Shift+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
+              Mod+Shift+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
+              Mod+Ctrl+Shift+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+              Mod+Ctrl+Shift+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
 
               Mod+1 { focus-workspace "${ws_web}"; }
               Mod+2 { focus-workspace "${ws_term}"; }
