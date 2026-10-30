@@ -14,14 +14,19 @@ import Quickshell.Services.Notifications
 Singleton {
     id: root
 
-    // Was mako's `app-name=Slack { invisible=1 }`: no popup, still in the centre.
-    readonly property var silentApps: ["Slack"]
-    // Dropped on arrival, popup and centre alike: niri confirms every
-    // screenshot, right after its own UI showed what was captured.
+    // Dropped on arrival, popup and centre alike; a rule without a summary
+    // drops everything the app sends.
     readonly property var ignoredNotifs: [
+        // niri confirms every screenshot, right after its own UI showed what
+        // was captured.
         {
             appName: "niri",
             summary: "Screenshot captured"
+        },
+        // The desktop app cannot mute itself while the web app (a Firefox
+        // notification) keeps notifying.
+        {
+            appName: "Slack"
         }
     ]
     // mako's default-timeout, for clients that send -1 (server decides).
@@ -228,7 +233,7 @@ Singleton {
     }
 
     function isIgnored(notification): bool {
-        return root.ignoredNotifs.some(rule => rule.appName === notification.appName && rule.summary === notification.summary);
+        return root.ignoredNotifs.some(rule => rule.appName === notification.appName && (rule.summary === undefined || rule.summary === notification.summary));
     }
 
     // Both a new notification and a client reusing an id land here.
@@ -239,7 +244,7 @@ Singleton {
             return;
         }
 
-        const popup = !root.dnd && !root.silentApps.includes(notification.appName);
+        const popup = !root.dnd;
         // Held while its row lives, whether it popped up or not: that is what
         // keeps an action callable and a withdrawal observable.
         notification.tracked = true;

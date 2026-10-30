@@ -93,8 +93,8 @@ from the key stays up until toggled again or hovered and left.
 **The shell is the notification daemon** (`services/Notifs.qml`), so mako is
 installed but not running: `NotificationServer` takes the
 `org.freedesktop.Notifications` name and only one process can own it. mako's
-whole config came along as six lines of QML - a 10s default timeout, `Slack`
-and do-not-disturb dropping the popup - and `makoctl` left with it: dnd is a
+whole config came along as a few lines of QML - a 10s default timeout and
+do-not-disturb dropping the popup - and `makoctl` left with it: dnd is a
 bool, and `makoctl restore` / `dismiss -a` are `qs -c bar ipc call notifs
 center|clear`. The binds are Mod+N for the centre, Mod+Shift+N to clear and
 Mod+Ctrl+N for dnd. `clear` is `clearAll()`, the panel's "Clear all" button:
@@ -131,13 +131,16 @@ just asked for, so `CloseRequested` is the only one the watcher acts on. Whether
 that ever happens is the sender's business, and they differ: a Firefox web
 notification is withdrawn the moment the page calls `notification.close()`,
 while Slack's desktop app hands Electron a notification and forgets it -
-`main.bundle.cjs` closes one only when its list passes ten thousand - so its
-rows only ever go when they are dismissed here.
+`main.bundle.cjs` closes one only when its list passes ten thousand - which is
+one more reason it is ignored outright (below).
 
-**`ignoredNotifs` drops a notification outright**, popup and centre alike, for
-things that announce what the user just did - niri's `Screenshot captured`,
-sent right after its own screenshot UI was on screen. It is matched on app
-name and summary, because niri's config-error notifications are worth keeping.
+**`ignoredNotifs` drops a notification outright**, popup and centre alike.
+niri's `Screenshot captured` is one, since it announces what the user just did
+and its own screenshot UI was already on screen; it is matched on app name and
+summary, because niri's config-error notifications are worth keeping. A rule
+without a summary drops the whole app: Slack's desktop app (app name `Slack`)
+has no setting to stay quiet while the web app keeps notifying, and the web
+app's notifications come from Firefox, so they are untouched.
 
 **Popups live on the Top layer**, never Overlay: hyprlock is an overlay
 surface, and a popup above it would read message bodies out to the room. That
