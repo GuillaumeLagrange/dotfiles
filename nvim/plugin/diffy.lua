@@ -38,6 +38,17 @@ vim.api.nvim_create_autocmd('User', {
   end,
 })
 
+-- A submitted review leaves the review requests: refresh the reviews cache now rather than at the
+-- timer's next run, which the bar's PR pill and the picker both read. restart, not start: a refresh
+-- already running may have fetched before the submit. No unit (headless hosts): no-op.
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'DiffyReviewSubmitted',
+  group = vim.api.nvim_create_augroup('diffy_review_submitted', { clear = true }),
+  callback = function()
+    vim.system({ 'systemctl', '--user', 'restart', '--no-block', 'reviews-refresh.service' })
+  end,
+})
+
 vim.keymap.set('n', '<leader>do', '<cmd>Diffy<CR>', { desc = 'Open diffy' })
 vim.keymap.set('n', '<leader>db', '<cmd>Diffy branch<CR>', { desc = 'Open diffy on the branch' })
 vim.keymap.set('n', '<leader>df', '<cmd>Diffy file<CR>', { desc = 'Open diffy file history for current file' })
