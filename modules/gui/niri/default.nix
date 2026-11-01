@@ -105,6 +105,8 @@
 
           switch-events {
               lid-close { spawn "${lidClose}"; }
+              // Caffeine blanked them at lid close; nothing else wakes them but input.
+              lid-open { spawn "${pkgs.niri}/bin/niri" "msg" "action" "power-on-monitors"; }
           }
 
           prefer-no-csd
