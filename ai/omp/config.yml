@@ -30,3 +30,5 @@ display:
   cacheMissMarker: true
 disabledProviders:
   - claude-plugins
+power:
+  sleepPrevention: "off"

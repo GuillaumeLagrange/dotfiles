@@ -2,7 +2,9 @@
   # Caffeine: closing the lid locks and blanks instead of suspending
   # (modules/gui/niri lid-close, swayidle's suspend timeout also stands down),
   # with the side LEDs blinking blue so it shows through a closed lid.
-  # Every 10 minutes of closed lid it suspends unless an omp is working.
+  # With the lid closed on battery it suspends after an hour or below 20%,
+  # unless the bar's idle inhibit is on; AC, an open lid or idle inhibit reset
+  # the hour. On AC there is no limit.
   # caffeine-auto drives it from a mode the bar's control centre sets: off, on,
   # or auto (on while connected to a Wi-Fi network in ~/.config/caffeine/config).
   flake.modules.nixos.granary =
@@ -40,24 +42,23 @@
 
           closed() { [[ $(<"$lid") == *closed ]]; }
 
-          # Pane files from ai/omp/extensions/omp-panel.ts; a dead pid is a crashed omp.
-          ompWorking() {
-            local f pid state
-            for f in /run/user/*/omp-panel/*/*.json; do
-              [[ -e $f ]] || continue
-              read -r pid state < <(jq -r '"\(.pid) \(.state)"' "$f" 2>/dev/null) || continue
-              [[ $state == working && -d /proc/$pid ]] && return 0
-            done
-            return 1
+          # The bar's idle lock (modules/gui/quickshell services/Quick.qml).
+          idleInhibited() {
+            busctl --json=short call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListInhibitors |
+              jq -e '.data[0] | any(.[1] == "quickshell-bar" and .[3] == "block")' >/dev/null
           }
 
-          closedFor=0
+          closedOnBattery=0
           check() {
-            if closed; then closedFor=$((closedFor + 1)); else closedFor=0; fi
-            if ((closedFor > 0 && closedFor % 600 == 0)) && ! ompWorking; then
-              suspend "lid closed with no omp working"
+            if ! closed || [[ $(<"$ac/online") == 1 ]] || idleInhibited; then
+              closedOnBattery=0
+              return
             fi
-            if [[ $(<"$ac/online") == 0 ]] && (($(<"$bat/capacity") < ${toString lowBattery})); then
+            closedOnBattery=$((closedOnBattery + 1))
+            if ((closedOnBattery >= 3600)); then
+              suspend "lid closed on battery for an hour"
+            fi
+            if (($(<"$bat/capacity") < ${toString lowBattery})); then
               suspend "battery below ${toString lowBattery}%"
             fi
           }
@@ -170,11 +171,6 @@
             return 1
           }
 
-          # The watchdog would suspend straight away, and again after every resume.
-          lowBattery() {
-            [[ $(<'${ac}/online') == 0 ]] && (($(<'${bat}/capacity') < ${toString lowBattery}))
-          }
-
           # Starting the unit mid-sleep would cancel the sleep it conflicts with,
           # and the network and the unit itself both change while going down.
           sleeping() {
@@ -189,7 +185,7 @@
             sleeping && return
             m=$(mode)
             if [[ $m == on ]] || { [[ $m == auto ]] && onTrigger; }; then want=1; fi
-            if ((want)) && ! active && ! lowBattery; then
+            if ((want)) && ! active; then
               echo "mode $m, starting caffeine"
               caffeine start
             elif ((!want)) && active; then
@@ -200,14 +196,12 @@
 
           # Any line is a cue to re-check: network changes, config and mode
           # writes (editors and atomic saves rename), the unit starting or
-          # stopping, resume, and AC or battery changes for the low-battery
-          # guard. Should one source die, the rest are killed so the read sees
-          # EOF and systemd restarts us.
+          # stopping, and resume. Should one source die, the rest are killed so
+          # the read sees EOF and systemd restarts us.
           exec 3< <(
             nmcli monitor &
             inotifywait -m -q -e close_write,moved_to --format '%w%f' "$(dirname "$conf")" "$state" '${dirOf activeFile}' &
             gdbus monitor --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 &
-            udevadm monitor --udev --subsystem-match=power_supply &
             wait -n
             mapfile -t pids < <(jobs -p)
             kill "''${pids[@]}" 2>/dev/null || true
