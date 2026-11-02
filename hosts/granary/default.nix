@@ -145,6 +145,7 @@
         # leaves niri running, so an immediate GDM re-login fails.
         UserStopDelaySec = 0;
       };
+      systemd.user.extraConfig = "DefaultTimeoutStopSec=10s";
       systemd.sleep.settings.Sleep.HibernateDelaySec = "24h";
 
       services.xserver = {
