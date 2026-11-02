@@ -152,9 +152,7 @@ Server/headless system configuration:
   the entrypoint. It opens the pick in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
   session I create (`wt add` the repo there when it is still a symlink or missing from the mirror; run without a terminal, failures are notifications), checks the PR out and opens diffy
   (closing the tab of another PR of the same repo, after the new one exists so the session never empties),
-  then attaches to the session, focuses the window showing it, or switches to it from inside zellij. The
-  zellij session is ephemeral: `review` starts it with `--session-serialization false` and deletes a
-  resurrectable leftover instead of resurrecting it
+  then attaches to the session, focuses the window showing it, or switches to it from inside zellij.
 - Git push stack utilities
 - clangd user config (`~/.config/clangd/config.yaml`): `*.bpf.c`/`*.bpf.h` get the flags libbpf-cargo compiles
   them with (`--target=bpf`, `__TARGET_ARCH_*`, vmlinux.h from `libbpf/vmlinux.h`, libbpf headers)

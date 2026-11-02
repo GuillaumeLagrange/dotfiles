@@ -25,8 +25,8 @@ has_client() {
   act list-clients 2>/dev/null | awk 'NR == 1 && $1 != "CLIENT_ID" { exit } NR > 1 { n++ } END { exit !n }'
 }
 
-running() {
-  zellij list-sessions --no-formatting 2>/dev/null | awk -v s="$session" '$1 == s && !/EXITED/ { f = 1 } END { exit !f }'
+exists() {
+  zellij list-sessions --no-formatting 2>/dev/null | awk -v s="$session" '$1 == s { f = 1 } END { exit !f }'
 }
 
 if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
@@ -123,21 +123,15 @@ open_tab() {
   fi
 }
 
-# The session is ephemeral: a resurrectable one left from before is deleted rather than
-# resurrected, and one this starts never serializes. Serialization is fixed by the options of the
-# client that creates the server (`--create-background` drops them), so it is started by a client.
-if zellij list-sessions --no-formatting 2>/dev/null | grep -q "^$session .*(EXITED"; then
-  zellij delete-session "$session" >/dev/null
-fi
-
 if ! has_client; then
-  if ! running; then
+  if ! exists; then
     created=1
   fi
   # A tab takes its size from a client: with none attached its layout fails. A temporary client
   # sizes it, and the size stays until a real client shows the tab. The server starts in the wt
-  # session's root with it in its environment, as zellij-attach does.
-  (cd -- "$root" && WORKSPACE_ROOT="$root" exec script -q -c "stty rows 50 cols 160; exec zellij attach --create $session options --session-serialization false" /dev/null </dev/null >/dev/null 2>&1) &
+  # session's root with it in its environment, as zellij-attach does. Panes inherit the server's
+  # TERM, which is unset when run from the bar.
+  (cd -- "$root" && WORKSPACE_ROOT="$root" TERM=xterm-256color exec script -q -c "stty rows 50 cols 160; exec zellij attach --create $session" /dev/null </dev/null >/dev/null 2>&1) &
   client=$!
   for _ in $(seq 50); do
     has_client && break
