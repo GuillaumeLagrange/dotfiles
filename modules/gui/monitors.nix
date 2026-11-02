@@ -1,7 +1,16 @@
 {
   flake.modules.homeManager.monitors =
-    { lib, ... }:
+    { config, lib, ... }:
     let
+      logicalWidth =
+        monitor:
+        let
+          width = lib.toInt (builtins.head (lib.splitString "x" monitor.resolution));
+          scale = if monitor.scale == null then 1.0 else monitor.scale;
+        in
+        builtins.floor (width / scale + 0.5);
+      laptopWidth = logicalWidth config.monitors.laptop;
+
       monitorOptions =
         {
           defaultName,
@@ -59,7 +68,7 @@
             defaultName = "Shenzhen KTC Technology Group OLED G27P6 Unknown";
             defaultResolution = "2560x1440";
             defaultRefreshRate = 60;
-            defaultX = 1920;
+            defaultX = laptopWidth;
             defaultY = 1440;
           };
           default = { };
@@ -70,7 +79,7 @@
             defaultName = "Dell Inc. DELL S2421HS 45WFW83";
             defaultResolution = "1920x1080";
             defaultRefreshRate = null;
-            defaultX = 4480;
+            defaultX = laptopWidth + logicalWidth config.monitors.mainHome;
             defaultY = 1440;
           };
           default = { };
@@ -81,7 +90,7 @@
             defaultName = "Dell Inc. DELL P2423D FN44W14";
             defaultResolution = "2560x1440";
             defaultRefreshRate = 75;
-            defaultX = 1920;
+            defaultX = laptopWidth;
             defaultY = 1440;
           };
           default = { };
