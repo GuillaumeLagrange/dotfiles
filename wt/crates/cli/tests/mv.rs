@@ -12,6 +12,9 @@ fn mv_moves_the_directory_and_keeps_the_worktrees_working() {
     let old = f.session("proj-1");
     f.git_in(&old.join("app"), &["switch", "-qc", "work"]);
     f.write("sessions/proj-1/app/README.md", "edited\n");
+    // A repo created in the session, with no main checkout in the workspace.
+    std::fs::create_dir(old.join("scratch")).unwrap();
+    f.git_in(&old.join("scratch"), &["init", "-q"]);
 
     f.wt(&["mv", "proj-1", "Proj 2"])
         .ok()

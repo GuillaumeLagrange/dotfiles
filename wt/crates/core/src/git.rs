@@ -212,9 +212,11 @@ pub fn prune_worktrees(repo: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Point a repo's record of a worktree back at it after the worktree was moved.
-pub fn repair_worktree(repo: &Path, worktree: &Path) -> Result<()> {
-    git(repo, &["worktree", "repair", &worktree.to_string_lossy()])?;
+/// Point the main repo's record of a moved worktree back at it, run from the
+/// worktree: a member need not have a main checkout in the workspace, and a
+/// standalone repo has nothing to repair.
+pub fn repair_worktree(worktree: &Path) -> Result<()> {
+    git(worktree, &["worktree", "repair"])?;
     Ok(())
 }
 

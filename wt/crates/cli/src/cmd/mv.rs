@@ -61,7 +61,7 @@ pub fn run(cfg: &Config, id: &str, name: &str) -> Result<()> {
         let renamed = Session::from_registry(&reg, &new_id)?;
         let mut failed = 0;
         for member in renamed.members()? {
-            let repair = git::repair_worktree(&cfg.workspace.join(&member.repo), &member.path)
+            let repair = git::repair_worktree(&member.path)
                 .and_then(|()| hydrate::allow_direnv(&member.path).map(drop));
             if let Err(err) = repair {
                 eprintln!("wt: {}: {err:#}", member.repo);
@@ -73,7 +73,7 @@ pub fn run(cfg: &Config, id: &str, name: &str) -> Result<()> {
         }
         anyhow::ensure!(
             failed == 0,
-            "{failed} member(s) not repaired; `git worktree repair <path>` from the main checkout retries one"
+            "{failed} member(s) not repaired; `git worktree repair` in one retries it"
         );
     }
     Ok(())
