@@ -7,6 +7,23 @@
       config,
       ...
     }:
+    let
+      # Rooted by the home generation through this script, so a GC never takes them away.
+      rustupRepatch = pkgs.writeShellApplication {
+        name = "rustup-repatch";
+        runtimeInputs = with pkgs; [
+          patchelf
+          findutils
+          gnused
+          coreutils
+        ];
+        text = ''
+          DYNAMIC_LINKER=${pkgs.stdenv.cc.bintools.dynamicLinker}
+          ZLIB_LIB=${lib.makeLibraryPath [ pkgs.zlib ]}
+        ''
+        + builtins.readFile ./rustup-repatch.sh;
+      };
+    in
     {
       imports = with self.modules.homeManager; [
         ai
@@ -87,7 +104,14 @@
             ];
             text = builtins.readFile ./untar.sh;
           })
-        ];
+        ]
+        ++ lib.optionals stdenv.isLinux [ rustupRepatch ];
+
+      home.activation.rustupRepatch = lib.mkIf pkgs.stdenv.isLinux (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          run ${rustupRepatch}/bin/rustup-repatch
+        ''
+      );
 
       xdg.configFile = {
         "nvim" = {
