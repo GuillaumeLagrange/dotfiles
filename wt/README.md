@@ -15,6 +15,8 @@ wt new <name>      pick members, mirror the workspace, check them out detached
 wt add <repo>      turn a mirror symlink into a worktree, and open a tab for it
 wt promote <repo>  the swap backwards: the main checkout takes the branch
 wt recreate [<id>] throw the zellij session away and come back to a new one
+wt mv <id> <name>  rename (alias `rename`); moves the directory when it sits at the
+                   default path and repairs its worktrees; refused while zellij runs it
 wt rm [<id>]       guarded teardown (dirty tree / unpushed / stashes; --force)
 wt ls [--json]     sessions, members, branches
 wt path [<id>]     a session root, for shell use; --exact, for a name from elsewhere

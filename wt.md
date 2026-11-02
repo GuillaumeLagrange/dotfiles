@@ -278,6 +278,8 @@ wt <id>                  attach, creating the zellij session and its tabs if abs
 wt new <branch|id>       scan, pick members, worktrees + mirror + hydrate
 wt add <repo> [branch]   symlink -> worktree, hydrate
 wt promote <repo>        worktree -> symlink, main checkout switches to the branch
+wt mv <id> <name>        rename (alias `rename`): registry, marker, and the directory
+                            when it is at the default path; refused while zellij runs it
 wt rm [<id>]             guarded teardown (dirty tree / unpushed / stashes; --force)
 wt ls                    sessions, members, branches
 wt path [<id>]           the session root, for shell use (`cd "$(wt path cod-2931)"`)

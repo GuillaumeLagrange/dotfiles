@@ -110,7 +110,7 @@ fn choose_members(selectable: &[String]) -> Result<Vec<String>> {
 }
 
 /// A session id that is safe as a directory name.
-fn slug(name: &str) -> String {
+pub fn slug(name: &str) -> String {
     name.chars()
         .map(|c| match c {
             'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => c,

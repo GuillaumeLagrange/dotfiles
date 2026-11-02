@@ -1,6 +1,7 @@
 pub mod add;
 pub mod attach;
 pub mod ls;
+pub mod mv;
 pub mod new;
 pub mod path;
 pub mod promote;

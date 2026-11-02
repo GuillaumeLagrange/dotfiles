@@ -261,6 +261,31 @@ fn a_session_with_no_members_keeps_the_tab_zellij_made() {
     });
 }
 
+/// A running session's panes hold the old root in their environment and zellij
+/// knows it by the old name, neither of which a rename can reach.
+#[test]
+fn mv_refuses_a_running_session() {
+    if !have("zellij") {
+        return;
+    }
+    let f = Fixture::new();
+    f.wt(&["new", "proj-mv", "--empty"]).ok();
+
+    with_env(&f, || {
+        let session = load("proj-mv");
+        let _live = Live("proj-mv".into());
+        zellij::start_detached("proj-mv", &session.path).unwrap();
+
+        f.wt(&["mv", "proj-mv", "proj-moved"])
+            .failed_with("running zellij session");
+        assert!(f.session("proj-mv").is_dir());
+
+        zellij::delete("proj-mv").unwrap();
+        f.wt(&["mv", "proj-mv", "proj-moved"]).ok();
+        assert!(f.session("proj-moved").is_dir());
+    });
+}
+
 /// From inside, the only way to free the terminal is to delete the session, which
 /// takes the process asking down with it. So what makes it a rebuild rather than
 /// an exit has to survive on disk.

@@ -212,6 +212,12 @@ pub fn prune_worktrees(repo: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Point a repo's record of a worktree back at it after the worktree was moved.
+pub fn repair_worktree(repo: &Path, worktree: &Path) -> Result<()> {
+    git(repo, &["worktree", "repair", &worktree.to_string_lossy()])?;
+    Ok(())
+}
+
 /// Drop a record with nothing live behind it.
 ///
 /// A symlink standing where the worktree was has to be unlinked first, because

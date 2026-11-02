@@ -68,6 +68,15 @@ enum Command {
         id: Option<String>,
     },
 
+    /// Rename a session, moving its directory when it is at the default path.
+    #[command(visible_alias = "rename")]
+    Mv {
+        #[arg(add = ArgValueCandidates::new(complete::sessions))]
+        id: String,
+        /// The new name, slugged as `wt new` slugs one.
+        name: String,
+    },
+
     /// Tear a session down, refusing while it still holds work.
     Rm {
         #[arg(add = ArgValueCandidates::new(complete::sessions))]
@@ -143,6 +152,7 @@ fn run() -> Result<()> {
             cmd::promote::run(&cfg, &repo, session.as_deref())
         }
         Some(Command::Recreate { id }) => cmd::recreate::run(&cfg, id.as_deref()),
+        Some(Command::Mv { id, name }) => cmd::mv::run(&cfg, &id, &name),
         Some(Command::Rm { id, force }) => cmd::remove::run(&cfg, id.as_deref(), force),
         Some(Command::Ls { json }) => cmd::ls::run(&cfg, json),
         Some(Command::Sync { id, fix, all }) => cmd::sync::run(&cfg, id.as_deref(), fix, all),
