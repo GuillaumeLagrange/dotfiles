@@ -269,6 +269,9 @@
           Description = "Refresh the reviews picker cache every 5 minutes";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
+          # The default Before=timers.target, with timers.target in basic.target and
+          # graphical-session.target after it, made an ordering cycle on stop.
+          DefaultDependencies = false;
         };
         Timer = {
           OnActiveSec = "0";
