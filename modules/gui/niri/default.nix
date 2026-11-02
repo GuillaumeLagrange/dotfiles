@@ -113,6 +113,7 @@
 
           layout {
               gaps 2
+              default-column-width { proportion 0.5; }
 
               focus-ring {
                   width 2
@@ -137,7 +138,8 @@
           binds {
               Mod+Shift+Slash { show-hotkey-overlay; }
 
-              Mod+Return { spawn ${quoteArgs config.term}; }
+              // Its own class, so the window rule below opens it half width.
+              Mod+Return { spawn ${quoteArgs config.term} "--class" "kitty-half"; }
               Mod+D { spawn "vicinae" "toggle"; }
               Mod+Shift+D { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
@@ -289,9 +291,17 @@
               Mod+Shift+P { power-off-monitors; }
           }
 
+          // Open full width as a maximized column, so Mod+F restores the default width.
           window-rule {
               geometry-corner-radius 4
               clip-to-geometry true
+              open-maximized true
+          }
+
+          window-rule {
+              match app-id="^kitty-half$"
+
+              open-maximized false
           }
 
           window-rule {
@@ -318,6 +328,7 @@
               exclude app-id="^steam$" title="^(Steam|Special Offers)$"
 
               default-column-width { proportion 0.25; }
+              open-maximized false
           }
 
           window-rule {
