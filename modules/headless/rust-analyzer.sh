@@ -3,4 +3,5 @@
 if ! rustup which rust-analyzer >/dev/null 2>&1; then
   rustup component add rust-analyzer >&2
 fi
-RUSTUP_FORCE_ARG0=rust-analyzer exec rustup "$@"
+# Not RUSTUP_FORCE_ARG0: rust-analyzer's cargo and rustc proxies would inherit it.
+exec "$(dirname "$(command -v rustup)")/rust-analyzer" "$@"
