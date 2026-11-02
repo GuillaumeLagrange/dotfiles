@@ -104,6 +104,14 @@
             ];
             text = builtins.readFile ./untar.sh;
           })
+
+          (lib.hiPrio (
+            pkgs.writeShellApplication {
+              name = "rust-analyzer";
+              runtimeInputs = [ pkgs.rustup ];
+              text = builtins.readFile ./rust-analyzer.sh;
+            }
+          ))
         ]
         ++ lib.optionals stdenv.isLinux [ rustupRepatch ];
 
