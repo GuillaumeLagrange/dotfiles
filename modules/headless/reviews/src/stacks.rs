@@ -21,6 +21,23 @@ pub enum Row {
     },
 }
 
+/// Past this without an update, a pull request is hidden until asked for.
+pub const STALE_DAYS: u64 = 60;
+
+/// Whether `prs[i]` is hidden as stale: not updated in `STALE_DAYS`, and
+/// neither is any member of its stack, which shows whole or not at all.
+pub fn stale(prs: &[Pr], i: usize, now: u64) -> bool {
+    let old = |pr: &Pr| now.saturating_sub(pr.updated_at) > STALE_DAYS * 86400;
+    let pr = &prs[i];
+    match &pr.stack {
+        None => old(pr),
+        Some(stack) => prs
+            .iter()
+            .filter(|p| p.repo_full == pr.repo_full && p.stack.as_ref().is_some_and(|s| s.number == stack.number))
+            .all(old),
+    }
+}
+
 /// `shown` (indices into `prs`) with each GitHub stack gathered under a
 /// heading at the place of its first member, top of the stack first. A stack
 /// with nothing listed shown is dropped.
@@ -133,5 +150,24 @@ pub mod tests {
             pr(1, Some((9, 1)), false, State::Merged),
         ];
         assert!(stacks(&prs, vec![1]).is_empty());
+    }
+
+    #[test]
+    fn a_stack_is_stale_only_when_every_member_is() {
+        let day = 86400;
+        let now = 100 * day;
+        let at = |mut p: Pr, days_ago: u64| {
+            p.updated_at = now - days_ago * day;
+            p
+        };
+        let prs = [
+            at(pr(1, Some((9, 1)), true, State::Open), 90),
+            at(pr(2, Some((9, 2)), true, State::Open), 3),
+            at(pr(3, None, true, State::Open), 61),
+            at(pr(4, None, true, State::Open), 60),
+            at(pr(5, Some((8, 1)), true, State::Open), 70),
+        ];
+        let stale: Vec<bool> = (0..prs.len()).map(|i| stale(&prs, i, now)).collect();
+        assert_eq!(stale, [false, false, true, false, true]);
     }
 }

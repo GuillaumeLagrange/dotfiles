@@ -1,8 +1,8 @@
-//! The pull requests awaiting my review and those I reviewed lately, with the
-//! rest of their GitHub stacks, from one GraphQL query through `gh`; their
-//! authors' avatars and their descriptions' images. The list and the pictures
-//! are cached on disk so the picker opens on the last answer while a fresh one
-//! is fetched.
+//! The pull requests awaiting my review, those I reviewed lately and my own
+//! open ones, with the rest of their GitHub stacks, from one GraphQL query
+//! through `gh`; their authors' avatars and their descriptions' images. The
+//! lists and the pictures are cached on disk so the picker opens on the last
+//! answer while a fresh one is fetched.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 const QUERY: &str = r#"
 fragment Fields on PullRequest {
   number title url body state isDraft updatedAt headRefName additions deletions changedFiles
-  viewerLatestReview { state }
+  latestOpinionatedReviews(first: 20) { nodes { state author { login } } }
   repository { name nameWithOwner }
   author { login avatarUrl(size: 64) }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
@@ -25,6 +25,7 @@ fragment Found on PullRequest {
   stack { number size baseRefName entries(first: 50) { nodes { position pullRequest { ...Fields } } } }
 }
 query($q: String!) {
+  viewer { login }
   search(query: $q, type: ISSUE, first: 100) { nodes { ...Found } }
 }"#;
 
@@ -93,17 +94,19 @@ pub struct Pr {
     pub repo_full: String,
     pub author: String,
     pub avatar_url: Option<String>,
-    /// My latest review's verdict, not the pull request's review decision.
+    /// My latest approval or change request, which a later comment leaves
+    /// standing; not the pull request's review decision.
     pub decision: Option<Decision>,
     pub checks: Option<Checks>,
 }
 
-/// The searches, each a tab of the picker. Two requests, not one query: the
-/// reviewed search alone takes GitHub up to 9s of its 10.
+/// The searches, each a tab of the picker. Separate requests, not one query:
+/// the reviewed search alone takes GitHub up to 9s of its 10.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Query {
     Requested,
     Reviewed,
+    Mine,
 }
 
 impl Query {
@@ -116,6 +119,7 @@ impl Query {
                 let since = date(now().saturating_sub(REVIEWED_DAYS * 86400));
                 format!("is:pr archived:false reviewed-by:@me -author:@me updated:>={since} sort:updated-desc")
             }
+            Query::Mine => "is:pr is:open archived:false author:@me sort:updated-desc".to_owned(),
         }
     }
 }
@@ -126,6 +130,9 @@ pub struct Lists {
     pub requested: Vec<Pr>,
     /// Reviewed by me, updated within `REVIEWED_DAYS`, and not in `requested`.
     pub reviewed: Vec<Pr>,
+    /// Open, authored by me.
+    #[serde(default)]
+    pub mine: Vec<Pr>,
 }
 
 impl Lists {
@@ -133,6 +140,7 @@ impl Lists {
         match query {
             Query::Requested => &self.requested,
             Query::Reviewed => &self.reviewed,
+            Query::Mine => &self.mine,
         }
     }
 
@@ -142,6 +150,7 @@ impl Lists {
         match query {
             Query::Requested => self.requested = prs,
             Query::Reviewed => self.reviewed = prs,
+            Query::Mine => self.mine = prs,
         }
         let requested = &self.requested;
         self.reviewed
@@ -170,6 +179,7 @@ struct GqlError {
 
 #[derive(Deserialize)]
 struct Data {
+    viewer: Login,
     search: Search,
 }
 
@@ -192,7 +202,7 @@ struct Node {
     additions: u64,
     deletions: u64,
     changed_files: u64,
-    viewer_latest_review: Option<Review>,
+    latest_opinionated_reviews: Reviews,
     repository: Repository,
     /// Null for a deleted account.
     author: Option<Author>,
@@ -212,8 +222,20 @@ struct Repository {
 }
 
 #[derive(Deserialize)]
+struct Reviews {
+    nodes: Vec<Review>,
+}
+
+#[derive(Deserialize)]
 struct Review {
     state: String,
+    /// Null for a deleted account.
+    author: Option<Login>,
+}
+
+#[derive(Deserialize)]
+struct Login {
+    login: String,
 }
 
 #[derive(Deserialize)]
@@ -283,7 +305,7 @@ impl StackNode {
 }
 
 impl Node {
-    fn into_pr(self, listed: bool, stack: Option<Stack>) -> Pr {
+    fn into_pr(self, me: &str, listed: bool, stack: Option<Stack>) -> Pr {
         let n = self;
         let checks = n
             .commits
@@ -295,11 +317,16 @@ impl Node {
                 "FAILURE" | "ERROR" => Checks::Failure,
                 _ => Checks::Pending,
             });
-        let decision = n.viewer_latest_review.and_then(|r| match r.state.as_str() {
-            "APPROVED" => Some(Decision::Approved),
-            "CHANGES_REQUESTED" => Some(Decision::ChangesRequested),
-            _ => None,
-        });
+        let decision = n
+            .latest_opinionated_reviews
+            .nodes
+            .iter()
+            .find(|r| r.author.as_ref().is_some_and(|a| a.login == me))
+            .and_then(|r| match r.state.as_str() {
+                "APPROVED" => Some(Decision::Approved),
+                "CHANGES_REQUESTED" => Some(Decision::ChangesRequested),
+                _ => None,
+            });
         let (author, avatar_url) = match n.author {
             Some(a) => (a.login, Some(a.avatar_url)),
             None => ("ghost".to_owned(), None),
@@ -529,14 +556,14 @@ fn graphql<T: for<'de> Deserialize<'de>>(query: &str, vars: &[(&str, String)]) -
 }
 
 /// A search's pull requests, then the rest of their stacks.
-fn collect(nodes: Vec<Node>) -> Vec<Pr> {
+fn collect(nodes: Vec<Node>, me: &str) -> Vec<Pr> {
     let mut prs: Vec<Pr> = Vec::new();
     let mut entries = Vec::new();
     for mut node in nodes {
         let stack = node.stack.take();
         let position = node.stack_entry.take().map(|e| e.position);
         let place = stack.as_ref().zip(position).map(|(s, p)| s.at(p));
-        prs.push(node.into_pr(true, place));
+        prs.push(node.into_pr(me, true, place));
         if let Some(mut stack) = stack {
             for entry in std::mem::take(&mut stack.entries.nodes) {
                 if let Some(pr) = entry.pull_request {
@@ -547,7 +574,7 @@ fn collect(nodes: Vec<Node>) -> Vec<Pr> {
     }
     for (node, place) in entries {
         if !prs.iter().any(|pr| pr.url == node.url) {
-            prs.push(node.into_pr(false, Some(place)));
+            prs.push(node.into_pr(me, false, Some(place)));
         }
     }
     prs
@@ -555,19 +582,24 @@ fn collect(nodes: Vec<Node>) -> Vec<Pr> {
 
 pub fn fetch(query: Query) -> Result<Vec<Pr>> {
     let data: Data = graphql(QUERY, &[("q", query.search())])?;
-    Ok(collect(data.search.nodes))
+    Ok(collect(data.search.nodes, &data.viewer.login))
 }
 
-/// Fetch both lists and cache them, for the picker to open on.
+/// Fetch every list and cache them, for the picker to open on.
 pub fn refresh(cache: &Cache) -> Result<()> {
-    let (requested, reviewed) = std::thread::scope(|s| {
+    let (requested, reviewed, mine) = std::thread::scope(|s| {
         let reviewed = s.spawn(|| fetch(Query::Reviewed));
+        let mine = s.spawn(|| fetch(Query::Mine));
         let requested = fetch(Query::Requested);
-        (requested, reviewed.join().unwrap_or_else(|e| std::panic::resume_unwind(e)))
+        let join = |h: std::thread::ScopedJoinHandle<'_, _>| {
+            h.join().unwrap_or_else(|e| std::panic::resume_unwind(e))
+        };
+        (requested, join(reviewed), join(mine))
     });
     let mut lists = Lists::default();
     lists.set(Query::Requested, requested.context("requested")?);
     lists.set(Query::Reviewed, reviewed.context("reviewed")?);
+    lists.set(Query::Mine, mine.context("mine")?);
     cache.store(&Snapshot {
         fetched_at: now(),
         lists,

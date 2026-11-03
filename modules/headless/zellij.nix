@@ -202,8 +202,11 @@
         name = "review";
         runtimeInputs = [
           config.programs.zellij.package
+          config.programs.gh.package
           zellijAttach
+          muxName
           reviews
+          pkgs.git
           pkgs.jq
           pkgs.gawk
           pkgs.gnugrep

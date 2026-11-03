@@ -1,6 +1,6 @@
-//! The picker: pull requests awaiting my review, or those I reviewed lately,
-//! newest activity first, the selected one's description below, Enter to check
-//! it out.
+//! The picker: pull requests awaiting my review, those I reviewed lately, or
+//! my own open ones, newest activity first, the selected one's description
+//! below, Enter to check it out.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -29,7 +29,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 use crate::github::{self, Cache, Checks, Decision, Lists, Pr, Query, Snapshot, State};
 use crate::kitty;
 use crate::markdown::{self, ImageState};
-use crate::stacks::{stacks, Place, Row};
+use crate::stacks::{stale, stacks, Place, Row, STALE_DAYS};
 
 pub const ACCENT: Color = Color::Blue;
 pub const DIM: Style = Style::new().fg(Color::DarkGray);
@@ -83,12 +83,13 @@ struct ImageRequest {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Tab {
+pub enum Tab {
     Requested,
     Reviewed,
+    Mine,
 }
 
-const TABS: [Tab; 2] = [Tab::Requested, Tab::Reviewed];
+const TABS: [Tab; 3] = [Tab::Requested, Tab::Reviewed, Tab::Mine];
 
 impl Tab {
     fn index(self) -> usize {
@@ -99,6 +100,7 @@ impl Tab {
         match self {
             Tab::Requested => Query::Requested,
             Tab::Reviewed => Query::Reviewed,
+            Tab::Mine => Query::Mine,
         }
     }
 
@@ -106,6 +108,7 @@ impl Tab {
         match self {
             Tab::Requested => "needs your review",
             Tab::Reviewed => "reviewed",
+            Tab::Mine => "my PRs",
         }
     }
 }
@@ -151,13 +154,19 @@ fn checks_span(checks: Option<Checks>) -> Span<'static> {
     }
 }
 
+/// Filled, unlike the checks' glyphs, so a verdict reads at a glance.
 fn decision_span(decision: Option<Decision>) -> Option<Span<'static>> {
-    Some(match decision? {
-        Decision::Approved => Span::styled("approved", Style::new().fg(Color::Green)),
-        Decision::ChangesRequested => {
-            Span::styled("changes requested", Style::new().fg(Color::Red))
-        }
-    })
+    let (text, color) = match decision? {
+        Decision::Approved => (" ✓ approved ", Color::Green),
+        Decision::ChangesRequested => (" ✗ changes requested ", Color::Red),
+    };
+    Some(Span::styled(
+        text,
+        Style::new()
+            .fg(Color::Black)
+            .bg(color)
+            .add_modifier(Modifier::BOLD),
+    ))
 }
 
 /// Frame of a spinner turning with the clock; the event loop redraws every 100ms.
@@ -175,12 +184,14 @@ struct App {
     tab: Tab,
     fetched_at: Option<u64>,
     /// Per tab, its search is in flight.
-    refreshing: [bool; 2],
-    errors: [Option<String>; 2],
+    refreshing: [bool; 3],
+    errors: [Option<String>; 3],
     filter: String,
     filtering: bool,
+    /// Stale pull requests are listed too; hidden by default.
+    show_stale: bool,
     /// Per tab, kept by URL so a refresh that reorders the list does not move it.
-    selected: [Option<String>; 2],
+    selected: [Option<String>; 3],
     picker: Picker,
     avatars: HashMap<String, Avatar>,
     images: HashMap<String, Img>,
@@ -195,7 +206,7 @@ struct App {
     placed: Vec<Placement>,
     /// First item drawn in each tab's list, kept between frames so moving the
     /// selection only scrolls when it leaves the window.
-    offset: [Cell<usize>; 2],
+    offset: [Cell<usize>; 3],
     scroll: Cell<u16>,
     page: Cell<u16>,
 }
@@ -213,9 +224,11 @@ impl App {
         let filter = self.filter.to_lowercase();
         let terms: Vec<&str> = filter.split_whitespace().collect();
         let prs = self.list(tab);
+        let now = github::now();
         let shown = prs
             .iter()
             .enumerate()
+            .filter(|&(i, _)| self.show_stale || !stale(prs, i, now))
             .filter(|(_, pr)| {
                 let hay = format!(
                     "{} {}#{} {} {}",
@@ -227,6 +240,18 @@ impl App {
             .map(|(i, _)| i)
             .collect();
         stacks(prs, shown)
+    }
+
+    /// Pull requests of the tab's search hidden as stale.
+    fn hidden(&self, tab: Tab) -> usize {
+        if self.show_stale {
+            return 0;
+        }
+        let prs = self.list(tab);
+        let now = github::now();
+        (0..prs.len())
+            .filter(|&i| prs[i].listed && stale(prs, i, now))
+            .count()
     }
 
     fn visible(&self) -> Vec<Row> {
@@ -266,11 +291,8 @@ impl App {
         }
     }
 
-    fn switch(&mut self) {
-        self.tab = match self.tab {
-            Tab::Requested => Tab::Reviewed,
-            Tab::Reviewed => Tab::Requested,
-        };
+    fn switch(&mut self, delta: usize) {
+        self.tab = TABS[(self.tab.index() + delta) % TABS.len()];
         self.scroll.set(0);
     }
 
@@ -480,6 +502,10 @@ impl App {
                     "Nothing reviewed in the last {} days.",
                     github::REVIEWED_DAYS
                 ),
+                (true, false, Tab::Mine) => "You have no open pull request.".to_owned(),
+                (false, _, _) if self.filter.is_empty() => format!(
+                    "Only stale pull requests, not updated in {STALE_DAYS} days: a to show them."
+                ),
                 (false, _, _) => "No pull request matches the filter.".to_owned(),
             };
             frame.render_widget(Paragraph::new(text).style(DIM), inner);
@@ -505,8 +531,13 @@ impl App {
                 ),
             ])
         } else {
+            let stale_hint = match self.hidden(self.tab) {
+                0 if self.show_stale => "a hide stale · ".to_owned(),
+                0 => String::new(),
+                n => format!("a show {n} stale · "),
+            };
             Line::styled(
-                "enter checkout · shift+enter open · tab switch · / filter · r refresh · j/k move · ^d/^u scroll · q quit",
+                format!("enter checkout · shift+enter open · tab switch · / filter · {stale_hint}r refresh · j/k move · ^d/^u scroll · q quit"),
                 DIM,
             )
         };
@@ -650,6 +681,7 @@ impl App {
         let unlisted = match self.tab {
             Tab::Requested => "  not requested",
             Tab::Reviewed => "  not reviewed",
+            Tab::Mine => "  not yours",
         };
         match pr.state {
             State::Merged => sub.push(Span::styled("  merged", state_style)),
@@ -976,8 +1008,9 @@ fn authors(prs: &[Pr]) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Run the picker; the chosen pull request, once the terminal is restored.
-pub fn pick(query: String) -> Result<Option<Pr>> {
+/// Run the picker; the chosen pull request and the tab it was picked in, once
+/// the terminal is restored.
+pub fn pick(query: String) -> Result<Option<(Pr, Tab)>> {
     let cache = Cache::from_env();
     let cached = cache.load();
 
@@ -996,6 +1029,7 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
     if let Some(snapshot) = &cached {
         let _ = avatar_tx.send(authors(&snapshot.lists.requested));
         let _ = avatar_tx.send(authors(&snapshot.lists.reviewed));
+        let _ = avatar_tx.send(authors(&snapshot.lists.mine));
     }
     std::thread::spawn(move || {
         for () in poke_rx {
@@ -1011,14 +1045,20 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
                     None
                 }
             };
-            let (requested, reviewed) = std::thread::scope(|s| {
+            let (requested, reviewed, mine) = std::thread::scope(|s| {
                 let reviewed = s.spawn(|| fetch(Tab::Reviewed));
-                (fetch(Tab::Requested), reviewed.join().ok().flatten())
+                let mine = s.spawn(|| fetch(Tab::Mine));
+                (
+                    fetch(Tab::Requested),
+                    reviewed.join().ok().flatten(),
+                    mine.join().ok().flatten(),
+                )
             });
-            if let (Some(requested), Some(reviewed)) = (requested, reviewed) {
+            if let (Some(requested), Some(reviewed), Some(mine)) = (requested, reviewed, mine) {
                 let mut lists = Lists::default();
                 lists.set(Query::Requested, requested);
                 lists.set(Query::Reviewed, reviewed);
+                lists.set(Query::Mine, mine);
                 let _ = cache.store(&Snapshot {
                     fetched_at: github::now(),
                     lists,
@@ -1047,11 +1087,12 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
         lists,
         tab: Tab::Requested,
         fetched_at,
-        refreshing: [true; 2],
-        errors: [None, None],
+        refreshing: [true; 3],
+        errors: [None, None, None],
         filter: query,
         filtering: false,
-        selected: [None, None],
+        show_stale: false,
+        selected: [None, None, None],
         picker,
         avatars: HashMap::new(),
         images: HashMap::new(),
@@ -1062,7 +1103,7 @@ pub fn pick(query: String) -> Result<Option<Pr>> {
         next_id: Cell::new(std::process::id().wrapping_mul(1000).wrapping_add(1)),
         wanted: RefCell::new(Vec::new()),
         placed: Vec::new(),
-        offset: [Cell::new(0), Cell::new(0)],
+        offset: [Cell::new(0), Cell::new(0), Cell::new(0)],
         scroll: Cell::new(0),
         page: Cell::new(0),
     };
@@ -1094,6 +1135,7 @@ fn handle(app: &mut App, msg: Msg) -> io::Result<()> {
                     app.errors[tab.index()] = Some(match tab {
                         Tab::Requested => err,
                         Tab::Reviewed => format!("reviewed: {err}"),
+                        Tab::Mine => format!("my PRs: {err}"),
                     })
                 }
             }
@@ -1112,7 +1154,7 @@ fn event_loop(
     app: &mut App,
     rx: &mpsc::Receiver<Msg>,
     poke: &mpsc::Sender<()>,
-) -> Result<Option<Pr>> {
+) -> Result<Option<(Pr, Tab)>> {
     loop {
         while let Ok(msg) = rx.try_recv() {
             handle(app, msg)?;
@@ -1147,7 +1189,8 @@ fn event_loop(
             KeyCode::Up => app.step(-1),
             KeyCode::PageDown => app.scroll_by(2),
             KeyCode::PageUp => app.scroll_by(-2),
-            KeyCode::Tab | KeyCode::BackTab => app.switch(),
+            KeyCode::Tab => app.switch(1),
+            KeyCode::BackTab => app.switch(TABS.len() - 1),
             KeyCode::Enter
                 if key
                     .modifiers
@@ -1156,7 +1199,7 @@ fn event_loop(
                 open_web(app.selected_pr())
             }
             KeyCode::Enter if app.filtering => app.filtering = false,
-            KeyCode::Enter => return Ok(app.selected_pr().cloned()),
+            KeyCode::Enter => return Ok(app.selected_pr().cloned().map(|pr| (pr, app.tab))),
             KeyCode::Esc if app.filtering || !app.filter.is_empty() => {
                 app.filtering = false;
                 app.filter.clear();
@@ -1177,10 +1220,14 @@ fn event_loop(
             KeyCode::Char('g') | KeyCode::Home => app.step(isize::MIN / 2),
             KeyCode::Char('G') | KeyCode::End => app.step(isize::MAX / 2),
             KeyCode::Char('r') if !app.refreshing.contains(&true) => {
-                app.refreshing = [true; 2];
+                app.refreshing = [true; 3];
                 let _ = poke.send(());
             }
             KeyCode::Char('o') => open_web(app.selected_pr()),
+            KeyCode::Char('a') => {
+                app.show_stale = !app.show_stale;
+                app.settle();
+            }
             _ => {}
         }
     }

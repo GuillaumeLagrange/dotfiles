@@ -1,8 +1,10 @@
-// Pull requests awaiting my review, as the reviews picker lists them: one card
-// per PR, railed by its checks, a GitHub stack's members gathered under its
-// heading, top first. Clicking a card opens it the way picking it in the picker
-// does; the title's buttons refresh the list and open the picker itself.
+// Pull requests as the reviews picker lists them, in its tabs: awaiting my
+// review, reviewed lately, and mine. One card per PR, railed by its checks, a
+// GitHub stack's members gathered under its heading, top first. Clicking a card
+// opens it the way picking it in the picker does; the title's buttons refresh
+// the lists and open the picker itself.
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
@@ -15,6 +17,18 @@ PopupPanel {
     accent: Theme.green
 
     minContentWidth: 540
+
+    // The picker's tabs, in its order.
+    readonly property var tabs: [
+        { key: "requested", label: "Needs your review", empty: "Nothing awaits your review" },
+        { key: "reviewed", label: "Reviewed", empty: "Nothing reviewed in the last 14 days" },
+        { key: "mine", label: "My PRs", empty: "You have no open pull request" }
+    ]
+    // Kept by the service: the last one picked, on every screen.
+    readonly property string tab: Reviews.tab
+    readonly property var feed: Reviews[root.tab]
+    readonly property var current: root.tabs.find(t => t.key === root.tab)
+    readonly property var rows: Reviews.showStale ? root.feed.all : root.feed.rows
 
     // Sampled on open; the ages only need to be right when looked at.
     property real now: Date.now() / 1000
@@ -53,7 +67,7 @@ PopupPanel {
 
         PanelTitle {
             glyph: Config.glyph.pullRequest
-            text: "Review requests"
+            text: "Pull requests"
             accent: root.accent
 
             Text {
@@ -97,20 +111,144 @@ PopupPanel {
             font.pixelSize: 11
         }
 
-        ColumnLayout {
+        Rectangle {
             Layout.fillWidth: true
+            visible: root.rows.length === 0
+            implicitHeight: 44
+            radius: Theme.rowRadius
+            color: Theme.well
+
+            Text {
+                anchors.centerIn: parent
+                text: root.feed.stale > 0 ? "Only stale pull requests, not updated in 60 days" : root.current.empty
+                color: Theme.faint
+                font.family: Theme.ui
+                font.pixelSize: 11
+            }
+        }
+
+        ListView {
+            id: list
+
+            Layout.fillWidth: true
+            // A ListView has no implicit height: as tall as its rows, up to what
+            // the output leaves above the bar.
+            Layout.preferredHeight: Math.min(list.contentHeight, Math.max(200, (root.screen?.height ?? 1000) - 260))
+            visible: root.rows.length > 0
+            clip: true
             spacing: 6
+            model: root.rows
 
-            Repeater {
-                model: Reviews.rows
+            // Shown only while the list is capped, and the rows give up its width.
+            ScrollBar.vertical: ScrollBar {
+                id: vbar
 
-                delegate: Loader {
-                    id: row
+                policy: list.contentHeight > list.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                implicitWidth: 8
+                padding: 2
+                background: null
 
-                    required property var modelData
+                contentItem: Rectangle {
+                    radius: width / 2
+                    color: Theme.alpha(Theme.fg, vbar.pressed ? 0.5 : vbar.hovered ? 0.35 : 0.2)
+                }
+            }
 
-                    Layout.fillWidth: true
-                    sourceComponent: modelData.kind === "stack" ? stackHead : prCard
+            delegate: Loader {
+                required property var modelData
+
+                width: list.width - (vbar.visible ? vbar.implicitWidth + 2 : 0)
+                sourceComponent: modelData.kind === "stack" ? stackHead : prCard
+            }
+        }
+
+        // Stale PRs are hidden until asked for, here and in the picker (`a`).
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.feed.stale > 0
+            implicitHeight: 26
+            radius: Theme.rowRadius
+            color: staleHover.hovered ? Theme.hoverFill : "transparent"
+
+            Text {
+                anchors.centerIn: parent
+                text: Reviews.showStale ? `Hide ${root.feed.stale} stale` : `Show ${root.feed.stale} stale`
+                color: staleHover.hovered ? Theme.fg : Theme.dim
+                font.family: Theme.ui
+                font.pixelSize: 11
+            }
+
+            HoverHandler {
+                id: staleHover
+
+                cursorShape: Qt.PointingHandCursor
+            }
+
+            TapHandler {
+                onSingleTapped: Reviews.showStale = !Reviews.showStale
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: segs.implicitHeight + 4
+            radius: Theme.rowRadius
+            color: Theme.well
+
+            RowLayout {
+                id: segs
+
+                anchors.fill: parent
+                anchors.margins: 2
+                spacing: 2
+
+                Repeater {
+                    model: root.tabs
+
+                    Rectangle {
+                        id: seg
+
+                        required property var modelData
+                        readonly property bool selected: root.tab === modelData.key
+                        readonly property color ink: selected ? Theme.ink : (segHover.hovered ? Theme.fg : Theme.dim)
+
+                        Layout.fillWidth: true
+                        implicitHeight: 26
+                        radius: Theme.rowRadius - 1
+                        color: selected ? root.accent : (segHover.hovered ? Theme.hoverFill : "transparent")
+
+                        RowLayout {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Text {
+                                text: seg.modelData.label
+                                color: seg.ink
+                                font.family: Theme.ui
+                                font.pixelSize: 11
+                                font.weight: seg.selected ? Font.DemiBold : Font.Normal
+                            }
+
+                            Text {
+                                text: Reviews[seg.modelData.key].count
+                                color: seg.ink
+                                opacity: 0.7
+                                font.family: Theme.ui
+                                font.features: { "tnum": 1 }
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        HoverHandler {
+                            id: segHover
+
+                            cursorShape: Qt.PointingHandCursor
+                        }
+
+                        TapHandler {
+                            onSingleTapped: Reviews.tab = seg.modelData.key
+                        }
+                    }
                 }
             }
         }
@@ -220,9 +358,19 @@ PopupPanel {
 
                 TapHandler {
                     enabled: card.pickable
+                    acceptedButtons: Qt.LeftButton
                     onSingleTapped: {
                         root.close();
-                        Quickshell.execDetached(Config.reviewPr.concat([card.pr.url]));
+                        // Mine opens where its branch is checked out, not in the reviews session.
+                        Quickshell.execDetached(root.tab === "mine" ? Config.reviewMine.concat([card.pr.url, card.pr.branch]) : Config.reviewPr.concat([card.pr.url]));
+                    }
+                }
+
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onSingleTapped: {
+                        root.close();
+                        Quickshell.execDetached(Config.openUrl.concat([card.pr.url]));
                     }
                 }
 
@@ -271,7 +419,7 @@ PopupPanel {
                                 if (!card.open)
                                     t += `  ${card.pr.state.toLowerCase()}`;
                                 else if (!card.pr.listed)
-                                    t += "  not requested";
+                                    t += { requested: "  not requested", reviewed: "  not reviewed", mine: "  not yours" }[root.tab];
                                 return t;
                             }
                             color: Theme.faint
@@ -297,6 +445,27 @@ PopupPanel {
                                 color: Theme.dim
                                 font.family: Theme.ui
                                 font.pixelSize: 11
+                            }
+
+                            Rectangle {
+                                readonly property bool approved: card.pr.decision === "Approved"
+
+                                visible: card.open && !!card.pr.decision
+                                implicitWidth: verdict.implicitWidth + 12
+                                implicitHeight: verdict.implicitHeight + 4
+                                radius: height / 2
+                                color: approved ? Theme.green : Theme.red
+
+                                Text {
+                                    id: verdict
+
+                                    anchors.centerIn: parent
+                                    text: parent.approved ? "✓ Approved" : "✗ Changes requested"
+                                    color: Theme.ink
+                                    font.family: Theme.ui
+                                    font.pixelSize: 10
+                                    font.weight: Font.Bold
+                                }
                             }
 
                             Text {

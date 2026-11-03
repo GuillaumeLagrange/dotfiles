@@ -1,7 +1,8 @@
 pragma Singleton
-// Pull requests awaiting my review, with their stacks, as `reviews --json` lays
-// them out. It reads the picker's cache, which the reviews-refresh user timer
-// rewrites every 5 minutes, and `refresh()` rewrites now.
+// Pull requests awaiting my review, those I reviewed lately and my own open
+// ones, with their stacks, as `reviews --json` lays them out. It reads the
+// picker's cache, which the reviews-refresh user timer rewrites every 5
+// minutes, and `refresh()` rewrites now.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -10,10 +11,19 @@ import qs
 Singleton {
     id: root
 
-    // `kind` "stack" heads the PRs after it (`place` "child" / "last");
-    // "alone" PRs are in no stack.
-    property var rows: []
-    property int count: 0
+    // One per tab of the picker, each `{ count, stale, rows, all }`: `kind`
+    // "stack" heads the PRs after it (`place` "child" / "last"); "alone" PRs
+    // are in no stack. `rows` leaves out what `all` adds: stale PRs.
+    readonly property var empty: ({ count: 0, stale: 0, rows: [], all: [] })
+    property var requested: empty
+    property var reviewed: empty
+    property var mine: empty
+    // PRs awaiting my review, what the pill counts.
+    readonly property int count: requested.count
+    // The panel's tab, kept across opens: "requested", "reviewed" or "mine".
+    property string tab: "requested"
+    // Stale PRs (no update in 60 days) are listed too; kept across opens.
+    property bool showStale: false
     property real fetchedAt: 0
     readonly property bool refreshing: refresher.running
     // The last refresh's failure, cleared by the next one.
@@ -47,8 +57,9 @@ Singleton {
                 try {
                     const f = JSON.parse(this.text);
                     root._snapshot = f.snapshot;
-                    root.rows = f.rows;
-                    root.count = f.count;
+                    root.requested = f.requested;
+                    root.reviewed = f.reviewed;
+                    root.mine = f.mine;
                     root.fetchedAt = f.fetched_at ?? 0;
                 } catch (e) {
                     // Keep the last good state.

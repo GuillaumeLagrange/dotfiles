@@ -139,20 +139,30 @@ Server/headless system configuration:
   zellij session, fed by `ai/omp/extensions/omp-panel.ts`. `omp-panel panes` (normal-mode `z`) lists every
   pane of every session with the command in its foreground, read from /proc (the pane's process carries
   `ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`, its terminal's foreground group is what runs), filtered as you type
-- `reviews/`: ratatui picker over PRs, in two tabs (Tab switches): open ones awaiting my review, and those
-  I reviewed updated in the last 14 days, merged/closed included (two concurrent `gh api graphql` searches).
+- `reviews/`: ratatui picker over PRs, in three tabs (Tab switches): open ones awaiting my review, those
+  I reviewed updated in the last 14 days, merged/closed included, and my own open ones (three concurrent
+  `gh api graphql` searches). PRs not updated in 60 days are hidden until `a` shows them; a stack shows whole
+  as long as one member is fresh (`stacks::stale`).
   The description pane renders GitHub markdown itself (`src/markdown.rs`: tables, alerts, task lists, the
   HTML of templates) with images drawn inline; uploads are fetched through the signed URLs of the PR's
   `bodyHTML`. List, avatars and images cached in `~/.cache/reviews/`; the `reviews-refresh` user timer runs
   `reviews --refresh` every 5 minutes while the graphical session is up, so the list opens fresh. The bar's
-  PR pill (left of Claude) shows what `reviews --json` prints: the requested ones from that cache, laid out with their
-  stacks as the picker shows them, so the CLI is the bar's only source. Hovering lists them; clicking the pill runs
-  `reviews --refresh`, the panel's terminal button runs what Mod+Shift+\ does and clicking a PR runs `review --pr URL` without a terminal, as if it were picked:
+  PR pill (left of Claude) shows what `reviews --json` prints: every tab from that cache, laid out with their
+  stacks as the picker shows them, with and without the stale ones, so the CLI is the bar's only source. The
+  pill counts the requested ones; hovering lists the tabs (the last picked one and the "Show N stale" toggle are
+  kept across opens); clicking the pill runs
+  `reviews --refresh`, the panel's terminal button runs what Mod+Shift+\ does, right-clicking a PR opens it on GitHub (the picker's Shift+Enter) and clicking a PR runs `review --pr URL` (`review --mine URL BRANCH` in My PRs) without a terminal, as if it were picked:
   `zellij-attach --focus` (also zsm's Enter) focuses the window showing the session or opens one. Off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
-  the entrypoint. It opens the pick in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
+  the entrypoint. A PR to review opens in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
   session I create (`wt add` the repo there when it is still a symlink or missing from the mirror; run without a terminal, failures are notifications), checks the PR out and opens diffy
-  (closing the tab of another PR of the same repo, after the new one exists so the session never empties),
-  then attaches to the session, focuses the window showing it, or switches to it from inside zellij.
+  (closing the tab of another PR of the same repo, after the new one exists so the session never empties).
+  One of mine opens on the repo's tab of the wt session whose worktree has its branch checked out (`wt tabs`
+  lays out the members' tabs first); else on the repo's tab of the main checkout's session (`wt main`, root
+  `wt main --path`), checking the branch out there unless it has uncommitted changes (a submodule merely at
+  another commit does not count: `git submodule update` follows the checkout). Then it attaches to the
+  session, focuses the window showing it, or switches to it from inside zellij. `cargo test --test review`
+  in `reviews/` drives `review.sh` headless against real git, wt (built from `wt/`) and zellij, in a fixture
+  with its own `XDG_RUNTIME_DIR`, stubbing `zellij-attach`, `notify-send` and `gh`.
 - Git push stack utilities
 - clangd user config (`~/.config/clangd/config.yaml`): `*.bpf.c`/`*.bpf.h` get the flags libbpf-cargo compiles
   them with (`--target=bpf`, `__TARGET_ARCH_*`, vmlinux.h from `libbpf/vmlinux.h`, libbpf headers)

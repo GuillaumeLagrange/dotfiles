@@ -197,6 +197,10 @@
             readonly property var review: ${builtins.toJSON ([ "${pkgs.niri}/bin/niri" "msg" "action" "spawn" "--" ] ++ lib.splitString " " config.term ++ [ "-e" "zsh" "-i" "-c" "review" ])}
             // A PR's URL is appended: no picker, so no terminal; `review` opens or focuses the view.
             readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--pr"]
+            // One of my PRs: its URL and branch are appended; `review` opens the session holding the branch.
+            readonly property var reviewMine: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--mine"]
+            // A URL is appended; through niri so the browser gets the session's environment.
+            readonly property var openUrl: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.xdg-utils}/bin/xdg-open"]
             // The pill's data (`--json`) and its refresh, from the picker's own binary.
             readonly property string reviews: "${lib.getExe reviews}"
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
