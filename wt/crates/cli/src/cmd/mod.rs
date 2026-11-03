@@ -1,6 +1,7 @@
 pub mod add;
 pub mod attach;
 pub mod ls;
+pub mod main;
 pub mod mv;
 pub mod new;
 pub mod path;
@@ -8,6 +9,7 @@ pub mod promote;
 pub mod recreate;
 pub mod remove;
 pub mod sync;
+pub mod tabs;
 
 use anyhow::Result;
 

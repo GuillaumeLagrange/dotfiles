@@ -113,6 +113,21 @@ enum Command {
         #[arg(long)]
         exact: bool,
     },
+
+    /// Print the main checkout's zellij session: the one working in the
+    /// workspace itself.
+    Main {
+        /// Print the main checkout's root, the workspace, instead.
+        #[arg(long)]
+        path: bool,
+    },
+
+    /// Open the tabs a running session's members lack, as attaching does, for a
+    /// client attached by another tool. Prints the repos given a tab.
+    Tabs {
+        #[arg(add = ArgValueCandidates::new(complete::sessions))]
+        id: Option<String>,
+    },
 }
 
 fn main() {
@@ -157,5 +172,10 @@ fn run() -> Result<()> {
         Some(Command::Ls { json }) => cmd::ls::run(&cfg, json),
         Some(Command::Sync { id, fix, all }) => cmd::sync::run(&cfg, id.as_deref(), fix, all),
         Some(Command::Path { id, exact }) => cmd::path::run(&cfg, id.as_deref(), exact),
+        Some(Command::Main { path }) => {
+            cmd::main::run(&cfg, path);
+            Ok(())
+        }
+        Some(Command::Tabs { id }) => cmd::tabs::run(&cfg, id.as_deref()),
     }
 }

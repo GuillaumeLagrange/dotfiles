@@ -20,6 +20,8 @@ wt mv <id> <name>  rename (alias `rename`); moves the directory when it sits at 
 wt rm [<id>]       guarded teardown (dirty tree / unpushed / stashes; --force)
 wt ls [--json]     sessions, members, branches
 wt path [<id>]     a session root, for shell use; --exact, for a name from elsewhere
+wt main [--path]   the main checkout's zellij session, or with --path its root (the workspace)
+wt tabs [<id>]     open the tabs a running session's members lack, for a client another tool attached
 wt sync [--fix]    drift report / repair
 ```
 
@@ -58,6 +60,7 @@ every other key has a default:
 ```toml
 workspace = "~/work"                 # the multi-repo checkout to mirror; else $WT_WORKSPACE
 default_root = "~/work/sessions"     # default: <workspace>/sessions
+main_session = "work-main"           # the zellij session in the workspace itself; default: <workspace name>-main
 repos = ["app", "docs", "lib"]       # the picker's pre-approved list, and the tabs' order; default: every repo
 hydrate = [".envrc", ".env*"]        # git-ignored paths a worktree needs; see below
 ```

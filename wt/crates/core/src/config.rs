@@ -11,6 +11,9 @@ pub struct Config {
     pub workspace: PathBuf,
     /// Where `wt new` puts a session unless `--at` says otherwise.
     pub default_root: PathBuf,
+    /// The zellij session working in the workspace itself rather than in a
+    /// session's mirror.
+    pub main_session: String,
     /// Repos a session may take as members. Empty offers every repo the workspace
     /// holds instead of a curated subset.
     pub repos: Vec<String>,
@@ -37,6 +40,7 @@ const DEFAULT_HYDRATE: &[&str] = &[
 struct File {
     workspace: Option<String>,
     default_root: Option<String>,
+    main_session: Option<String>,
     #[serde(default)]
     repos: Vec<String>,
     hydrate: Option<Vec<String>>,
@@ -78,9 +82,15 @@ impl Config {
             .hydrate
             .unwrap_or_else(|| DEFAULT_HYDRATE.iter().map(|s| s.to_string()).collect());
 
+        let main_session = file.main_session.unwrap_or_else(|| {
+            let name = workspace.file_name().map(|n| n.to_string_lossy().into_owned());
+            format!("{}-main", name.as_deref().unwrap_or("workspace"))
+        });
+
         Ok(Self {
             workspace,
             default_root,
+            main_session,
             repos: file.repos,
             hydrate,
             state_dir: util::xdg_dir("XDG_STATE_HOME", ".local/state").join("wt"),
