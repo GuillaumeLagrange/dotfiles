@@ -318,6 +318,13 @@
               text = builtins.readFile ./git-steal.sh;
             }
           }/bin/git-steal";
+          alias.gone = "!${
+            pkgs.writeShellApplication {
+              name = "git-gone";
+              runtimeInputs = [ pkgs.git ];
+              text = builtins.readFile ./git-gone.sh;
+            }
+          }/bin/git-gone";
         };
         ignores = [
           ".envrc"
