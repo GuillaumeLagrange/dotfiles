@@ -131,19 +131,28 @@ pub fn delete(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// A session's tabs. Just after a client attaches, zellij answers with nothing
+/// at all until its screen is up, so an empty reply is asked again.
 pub fn tabs(name: &str) -> Result<Vec<Tab>> {
-    let out = run(&["--session", name, "action", "list-tabs", "--json"], None)?;
-    if !out.ok() {
-        return Err(anyhow!(
-            "could not list the tabs of `{name}`: {}",
-            out.stderr.trim()
-        ));
+    for _ in 0..40 {
+        let out = run(&["--session", name, "action", "list-tabs", "--json"], None)?;
+        if !out.ok() {
+            return Err(anyhow!(
+                "could not list the tabs of `{name}`: {}",
+                out.stderr.trim()
+            ));
+        }
+        if !out.stdout.trim().is_empty() {
+            return serde_json::from_str(&out.stdout).context("could not read zellij's tab list");
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
-    serde_json::from_str(&out.stdout).context("could not read zellij's tab list")
+    Err(anyhow!("zellij never listed the tabs of `{name}`"))
 }
 
 /// Opens a tab and returns its id.
 pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
+    let before: Vec<u32> = tabs(name)?.into_iter().map(|t| t.tab_id).collect();
     let cwd = cwd.to_string_lossy();
     let out = run(
         &[
@@ -157,10 +166,17 @@ pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
             out.stderr.trim()
         ));
     }
-    out.stdout
-        .trim()
-        .parse()
-        .with_context(|| format!("zellij gave no id for the new `{tab}` tab"))
+    if let Ok(id) = out.stdout.trim().parse() {
+        return Ok(id);
+    }
+    // Zellij sometimes opens the tab and prints nothing, so a second `new-tab`
+    // would make two: the id is looked up instead, as the tab of that name that
+    // was not there before.
+    tabs(name)?
+        .into_iter()
+        .find(|t| t.name == tab && !before.contains(&t.tab_id))
+        .map(|t| t.tab_id)
+        .ok_or_else(|| anyhow!("zellij gave no id for the new `{tab}` tab, and it is not listed"))
 }
 
 fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
