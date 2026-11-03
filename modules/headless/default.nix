@@ -307,6 +307,7 @@
           absorb.maxStack = 50;
           push.autoSetupRemote = true;
           rebase.updateRefs = true;
+          submodule.recurse = true;
           diff.lfstext.textconv = "cat";
           alias.steal = "!${
             pkgs.writeShellApplication {
