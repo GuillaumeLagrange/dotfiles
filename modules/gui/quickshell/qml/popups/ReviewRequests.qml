@@ -2,7 +2,8 @@
 // review, reviewed lately, and mine. One card per PR, railed by its checks, a
 // GitHub stack's members gathered under its heading, top first. Clicking a card
 // opens it the way picking it in the picker does; the title's buttons refresh
-// the lists and open the picker itself.
+// the lists and open the picker itself. Typing filters the tab's PRs, Tab and
+// Shift+Tab cycle the tabs, Up/Down and Enter pick one.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -12,11 +13,11 @@ import qs
 import qs.components
 import qs.services
 
-PopupPanel {
+ClickPanel {
     id: root
     accent: Theme.green
 
-    minContentWidth: 540
+    panelWidth: 540 + root.pad * 2
 
     // The picker's tabs, in its order.
     readonly property var tabs: [
@@ -30,10 +31,66 @@ PopupPanel {
     readonly property var current: root.tabs.find(t => t.key === root.tab)
     readonly property var rows: Reviews.showStale ? root.feed.all : root.feed.rows
 
+    // Filtered, the PRs stand alone, best match first: a stack's tree means
+    // nothing once some of its members are gone.
+    readonly property bool filtering: find.query !== ""
+    readonly property var matching: root.visibleRows()
+    // The PR the arrow keys are on, by url: a refresh replaces every row.
+    property string cursor: ""
+
+    function visibleRows(): var {
+        if (find.query === "")
+            return root.rows;
+        return find.filter(root.rows.filter(r => r.kind !== "stack"), pr => `${pr.title} ${pr.repo} #${pr.number} ${pr.author}`);
+    }
+
+    // As in the picker: the PRs asked of me, and open members of their stacks.
+    function pickable(pr: var): bool {
+        return pr.kind !== "stack" && (pr.listed || pr.state === "Open");
+    }
+
+    function pick(pr: var): void {
+        root.close();
+        // Mine opens where its branch is checked out, not in the reviews session.
+        Quickshell.execDetached(root.tab === "mine" ? Config.reviewMine.concat([pr.url, pr.branch]) : Config.reviewPr.concat([pr.url]));
+    }
+
+    // Puts the cursor on the first PR, which typing makes the best match.
+    function first(): void {
+        root.cursor = root.visibleRows().find(r => root.pickable(r))?.url ?? "";
+        list.positionViewAtBeginning();
+    }
+
+    function step(delta: int): void {
+        const picks = root.matching.filter(r => root.pickable(r));
+        if (picks.length === 0)
+            return;
+        const i = picks.findIndex(pr => pr.url === root.cursor);
+        const next = i < 0 ? (delta > 0 ? 0 : picks.length - 1) : Math.max(0, Math.min(picks.length - 1, i + delta));
+        root.cursor = picks[next].url;
+        list.positionViewAtIndex(root.matching.indexOf(picks[next]), ListView.Contain);
+    }
+
+    function cycle(delta: int): void {
+        const i = root.tabs.findIndex(t => t.key === root.tab);
+        Reviews.tab = root.tabs[(i + delta + root.tabs.length) % root.tabs.length].key;
+    }
+
+    // Deferred: `rows` still holds the previous tab while this runs.
+    onTabChanged: if (root.visible)
+        Qt.callLater(root.first)
+
     // Sampled on open; the ages only need to be right when looked at.
     property real now: Date.now() / 1000
-    onOpenChanged: if (open)
-        now = Date.now() / 1000
+    onShown: {
+        root.now = Date.now() / 1000;
+        root.first();
+        list.forceActiveFocus();
+    }
+    onHidden: {
+        find.query = "";
+        root.cursor = "";
+    }
 
     function age(at: real): string {
         const secs = Math.max(0, root.now - at);
@@ -62,7 +119,9 @@ PopupPanel {
     readonly property int indent: 18
 
     ColumnLayout {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         spacing: 10
 
         PanelTitle {
@@ -127,17 +186,47 @@ PopupPanel {
             }
         }
 
+        FindBar {
+            id: find
+
+            accent: root.accent
+            empty: root.matching.length === 0
+            onQueryChanged: root.first()
+        }
+
         ListView {
             id: list
+
+            function pickCursor(): void {
+                const pr = root.matching.find(r => root.pickable(r) && r.url === root.cursor);
+                if (pr)
+                    root.pick(pr);
+            }
 
             Layout.fillWidth: true
             // A ListView has no implicit height: as tall as its rows, up to what
             // the output leaves above the bar.
             Layout.preferredHeight: Math.min(list.contentHeight, Math.max(200, (root.screen?.height ?? 1000) - 260))
-            visible: root.rows.length > 0
+            visible: root.matching.length > 0
             clip: true
             spacing: 6
-            model: root.rows
+            model: root.matching
+            keyNavigationEnabled: false
+            Keys.onUpPressed: root.step(-1)
+            Keys.onDownPressed: root.step(1)
+            Keys.onTabPressed: root.cycle(1)
+            Keys.onBacktabPressed: root.cycle(-1)
+            Keys.onReturnPressed: list.pickCursor()
+            Keys.onEnterPressed: list.pickCursor()
+            Keys.onEscapePressed: event => {
+                if (find.query !== "")
+                    find.query = "";
+                else
+                    event.accepted = false;
+            }
+            Keys.onPressed: event => {
+                event.accepted = find.type(event);
+            }
 
             // Shown only while the list is capped, and the rows give up its width.
             ScrollBar.vertical: ScrollBar {
@@ -308,10 +397,10 @@ PopupPanel {
             id: card
 
             readonly property var pr: parent.modelData
-            readonly property bool inStack: pr.place !== "alone"
+            readonly property bool inStack: pr.place !== "alone" && !root.filtering
             readonly property bool open: pr.state === "Open"
-            // As in the picker: the PRs asked of me, and open members of their stacks.
-            readonly property bool pickable: pr.listed || open
+            readonly property bool pickable: root.pickable(pr)
+            readonly property bool current: card.pickable && root.cursor === pr.url
 
             implicitHeight: body.implicitHeight
 
@@ -343,11 +432,13 @@ PopupPanel {
                 radius: Theme.rowRadius
                 color: Theme.well
                 opacity: card.open ? 1 : 0.6
+                border.width: card.current ? 1 : 0
+                border.color: Theme.alpha(root.accent, 0.6)
 
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
-                    color: card.pickable && cardHover.hovered ? Theme.hoverFill : "transparent"
+                    color: card.pickable && (cardHover.hovered || card.current) ? Theme.hoverFill : "transparent"
                 }
 
                 HoverHandler {
@@ -359,11 +450,7 @@ PopupPanel {
                 TapHandler {
                     enabled: card.pickable
                     acceptedButtons: Qt.LeftButton
-                    onSingleTapped: {
-                        root.close();
-                        // Mine opens where its branch is checked out, not in the reviews session.
-                        Quickshell.execDetached(root.tab === "mine" ? Config.reviewMine.concat([card.pr.url, card.pr.branch]) : Config.reviewPr.concat([card.pr.url]));
-                    }
+                    onSingleTapped: root.pick(card.pr)
                 }
 
                 TapHandler {

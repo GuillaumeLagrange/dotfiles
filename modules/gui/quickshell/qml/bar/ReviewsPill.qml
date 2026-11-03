@@ -1,6 +1,5 @@
-// Pull requests awaiting my review, counted; hovering lists them with the
-// picker's other tabs, clicking refreshes the lists. The picker opens from the
-// panel's terminal button.
+// Pull requests awaiting my review, counted; clicking lists them with the
+// picker's other tabs. The panel's buttons refresh the lists and open the picker.
 import qs
 import qs.components
 import qs.services
@@ -15,10 +14,11 @@ Pill {
     color: Reviews.error !== "" ? Theme.red : Reviews.count > 0 ? Theme.green : Theme.grey
     text: `${Reviews.refreshing ? Config.glyph.refresh : Config.glyph.pullRequest} ${Reviews.count}`
 
-    onClicked: Reviews.refresh()
+    onClicked: panel.toggle()
 
     ReviewRequests {
+        id: panel
+
         target: root
-        triggerHovered: root.hovered
     }
 }

@@ -84,7 +84,7 @@ exactly its bubble, so the rest of the screen stays hoverable: now-playing,
 calendar. `ClickPanel` opens on a click and covers the output, so a click
 anywhere dismisses it - including on the bar, which a popup grab does not
 report - and it can take `OnDemand` keyboard focus for the wifi passphrase
-field: the control centre, networks, bluetooth, volume. Tooltips stay
+field: the control centre, networks, bluetooth, volume, pull requests. Tooltips stay
 `PopupWindow`s, which is all a tooltip needs. Mod+P (`ipc call media panel`)
 and Mod+B (`ipc call bt panel`) toggle the now-playing and bluetooth panels on
 the focused output, the way Mod+N does the control centre. A hover panel opened
