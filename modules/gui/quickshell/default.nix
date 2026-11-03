@@ -231,12 +231,36 @@
         chmod u+w $out/Config.qml
         substituteInPlace $out/Config.qml --replace-fail '@glyphInk@' "$(cat ${inkTable})"
       '';
+
+      # What tests/ runs the bar against: niri on its headless backend, the
+      # input it injects, and this shell. See "Tests" in AGENTS.md.
+      testEnv = pkgs.symlinkJoin {
+        name = "quickshell-test-env";
+        paths = [
+          (pkgs.niri.overrideAttrs (old: {
+            patches = (old.patches or [ ]) ++ [ ./tests/niri-headless.patch ];
+            doCheck = false;
+          }))
+          quickshell
+          pkgs.wtype
+          pkgs.wlrctl
+          pkgs.dbus
+        ];
+        postBuild = "ln -s ${shellDir} $out/shell";
+      };
     in
     {
       options.quickshellIpc = lib.mkOption {
         type = lib.types.str;
         default = "${quickshell}/bin/qs -c bar ipc call";
         description = "Command prefix for calls into the running bar's IpcHandlers.";
+      };
+
+      options.quickshellTestEnv = lib.mkOption {
+        type = lib.types.package;
+        default = testEnv;
+        readOnly = true;
+        description = "Headless niri, quickshell, input injectors and the shell, for tests/.";
       };
 
       config = {

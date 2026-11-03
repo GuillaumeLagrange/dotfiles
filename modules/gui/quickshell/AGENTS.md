@@ -28,6 +28,8 @@ qml/
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
                 Bluetooth, Volume, ReviewRequests.
+tests/          The bar driven headless (below): a Rust crate, TestProbe.qml,
+                and the niri patch that makes it possible.
 ```
 
 `niri-state` lives beside the bar
@@ -50,6 +52,41 @@ systemctl --user restart quickshell
 journalctl --user -u quickshell -e     # QML errors land here
 qs -c bar                              # or run it in the foreground
 ```
+
+## Tests
+
+`cargo test` in `tests/` (also `just test`) runs the bar the way it runs on the
+desktop, without touching the desktop: niri on its headless backend with one
+1920x1080 output, a private `XDG_RUNTIME_DIR` and D-Bus session, and `qs` on a
+copy of the shell. Input is real and goes through niri: `wtype` (virtual
+keyboard) and `wlrctl` (virtual pointer). **Check a bar change this way, never
+with a second `qs` on the live session**: a second bar shows up on screen, and
+typed keys land in whatever has focus.
+
+- niri only reaches its headless backend from its own tests;
+  `tests/niri-headless.patch` adds `NIRI_HEADLESS=1`, which also adds the
+  output. Without a renderer there is no dmabuf, so `qs` runs with
+  `QT_QUICK_BACKEND=software`.
+- `quickshellTestEnv` (a read-only home-manager option) carries that niri, qs,
+  wtype, wlrctl, dbus and the built shell with its generated Config.qml. The
+  tests build it from the checkout for the current host (a new file has to be
+  `git add`ed for the flake to see it), or take a path from
+  `QUICKSHELL_TEST_ENV`. On a host without the bar they skip.
+- The copy gains `TestProbe.qml`, an `IpcHandler` that `qs ipc call test state`
+  reads: the reviews pill's place on the output and the panel's state, as JSON.
+  Assertions are on that, not on pixels. The splices that wire it in fail
+  loudly when the source they match moves.
+- What would leave the fixture is a stub on niri's `PATH` that records its
+  arguments: `reviews` (Config.reviews is pointed at it; `--json` prints the
+  test's fixture) and `review`, which the panel spawns through `niri msg action
+  spawn`.
+- Late pills shift the bar's layout about a second after start, so the pointer
+  is aimed until the pill reports `hovered`. `wtype` drops the first key of each
+  call (the client gets the new keymap with it), so the harness leads with a
+  release of nothing; and its one-level keymap turns Shift+Tab into a shifted
+  `Tab`, so the tests send `ISO_Left_Tab` as an xkb keyboard does.
+- A failing test keeps its `/tmp/qst-*` directory: `qs.log`, `niri.log`, and
+  what the stubs recorded.
 
 ## Design
 

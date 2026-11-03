@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-crates := "wt modules/gui/niri-state modules/headless/omp-panel modules/headless/reviews"
+crates := "wt modules/gui/niri-state modules/gui/quickshell/tests modules/headless/omp-panel modules/headless/reviews"
 
 # Lint and test everything
 check: lint test
@@ -25,7 +25,7 @@ lint-rust:
 
 test: test-rust test-omp
 
-# Includes omp-panel's and wt's tests against real, isolated zellij servers
+# Includes omp-panel's and wt's tests against real, isolated zellij servers, and the bar's against headless niri
 test-rust:
     for crate in {{ crates }}; do (cd "$crate" && cargo test --quiet); done
 
