@@ -236,8 +236,6 @@ keybinds clear-defaults=true {
     }
     shared_among "normal" "locked" {
         bind "Alt left" { MoveTab "left"; }
-        bind "Alt down" { MoveFocus "down"; }
-        bind "Alt up" { MoveFocus "up"; }
         bind "Alt right" { MoveTab "right"; }
         bind "Alt +" { Resize "Increase"; }
         bind "Alt -" { Resize "Decrease"; }
