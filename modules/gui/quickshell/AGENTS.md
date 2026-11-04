@@ -24,7 +24,8 @@ qml/
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (the picker's
-                tabs of PRs and their stacks, from `reviews --json`).
+                tabs of PRs and their stacks, from `reviews --json`), Yubikey
+                (yubikey-touch-detector's socket).
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
                 Bluetooth, Volume, ReviewRequests.
@@ -348,6 +349,16 @@ the grid and ends up to a pixel past the block beneath it. The bottom rail
 turns into a minimap (dim track, bright thumb) when niri-state sends a `thumb`,
 i.e. when the strip is cropped.
 
+**The YubiKey pill shows while the key blinks for a touch** (`bar/YubikeyPill.qml`,
+pulsing yellow, the waiting kinds in its tooltip). `services/Yubikey.qml` reads
+yubikey-touch-detector's unix socket, whose user socket and service
+`default.nix` declares (Home Manager has no module); the bar connecting is what
+starts the detector. It detects gpg (`gpg --card-status` on gpg-agent activity),
+ssh through gpg-agent, HMAC challenges, and FIDO/U2F on `/dev/hidraw*`, which
+covers WebAuthn in the browser and `pam_u2f`. libnotify is off: the pill is the
+notice. The detector replays nothing on connect, so a dropped connection resets
+the state to idle.
+
 ## Gotchas
 
 - **A positioner's `implicitHeight` is read-only.** `Row`/`Column` compute it
@@ -484,6 +495,15 @@ i.e. when the strip is cropped.
   space the way HTML does, so a Slack digest arrived as one run of bullets.
   Senders mean their newlines as breaks: `NotifCard` replaces them with `<br/>`,
   which keeps the markup the server advertises.
+- **A `Socket` that fails to connect never retries, and says so only through
+  `error`**: `connectedChanged` does not fire, since it never was connected.
+  `Yubikey` restarts its retry timer from both.
+- **`SplitParser { splitMarker: "" }` emits whatever one read returned**, so a
+  delimiter-less stream (yubikey-touch-detector's 5-byte `GPG_1`/`U2F_0`/`MAC_1`
+  words) can arrive as several words or half of one; `Yubikey` buffers and cuts
+  by length.
+- **A singleton is created on first use.** A service that holds a connection
+  (`Yubikey`) only connects once a pill binds to it.
 
 ## Testing
 

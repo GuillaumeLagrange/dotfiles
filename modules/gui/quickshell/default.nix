@@ -119,6 +119,7 @@
         ethernetOff = glyph "F0202";
         vpn = glyph "F0582";
         lock = glyph "F033E";
+        fingerprint = glyph "F0237";
         search = glyph "F0349";
         down = glyph "F0045";
         up = glyph "F005D";
@@ -319,6 +320,32 @@
             Restart = "on-failure";
           };
           Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # The YubiKey pill's source (services/Yubikey.qml). Socket-activated, so
+        # the bar connecting starts it. No libnotify: the pill is the notice.
+        systemd.user.sockets.yubikey-touch-detector = {
+          Unit.Description = "yubikey-touch-detector socket";
+          Socket = {
+            ListenStream = "%t/yubikey-touch-detector.socket";
+            RemoveOnStop = true;
+          };
+          Install.WantedBy = [ "sockets.target" ];
+        };
+        systemd.user.services.yubikey-touch-detector = {
+          Unit = {
+            Description = "Detects when the YubiKey is waiting for a touch";
+            Requires = [ "yubikey-touch-detector.socket" ];
+          };
+          Service = {
+            ExecStart = lib.getExe pkgs.yubikey-touch-detector;
+            # gpg/gpgconf: the gpg detector runs `gpg --card-status`, the ssh one
+            # finds gpg-agent's ssh socket through gpgconf.
+            Environment = [
+              "PATH=${lib.makeBinPath [ config.programs.gpg.package ]}"
+              "YUBIKEY_TOUCH_DETECTOR_LIBNOTIFY=false"
+            ];
+          };
         };
       };
     };
