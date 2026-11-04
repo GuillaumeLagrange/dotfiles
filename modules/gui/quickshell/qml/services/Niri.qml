@@ -25,8 +25,9 @@ Singleton {
     // focus sitting on a dynamic workspace would otherwise name no output.
     property string focusedOutput: ""
 
+    // As Mod+N: leaving an empty numbered workspace removes it.
     function focusWorkspace(name: string): void {
-        Quickshell.execDetached([Config.niri, "msg", "action", "focus-workspace", name]);
+        Quickshell.execDetached([Config.niriWorkspaces, "focus", name]);
     }
 
     function focusColumn(idx: int): void {

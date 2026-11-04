@@ -21,15 +21,13 @@ pub fn snapshot(state: &mut State) -> String {
         if i > 0 {
             out.push(',');
         }
-        let empty =
-            ws.active_window.is_none() && !state.windows.values().any(|w| w.workspace_id == ws.id);
-        out.push_str(&format!("{{\"id\":{},\"idx\":{},\"name\":", ws.id, ws.idx));
+        out.push_str("{\"name\":");
         push_str_escaped(&mut out, ws.name.as_deref().unwrap_or(""));
         out.push_str(",\"output\":");
         push_str_escaped(&mut out, ws.output.as_deref().unwrap_or(""));
         out.push_str(&format!(
-            ",\"is_active\":{},\"is_focused\":{},\"is_urgent\":{},\"is_empty\":{}}}",
-            ws.active, ws.focused, ws.urgent, empty
+            ",\"is_active\":{},\"is_focused\":{},\"is_urgent\":{}}}",
+            ws.active, ws.focused, ws.urgent
         ));
     }
     out.push_str("],\"by_output\":{");

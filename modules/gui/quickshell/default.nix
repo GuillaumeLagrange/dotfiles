@@ -26,6 +26,9 @@
       # changes. See ../niri-state/AGENTS.md.
       niriState = pkgs.callPackage ../niri-state/_package.nix { };
 
+      # A click on a workspace cell goes where Mod+N goes. See ../niri/workspaces.py.
+      niriWorkspaces = pkgs.callPackage ../niri/_workspaces.nix { };
+
       claudeUsage = pkgs.writeShellScriptBin "claude-usage-qs" ''
         export PATH="${lib.makeBinPath [ pkgs.jq ]}:$PATH"
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
@@ -190,6 +193,7 @@
         Singleton {
             readonly property string niriState: "${niriState}/bin/niri-state"
             readonly property string niri: "${pkgs.niri}/bin/niri"
+            readonly property string niriWorkspaces: "${niriWorkspaces}/bin/niri-workspaces"
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
             readonly property string btPair: "${btPair}/bin/bt-pair"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
@@ -233,7 +237,7 @@
       '';
 
       # What tests/ runs the bar against: niri on its headless backend, the
-      # input it injects, and this shell. See "Tests" in AGENTS.md.
+      # input it injects, niri-workspaces and this shell. See "Tests" in AGENTS.md.
       testEnv = pkgs.symlinkJoin {
         name = "quickshell-test-env";
         paths = [
@@ -245,6 +249,7 @@
           pkgs.wtype
           pkgs.wlrctl
           pkgs.dbus
+          niriWorkspaces
         ];
         postBuild = "ln -s ${shellDir} $out/shell";
       };

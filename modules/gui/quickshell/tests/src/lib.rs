@@ -269,6 +269,16 @@ impl Session {
             shell.join("bar/TestProbe.qml"),
         )
         .unwrap();
+        splice(
+            &shell.join("bar/Workspaces.qml"),
+            "    spacing: 2\n",
+            "    spacing: 2\n\n    WorkspacesProbe {\n        row: root\n    }\n",
+        );
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("WorkspacesProbe.qml"),
+            shell.join("bar/WorkspacesProbe.qml"),
+        )
+        .unwrap();
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
@@ -305,6 +315,91 @@ impl Session {
     pub fn state(&self) -> Value {
         self.try_state()
             .unwrap_or_else(|| panic!("the probe did not answer\n{}", self.logs()))
+    }
+
+    /// The workspace cells of the bar: see WorkspacesProbe.qml.
+    pub fn workspace_cells(&self) -> Value {
+        let out = self
+            .command("qs")
+            .arg("-p")
+            .arg(self.path("shell"))
+            .args(["ipc", "call", "workspaces", "cells"])
+            .stdout(Stdio::piped())
+            .output()
+            .unwrap();
+        serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|_| panic!("the workspaces probe did not answer\n{}", self.logs()))
+    }
+
+    /// `niri msg --json` with these arguments, parsed.
+    pub fn niri(&self, args: &[&str]) -> Value {
+        let out = self
+            .command("niri")
+            .args(["msg", "--json"])
+            .args(args)
+            .stdout(Stdio::piped())
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "niri msg {args:?}\n{}", self.logs());
+        serde_json::from_slice(&out.stdout).unwrap()
+    }
+
+    /// Runs a binary of the test env in the session, and returns its stdout.
+    pub fn run(&self, bin: &str, args: &[&str]) -> String {
+        let out = self
+            .command(bin)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{bin} {args:?}: {}\n{}",
+            String::from_utf8_lossy(&out.stderr),
+            self.logs()
+        );
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    /// Starts a binary of the test env for the rest of the session; its output
+    /// goes to `<bin>.log`.
+    pub fn spawn(&mut self, bin: &str, args: &[&str]) {
+        let log = std::fs::File::create(self.path(&format!("{bin}.log"))).unwrap();
+        let child = self
+            .command(bin)
+            .args(args)
+            .env("PYTHONUNBUFFERED", "1")
+            .stdout(log.try_clone().unwrap())
+            .stderr(log)
+            .spawn()
+            .unwrap();
+        self.children.push(child);
+    }
+
+    /// Opens a tiled window (app id `org.quickshell`) where niri puts new ones,
+    /// and waits for niri to have it.
+    pub fn open_window(&mut self) {
+        let before = self.niri(&["windows"]).as_array().unwrap().len();
+        let dir = self.path("window");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("shell.qml"),
+            "import Quickshell\nFloatingWindow {\n    implicitWidth: 200\n    implicitHeight: 100\n}\n",
+        )
+        .unwrap();
+        let child = self
+            .command("qs")
+            .arg("-p")
+            .arg(&dir)
+            .env("QT_QPA_PLATFORM", "wayland")
+            .env("QT_QUICK_BACKEND", "software")
+            .spawn()
+            .unwrap();
+        self.children.push(child);
+        wait_until("the window to open", || {
+            self.niri(&["windows"]).as_array().unwrap().len() > before
+        });
     }
 
     /// Waits for the bar to reach a state, and returns it.
@@ -366,6 +461,11 @@ impl Session {
         self.wlrctl(&["click", "left"]);
     }
 
+    /// Waits for a condition the caller checks itself.
+    pub fn wait_until(&self, what: &str, ready: impl FnMut() -> bool) {
+        wait_until(what, ready);
+    }
+
     /// Puts the pointer on the reviews pill. The bar lays out again as late
     /// pills appear, so it aims until the pill reports the pointer.
     pub fn point_at_pill(&self) {
@@ -406,11 +506,14 @@ impl Session {
 
     pub fn logs(&self) -> String {
         let read = |f: &str| std::fs::read_to_string(self.path(f)).unwrap_or_default();
-        format!("--- qs.log\n{}--- niri.log (tail)\n{}", read("qs.log"), {
-            let niri = read("niri.log");
-            let lines: Vec<_> = niri.lines().collect();
+        let niri = read("niri.log");
+        let lines: Vec<_> = niri.lines().collect();
+        format!(
+            "--- qs.log\n{}--- niri-workspaces.log\n{}--- niri.log (tail)\n{}",
+            read("qs.log"),
+            read("niri-workspaces.log"),
             lines[lines.len().saturating_sub(20)..].join("\n")
-        })
+        )
     }
 }
 

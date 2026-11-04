@@ -7,11 +7,7 @@
       ...
     }:
     let
-      sortWorkspaces = pkgs.writers.writePython3Bin "niri-sort-workspaces" { doCheck = false; } (
-        builtins.replaceStrings [ "\"niri\"" ] [ "\"${pkgs.niri}/bin/niri\"" ] (
-          builtins.readFile ./sort-workspaces.py
-        )
-      );
+      workspaces = pkgs.callPackage ./_workspaces.nix { };
 
       # Only granary has caffeine.service; elsewhere logind suspends on the lid anyway.
       lidClose = pkgs.writeShellScript "niri-lid-close" ''
@@ -32,17 +28,18 @@
       home.packages = with pkgs; [
         niri
         xwayland-satellite
-        sortWorkspaces
+        workspaces
       ];
 
-      systemd.user.services.niri-sort-workspaces = {
+      # Numbered workspaces the sway way: see workspaces.py.
+      systemd.user.services.niri-workspaces = {
         Unit = {
-          Description = "Sort niri workspaces on monitor hotplug";
+          Description = "Keep niri's numbered workspaces sway-like";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
         };
         Service = {
-          ExecStart = "${sortWorkspaces}/bin/niri-sort-workspaces --watch";
+          ExecStart = "${workspaces}/bin/niri-workspaces watch --assign=signal=5 '--assign=^spotify$=5'";
           Environment = [ "PYTHONUNBUFFERED=1" ];
           Restart = "on-failure";
           RestartSec = 2;
@@ -52,11 +49,7 @@
 
       xdg.configFile."niri/config.kdl".text =
         let
-          ws_web = "1.Web";
-          ws_term = "2.Work";
-          ws_code = "3.Code";
-          ws_scratchpad = "4.Scratch";
-          ws_perso = "5.Perso";
+          numbers = map toString (lib.range 1 9);
 
           quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
 
@@ -125,12 +118,6 @@
                 off
               }
           }
-
-          workspace "${ws_web}"
-          workspace "${ws_term}"
-          workspace "${ws_code}"
-          workspace "${ws_scratchpad}"
-          workspace "${ws_perso}"
 
           // Niri does not support $XDG_PICTURES_DIR: https://github.com/niri-wm/niri/issues/3346
           screenshot-path "~/pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
@@ -227,14 +214,9 @@
               Mod+Shift+J         { move-column-to-workspace-down; }
               Mod+Shift+K         { move-column-to-workspace-up; }
 
-              Mod+Ctrl+Page_Down { move-workspace-down; }
-              Mod+Ctrl+Page_Up   { move-workspace-up; }
-              Mod+Ctrl+J         { move-workspace-down; }
-              Mod+Ctrl+K         { move-workspace-up; }
+              // The watcher sorts the workspaces of the output it lands on.
+              Mod+X { move-workspace-to-monitor-next; }
 
-              Mod+X { spawn "sh" "-c" "${pkgs.niri}/bin/niri msg action move-workspace-to-monitor-next && niri-sort-workspaces"; }
-
-              Mod+Shift+S { spawn "niri-sort-workspaces"; }
               Mod+Ctrl+S hotkey-overlay-title="Mark a Stutter in the Journal" { spawn "${stutterMark}"; }
 
               Mod+WheelScrollDown      { focus-column-right; }
@@ -252,16 +234,10 @@
               Mod+Ctrl+Shift+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
               Mod+Ctrl+Shift+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
 
-              Mod+1 { focus-workspace "${ws_web}"; }
-              Mod+2 { focus-workspace "${ws_term}"; }
-              Mod+3 { focus-workspace "${ws_code}"; }
-              Mod+4 { focus-workspace "${ws_scratchpad}"; }
-              Mod+5 { focus-workspace "${ws_perso}"; }
-              Mod+Shift+1 { move-column-to-workspace "${ws_web}"; }
-              Mod+Shift+2 { move-column-to-workspace "${ws_term}"; }
-              Mod+Shift+3 { move-column-to-workspace "${ws_code}"; }
-              Mod+Shift+4 { move-column-to-workspace "${ws_scratchpad}"; }
-              Mod+Shift+5 { move-column-to-workspace "${ws_perso}"; }
+              ${lib.concatMapStrings (n: ''
+                Mod+${n} { spawn "${workspaces}/bin/niri-workspaces" "focus" "${n}"; }
+                Mod+Shift+${n} { spawn "${workspaces}/bin/niri-workspaces" "move" "${n}"; }
+              '') numbers}
 
               Mod+BracketLeft  { consume-or-expel-window-left; }
               Mod+BracketRight { consume-or-expel-window-right; }
@@ -302,13 +278,6 @@
               match app-id="^kitty-half$"
 
               open-maximized false
-          }
-
-          window-rule {
-              match app-id="signal"
-              match app-id="^spotify$"
-
-              open-on-workspace "${ws_perso}"
           }
 
           window-rule {

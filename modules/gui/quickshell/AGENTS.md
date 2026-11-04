@@ -68,14 +68,20 @@ typed keys land in whatever has focus.
   output. Without a renderer there is no dmabuf, so `qs` runs with
   `QT_QUICK_BACKEND=software`.
 - `quickshellTestEnv` (a read-only home-manager option) carries that niri, qs,
-  wtype, wlrctl, dbus and the built shell with its generated Config.qml. The
+  wtype, wlrctl, dbus, `niri-workspaces` (`../niri/_workspaces.nix`)
+  and the built shell with its generated Config.qml. The
   tests build it from the checkout for the current host (a new file has to be
   `git add`ed for the flake to see it), or take a path from
   `QUICKSHELL_TEST_ENV`. On a host without the bar they skip.
 - The copy gains `TestProbe.qml`, an `IpcHandler` that `qs ipc call test state`
-  reads: the reviews pill's place on the output and the panel's state, as JSON.
-  Assertions are on that, not on pixels. The splices that wire it in fail
-  loudly when the source they match moves.
+  reads: the reviews pill's place on the output and the panel's state, as JSON;
+  and `WorkspacesProbe.qml`, read by `qs ipc call workspaces cells`: each
+  workspace cell's name and place. Assertions are on that, not on pixels. The
+  splices that wire them in fail loudly when the source they match moves.
+- `tests/workspaces.rs` drives `niri-workspaces` (`focus`, `move`, `watch`) and
+  the bar's workspace cells; `Session::open_window` opens a tiled window (a
+  second `qs` with a `FloatingWindow`, app id `org.quickshell`) so a workspace
+  has something on it.
 - What would leave the fixture is a stub on niri's `PATH` that records its
   arguments: `reviews` (Config.reviews is pointed at it; `--json` prints the
   test's fixture) and `review`, which the panel spawns through `niri msg action
