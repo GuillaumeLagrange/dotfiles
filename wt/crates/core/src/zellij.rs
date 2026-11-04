@@ -90,12 +90,18 @@ pub fn has_client(name: &str) -> Result<bool> {
 /// Wait for the client handed the terminal to reach a session, so its tabs can be
 /// laid out. False if none turned up, or if the session went away first — a user
 /// who quits immediately is not an error.
-pub fn wait_for_client(name: &str) -> Result<bool> {
-    for _ in 0..100 {
+///
+/// Waits for as long as `coming` says the client is still on its way, up to a
+/// limit: a loaded machine can take seconds to let it in.
+pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<bool> {
+    for _ in 0..600 {
         match has_client(name) {
             Ok(true) => return Ok(true),
             Ok(false) => {}
             Err(_) => return Ok(false),
+        }
+        if !coming() {
+            return Ok(false);
         }
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -112,6 +118,15 @@ pub fn start_detached(name: &str, root: &Path) -> Result<()> {
     // The command returns before the server is listening.
     for _ in 0..100 {
         if is_live(name)? {
+            // And the client that created it in the background can still be
+            // listed for a moment, which a caller waiting for a client to lay
+            // tabs out against would take for one.
+            for _ in 0..100 {
+                if !has_client(name).unwrap_or(false) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(50));

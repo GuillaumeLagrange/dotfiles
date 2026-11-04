@@ -66,16 +66,25 @@ struct Attached(std::process::Child);
 
 impl Attached {
     fn to(session: &str) -> Self {
-        let child = std::process::Command::new("script")
-            .args(["-q", "-c", &format!("zellij attach {session}"), "/dev/null"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .expect("script should run");
-        let attached = Self(child);
+        let spawn = || {
+            std::process::Command::new("script")
+                .args(["-q", "-c", &format!("zellij attach {session}"), "/dev/null"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .expect("script should run")
+        };
+        let mut attached = Self(spawn());
+        // A server still loading its plugins can drop a client the moment it
+        // arrives ("lost connection"), and a user would attach again.
         assert!(
-            zellij::wait_for_client(session).unwrap(),
+            wait_for(|| {
+                if matches!(attached.0.try_wait(), Ok(Some(_))) {
+                    attached.0 = spawn();
+                }
+                zellij::has_client(session).unwrap_or(false)
+            }),
             "no client reached `{session}`"
         );
         attached
@@ -346,7 +355,7 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
 
     with_env(&f, || {
         let _live = Live("proj-fresh".into());
-        let _supervisor = Supervised::on("proj-fresh");
+        let mut supervisor = Supervised::on("proj-fresh");
         assert!(
             wait_for(|| tab_repos("proj-fresh") == ["app"]),
             "the member never got its tab: {:?}",
@@ -355,6 +364,7 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
 
         zellij::new_tab("proj-fresh", &f.workspace, "scratch").unwrap();
         assert!(tab_repos("proj-fresh").contains(&"scratch".to_string()));
+        let first = supervisor.client().expect("the supervisor's client");
 
         f.wt_with(
             &["recreate"],
@@ -363,7 +373,17 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
         .ok();
 
         assert!(
-            wait_for(|| zellij::has_client("proj-fresh").unwrap_or(false)),
+            wait_for(|| {
+                supervisor.revive();
+                supervisor.client().is_some_and(|pid| pid != first)
+            }),
+            "the supervisor never attached a new client"
+        );
+        assert!(
+            wait_for(|| {
+                supervisor.revive();
+                zellij::has_client("proj-fresh").unwrap_or(false)
+            }),
             "nobody was handed the terminal back"
         );
         assert!(
@@ -384,11 +404,30 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
 
 /// The `wt` a user's terminal is given to, which is also what rebuilds the session
 /// between two clients.
-struct Supervised(std::process::Child);
+struct Supervised(std::process::Child, String);
 
 impl Supervised {
     fn on(session: &str) -> Self {
-        let child = std::process::Command::new("script")
+        let mut supervised = Self(Self::spawn(session), session.to_string());
+        assert!(
+            wait_for(|| {
+                supervised.revive();
+                supervised.client().is_some()
+            }),
+            "`wt` never attached to `{session}`"
+        );
+        assert!(
+            wait_for(|| {
+                supervised.revive();
+                zellij::has_client(session).unwrap_or(false)
+            }),
+            "no client reached `{session}`"
+        );
+        supervised
+    }
+
+    fn spawn(session: &str) -> std::process::Child {
+        std::process::Command::new("script")
             .args([
                 "-q",
                 "-c",
@@ -404,16 +443,38 @@ impl Supervised {
             .env_remove("ZELLIJ")
             .env_remove("ZELLIJ_SESSION_NAME")
             .spawn()
-            .expect("script should run");
-        let supervised = Self(child);
-        // Not `wait_for_client`: the session does not exist yet — this `wt` is what
-        // creates it — and asking about one that is not there is an error, which
-        // that helper reads as "nobody came".
-        assert!(
-            wait_for(|| zellij::has_client(session).unwrap_or(false)),
-            "no client reached `{session}`"
-        );
-        supervised
+            .expect("script should run")
+    }
+
+    /// Run `wt` again if it is gone: a server still loading its plugins can drop
+    /// a client the moment it arrives ("lost connection"), which ends the `wt`
+    /// waiting on it, and a user would attach again.
+    fn revive(&mut self) {
+        if matches!(self.0.try_wait(), Ok(Some(_))) {
+            self.0 = Self::spawn(&self.1);
+        }
+    }
+
+    /// The `zellij attach` this `wt` hands the terminal to, which it only spawns
+    /// once the server it started is up. Until then the session must not be asked
+    /// anything: zellij 0.45 panics when a client leaves a server that has no
+    /// session yet, and every later client spins on the dead socket for good.
+    fn client(&self) -> Option<u32> {
+        let argv = format!("zellij\0attach\0{}\0", self.1);
+        let mut parents = vec![self.0.id()];
+        while let Some(parent) = parents.pop() {
+            let children =
+                std::fs::read_to_string(format!("/proc/{parent}/task/{parent}/children"))
+                    .unwrap_or_default();
+            for pid in children.split_whitespace().filter_map(|p| p.parse().ok()) {
+                if std::fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|c| c == argv.as_bytes())
+                {
+                    return Some(pid);
+                }
+                parents.push(pid);
+            }
+        }
+        None
     }
 }
 
@@ -448,9 +509,10 @@ fn tab_for(session: &str, repo: &str) -> zellij::Tab {
 }
 
 /// Poll a state the multiplexer reaches on its own time. False once it has had
-/// long enough that waiting longer would only hide a failure.
+/// long enough that waiting longer would only hide a failure — generous, since
+/// every suite of the repo may be running at once.
 fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
-    for _ in 0..200 {
+    for _ in 0..600 {
         if cond() {
             return true;
         }
@@ -483,8 +545,14 @@ fn rename_tab(session: &str, id: u32, name: &str) {
 /// A variable as the session's server process holds it, which is what its panes
 /// inherit.
 fn server_env(session: &str, var: &str) -> Option<String> {
+    // Matched on the fixture's socket directory, not just the name: another run of
+    // this suite has servers for sessions of the same names.
+    let server = format!(
+        "zellij --server {}/zellij/.*/{session}$",
+        std::env::var("XDG_RUNTIME_DIR").unwrap()
+    );
     let out = std::process::Command::new("pgrep")
-        .args(["-f", &format!("zellij --server .*{session}")])
+        .args(["-f", &server])
         .output()
         .ok()?;
     let prefix = format!("{var}=");

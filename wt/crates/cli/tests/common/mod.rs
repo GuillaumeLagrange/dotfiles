@@ -101,6 +101,8 @@ impl Fixture {
             // redirecting both is what keeps a test's sessions out of the way of the
             // machine's own.
             ("XDG_RUNTIME_DIR", "run"),
+            // zellij's log, which the machine's own sessions write to as well.
+            ("TMPDIR", "tmp"),
         ] {
             let path = root.join(rel);
             std::fs::create_dir_all(&path).expect("xdg dir");

@@ -237,6 +237,12 @@ if ! has_client; then
       live && break
       sleep 0.1
     done
+    # The client that created it can still be listed for a moment, which temporary_client would
+    # take for one that sizes the tabs.
+    for _ in $(seq 50); do
+      has_client || break
+      sleep 0.1
+    done
   fi
   temporary_client
   # The startup tab's shell, which a fresh session's first tab replaces. Kept from here: zellij can
@@ -248,8 +254,16 @@ if ! has_client; then
   done
   # The members' tabs, as attaching with wt lays them out; done before a tab is picked.
   if [[ -n "${members:-}" ]]; then
-    temporary_client
-    wt tabs "$session" >/dev/null
+    # The client can still drop out between being listed and wt asking for it; the last try's
+    # error is the one reported.
+    for try in 1 2 3 4 5; do
+      temporary_client
+      if ((try < 5)); then
+        wt tabs "$session" >/dev/null 2>&1 && break
+      else
+        wt tabs "$session" >/dev/null
+      fi
+    done
   fi
   temporary_client
 fi

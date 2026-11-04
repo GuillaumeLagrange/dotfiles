@@ -59,12 +59,16 @@ fn tools() -> bool {
 }
 
 /// The dotfiles' own wt, built once per run: review relies on commands the
-/// installed one may predate.
+/// installed one may predate. Into a target dir of its own, since wt's suite runs
+/// its binary from wt's while this one may be building.
 static WT: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../wt/Cargo.toml");
+    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/wt");
     let out = Command::new("cargo")
         .args(["build", "--quiet", "--bin", "wt", "--manifest-path"])
         .arg(&manifest)
+        .arg("--target-dir")
+        .arg(&target)
         .output()
         .unwrap();
     assert!(
@@ -72,12 +76,7 @@ static WT: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
         "building wt: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    manifest
-        .parent()
-        .unwrap()
-        .join("target/debug/wt")
-        .canonicalize()
-        .unwrap()
+    target.join("debug/wt")
 });
 
 fn write_exe(path: &Path, body: &str) {
@@ -106,6 +105,8 @@ impl Fixture {
             ("XDG_CACHE_HOME", "cache"),
             ("XDG_DATA_HOME", "data"),
             ("XDG_RUNTIME_DIR", "run"),
+            // zellij's log, which the machine's own sessions write to as well.
+            ("TMPDIR", "tmp"),
         ] {
             let path = root.join(rel);
             std::fs::create_dir_all(&path).unwrap();
@@ -142,15 +143,16 @@ impl Fixture {
         );
         std::os::unix::fs::symlink(&*WT, bin.join("wt")).unwrap();
 
-        let sh = String::from_utf8(
-            Command::new("sh")
-                .args(["-c", "command -v sh"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap();
-        env.push(("SHELL".into(), sh.trim().to_owned()));
+        // wt runs a repo's hooks through `$SHELL -i`. A real interactive shell
+        // claims the terminal the tests run in, and is stopped for it (SIGTTOU)
+        // since nextest puts each test in a process group of its own: the test
+        // hangs. So `-i` is dropped and the rest runs non-interactively. `script`
+        // runs its command through `$SHELL -c` as well.
+        write_exe(
+            &bin.join("shell"),
+            "[ \"$1\" = -i ] && shift\nexec sh \"$@\"\n",
+        );
+        env.push(("SHELL".into(), bin.join("shell").display().to_string()));
         env.push((
             "PATH".into(),
             format!(
@@ -371,22 +373,30 @@ impl Fixture {
     /// `body` run while a client is attached, as a user's window would be;
     /// with the tabs as that client sees them once one is active for it.
     fn attached<T>(&self, session: &str, body: impl FnOnce(&[Tab]) -> T) -> T {
-        let mut client = self
-            .command("script")
-            .args([
-                "-q",
-                "-c",
-                &format!("stty rows 50 cols 160; exec zellij attach {session}"),
-                "/dev/null",
-            ])
-            .env("TERM", "xterm-256color")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap();
+        let spawn = || {
+            self.command("script")
+                .args([
+                    "-q",
+                    "-c",
+                    &format!("stty rows 50 cols 160; exec zellij attach {session}"),
+                    "/dev/null",
+                ])
+                .env("TERM", "xterm-256color")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap()
+        };
+        let mut client = spawn();
         let mut tabs = Vec::new();
         for _ in 0..50 {
             std::thread::sleep(std::time::Duration::from_millis(100));
+            // A server still loading its plugins can drop a client the moment it
+            // arrives ("lost connection"), and a user would attach again.
+            if matches!(client.try_wait(), Ok(Some(_))) {
+                client = spawn();
+                continue;
+            }
             tabs = self.tabs(session);
             if tabs.iter().any(|t| t.active) {
                 break;

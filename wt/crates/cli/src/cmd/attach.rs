@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use anyhow::{Context, Result};
 
 use wt_core::config::Config;
@@ -70,7 +72,9 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         }
         Some(_) => {
             zellij::switch_to(&id)?;
-            tabs_behind_the_client(&session, &cfg.repos);
+            // The client is already up, only moving: it is there in moments or not at all.
+            let until = Instant::now() + Duration::from_secs(5);
+            tabs_behind_the_client(&session, &cfg.repos, || Instant::now() < until);
             Ok(())
         }
         // This process owns the terminal, so it is the one that can rebuild the
@@ -78,7 +82,9 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         // client exits, and the loop starts the session again and reattaches.
         None => loop {
             let mut child = zellij::attach_child(&id, &session.path)?;
-            tabs_behind_the_client(&session, &cfg.repos);
+            tabs_behind_the_client(&session, &cfg.repos, || {
+                matches!(child.try_wait(), Ok(None))
+            });
             let status = child.wait().context("waiting for zellij to exit")?;
             if !session.take_recreate() {
                 std::process::exit(status.code().unwrap_or(1));
@@ -93,8 +99,8 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
 ///
 /// Nothing is printed and nothing fails: the screen belongs to zellij by now, and
 /// `wt sync` reports the members left without a tab.
-fn tabs_behind_the_client(session: &Session, order: &[String]) {
-    if zellij::wait_for_client(&session.id).unwrap_or(false) {
+fn tabs_behind_the_client(session: &Session, order: &[String], coming: impl FnMut() -> bool) {
+    if zellij::wait_for_client(&session.id, coming).unwrap_or(false) {
         let _ = zellij::ensure_tabs(session, order);
     }
 }

@@ -27,7 +27,8 @@ fn have(bin: &str) -> bool {
 }
 
 fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
-    for _ in 0..200 {
+    // Generous: every suite of the repo may be running at once.
+    for _ in 0..600 {
         if cond() {
             return true;
         }
@@ -54,6 +55,8 @@ impl Fixture {
             ("XDG_DATA_HOME", "data"),
             ("XDG_CONFIG_HOME", "config"),
             ("ZELLIJ_CONFIG_DIR", "config/zellij"),
+            // zellij's log, which the machine's own sessions write to as well.
+            ("TMPDIR", "tmp"),
         ] {
             std::fs::create_dir_all(root.join(rel)).unwrap();
             env.insert(var, root.join(rel).display().to_string());
@@ -126,6 +129,9 @@ impl Fixture {
                     .is_some_and(|a| a.iter().any(|p| p["is_plugin"] == false))
             })
         }));
+        // And the client that created it can still be listed for a moment, which
+        // `attach` would take for its own.
+        assert!(wait_for(|| self.client_panes(session).is_empty()));
     }
 
     /// A real client on a session, the way a user's terminal is one.
@@ -133,34 +139,67 @@ impl Fixture {
     /// Its input is /dev/null, not a pipe held open: a client behind a silent pipe
     /// does not follow `focus-pane-id` to another tab.
     fn attach(&mut self, session: &str) {
-        let child = self
-            .command("script")
-            .args([
-                "-q",
-                "-c",
-                &format!("stty rows 40 cols 120; zellij attach {session}"),
-                "/dev/null",
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap();
+        let spawn = |f: &Self| {
+            f.command("script")
+                .args([
+                    "-q",
+                    "-c",
+                    &format!("stty rows 40 cols 120; zellij attach {session}"),
+                    "/dev/null",
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap()
+        };
+        let mut child = spawn(self);
+        // A server still loading its plugins can drop a client the moment it
+        // arrives ("lost connection"), and a user would attach again.
+        let reached = wait_for(|| {
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                child = spawn(self);
+            }
+            !self.client_panes(session).is_empty()
+        });
         self.clients.push(child);
-        assert!(
-            wait_for(|| !self.client_panes(session).is_empty()),
-            "no client reached `{session}`"
-        );
+        assert!(reached, "no client reached `{session}`");
     }
 
     fn new_pane(&self, session: &str) -> u32 {
+        let before = self.terminal_panes(session);
         let out = self.zellij(&["-s", session, "action", "new-pane"]);
         let id = String::from_utf8_lossy(&out.stdout);
-        id.trim()
-            .strip_prefix("terminal_")
-            .unwrap()
-            .parse()
-            .unwrap()
+        if let Some(id) = id.trim().strip_prefix("terminal_") {
+            return id.parse().unwrap();
+        }
+        // Zellij sometimes opens the pane and prints nothing: it is the one that
+        // was not there before.
+        let mut new = None;
+        assert!(
+            wait_for(|| {
+                new = self
+                    .terminal_panes(session)
+                    .into_iter()
+                    .find(|id| !before.contains(id));
+                new.is_some()
+            }),
+            "no new pane in `{session}`"
+        );
+        new.unwrap()
+    }
+
+    fn terminal_panes(&self, session: &str) -> Vec<u32> {
+        let out = self.zellij(&["-s", session, "action", "list-panes", "--json"]);
+        serde_json::from_slice::<serde_json::Value>(&out.stdout)
+            .ok()
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter(|p| p["is_plugin"] == false)
+            .filter_map(|p| p["id"].as_u64())
+            .map(|id| id as u32)
+            .collect()
     }
 
     fn client_panes(&self, session: &str) -> Vec<String> {
