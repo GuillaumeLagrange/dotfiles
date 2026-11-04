@@ -325,7 +325,7 @@
           // Games have app-id steam_app_<id>, so they are unaffected.
           window-rule {
               match app-id="^steam$"
-              exclude app-id="^steam$" title="^(Steam|Special Offers)$"
+              exclude app-id="^steam$" title="^(Steam|Special Offers|Steam Big Picture Mode)$"
 
               default-column-width { proportion 0.25; }
               open-maximized false
