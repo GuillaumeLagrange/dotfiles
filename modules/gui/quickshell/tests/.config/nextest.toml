@@ -1,0 +1,15 @@
+experimental = ["setup-scripts"]
+
+# A test stuck on a child that never exits fails the run instead of hanging it,
+# and one that leaves a process holding its output fails too.
+[profile.default]
+slow-timeout = { period = "30s", terminate-after = 4 }
+leak-timeout = { period = "1s", result = "fail" }
+
+# Built once for the whole run rather than by every test process.
+[[profile.default.scripts]]
+filter = "all()"
+setup = "test-env"
+
+[scripts.setup.test-env]
+command = "bash test-env.sh"

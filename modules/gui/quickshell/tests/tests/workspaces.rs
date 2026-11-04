@@ -182,7 +182,9 @@ fn the_watcher_sends_assigned_apps_to_their_number() {
         ws.iter()
             .any(|w| w["id"] == window["workspace_id"] && w["name"] == "5")
     });
-    assert_eq!(numbers(&s), ["5"]);
+    // The window opened on an unnamed workspace, which the watcher may have
+    // numbered before moving the window off it; it unnames it once empty.
+    s.wait_until("only 5 to be left", || numbers(&s) == ["5"]);
     assert_eq!(focused(&s), None, "focus stays on the unnamed workspace");
 }
 

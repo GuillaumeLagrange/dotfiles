@@ -36,7 +36,7 @@ test: test-rust test-omp
 
 # Includes omp-panel's and wt's tests against real, isolated zellij servers, and the bar's against headless niri
 test-rust:
-    for crate in {{ crates }}; do (cd "$crate" && cargo test --quiet); done
+    for crate in {{ crates }}; do (cd "$crate" && cargo nextest run); done
 
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test

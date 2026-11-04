@@ -1,0 +1,8 @@
+# A test stuck on a child that never exits fails the run instead of hanging it,
+# and one that leaves a process holding its output fails too.
+[profile.default]
+# One at a time: each test drives review.sh against its own zellij servers, and
+# zellij drops clients and fails tab layouts when many start at once.
+test-threads = 1
+slow-timeout = { period = "30s", terminate-after = 4 }
+leak-timeout = { period = "1s", result = "fail" }
