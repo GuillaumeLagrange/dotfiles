@@ -359,7 +359,11 @@ covers WebAuthn in the browser and `pam_u2f`. libnotify is off: the pill is the
 notice. The detector replays nothing on connect, so a dropped connection resets
 the state to idle. It is patched (`yubikey-touch-detector-reconnect.patch`): once a
 key is unplugged, scdaemon answers its long-lived gpg-agent connection with "Card
-removed" forever, so gpg touches went unseen until it reconnects.
+removed" forever, so gpg touches went unseen until it reconnects. Never run a
+second detector beside the service (e.g. `-v` to debug): its ssh watcher moves
+`S.gpg-agent.ssh` to `.original` to proxy it, and two instances lose the socket.
+Recover with `systemctl --user stop gpg-agent`, `restart gpg-agent-ssh.socket`,
+then `restart yubikey-touch-detector`.
 
 ## Gotchas
 
