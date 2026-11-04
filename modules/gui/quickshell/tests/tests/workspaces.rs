@@ -162,6 +162,29 @@ fn the_watcher_drops_an_empty_number_left_by_other_means() {
 }
 
 #[test]
+fn an_empty_number_shown_on_another_output_stays() {
+    let Some(mut s) = Session::start_with_outputs(&reviews(), 2) else {
+        return;
+    };
+    s.run("niri", &["msg", "action", "focus-monitor-next"]);
+    fill(&mut s, "2");
+    s.run("niri-workspaces", &["focus", "6"]);
+    s.run("niri", &["msg", "action", "focus-monitor-next"]);
+    s.run("niri-workspaces", &["focus", "3"]);
+
+    // 2 replaces 6 on its output, while 3 stays on screen on the other one.
+    s.run("niri-workspaces", &["focus", "2"]);
+    let mut names = numbers(&s);
+    names.sort();
+    assert_eq!(names, ["2", "3"], "6 was left empty, 3 is still shown");
+    let three = workspaces(&s)
+        .into_iter()
+        .find(|w| w["name"] == "3")
+        .unwrap();
+    assert_eq!(three["is_active"], true);
+}
+
+#[test]
 fn the_watcher_sends_assigned_apps_to_their_number() {
     let Some(mut s) = Session::start(&reviews()) else {
         return;

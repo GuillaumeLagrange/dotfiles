@@ -96,11 +96,14 @@ def find(wss, name):
 
 def focus(name):
     wss = workspaces()
-    current = next(ws for ws in wss if ws["is_focused"])
     target, new = find(wss, name)
-    if current["id"] != target["id"] and current["name"] is not None and empty(current):
+    # Only what target replaces on its output is left; another output's stays shown.
+    left = next(
+        ws for ws in wss if ws["is_active"] and ws["output"] == target["output"]
+    )
+    if left["id"] != target["id"] and left["name"] is not None and empty(left):
         # Unnamed before it is left, niri removes it on the switch.
-        action("UnsetWorkspaceName", reference=ref(current))
+        action("UnsetWorkspaceName", reference=ref(left))
     action("FocusWorkspace", reference=ref(target))
     if new:
         action("SetWorkspaceName", name=name, workspace=ref(target))

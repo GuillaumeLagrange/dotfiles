@@ -90,6 +90,11 @@ impl Session {
     /// The bar on one 1920x1080 output, `reviews --json` printing `reviews`;
     /// None where it is skipped.
     pub fn start(reviews: &Value) -> Option<Self> {
+        Self::start_with_outputs(reviews, 1)
+    }
+
+    /// As `start`, with `outputs` 1920x1080 outputs.
+    pub fn start_with_outputs(reviews: &Value, outputs: u8) -> Option<Self> {
         let env_dir = TEST_ENV.as_deref()?;
         static N: AtomicUsize = AtomicUsize::new(0);
         // Short: the wayland socket path has to fit in a sockaddr_un.
@@ -190,7 +195,7 @@ impl Session {
 
         let niri = session
             .command("niri")
-            .env("NIRI_HEADLESS", "1")
+            .env("NIRI_HEADLESS", outputs.to_string())
             .env("NIRI_CONFIG", session.path("niri.kdl"))
             .env("NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY", "1")
             .stderr(std::fs::File::create(session.path("niri.log")).unwrap())

@@ -1,9 +1,9 @@
-NIRI_HEADLESS=1 starts niri on its headless backend, which upstream only
-reaches from its own tests, with one 1920x1080 output.
+NIRI_HEADLESS=N starts niri on its headless backend, which upstream only
+reaches from its own tests, with N 1920x1080 outputs.
 
 --- a/src/main.rs
 +++ b/src/main.rs
-@@ -174,17 +174,23 @@
+@@ -174,17 +174,26 @@
      // Increase the buffer size so that it's harder to crash a frozen client with a 1000 Hz mouse.
      set_default_max_buffer_size(&display, 1024 * 1024);
  
@@ -22,7 +22,10 @@ reaches from its own tests, with one 1920x1080 output.
  
 +    if headless {
 +        let State { backend, niri } = &mut state;
-+        backend.headless().add_output(niri, 1, (1920, 1080));
++        let outputs = env::var("NIRI_HEADLESS").ok().and_then(|n| n.parse().ok()).unwrap_or(1);
++        for n in 1..=outputs {
++            backend.headless().add_output(niri, n, (1920, 1080));
++        }
 +    }
 +
      // Set WAYLAND_DISPLAY for children.

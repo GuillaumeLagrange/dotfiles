@@ -65,9 +65,9 @@ with a second `qs` on the live session**: a second bar shows up on screen, and
 typed keys land in whatever has focus.
 
 - niri only reaches its headless backend from its own tests;
-  `tests/niri-headless.patch` adds `NIRI_HEADLESS=1`, which also adds the
-  output. Without a renderer there is no dmabuf, so `qs` runs with
-  `QT_QUICK_BACKEND=software`.
+  `tests/niri-headless.patch` adds `NIRI_HEADLESS=N`, which also adds N
+  outputs (`Session::start_with_outputs`). Without a renderer there is no
+  dmabuf, so `qs` runs with `QT_QUICK_BACKEND=software`.
 - `quickshellTestEnv` (a read-only home-manager option) carries that niri, qs,
   wtype, wlrctl, dbus, `niri-workspaces` (`../niri/_workspaces.nix`)
   and the built shell with its generated Config.qml. The
