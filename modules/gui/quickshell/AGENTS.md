@@ -357,7 +357,9 @@ starts the detector. It detects gpg (`gpg --card-status` on gpg-agent activity),
 ssh through gpg-agent, HMAC challenges, and FIDO/U2F on `/dev/hidraw*`, which
 covers WebAuthn in the browser and `pam_u2f`. libnotify is off: the pill is the
 notice. The detector replays nothing on connect, so a dropped connection resets
-the state to idle.
+the state to idle. It is patched (`yubikey-touch-detector-reconnect.patch`): once a
+key is unplugged, scdaemon answers its long-lived gpg-agent connection with "Card
+removed" forever, so gpg touches went unseen until it reconnects.
 
 ## Gotchas
 

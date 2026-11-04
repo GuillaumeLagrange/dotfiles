@@ -338,7 +338,13 @@
             Requires = [ "yubikey-touch-detector.socket" ];
           };
           Service = {
-            ExecStart = lib.getExe pkgs.yubikey-touch-detector;
+            # The patch reconnects to gpg-agent once a key was unplugged: the
+            # old connection answers "Card removed" forever, which hid gpg touches.
+            ExecStart = lib.getExe (
+              pkgs.yubikey-touch-detector.overrideAttrs (old: {
+                patches = (old.patches or [ ]) ++ [ ./yubikey-touch-detector-reconnect.patch ];
+              })
+            );
             # gpg/gpgconf: the gpg detector runs `gpg --card-status`, the ssh one
             # finds gpg-agent's ssh socket through gpgconf.
             Environment = [
