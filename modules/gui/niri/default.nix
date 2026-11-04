@@ -136,6 +136,9 @@
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
               Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "review"; }
+              // omp-panel in its own floating window: Esc closes it, Enter goes to the omp.
+              Mod+A { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }
+              Mod+BackSpace { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }
 
               Mod+W { spawn "${config.firefox.main}"; }
               Mod+Shift+W { spawn ${quoteArgs config.firefox.alt}; }
@@ -278,6 +281,14 @@
               match app-id="^kitty-half$"
 
               open-maximized false
+          }
+
+          window-rule {
+              match app-id="^omp-panel$"
+
+              open-floating true
+              default-column-width { proportion 0.8; }
+              default-window-height { proportion 0.7; }
           }
 
           window-rule {

@@ -1,5 +1,5 @@
-//! omp-panel: every omp running in a zellij session, with its state and last
-//! message, and a jump to the one you pick. `panes` does the same for every
+//! omp-panel: every omp running in a zellij session, with its state and
+//! conversation, and a jump to the one you pick. `panes` does the same for every
 //! pane, by the command running in it.
 //!
 //!   omp-panel                     the picker (meant for a floating pane)
@@ -8,11 +8,13 @@
 //!   omp-panel panes               the pane finder (meant for a floating pane)
 //!   omp-panel panes list [--json] every pane and its command, once
 
+mod git;
 mod jump;
 mod markdown;
 mod pane_picker;
 mod panes;
 mod state;
+mod transcript;
 mod tui;
 mod zellij;
 
@@ -29,7 +31,8 @@ fn go(session: &str, pane: u32) -> Result<()> {
 
 fn list(json: bool) -> Result<()> {
     let store = Store::from_env();
-    let groups = store.collect(&zellij::live(&store.sessions()), now_ms());
+    let mut groups = store.collect(&zellij::live(&store.sessions()), now_ms());
+    git::Cache::new(std::time::Duration::ZERO).annotate(&mut groups);
     if json {
         println!("{}", serde_json::to_string_pretty(&groups)?);
         return Ok(());

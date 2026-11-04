@@ -5,6 +5,8 @@
 // removed on shutdown. The state machine follows herdr's omp integration: idle
 // is debounced, a tool approval or an `ask` blocks, and a retryable provider
 // error keeps the pane working for a grace period before it counts as blocked.
+// Alongside the state: when it last changed, the tool running, the model and how
+// full its context is.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -24,9 +26,15 @@ export type PaneFile = {
 	// place on every rename; the panel reads it there.
 	session_file: string | null;
 	updated_at: number;
+	// When `state` last changed.
+	state_since: number;
 	// Last working -> idle transition; the panel shows the pane as done until it
 	// has been viewed since.
 	finished_at: number | null;
+	model: string | null;
+	context_percent: number | null;
+	// The tool running right now, by its intent when the model gave one.
+	activity: string | null;
 };
 
 type Ctx = {
@@ -34,6 +42,9 @@ type Ctx = {
 	cwd?: string;
 	isIdle?: () => boolean;
 	sessionManager?: { getSessionFile?: () => string | undefined };
+	model?: unknown;
+	models?: { current?: () => unknown };
+	getContextUsage?: () => { percent?: number | null } | undefined;
 };
 type Handler = (event: unknown, ctx: Ctx) => void;
 type Pi = { on: (event: string, handler: Handler) => void };
@@ -107,6 +118,19 @@ function askQuestion(event: unknown): string {
 	return "waiting for user input";
 }
 
+function firstLine(value: unknown): string | undefined {
+	return str(value)?.split("\n", 1)[0].trim() || undefined;
+}
+
+function toolActivity(event: unknown): string {
+	const name = str(field(event, "toolName")) ?? "tool";
+	const args = field(event, "args");
+	const intent = firstLine(field(event, "intent")) ?? firstLine(field(args, "i")) ?? firstLine(field(args, "intent"));
+	if (intent) return intent;
+	const target = firstLine(field(args, "command")) ?? firstLine(field(args, "path")) ?? firstLine(field(args, "pattern"));
+	return (target ? `${name} ${target}` : name).slice(0, 200);
+}
+
 export default function ompPanel(pi: Pi) {
 	const session = process.env.ZELLIJ_SESSION_NAME;
 	const paneId = Number.parseInt(process.env.ZELLIJ_PANE_ID ?? "", 10);
@@ -130,6 +154,11 @@ export default function ompPanel(pi: Pi) {
 	let sessionFile: string | undefined;
 	let published: State | undefined;
 	let finishedAt: number | undefined;
+	let stateSince = Date.now();
+	let model: string | undefined;
+	let contextPercent: number | undefined;
+	// By tool call id: parallel calls each run until their own end.
+	const running = new Map<string, string>();
 	let idleTimer: Timer | undefined;
 	let retryTimer: Timer | undefined;
 
@@ -142,7 +171,9 @@ export default function ompPanel(pi: Pi) {
 
 	function write() {
 		const next = desired();
-		if (published === "working" && next.state === "idle") finishedAt = Date.now();
+		const now = Date.now();
+		if (published === "working" && next.state === "idle") finishedAt = now;
+		if (published !== next.state) stateSince = now;
 		published = next.state;
 		const body: PaneFile = {
 			session: session as string,
@@ -153,8 +184,12 @@ export default function ompPanel(pi: Pi) {
 			last_message: lastMessage ?? null,
 			cwd,
 			session_file: sessionFile ?? null,
-			updated_at: Date.now(),
+			updated_at: now,
+			state_since: stateSince,
 			finished_at: finishedAt ?? null,
+			model: model ?? null,
+			context_percent: contextPercent ?? null,
+			activity: next.state === "working" ? ([...running.values()].at(-1) ?? null) : null,
 		};
 		try {
 			fs.mkdirSync(dir, { recursive: true });
@@ -189,6 +224,12 @@ export default function ompPanel(pi: Pi) {
 		try {
 			sessionFile = str(ctx?.sessionManager?.getSessionFile?.()) ?? sessionFile;
 		} catch {}
+		try {
+			const current = ctx?.models?.current?.() ?? ctx?.model;
+			model = str(field(current, "id")) ?? str(field(current, "name")) ?? model;
+			const percent = ctx?.getContextUsage?.()?.percent;
+			if (typeof percent === "number" && Number.isFinite(percent)) contextPercent = percent;
+		} catch {}
 	}
 
 	function block(reason: string) {
@@ -221,6 +262,7 @@ export default function ompPanel(pi: Pi) {
 		blockedCount = 0;
 		finishedAt = undefined;
 		published = undefined;
+		running.clear();
 		write();
 	});
 
@@ -234,10 +276,11 @@ export default function ompPanel(pi: Pi) {
 		write();
 	});
 
-	pi.on("message_end", (event) => {
+	pi.on("message_end", (event, ctx) => {
 		if (!active) return;
 		const text = messageText(field(event, "message"));
 		if (text === undefined) return;
+		refresh(ctx);
 		lastMessage = text;
 		write();
 	});
@@ -253,19 +296,24 @@ export default function ompPanel(pi: Pi) {
 	});
 
 	pi.on("tool_execution_start", (event, ctx) => {
-		if (field(event, "toolName") !== "ask" || !activate(ctx)) return;
-		block(askQuestion(event));
+		if (!activate(ctx)) return;
+		running.set(String(field(event, "toolCallId") ?? running.size), toolActivity(event));
+		if (field(event, "toolName") === "ask") block(askQuestion(event));
+		else write();
 	});
 
 	pi.on("tool_execution_end", (event, ctx) => {
-		if (field(event, "toolName") !== "ask" || !activate(ctx)) return;
-		unblock();
+		if (!activate(ctx)) return;
+		running.delete(String(field(event, "toolCallId")));
+		if (field(event, "toolName") === "ask") unblock();
+		else write();
 	});
 
 	pi.on("agent_end", (event) => {
 		// A duplicate end while a retry holds the pane working must not settle it.
 		if (!active || !agentActive || field(event, "willContinue") === true) return;
 		agentActive = false;
+		running.clear();
 		const text = messageText(lastAssistant(event));
 		if (text !== undefined) lastMessage = text;
 

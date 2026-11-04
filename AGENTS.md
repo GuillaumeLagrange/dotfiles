@@ -142,8 +142,14 @@ Desktop environment configuration:
 Server/headless system configuration:
 
 - Tmux terminal multiplexer setup
-- Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`) over every omp in every
-  zellij session, fed by `ai/omp/extensions/omp-panel.ts`. `omp-panel panes` (normal-mode `z`) lists every
+- Zellij config and helpers; `omp-panel/` is the floating picker (normal-mode `a`, or niri `Mod+A`/`Mod+BackSpace`
+  in its own floating kitty window, app-id `omp-panel`) over every omp in every zellij session, fed by
+  `ai/omp/extensions/omp-panel.ts`. Per omp: state and time in it, title, the running tool while working, git
+  branch/ahead/behind/dirty, model, context %, whether a client shows it. Below the list, the selected omp's
+  conversation, read from the tail of its session file along the current branch (tool runs folded into one line),
+  opened on the last question; `^u`/`^d` scroll back. `s` switches between by-session and
+  by-priority order (kept in `~/.local/state/omp-panel/sort`), Tab goes to the next blocked/done one (layout
+  borrowed from herdr's sidebar). `omp-panel panes` (normal-mode `z`) lists every
   pane of every session with the command in its foreground, read from /proc (the pane's process carries
   `ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`, its terminal's foreground group is what runs), filtered as you type
 - `reviews/`: ratatui picker over PRs, in three tabs (Tab switches): open ones awaiting my review, those

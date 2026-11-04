@@ -96,6 +96,35 @@ describe("omp-panel extension", () => {
 		assert.equal(read()?.state, "working");
 	});
 
+	it("shows the running tool while working, the last started of parallel calls first", () => {
+		const emit = load();
+		emit("agent_start");
+		emit("tool_execution_start", { toolCallId: "a", toolName: "bash", args: { command: "cargo test\n--all" } });
+		assert.equal(read()?.activity, "bash cargo test");
+		emit("tool_execution_start", { toolCallId: "b", toolName: "read", args: { path: "x", i: "Reading config" } });
+		assert.equal(read()?.activity, "Reading config", "the model's intent over the arguments");
+		emit("tool_execution_end", { toolCallId: "b", toolName: "read" });
+		assert.equal(read()?.activity, "bash cargo test", "back to the call still running");
+		emit("agent_end", { messages: [] });
+		vi.advanceTimersByTime(250);
+		assert.equal(read()?.activity, null);
+	});
+
+	it("records when the state last changed, and the model and context in use", () => {
+		const emit = load();
+		const live = { ...ctx, models: { current: () => ({ id: "opus" }) }, getContextUsage: () => ({ percent: 42 }) };
+		emit("session_start", {}, live);
+		const idleSince = read()?.state_since;
+		vi.advanceTimersByTime(1000);
+		emit("agent_start", {}, live);
+		const workingSince = read()?.state_since;
+		assert.isAbove(workingSince ?? 0, idleSince ?? 0);
+		emit("message_end", { message: assistant("partial") }, live);
+		assert.equal(read()?.state_since, workingSince, "staying in a state keeps its start");
+		assert.equal(read()?.model, "opus");
+		assert.equal(read()?.context_percent, 42);
+	});
+
 	it("holds a retryable provider error as working, then blocks once the grace runs out", () => {
 		const emit = load();
 		emit("agent_start");

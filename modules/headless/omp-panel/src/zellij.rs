@@ -141,18 +141,26 @@ pub fn switch_session(session: &str, pane: u32) -> Result<()> {
 /// Only the sessions asked about: one with no omp in it costs two processes a
 /// refresh for nothing.
 pub fn live(wanted: &[String]) -> Live {
-    let sessions = live_sessions()
-        .into_iter()
-        .filter(|name| wanted.contains(name))
-        .filter_map(|name| {
-            // A session can die between the listing and this; it is simply not live.
-            let panes = panes(&name).ok()?;
-            let focused: HashSet<u32> = client_panes(&name)
-                .unwrap_or_default()
-                .into_iter()
-                .collect();
-            Some((name, LiveSession { panes, focused }))
-        })
-        .collect();
+    let sessions = std::thread::scope(|scope| {
+        let handles: Vec<_> = live_sessions()
+            .into_iter()
+            .filter(|name| wanted.contains(name))
+            .map(|name| {
+                scope.spawn(move || {
+                    // A session can die between the listing and this; it is simply not live.
+                    let panes = panes(&name).ok()?;
+                    let focused: HashSet<u32> = client_panes(&name)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .collect();
+                    Some((name, LiveSession { panes, focused }))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .filter_map(|h| h.join().ok().flatten())
+            .collect()
+    });
     Live { sessions }
 }

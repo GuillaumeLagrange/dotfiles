@@ -157,6 +157,7 @@
         chromium-browser = glyph "F02AF";
         kitty = glyph "F018D";
         kitty-half = glyph "F018D";
+        omp-panel = glyph "F018D";
         "com.mitchellh.ghostty" = glyph "F02A0";
         slack = glyph "F04B1";
         discord = glyph "F066F";

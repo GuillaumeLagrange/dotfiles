@@ -39,7 +39,11 @@ pub struct PaneFile {
     pub session_file: Option<String>,
     pub cwd: String,
     pub updated_at: u64,
+    pub state_since: Option<u64>,
     pub finished_at: Option<u64>,
+    pub model: Option<String>,
+    pub context_percent: Option<f64>,
+    pub activity: Option<String>,
 }
 
 impl PaneFile {
@@ -75,7 +79,7 @@ pub struct LiveSession {
     pub focused: HashSet<u32>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Row {
     pub pane_id: u32,
     pub tab: String,
@@ -85,11 +89,21 @@ pub struct Row {
     pub blocked_reason: Option<String>,
     pub last_message: Option<String>,
     pub title: Option<String>,
+    /// omp's record of the conversation, once it has replied.
+    pub session_file: Option<String>,
     pub cwd: String,
     pub updated_at: u64,
+    pub state_since: u64,
+    pub model: Option<String>,
+    pub context_percent: Option<f64>,
+    pub activity: Option<String>,
+    /// A client is showing the pane right now.
+    pub focused: bool,
+    /// Filled by `git::annotate`, which shells out and stays off `collect`.
+    pub git: Option<crate::git::Git>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Group {
     pub session: String,
     pub status: Status,
@@ -208,8 +222,15 @@ impl Store {
                 blocked_reason: file.blocked_reason,
                 last_message: file.last_message,
                 title: file.session_file.as_deref().and_then(session_title),
+                session_file: file.session_file,
                 cwd: file.cwd,
                 updated_at: file.updated_at,
+                state_since: file.state_since.unwrap_or(file.updated_at),
+                model: file.model,
+                context_percent: file.context_percent,
+                activity: file.activity,
+                focused,
+                git: None,
             });
         }
         self.remove_dead_dirs(live);
@@ -362,7 +383,11 @@ mod tests {
             session_file: None,
             cwd: String::new(),
             updated_at: 0,
+            state_since: None,
             finished_at: Some(100),
+            model: None,
+            context_percent: None,
+            activity: None,
         };
         assert_eq!(file.status(None), Status::Done);
         assert_eq!(

@@ -4,6 +4,7 @@
   rustPlatform,
   makeWrapper,
   zellij,
+  git,
   # Argv prefix that runs a command in a new terminal window.
   termExec,
   # Attaches to a session by name, the way zsm does.
@@ -32,7 +33,7 @@ rustPlatform.buildRustPackage {
   # niri is looked up on PATH: a host without it jumps inside zellij instead.
   postInstall = ''
     wrapProgram $out/bin/omp-panel \
-      --prefix PATH : ${lib.makeBinPath [ zellij ]} \
+      --prefix PATH : ${lib.makeBinPath [ zellij git ]} \
       --set OMP_PANEL_TERM_EXEC ${lib.escapeShellArg (builtins.toJSON termExec)} \
       --set OMP_PANEL_ATTACH ${attach}
   '';
