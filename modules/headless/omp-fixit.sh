@@ -22,27 +22,27 @@ session=fixit
 context=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-  -s | --session)
-    session="$2"
-    shift 2
-    ;;
-  -c | --context)
-    context="$2"
-    shift 2
-    ;;
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  --)
-    shift
-    break
-    ;;
-  -*)
-    usage >&2
-    exit 2
-    ;;
-  *) break ;;
+    -s | --session)
+      session="$2"
+      shift 2
+      ;;
+    -c | --context)
+      context="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      usage >&2
+      exit 2
+      ;;
+    *) break ;;
   esac
 done
 if [[ $# -ne 3 ]]; then

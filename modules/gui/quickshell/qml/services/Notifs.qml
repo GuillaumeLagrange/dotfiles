@@ -267,8 +267,7 @@ Singleton {
                 time: Date.now()
             },
             // A replaced notification keeps one row, at the top.
-            ...root.history.filter(entry => entry.notifId !== notification.id)
-        ].slice(0, root.historyLimit);
+            ...root.history.filter(entry => entry.notifId !== notification.id)].slice(0, root.historyLimit);
 
         // Deferred: the server only inserts the notification into its model
         // once this handler returns, and a sweep that cannot see it there

@@ -336,8 +336,14 @@ mod tests {
         };
         assert!(state.apply(&event(7, "a")), "a new window repaints");
         assert!(state.apply(&event(8, "a")), "a new window repaints");
-        assert!(state.apply(&event(7, "b")), "the active window's title is drawn");
-        assert!(!state.apply(&event(8, "b")), "an inactive window's title is not");
+        assert!(
+            state.apply(&event(7, "b")),
+            "the active window's title is drawn"
+        );
+        assert!(
+            !state.apply(&event(8, "b")),
+            "an inactive window's title is not"
+        );
         assert_eq!(state.windows[&8].title, "b", "the model still takes it");
     }
 

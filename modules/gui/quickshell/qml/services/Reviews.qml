@@ -14,7 +14,12 @@ Singleton {
     // One per tab of the picker, each `{ count, stale, rows, all }`: `kind`
     // "stack" heads the PRs after it (`place` "child" / "last"); "alone" PRs
     // are in no stack. `rows` leaves out what `all` adds: stale PRs.
-    readonly property var empty: ({ count: 0, stale: 0, rows: [], all: [] })
+    readonly property var empty: ({
+            count: 0,
+            stale: 0,
+            rows: [],
+            all: []
+        })
     property var requested: empty
     property var reviewed: empty
     property var mine: empty

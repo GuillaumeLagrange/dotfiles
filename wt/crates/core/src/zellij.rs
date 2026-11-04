@@ -57,9 +57,10 @@ pub fn current() -> Option<String> {
 pub fn is_live(name: &str) -> Result<bool> {
     let out = run(&["list-sessions", "--no-formatting"], None)?;
     // No sessions at all is a non-zero exit, not a failure to answer.
-    Ok(out.stdout.lines().any(|line| {
-        line.split_whitespace().next() == Some(name) && !line.contains("(EXITED")
-    }))
+    Ok(out
+        .stdout
+        .lines()
+        .any(|line| line.split_whitespace().next() == Some(name) && !line.contains("(EXITED")))
 }
 
 /// Whether a client is attached to a session.
@@ -79,7 +80,11 @@ pub fn has_client(name: &str) -> Result<bool> {
         ));
     }
     // A header line is always printed; a client is a line after it.
-    Ok(out.stdout.lines().skip(1).any(|line| !line.trim().is_empty()))
+    Ok(out
+        .stdout
+        .lines()
+        .skip(1)
+        .any(|line| !line.trim().is_empty()))
 }
 
 /// Wait for the client handed the terminal to reach a session, so its tabs can be
@@ -156,7 +161,14 @@ pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
     let cwd = cwd.to_string_lossy();
     let out = run(
         &[
-            "--session", name, "action", "new-tab", "--cwd", &cwd, "--name", tab,
+            "--session",
+            name,
+            "action",
+            "new-tab",
+            "--cwd",
+            &cwd,
+            "--name",
+            tab,
         ],
         None,
     )?;
@@ -183,7 +195,15 @@ fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
     let id = id.to_string();
     for _ in 0..times {
         let out = run(
-            &["--session", name, "action", "move-tab", "--tab-id", &id, direction],
+            &[
+                "--session",
+                name,
+                "action",
+                "move-tab",
+                "--tab-id",
+                &id,
+                direction,
+            ],
             None,
         )?;
         if !out.ok() {
@@ -198,10 +218,7 @@ fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
 
 pub fn close_tab(name: &str, id: u32) -> Result<()> {
     let id = id.to_string();
-    let out = run(
-        &["--session", name, "action", "close-tab-by-id", &id],
-        None,
-    )?;
+    let out = run(&["--session", name, "action", "close-tab-by-id", &id], None)?;
     if !out.ok() {
         return Err(anyhow!(
             "could not close tab {id} of `{name}`: {}",
@@ -215,7 +232,10 @@ pub fn close_tab(name: &str, id: u32) -> Result<()> {
 pub fn switch_to(name: &str) -> Result<()> {
     let out = run(&["action", "switch-session", name], None)?;
     if !out.ok() {
-        return Err(anyhow!("could not switch to `{name}`: {}", out.stderr.trim()));
+        return Err(anyhow!(
+            "could not switch to `{name}`: {}",
+            out.stderr.trim()
+        ));
     }
     Ok(())
 }

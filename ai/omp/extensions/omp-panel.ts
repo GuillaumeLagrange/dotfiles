@@ -127,7 +127,8 @@ function toolActivity(event: unknown): string {
 	const args = field(event, "args");
 	const intent = firstLine(field(event, "intent")) ?? firstLine(field(args, "i")) ?? firstLine(field(args, "intent"));
 	if (intent) return intent;
-	const target = firstLine(field(args, "command")) ?? firstLine(field(args, "path")) ?? firstLine(field(args, "pattern"));
+	const target =
+		firstLine(field(args, "command")) ?? firstLine(field(args, "path")) ?? firstLine(field(args, "pattern"));
 	return (target ? `${name} ${target}` : name).slice(0, 200);
 }
 

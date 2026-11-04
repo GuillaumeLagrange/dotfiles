@@ -8,7 +8,8 @@ use common::{have, Fixture};
 #[test]
 fn the_mirror_reproduces_the_whole_workspace() {
     let f = Fixture::new();
-    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"]).ok();
+    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"])
+        .ok();
     let s = f.session("proj-1");
 
     assert!(s.join("app/.git").exists(), "app is not a worktree");
@@ -59,7 +60,8 @@ fn the_session_defers_to_the_workspace_and_says_nothing_about_the_root() {
 #[test]
 fn a_members_envrc_is_copied_as_it_stands() {
     let f = Fixture::new();
-    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"]).ok();
+    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"])
+        .ok();
     let s = f.session("proj-1");
 
     assert_eq!(
@@ -82,7 +84,10 @@ fn hydration_carries_what_the_config_asks_for_and_nothing_else() {
     let s = f.session("proj-1");
 
     for wanted in [".envrc", ".env", "local.mk"] {
-        assert!(s.join("app").join(wanted).is_file(), "{wanted} was not carried");
+        assert!(
+            s.join("app").join(wanted).is_file(),
+            "{wanted} was not carried"
+        );
     }
     assert!(
         !s.join("app/Session.vim").exists(),
@@ -97,7 +102,8 @@ fn hydration_carries_what_the_config_asks_for_and_nothing_else() {
 #[test]
 fn members_are_detached_at_their_own_main_branch() {
     let f = Fixture::new();
-    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"]).ok();
+    f.wt(&["new", "proj-1", "--repo", "app", "--repo", "lib"])
+        .ok();
     let s = f.session("proj-1");
 
     assert_eq!(
@@ -145,7 +151,13 @@ fn direnv_still_loads_the_workspace_environment() {
 
     for dir in [s.clone(), s.join("app")] {
         let out = std::process::Command::new("direnv")
-            .args(["exec", &dir.display().to_string(), "sh", "-c", "echo $FROM_WORKSPACE"])
+            .args([
+                "exec",
+                &dir.display().to_string(),
+                "sh",
+                "-c",
+                "echo $FROM_WORKSPACE",
+            ])
             .env("HOME", f.env_var("HOME"))
             .env("XDG_DATA_HOME", f.env_var("XDG_DATA_HOME"))
             .env("XDG_CONFIG_HOME", f.env_var("XDG_CONFIG_HOME"))
@@ -177,8 +189,11 @@ fn the_workspace_can_come_from_the_environment_instead() {
     let f = Fixture::new();
     f.write_config("");
     f.wt(&["ls"]).failed_with("no workspace to mirror");
-    f.wt_with(&["ls"], &[("WT_WORKSPACE", &f.workspace.display().to_string())])
-        .ok();
+    f.wt_with(
+        &["ls"],
+        &[("WT_WORKSPACE", &f.workspace.display().to_string())],
+    )
+    .ok();
 }
 
 #[test]

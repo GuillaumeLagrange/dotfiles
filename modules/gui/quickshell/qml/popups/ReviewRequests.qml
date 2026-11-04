@@ -21,9 +21,21 @@ ClickPanel {
 
     // The picker's tabs, in its order.
     readonly property var tabs: [
-        { key: "requested", label: "Needs your review", empty: "Nothing awaits your review" },
-        { key: "reviewed", label: "Reviewed", empty: "Nothing reviewed in the last 14 days" },
-        { key: "mine", label: "My PRs", empty: "You have no open pull request" }
+        {
+            key: "requested",
+            label: "Needs your review",
+            empty: "Nothing awaits your review"
+        },
+        {
+            key: "reviewed",
+            label: "Reviewed",
+            empty: "Nothing reviewed in the last 14 days"
+        },
+        {
+            key: "mine",
+            label: "My PRs",
+            empty: "You have no open pull request"
+        }
     ]
     // Kept by the service: the last one picked, on every screen.
     readonly property string tab: Reviews.tab
@@ -134,7 +146,9 @@ ClickPanel {
                 text: Reviews.refreshing ? "refreshing" : Reviews.fetchedAt > 0 ? `updated ${root.age(Reviews.fetchedAt)} ago` : "never fetched"
                 color: Theme.faint
                 font.family: Theme.ui
-                font.features: { "tnum": 1 }
+                font.features: {
+                    "tnum": 1
+                }
                 font.pixelSize: 10
             }
 
@@ -323,7 +337,9 @@ ClickPanel {
                                 color: seg.ink
                                 opacity: 0.7
                                 font.family: Theme.ui
-                                font.features: { "tnum": 1 }
+                                font.features: {
+                                    "tnum": 1
+                                }
                                 font.pixelSize: 10
                             }
                         }
@@ -506,7 +522,11 @@ ClickPanel {
                                 if (!card.open)
                                     t += `  ${card.pr.state.toLowerCase()}`;
                                 else if (!card.pr.listed)
-                                    t += { requested: "  not requested", reviewed: "  not reviewed", mine: "  not yours" }[root.tab];
+                                    t += {
+                                        requested: "  not requested",
+                                        reviewed: "  not reviewed",
+                                        mine: "  not yours"
+                                    }[root.tab];
                                 return t;
                             }
                             color: Theme.faint
@@ -559,7 +579,9 @@ ClickPanel {
                                 text: `+${card.pr.additions}`
                                 color: Theme.green
                                 font.family: Theme.ui
-                                font.features: { "tnum": 1 }
+                                font.features: {
+                                    "tnum": 1
+                                }
                                 font.pixelSize: 11
                             }
 
@@ -567,7 +589,9 @@ ClickPanel {
                                 text: `-${card.pr.deletions}`
                                 color: Theme.red
                                 font.family: Theme.ui
-                                font.features: { "tnum": 1 }
+                                font.features: {
+                                    "tnum": 1
+                                }
                                 font.pixelSize: 11
                             }
 
@@ -575,7 +599,9 @@ ClickPanel {
                                 text: root.age(card.pr.updated_at)
                                 color: Theme.faint
                                 font.family: Theme.ui
-                                font.features: { "tnum": 1 }
+                                font.features: {
+                                    "tnum": 1
+                                }
                                 font.pixelSize: 11
                             }
                         }

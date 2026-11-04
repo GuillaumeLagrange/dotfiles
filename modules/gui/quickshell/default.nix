@@ -1,7 +1,12 @@
 { ... }:
 {
   flake.modules.homeManager.quickshell =
-    { pkgs, config, lib, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     let
       quickshell = pkgs.unstable.quickshell;
 
@@ -41,7 +46,11 @@
       # one. See bt-pair.py.
       btPair = pkgs.writers.writePython3Bin "bt-pair" {
         libraries = [ pkgs.python3Packages.dbus-fast ];
-        flakeIgnore = [ "E501" "F722" "F821" ];
+        flakeIgnore = [
+          "E501"
+          "F722"
+          "F821"
+        ];
       } (builtins.readFile ./bt-pair.py);
 
       # Qt's `TextMetrics.tightBoundingRect` clamps a glyph's ink box to the
@@ -49,27 +58,29 @@
       # reports a box that is too tall and centres too high. The real outline
       # bounds come from the font, in em fractions so they hold at any size, for
       # the ~2k glyphs where Qt is wrong; every other glyph keeps Qt's box.
-      inkTable = pkgs.runCommand "glyph-ink.json" { nativeBuildInputs = [ pkgs.python3Packages.fonttools ]; } ''
-        python3 - <<'EOF' > $out
-        import json
-        from fontTools.ttLib import TTFont
-        from fontTools.pens.boundsPen import BoundsPen
+      inkTable =
+        pkgs.runCommand "glyph-ink.json" { nativeBuildInputs = [ pkgs.python3Packages.fonttools ]; }
+          ''
+            python3 - <<'EOF' > $out
+            import json
+            from fontTools.ttLib import TTFont
+            from fontTools.pens.boundsPen import BoundsPen
 
-        font = TTFont("${pkgs.nerd-fonts.hack}/share/fonts/truetype/NerdFonts/Hack/HackNerdFontPropo-Regular.ttf")
-        upem = font["head"].unitsPerEm
-        glyphs = font.getGlyphSet()
-        ink = {}
-        for cp, name in font.getBestCmap().items():
-            pen = BoundsPen(glyphs)
-            glyphs[name].draw(pen)
-            if not pen.bounds:
-                continue
-            _, y0, _, y1 = pen.bounds
-            if y0 > 0 or y1 < 0:
-                ink["%x" % cp] = [round(y0 / upem, 4), round(y1 / upem, 4)]
-        print(json.dumps(ink, separators=(",", ":")))
-        EOF
-      '';
+            font = TTFont("${pkgs.nerd-fonts.hack}/share/fonts/truetype/NerdFonts/Hack/HackNerdFontPropo-Regular.ttf")
+            upem = font["head"].unitsPerEm
+            glyphs = font.getGlyphSet()
+            ink = {}
+            for cp, name in font.getBestCmap().items():
+                pen = BoundsPen(glyphs)
+                glyphs[name].draw(pen)
+                if not pen.bounds:
+                    continue
+                _, y0, _, y1 = pen.bounds
+                if y0 > 0 or y1 < 0:
+                    ink["%x" % cp] = [round(y0 / upem, 4), round(y1 / upem, 4)]
+            print(json.dumps(ink, separators=(",", ":")))
+            EOF
+          '';
 
       # nf-md-* codepoints live above the BMP; `glyph` handles the surrogate pair.
       glyphs = {
@@ -199,7 +210,25 @@
             readonly property string btPair: "${btPair}/bin/bt-pair"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
             // Mod+Shift+\, spawned through niri so it runs in the same environment as the bind.
-            readonly property var review: ${builtins.toJSON ([ "${pkgs.niri}/bin/niri" "msg" "action" "spawn" "--" ] ++ lib.splitString " " config.term ++ [ "-e" "zsh" "-i" "-c" "review" ])}
+            readonly property var review: ${
+              builtins.toJSON (
+                [
+                  "${pkgs.niri}/bin/niri"
+                  "msg"
+                  "action"
+                  "spawn"
+                  "--"
+                ]
+                ++ lib.splitString " " config.term
+                ++ [
+                  "-e"
+                  "zsh"
+                  "-i"
+                  "-c"
+                  "review"
+                ]
+              )
+            }
             // A PR's URL is appended: no picker, so no terminal; `review` opens or focuses the view.
             readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--pr"]
             // One of my PRs: its URL and branch are appended; `review` opens the session holding the branch.

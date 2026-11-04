@@ -95,13 +95,17 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
         return;
     }
     let f = Fixture::new();
-    f.wt(&["new", "proj-tabs", "--repo", "app", "--repo", "lib"]).ok();
+    f.wt(&["new", "proj-tabs", "--repo", "app", "--repo", "lib"])
+        .ok();
 
     with_env(&f, || {
         let session = load("proj-tabs");
         let _live = Live("proj-tabs".into());
 
-        assert!(!zellij::is_live("proj-tabs").unwrap(), "nothing should be up yet");
+        assert!(
+            !zellij::is_live("proj-tabs").unwrap(),
+            "nothing should be up yet"
+        );
         zellij::start_detached("proj-tabs", &session.path).unwrap();
         assert!(zellij::is_live("proj-tabs").unwrap());
         assert!(
@@ -127,7 +131,10 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
         // What the whole session-root mechanism comes down to: the server carries it,
         // so every pane it ever starts inherits it whatever directory it is in.
         let root = server_env("proj-tabs", zellij::ROOT_VAR);
-        assert_eq!(root.as_deref(), Some(session.path.display().to_string().as_str()));
+        assert_eq!(
+            root.as_deref(),
+            Some(session.path.display().to_string().as_str())
+        );
     });
 }
 
@@ -170,7 +177,10 @@ fn tabs_are_only_added_for_members_that_have_none() {
         // And one whose tab was closed comes back.
         let docs = tab_for("proj-idem", "docs");
         zellij::close_tab("proj-idem", docs.tab_id).unwrap();
-        assert_eq!(zellij::untabbed(&session).unwrap(), vec!["docs".to_string()]);
+        assert_eq!(
+            zellij::untabbed(&session).unwrap(),
+            vec!["docs".to_string()]
+        );
 
         f.wt(&["sync", "proj-idem"]).ok().says("`docs` has no tab");
         f.wt(&["sync", "proj-idem", "--fix"]).ok();
@@ -186,7 +196,8 @@ fn tabs_follow_the_configured_order() {
     }
     let f = Fixture::new();
     f.configure(&["lib", "docs", "app"], None);
-    f.wt(&["new", "proj-order", "--repo", "app", "--repo", "lib"]).ok();
+    f.wt(&["new", "proj-order", "--repo", "app", "--repo", "lib"])
+        .ok();
     let order = ["lib", "docs", "app"].map(String::from);
 
     with_env(&f, || {
@@ -418,7 +429,13 @@ fn tab_repos(session: &str) -> Vec<String> {
     let mut tabs = zellij::tabs(session).unwrap_or_default();
     tabs.sort_by_key(|t| t.position);
     tabs.into_iter()
-        .map(|t| t.name.split_whitespace().last().unwrap_or_default().to_string())
+        .map(|t| {
+            t.name
+                .split_whitespace()
+                .last()
+                .unwrap_or_default()
+                .to_string()
+        })
         .collect()
 }
 

@@ -138,7 +138,9 @@ PopupPanel {
                     text: cell.modelData.kind === "wday" ? cell.modelData.label : cell.modelData.kind === "wknum" ? cell.modelData.num : (cell.modelData.day ?? "")
                     font.family: Theme.ui
                     font.pixelSize: cell.modelData.kind === "day" ? 12 : 10
-                    font.features: { "tnum": 1 }
+                    font.features: {
+                        "tnum": 1
+                    }
                     font.weight: cell.modelData.kind === "wday" || (cell.modelData.today === true && !cell.modelData.other) ? Font.DemiBold : Font.Normal
                     color: {
                         if (cell.modelData.kind === "wday" || cell.modelData.kind === "wknum")

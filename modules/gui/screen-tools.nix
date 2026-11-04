@@ -7,11 +7,9 @@
       # Push recording state into the bar. The state is explicit at each call
       # site because the start push happens before wl-screenrec is up, so probing
       # for the process would still read "off".
-      barRecording =
-        state: text:
-        ''
-          ${quickshell}/bin/qs -c bar ipc call recorder set ${state} ${lib.escapeShellArg text} 2>/dev/null || true
-        '';
+      barRecording = state: text: ''
+        ${quickshell}/bin/qs -c bar ipc call recorder set ${state} ${lib.escapeShellArg text} 2>/dev/null || true
+      '';
       # nf-fa-circle rather than U+23FA: the plain Unicode symbol sits low
       # against the nerd-font glyphs in the neighbouring pills.
       barRecOn = barRecording "true" "${builtins.fromJSON ''"\uf111"''} REC";

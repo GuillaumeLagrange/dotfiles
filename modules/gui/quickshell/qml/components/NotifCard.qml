@@ -126,7 +126,9 @@ Rectangle {
                             color: Theme.faint
                             font.family: Theme.ui
                             font.pixelSize: 10
-                            font.features: { "tnum": 1 }
+                            font.features: {
+                                "tnum": 1
+                            }
                         }
                     }
 

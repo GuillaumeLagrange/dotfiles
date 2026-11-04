@@ -20,7 +20,9 @@ require('blink.cmp').setup({
     menu = {
       auto_show = function(_, items)
         for _, item in ipairs(items) do
-          if item.source_id ~= 'buffer' then return true end
+          if item.source_id ~= 'buffer' then
+            return true
+          end
         end
         return false
       end,

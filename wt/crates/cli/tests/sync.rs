@@ -18,7 +18,10 @@ fn the_workspaces_nvim_session_stays_out_of_the_mirror() {
     f.wt(&["new", "proj-1", "--repo", "app"]).ok();
 
     assert!(
-        f.session("proj-1").join("Session.vim").symlink_metadata().is_err(),
+        f.session("proj-1")
+            .join("Session.vim")
+            .symlink_metadata()
+            .is_err(),
         "Session.vim was mirrored"
     );
     f.wt(&["sync", "proj-1"]).ok().says("clean");
@@ -53,7 +56,9 @@ fn a_repo_cloned_after_the_session_joins_the_mirror() {
     std::fs::create_dir_all(f.path("tool")).unwrap();
     f.git("tool", &["init", "-q", "-b", "main"]);
 
-    f.wt(&["sync", "proj-1"]).ok().says("mirror is missing `tool`");
+    f.wt(&["sync", "proj-1"])
+        .ok()
+        .says("mirror is missing `tool`");
     f.wt(&["sync", "proj-1", "--fix"]).ok();
     assert!(f
         .session("proj-1")
@@ -90,7 +95,9 @@ fn a_worktree_deleted_by_hand_is_pruned_and_relinked() {
     let s = f.session("proj-1");
     std::fs::remove_dir_all(s.join("app")).unwrap();
 
-    f.wt(&["sync", "proj-1"]).ok().says("still records a worktree");
+    f.wt(&["sync", "proj-1"])
+        .ok()
+        .says("still records a worktree");
     f.wt(&["sync", "proj-1", "--fix"]).ok();
     // The path stays valid: the member becomes a link to the main checkout again.
     assert!(s.join("app").symlink_metadata().unwrap().is_symlink());

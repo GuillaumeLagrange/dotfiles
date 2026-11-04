@@ -88,7 +88,9 @@ ClickPanel {
                         color: Theme.dim
                         font.family: Theme.ui
                         font.pixelSize: 11
-                        font.features: { "tnum": 1 }
+                        font.features: {
+                            "tnum": 1
+                        }
                     }
                 }
 

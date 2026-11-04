@@ -44,19 +44,19 @@ skip_confirm=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -n|--dry-run)
+    -n | --dry-run)
       dry_run=true
       shift
       ;;
-    -v|--verbose)
+    -v | --verbose)
       verbose=true
       shift
       ;;
-    -y|--yes)
+    -y | --yes)
       skip_confirm=true
       shift
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;

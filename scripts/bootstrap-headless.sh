@@ -34,8 +34,8 @@ if command -v nix >/dev/null 2>&1; then
   log "Nix already installed: $(nix --version)"
 else
   log "Installing Nix via the Determinate Systems installer..."
-  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
-    | sh -s -- install --no-confirm
+  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix |
+    sh -s -- install --no-confirm
 fi
 
 # Make nix available in the current shell session (the installer adds it to

@@ -128,7 +128,11 @@ impl Fixture {
     /// non-interactively, exporting whatever an rc file is meant to have exported.
     pub fn stub_shell(&self, name: &str, exports: &str) -> String {
         let path = self.root.join(name);
-        std::fs::write(&path, format!("#!/bin/sh\n{exports}shift   # -i\nexec sh \"$@\"\n")).unwrap();
+        std::fs::write(
+            &path,
+            format!("#!/bin/sh\n{exports}shift   # -i\nexec sh \"$@\"\n"),
+        )
+        .unwrap();
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         path.display().to_string()

@@ -53,7 +53,9 @@ fn have(tool: &str) -> bool {
 }
 
 fn tools() -> bool {
-    ["zellij", "jq", "script", "git", "cargo"].iter().all(|t| have(t))
+    ["zellij", "jq", "script", "git", "cargo"]
+        .iter()
+        .all(|t| have(t))
 }
 
 /// The dotfiles' own wt, built once per run: review relies on commands the
@@ -65,8 +67,17 @@ static WT: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
         .arg(&manifest)
         .output()
         .unwrap();
-    assert!(out.status.success(), "building wt: {}", String::from_utf8_lossy(&out.stderr));
-    manifest.parent().unwrap().join("target/debug/wt").canonicalize().unwrap()
+    assert!(
+        out.status.success(),
+        "building wt: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    manifest
+        .parent()
+        .unwrap()
+        .join("target/debug/wt")
+        .canonicalize()
+        .unwrap()
 });
 
 fn write_exe(path: &Path, body: &str) {
@@ -106,8 +117,14 @@ impl Fixture {
         std::fs::create_dir_all(&bin).unwrap();
         std::fs::create_dir_all(&log).unwrap();
         let log_s = log.display();
-        write_exe(&bin.join("zellij-attach"), &format!("echo \"$*\" >> {log_s}/attach\n"));
-        write_exe(&bin.join("notify-send"), &format!("echo \"$*\" >> {log_s}/notify\n"));
+        write_exe(
+            &bin.join("zellij-attach"),
+            &format!("echo \"$*\" >> {log_s}/attach\n"),
+        );
+        write_exe(
+            &bin.join("notify-send"),
+            &format!("echo \"$*\" >> {log_s}/notify\n"),
+        );
         write_exe(
             &bin.join("gh"),
             &format!(
@@ -119,17 +136,28 @@ impl Fixture {
             ),
         );
         let mux_name = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mux-name.sh");
-        write_exe(&bin.join("mux-name"), &format!("exec bash {} \"$@\"\n", mux_name.display()));
+        write_exe(
+            &bin.join("mux-name"),
+            &format!("exec bash {} \"$@\"\n", mux_name.display()),
+        );
         std::os::unix::fs::symlink(&*WT, bin.join("wt")).unwrap();
 
         let sh = String::from_utf8(
-            Command::new("sh").args(["-c", "command -v sh"]).output().unwrap().stdout,
+            Command::new("sh")
+                .args(["-c", "command -v sh"])
+                .output()
+                .unwrap()
+                .stdout,
         )
         .unwrap();
         env.push(("SHELL".into(), sh.trim().to_owned()));
         env.push((
             "PATH".into(),
-            format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default()),
+            format!(
+                "{}:{}",
+                bin.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
         ));
         for (var, value) in [
             ("GIT_CONFIG_GLOBAL", "/dev/null"),
@@ -178,7 +206,10 @@ impl Fixture {
             f.write(&format!("ws/{repo}/README.md"), "# readme\n");
             f.git(&dir, &["add", "-A"]);
             f.git(&dir, &["commit", "-qm", "init"]);
-            f.git(&dir, &["remote", "add", "origin", &remote.display().to_string()]);
+            f.git(
+                &dir,
+                &["remote", "add", "origin", &remote.display().to_string()],
+            );
             f.git(&dir, &["push", "-q", "origin", "main"]);
             // Only on the remote, as a PR's branch is before its first checkout.
             f.git(&dir, &["switch", "-qc", branch]);
@@ -210,7 +241,16 @@ impl Fixture {
         self.git(&src, &["push", "-q", &remote.display().to_string(), "main"]);
 
         let app = self.ws().join("app");
-        self.git(&app, &["submodule", "add", "-q", &remote.display().to_string(), "sub"]);
+        self.git(
+            &app,
+            &[
+                "submodule",
+                "add",
+                "-q",
+                &remote.display().to_string(),
+                "sub",
+            ],
+        );
         self.git(&app, &["commit", "-qm", "sub"]);
         self.git(&app, &["push", "-q", "origin", "main"]);
         self.git(&app, &["switch", "-qc", "feature", "origin/feature"]);
@@ -242,7 +282,12 @@ impl Fixture {
     }
 
     fn git(&self, dir: &Path, args: &[&str]) -> String {
-        let out = self.command("git").current_dir(dir).args(args).output().unwrap();
+        let out = self
+            .command("git")
+            .current_dir(dir)
+            .args(args)
+            .output()
+            .unwrap();
         assert!(
             out.status.success(),
             "git {args:?} in {}: {}",
@@ -253,7 +298,12 @@ impl Fixture {
     }
 
     fn wt(&self, args: &[&str]) {
-        let out = self.command("wt").current_dir(self.ws()).args(args).output().unwrap();
+        let out = self
+            .command("wt")
+            .current_dir(self.ws())
+            .args(args)
+            .output()
+            .unwrap();
         assert!(
             out.status.success(),
             "wt {args:?}: {}",
@@ -377,7 +427,10 @@ impl Fixture {
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = self.command("zellij").args(["kill-all-sessions", "--yes"]).output();
+        let _ = self
+            .command("zellij")
+            .args(["kill-all-sessions", "--yes"])
+            .output();
         let _ = self
             .command("zellij")
             .args(["delete-all-sessions", "--yes", "--force"])
@@ -413,7 +466,11 @@ fn mine_goes_to_the_wt_session_holding_the_branch() {
     assert!(app[0].active, "the app tab is selected: {tabs:?}");
     assert_eq!(f.log("attach"), "--focus feat\n");
     assert_eq!(f.log("gh"), "", "nothing is checked out");
-    assert_eq!(f.branch(&f.ws().join("app")), "main", "the main checkout is untouched");
+    assert_eq!(
+        f.branch(&f.ws().join("app")),
+        "main",
+        "the main checkout is untouched"
+    );
 }
 
 #[test]
@@ -435,9 +492,15 @@ fn mine_opens_the_repo_tab_a_wt_session_lacks() {
     assert_ok(&f.review(&["--mine", URL, "feature"]));
 
     let tabs = f.tabs_seen("feat");
-    let app = tabs.iter().find(|t| t.is_for("app")).unwrap_or_else(|| panic!("{tabs:?}"));
+    let app = tabs
+        .iter()
+        .find(|t| t.is_for("app"))
+        .unwrap_or_else(|| panic!("{tabs:?}"));
     assert!(app.active, "{tabs:?}");
-    assert!(tabs.iter().any(|t| t.is_for("lib")), "the other member's tab stays: {tabs:?}");
+    assert!(
+        tabs.iter().any(|t| t.is_for("lib")),
+        "the other member's tab stays: {tabs:?}"
+    );
     assert_eq!(f.cwds("feat", app.id), [worktree.display().to_string()]);
 }
 
@@ -453,7 +516,11 @@ fn mine_checks_the_branch_out_in_the_main_session() {
     let app = f.ws().join("app");
     assert_eq!(f.branch(&app), "feature");
     let tabs = f.tabs_seen("main");
-    assert_eq!(tabs.len(), 1, "the fresh session's startup tab is replaced: {tabs:?}");
+    assert_eq!(
+        tabs.len(),
+        1,
+        "the fresh session's startup tab is replaced: {tabs:?}"
+    );
     assert!(tabs[0].is_for("app") && tabs[0].active, "{tabs:?}");
     assert_eq!(f.cwds("main", tabs[0].id), [app.display().to_string()]);
     assert_eq!(f.log("attach"), "--focus main\n");
@@ -468,7 +535,10 @@ fn mine_reuses_the_main_session_tab() {
     let f = Fixture::new();
     assert_ok(&f.review(&["--mine", URL, "feature"]));
     assert_ok(&f.review(&["--mine", "https://github.com/acme/lib/pull/8", "fix"]));
-    assert!(f.tabs_seen("main").iter().any(|t| t.is_for("lib") && t.active));
+    assert!(f
+        .tabs_seen("main")
+        .iter()
+        .any(|t| t.is_for("lib") && t.active));
 
     assert_ok(&f.review(&["--mine", URL, "feature"]));
 
@@ -490,10 +560,20 @@ fn mine_leaves_a_dirty_checkout_alone() {
 
     assert_eq!(f.branch(&f.ws().join("app")), "main");
     assert_eq!(f.log("gh"), "");
-    assert!(f.log("notify").contains("uncommitted changes"), "{}", f.log("notify"));
-    assert_eq!(std::fs::read_to_string(f.ws().join("app/README.md")).unwrap(), "# edited\n");
+    assert!(
+        f.log("notify").contains("uncommitted changes"),
+        "{}",
+        f.log("notify")
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.ws().join("app/README.md")).unwrap(),
+        "# edited\n"
+    );
     let tabs = f.tabs_seen("main");
-    assert!(tabs.iter().any(|t| t.is_for("app") && t.active), "the tab still opens: {tabs:?}");
+    assert!(
+        tabs.iter().any(|t| t.is_for("app") && t.active),
+        "the tab still opens: {tabs:?}"
+    );
 }
 
 #[test]
@@ -507,7 +587,11 @@ fn pr_opens_its_tab_in_the_reviews_session() {
     assert_ok(&f.review(&["--pr", URL]));
 
     let tabs = f.tabs("reviews");
-    assert_eq!(tabs.len(), 1, "the fresh session's startup tab is the PR's: {tabs:?}");
+    assert_eq!(
+        tabs.len(),
+        1,
+        "the fresh session's startup tab is the PR's: {tabs:?}"
+    );
     assert_eq!(tabs[0].name, "app#7");
     assert_eq!(f.log("attach"), "--focus reviews\n");
 }
@@ -528,8 +612,16 @@ fn mine_fails_when_zellij_cannot_start_the_session() {
     let run = f.review(&["--mine", URL, "feature"]);
 
     assert_ne!(run.status, 0);
-    assert!(f.log("notify").contains("could not start"), "{}", f.log("notify"));
-    assert_eq!(f.log("attach"), "", "no window on a session review could not lay out");
+    assert!(
+        f.log("notify").contains("could not start"),
+        "{}",
+        f.log("notify")
+    );
+    assert_eq!(
+        f.log("attach"),
+        "",
+        "no window on a session review could not lay out"
+    );
 }
 
 #[test]
@@ -547,7 +639,11 @@ fn mine_checks_out_over_a_submodule_at_another_commit() {
 
     assert_eq!(f.log("notify"), "");
     assert_eq!(f.branch(&f.ws().join("app")), "feature");
-    assert_eq!(f.git(&sub, &["rev-parse", "HEAD"]), two, "the submodule is updated");
+    assert_eq!(
+        f.git(&sub, &["rev-parse", "HEAD"]),
+        two,
+        "the submodule is updated"
+    );
 }
 
 #[test]
@@ -562,6 +658,13 @@ fn mine_leaves_edits_inside_a_submodule_alone() {
     assert_ok(&f.review(&["--mine", URL, "feature"]));
 
     assert_eq!(f.branch(&f.ws().join("app")), "main");
-    assert!(f.log("notify").contains("uncommitted changes"), "{}", f.log("notify"));
-    assert_eq!(std::fs::read_to_string(f.ws().join("app/sub/one")).unwrap(), "edited");
+    assert!(
+        f.log("notify").contains("uncommitted changes"),
+        "{}",
+        f.log("notify")
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.ws().join("app/sub/one")).unwrap(),
+        "edited"
+    );
 }

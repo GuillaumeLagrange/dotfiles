@@ -83,7 +83,9 @@ impl Config {
             .unwrap_or_else(|| DEFAULT_HYDRATE.iter().map(|s| s.to_string()).collect());
 
         let main_session = file.main_session.unwrap_or_else(|| {
-            let name = workspace.file_name().map(|n| n.to_string_lossy().into_owned());
+            let name = workspace
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned());
             format!("{}-main", name.as_deref().unwrap_or("workspace"))
         });
 

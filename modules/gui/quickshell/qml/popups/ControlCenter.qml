@@ -471,7 +471,9 @@ ClickPanel {
                 font.family: Theme.ui
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                font.features: { "tnum": 1 }
+                font.features: {
+                    "tnum": 1
+                }
             }
         }
     }

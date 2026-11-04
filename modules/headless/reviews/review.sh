@@ -50,26 +50,26 @@ repo_of() {
 }
 
 case "${1:-}" in
---pr)
-  kind=review
-  url=${2:?review: --pr needs a URL}
-  repo=$(repo_of "$url")
-  ;;
---mine)
-  kind=mine
-  url=${2:?review: --mine needs a URL}
-  branch=${3:?review: --mine needs a branch}
-  repo=$(repo_of "$url")
-  ;;
-*)
-  out=$(mktemp)
-  reviews --out "$out" "$@" || {
+  --pr)
+    kind=review
+    url=${2:?review: --pr needs a URL}
+    repo=$(repo_of "$url")
+    ;;
+  --mine)
+    kind=mine
+    url=${2:?review: --mine needs a URL}
+    branch=${3:?review: --mine needs a branch}
+    repo=$(repo_of "$url")
+    ;;
+  *)
+    out=$(mktemp)
+    reviews --out "$out" "$@" || {
+      rm -f -- "$out"
+      exit 0
+    }
+    IFS=$'\t' read -r kind repo url branch <"$out"
     rm -f -- "$out"
-    exit 0
-  }
-  IFS=$'\t' read -r kind repo url branch <"$out"
-  rm -f -- "$out"
-  ;;
+    ;;
 esac
 
 act() {

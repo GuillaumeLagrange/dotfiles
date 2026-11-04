@@ -18,7 +18,8 @@ EVENTS = {
 def query(cmd):
     result = subprocess.run(
         ["niri", "msg", "--json", cmd],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return json.loads(result.stdout)
 
@@ -28,27 +29,27 @@ def output():
     windows = query("windows")
 
     focused_ws = next(
-        (ws for ws in workspaces
-         if ws.get("is_active") and ws.get("output") == OUTPUT_NAME),
+        (
+            ws
+            for ws in workspaces
+            if ws.get("is_active") and ws.get("output") == OUTPUT_NAME
+        ),
         None,
     )
     if focused_ws is None:
-        print(json.dumps({"text": "", "tooltip": "", "class": "empty"}),
-              flush=True)
+        print(json.dumps({"text": "", "tooltip": "", "class": "empty"}), flush=True)
         return
 
     ws_id = focused_ws["id"]
     active_window_id = focused_ws.get("active_window_id")
     ws_windows = [w for w in windows if w.get("workspace_id") == ws_id]
     ws_windows.sort(
-        key=lambda w: ((w.get("layout") or {})
-                       .get("pos_in_scrolling_layout") or [0])[0]
+        key=lambda w: ((w.get("layout") or {}).get("pos_in_scrolling_layout") or [0])[0]
     )
 
     count = len(ws_windows)
     if count == 0:
-        print(json.dumps({"text": "", "tooltip": "", "class": "empty"}),
-              flush=True)
+        print(json.dumps({"text": "", "tooltip": "", "class": "empty"}), flush=True)
         return
 
     dots = []
@@ -60,8 +61,10 @@ def output():
 
     text = " ".join(dots)
     tooltip = f"{count} window{'s' if count != 1 else ''}"
-    print(json.dumps({"text": text, "tooltip": tooltip,
-                      "class": "has-windows"}), flush=True)
+    print(
+        json.dumps({"text": text, "tooltip": tooltip, "class": "has-windows"}),
+        flush=True,
+    )
 
 
 proc = subprocess.Popen(

@@ -35,10 +35,31 @@ Rectangle {
     }
 
     readonly property var segments: [
-        { glyph: Config.glyph.disk, color: Theme.purple, level: root.diskPct, tip: Sys.disk.tooltip },
-        { glyph: Config.glyph.cpu, color: Theme.yellow, level: parseInt(Sys.cpu.usage), tip: Sys.cpu.tooltip },
-        { glyph: Config.glyph.ram, color: Theme.blue, level: root.memPct, tip: Sys.memswap.tooltip },
-        { glyph: root.charging ? Config.glyph.batCharging : root.batteryPct >= 67 ? Config.glyph.batHigh : root.batteryPct >= 34 ? Config.glyph.batMedium : Config.glyph.batLow, color: root.charging ? Theme.green : root.batteryPct <= 15 ? Theme.red : Theme.fg, level: root.batteryPct, text: `${root.batteryPct}%`, tip: root.batteryTip }
+        {
+            glyph: Config.glyph.disk,
+            color: Theme.purple,
+            level: root.diskPct,
+            tip: Sys.disk.tooltip
+        },
+        {
+            glyph: Config.glyph.cpu,
+            color: Theme.yellow,
+            level: parseInt(Sys.cpu.usage),
+            tip: Sys.cpu.tooltip
+        },
+        {
+            glyph: Config.glyph.ram,
+            color: Theme.blue,
+            level: root.memPct,
+            tip: Sys.memswap.tooltip
+        },
+        {
+            glyph: root.charging ? Config.glyph.batCharging : root.batteryPct >= 67 ? Config.glyph.batHigh : root.batteryPct >= 34 ? Config.glyph.batMedium : Config.glyph.batLow,
+            color: root.charging ? Theme.green : root.batteryPct <= 15 ? Theme.red : Theme.fg,
+            level: root.batteryPct,
+            text: `${root.batteryPct}%`,
+            tip: root.batteryTip
+        }
     ].filter(s => s.text === undefined || root.battery.isLaptopBattery)
 
     implicitWidth: row.implicitWidth

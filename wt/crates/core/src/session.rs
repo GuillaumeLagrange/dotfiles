@@ -137,8 +137,7 @@ impl Session {
         let dir = file.parent().expect("marker path has a parent");
         std::fs::create_dir_all(dir)
             .with_context(|| format!("failed to create {}", dir.display()))?;
-        std::fs::write(&file, "")
-            .with_context(|| format!("failed to write {}", file.display()))
+        std::fs::write(&file, "").with_context(|| format!("failed to write {}", file.display()))
     }
 
     /// Whether a rebuild was asked for, clearing the request: acting on it twice

@@ -45,9 +45,7 @@ impl Drift {
             Self::MirrorLinkDangling { name } => {
                 format!("`{name}` links to something that no longer exists")
             }
-            Self::SessionEnvrcStale => {
-                ".envrc is not the one wt generates for a session".into()
-            }
+            Self::SessionEnvrcStale => ".envrc is not the one wt generates for a session".into(),
             Self::DirenvNotAllowed => "direnv has not been allowed here".into(),
             Self::MarkerMissing => format!("{} is missing", session::MARKER),
             Self::TabMissing { repo } => format!("`{repo}` has no tab in the zellij session"),
@@ -145,7 +143,6 @@ pub fn detect(cfg: &Config, session: &Session) -> Result<Vec<Drift>> {
             drift.push(Drift::TabMissing { repo });
         }
     }
-
 
     for repo in workspace::repo_names(cfg)? {
         let repo_path = cfg.workspace.join(&repo);

@@ -192,7 +192,9 @@ PopupPanel {
                                     text: Media.format(row.position)
                                     color: Theme.dim
                                     font.family: Theme.ui
-                                    font.features: { "tnum": 1 }
+                                    font.features: {
+                                        "tnum": 1
+                                    }
                                     font.pixelSize: 10
                                 }
 
@@ -231,7 +233,9 @@ PopupPanel {
                                     text: Media.format(row.length)
                                     color: Theme.dim
                                     font.family: Theme.ui
-                                    font.features: { "tnum": 1 }
+                                    font.features: {
+                                        "tnum": 1
+                                    }
                                     font.pixelSize: 10
                                 }
                             }

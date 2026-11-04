@@ -29,7 +29,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 use crate::github::{self, Cache, Checks, Decision, Lists, Pr, Query, Snapshot, State};
 use crate::kitty;
 use crate::markdown::{self, ImageState};
-use crate::stacks::{stale, stacks, Place, Row, STALE_DAYS};
+use crate::stacks::{stacks, stale, Place, Row, STALE_DAYS};
 
 pub const ACCENT: Color = Color::Blue;
 pub const DIM: Style = Style::new().fg(Color::DarkGray);

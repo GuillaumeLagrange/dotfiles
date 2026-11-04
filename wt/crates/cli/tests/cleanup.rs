@@ -14,7 +14,9 @@ fn rm_refuses_while_a_member_still_holds_work() {
     f.wt(&["rm", "proj-1"]).failed_with("still holds work");
     assert!(s.is_dir(), "the session was removed anyway");
 
-    f.wt(&["rm", "proj-1", "--force"]).ok().says("removed proj-1");
+    f.wt(&["rm", "proj-1", "--force"])
+        .ok()
+        .says("removed proj-1");
     assert!(!s.exists());
 }
 
@@ -43,7 +45,10 @@ fn rm_never_follows_a_mirror_symlink() {
 
     // The link pointed at the main checkout: unlinking it must not have reached
     // through to what it pointed at.
-    assert!(f.path("docs/README.md").is_file(), "the main checkout lost files");
+    assert!(
+        f.path("docs/README.md").is_file(),
+        "the main checkout lost files"
+    );
     assert!(f.path("app/README.md").is_file());
     assert_eq!(f.git("app", &["branch", "--list", "proj-*"]), "");
 }

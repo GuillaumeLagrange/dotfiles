@@ -88,7 +88,9 @@ def find(wss, name):
         if ws["name"] == name:
             return ws, False
     output = next(ws for ws in wss if ws["is_focused"])["output"]
-    blank = [ws for ws in wss if ws["output"] == output and ws["name"] is None and empty(ws)]
+    blank = [
+        ws for ws in wss if ws["output"] == output and ws["name"] is None and empty(ws)
+    ]
     return max(blank, key=lambda ws: ws["idx"]), True
 
 
@@ -127,7 +129,12 @@ def tidy(assign, seen):
                 if new:
                     action("SetWorkspaceName", name=name, workspace=ref(target))
                 if window["workspace_id"] != target["id"]:
-                    action("MoveWindowToWorkspace", window_id=window["id"], reference=ref(target), focus=False)
+                    action(
+                        "MoveWindowToWorkspace",
+                        window_id=window["id"],
+                        reference=ref(target),
+                        focus=False,
+                    )
                 break
     seen.intersection_update(w["id"] for w in windows)
 
@@ -174,7 +181,9 @@ def main(args):
             move(name)
         case ["sort"]:
             sort()
-        case ["watch", *rest] if all(a.startswith("--assign=") and "=" in a[9:] for a in rest):
+        case ["watch", *rest] if all(
+            a.startswith("--assign=") and "=" in a[9:] for a in rest
+        ):
             return watch([tuple(a[9:].rsplit("=", 1)) for a in rest])
         case _:
             print(__doc__, file=sys.stderr)

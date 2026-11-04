@@ -13,9 +13,11 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
     let reg = Registry::open_raw(cfg)?;
     let id = match id {
         Some(needle) => cmd::resolve_id(&reg, needle)?,
-        None => wt_core::session::current(&reg)?
-            .ok_or_else(|| anyhow::anyhow!("not in a session"))?
-            .id,
+        None => {
+            wt_core::session::current(&reg)?
+                .ok_or_else(|| anyhow::anyhow!("not in a session"))?
+                .id
+        }
     };
     let session = Session::from_registry(&reg, &id)?;
     anyhow::ensure!(

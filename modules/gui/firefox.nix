@@ -1,6 +1,11 @@
 {
   flake.modules.homeManager.firefox =
-    { pkgs, lib, config, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     {
       options.firefox = {
         package = lib.mkOption {

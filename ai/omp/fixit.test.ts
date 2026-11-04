@@ -34,7 +34,9 @@ function load() {
 const held = () => spawnSync("flock", ["-n", lockFile, "true"]).status !== 0;
 // Waits for the lock to be released, as another omp would.
 const freed = () =>
-	new Promise<boolean>((resolve) => spawn("flock", ["-w", "5", lockFile, "true"]).once("exit", (code) => resolve(code === 0)));
+	new Promise<boolean>((resolve) =>
+		spawn("flock", ["-w", "5", lockFile, "true"]).once("exit", (code) => resolve(code === 0)),
+	);
 
 // Another fixit omp: holds the lock until its stdin closes.
 async function other(name: string): Promise<ChildProcess> {

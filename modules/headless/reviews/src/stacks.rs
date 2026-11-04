@@ -33,7 +33,10 @@ pub fn stale(prs: &[Pr], i: usize, now: u64) -> bool {
         None => old(pr),
         Some(stack) => prs
             .iter()
-            .filter(|p| p.repo_full == pr.repo_full && p.stack.as_ref().is_some_and(|s| s.number == stack.number))
+            .filter(|p| {
+                p.repo_full == pr.repo_full
+                    && p.stack.as_ref().is_some_and(|s| s.number == stack.number)
+            })
             .all(old),
     }
 }

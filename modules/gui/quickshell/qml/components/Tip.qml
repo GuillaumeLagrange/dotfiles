@@ -23,7 +23,9 @@ BubbleWindow {
         horizontalAlignment: root.text.includes("\n") ? Text.AlignLeft : Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         font.family: Theme.ui
-        font.features: { "tnum": 1 }
+        font.features: {
+            "tnum": 1
+        }
         font.pixelSize: 11
         textFormat: Text.PlainText
     }

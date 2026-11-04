@@ -286,13 +286,21 @@ pub fn build_strip(
     let covered = |px: i64| blocks.iter().any(|b| b.x <= px && px < b.x + b.w);
     let mut frame_end = frame_x + SCREEN_PX;
     if !covered(frame_end - 1) {
-        let end = blocks.iter().map(|b| b.x + b.w).filter(|&e| e > frame_x && e < frame_end).max();
+        let end = blocks
+            .iter()
+            .map(|b| b.x + b.w)
+            .filter(|&e| e > frame_x && e < frame_end)
+            .max();
         if let Some(end) = end.filter(|&e| frame_end - e <= SEP_PX) {
             frame_end = end;
         }
     }
     if !covered(frame_x) {
-        let start = blocks.iter().map(|b| b.x).filter(|&s| s > frame_x && s < frame_end).min();
+        let start = blocks
+            .iter()
+            .map(|b| b.x)
+            .filter(|&s| s > frame_x && s < frame_end)
+            .min();
         if let Some(start) = start.filter(|&s| s - frame_x <= SEP_PX) {
             frame_x = start;
         }
@@ -664,7 +672,11 @@ mod tests {
 
     #[test]
     fn thumb_places_the_screen_within_the_whole_workspace() {
-        assert_eq!(build(&row(2), 1).thumb, None, "an uncropped strip is the whole workspace");
+        assert_eq!(
+            build(&row(2), 1).thumb,
+            None,
+            "an uncropped strip is the whole workspace"
+        );
         let columns = row(12);
         let (x, w) = build(&columns, 1).thumb.unwrap();
         assert_eq!(x, 0);
