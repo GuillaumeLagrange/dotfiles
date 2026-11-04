@@ -5,6 +5,11 @@ crates := "wt modules/gui/niri-state modules/gui/quickshell/tests modules/headle
 # Lint and test everything
 check: lint test
 
+# Install the pre-commit hooks of .pre-commit-config.yaml (prek)
+hooks:
+    git config --unset core.hooksPath || true
+    prek install
+
 # Every linter, read-only
 lint: lint-nix lint-lua lint-rust
 

@@ -81,6 +81,7 @@ actually launches it:
 - **flake.nix**: Main Nix flake configuration defining system inputs, outputs, and configurations
 - **README.md**: Basic usage instructions for NixOS and Home Manager configurations
 - **justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter
+- **.pre-commit-config.yaml**: pre-commit hooks run by prek (`just hooks` installs them): each language's formatter on the staged files, then `cargo fmt` and clippy for each crate the commit touches. A hook that rewrites a file fails the commit; stage the result. Force-added: the global gitignore excludes the file name
 
 ### Hosts Configuration (`hosts/`)
 

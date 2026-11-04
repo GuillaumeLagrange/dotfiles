@@ -680,7 +680,7 @@ mod tests {
         let columns = row(12);
         let (x, w) = build(&columns, 1).thumb.unwrap();
         assert_eq!(x, 0);
-        assert!(w >= 2 && w < MAX_PX);
+        assert!((2..MAX_PX).contains(&w));
         let (x, w) = build(&columns, 12).thumb.unwrap();
         assert_eq!(x + w, MAX_PX);
         let (mid, _) = build(&columns, 6).thumb.unwrap();

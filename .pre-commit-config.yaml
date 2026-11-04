@@ -1,0 +1,64 @@
+# Run by prek (`just hooks` installs it): formatters on the staged files, then each touched
+# crate's clippy. A formatter that rewrites a file fails the commit; stage the result.
+# Skip with `git commit --no-verify`.
+repos:
+  - repo: local
+    hooks:
+      - id: nixfmt
+        name: nixfmt
+        entry: nixfmt
+        language: system
+        files: \.nix$
+      - id: stylua
+        name: stylua
+        entry: stylua
+        language: system
+        files: ^nvim/.*\.lua$
+      - id: ruff-format
+        name: ruff format
+        entry: nix run nixpkgs#ruff -- format
+        language: system
+        files: \.py$
+      - id: shfmt
+        name: shfmt
+        entry: nix run nixpkgs#shfmt -- -w -i 2 -ci
+        language: system
+        files: \.sh$
+      - id: qmlformat
+        name: qmlformat
+        entry: nix shell nixpkgs#qt6.qtdeclarative -c qmlformat -i
+        language: system
+        files: \.qml$
+      - id: biome-format
+        name: biome format
+        entry: nix run nixpkgs#biome -- format --write --line-width 120
+        language: system
+        files: \.ts$
+
+      - &rust
+        id: rust-wt
+        name: wt (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' wt
+        language: system
+        files: ^wt/
+        pass_filenames: false
+      - <<: *rust
+        id: rust-niri-state
+        name: niri-state (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/gui/niri-state
+        files: ^modules/gui/niri-state/
+      - <<: *rust
+        id: rust-quickshell-tests
+        name: quickshell tests (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/gui/quickshell/tests
+        files: ^modules/gui/quickshell/tests/
+      - <<: *rust
+        id: rust-omp-panel
+        name: omp-panel (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/headless/omp-panel
+        files: ^modules/headless/omp-panel/
+      - <<: *rust
+        id: rust-reviews
+        name: reviews (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/headless/reviews
+        files: ^modules/headless/reviews/
