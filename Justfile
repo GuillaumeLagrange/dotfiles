@@ -8,11 +8,15 @@ check: lint test
 # Every linter, read-only
 lint: lint-nix lint-lua lint-rust
 
-# Rewrite files the linters would complain about
-fmt:
-    git ls-files -z '*.nix' | xargs -0 nixfmt
+# Rewrite every file with its language's formatter
+format:
+    git ls-files -z '*.nix' | xargs -0r nixfmt
     stylua nvim
     for crate in {{ crates }}; do (cd "$crate" && cargo fmt); done
+    git ls-files -z '*.py' | xargs -0r nix run nixpkgs#ruff -- format
+    git ls-files -z '*.sh' | xargs -0r nix run nixpkgs#shfmt -- -w -i 2 -ci
+    git ls-files -z '*.qml' | xargs -0r nix shell nixpkgs#qt6.qtdeclarative -c qmlformat -i
+    git ls-files -z '*.ts' | xargs -0r nix run nixpkgs#biome -- format --write --line-width 120
 
 lint-nix:
     git ls-files -z '*.nix' | xargs -0 nixfmt --check
