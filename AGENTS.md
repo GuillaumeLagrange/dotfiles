@@ -92,6 +92,14 @@ Personal systems configuration:
 - Desktop/workstation configuration
 - Files: `configuration.nix`, `default.nix`, `hardware-configuration.nix`
 
+#### `hosts/snakewater/`
+
+- Personal gaming/dev desktop: Ryzen 7800X3D, RTX 4080 (proprietary driver, open kernel module, LTS kernel
+  so the out-of-tree module builds), Sunshine server (KMS capture, NVENC)
+- Same disk layout as granary: LUKS2 partition `snakewater-crypt` unlocked by the TPM alone (PCR 7, secure
+  boot through lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`, ESP `snakewater-esp`
+- No work tooling: does not import the `codspeed` NixOS module (1Password, Oneleet)
+
 #### `hosts/gullywash/`
 
 - Server configuration with ZFS storage

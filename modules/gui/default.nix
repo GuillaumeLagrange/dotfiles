@@ -148,6 +148,17 @@
               }
             ];
           };
+          snakewater = {
+            HostName = "snakewater.local";
+            ForwardAgent = true;
+            User = "guillaume";
+            RemoteForward = [
+              {
+                host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
+                bind.address = "/run/user/1000/gnupg/S.gpg-agent";
+              }
+            ];
+          };
           "*" = {
             AddKeysToAgent = "yes";
             SetEnv = {
