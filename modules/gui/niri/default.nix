@@ -337,7 +337,11 @@
 
           gestures {
             hot-corners {
-              off
+              top-left
+              // Patched in (patch.nix): the pointer has to rest in the corner, and is kept
+              // from sliding onto the left output within 50 px of it.
+              delay-ms 150
+              barrier 50
             }
           }
 
