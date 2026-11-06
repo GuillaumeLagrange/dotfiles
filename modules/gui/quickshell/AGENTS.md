@@ -25,7 +25,8 @@ qml/
                 power profile), Notifs (the notification server, dnd, history), Net
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (the picker's
                 tabs of PRs and their stacks, from `reviews --json`), Yubikey
-                (yubikey-touch-detector's socket).
+                (yubikey-touch-detector's socket), TrayOrder (the tray's drawer
+                and pinned icons, in order).
   bar/          Bar.qml plus one file per widget.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
                 Bluetooth, Volume, ReviewRequests.
@@ -207,7 +208,16 @@ widen into the applet icons while the pointer is on the pill. The icons live in
 the bar window itself, so hovering into them never crosses a gap and no second
 surface has to stay alive under the pointer. It is gated by a `HoverGate` at
 200ms each way - the pill sits between others, so without a dwell it flicks
-open on every pointer that passes over it.
+open on every pointer that passes over it. Icons are dragged to reorder them,
+in the drawer (the recessed box) or among the pins beside it, and across its
+edge to pin or unpin them (`services/TrayOrder.qml`, by SNI id, in
+`~/.local/state/quickshell/tray-order.json`); clicks stay the app's. While
+dragging, the others already stand where the drop leaves them, and the target
+is read off that layout: crossing a neighbour's centre swaps the two, crossing
+the box's edge changes section, and each step moves what it was measured
+against away from the pointer, so the order never flickers. Places are
+offsets from the right edge: the bar is right-anchored, so the drawer opening
+leftwards never moves a pin.
 
 **Panels are placed by the bar's geometry, not by the compositor.** The pill's
 position is sampled with `mapToItem` when the panel opens, since mapping
