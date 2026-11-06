@@ -178,11 +178,6 @@
       programs.steam = {
         enable = true;
         extest.enable = true;
-        # niri sends frame callbacks to a window it does not show once a second, so a GL
-        # swap of a hidden Steam window (the friends list on another workspace) blocks
-        # CEF's single GPU process: every Steam window, overlay included, then repaints
-        # about once a second. Rendering the web views on the CPU has no such swap.
-        package = pkgs.steam.override { extraArgs = "-cef-disable-gpu"; };
       };
 
       nixpkgs.config.allowUnfree = true;
