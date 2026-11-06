@@ -7,6 +7,7 @@ use anyhow::Result;
 use serde::Serialize;
 
 use crate::github::{Cache, Checks, Decision, Pr, Query, State};
+use crate::linear::Issue;
 use crate::stacks::{self, stacks, Place, Row};
 
 #[derive(Serialize)]
@@ -60,6 +61,7 @@ enum FeedRow<'a> {
         avatar: Option<String>,
         decision: Option<Decision>,
         checks: Option<Checks>,
+        linear: &'a [Issue],
     },
 }
 
@@ -106,6 +108,7 @@ fn row<'a>(cache: &Cache, prs: &'a [Pr], row: Row) -> FeedRow<'a> {
                 avatar,
                 decision: pr.decision,
                 checks: pr.checks,
+                linear: &pr.linear,
             }
         }
     }

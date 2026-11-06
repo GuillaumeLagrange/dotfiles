@@ -116,6 +116,7 @@ pub mod tests {
             avatar_url: None,
             decision: None,
             checks: None,
+            linear: Vec::new(),
         }
     }
 

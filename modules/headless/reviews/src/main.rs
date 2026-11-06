@@ -14,6 +14,7 @@
 mod feed;
 mod github;
 mod kitty;
+mod linear;
 mod markdown;
 mod stacks;
 mod tui;

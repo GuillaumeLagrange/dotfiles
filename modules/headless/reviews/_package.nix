@@ -5,6 +5,7 @@
   makeWrapper,
   gh,
   curl,
+  cargoTools,
 }:
 
 rustPlatform.buildRustPackage {
@@ -27,6 +28,7 @@ rustPlatform.buildRustPackage {
       lib.makeBinPath [
         gh
         curl
+        cargoTools.linear
       ]
     }
   '';

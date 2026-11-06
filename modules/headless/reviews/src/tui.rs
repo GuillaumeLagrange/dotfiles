@@ -28,6 +28,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::github::{self, Cache, Checks, Decision, Lists, Pr, Query, Snapshot, State};
 use crate::kitty;
+use crate::linear::Issue;
 use crate::markdown::{self, ImageState};
 use crate::stacks::{stacks, stale, Place, Row, STALE_DAYS};
 
@@ -169,6 +170,17 @@ fn decision_span(decision: Option<Decision>) -> Option<Span<'static>> {
     ))
 }
 
+/// Colored by the state's category, as Linear's icons are.
+fn issue_style(issue: &Issue) -> Style {
+    let color = match issue.kind.as_str() {
+        "started" => Color::Yellow,
+        "completed" => Color::Blue,
+        "canceled" => Color::DarkGray,
+        _ => Color::Gray,
+    };
+    Style::new().fg(color)
+}
+
 /// Frame of a spinner turning with the clock; the event loop redraws every 100ms.
 fn spinner() -> char {
     const FRAMES: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -231,8 +243,17 @@ impl App {
             .filter(|&(i, _)| self.show_stale || !stale(prs, i, now))
             .filter(|(_, pr)| {
                 let hay = format!(
-                    "{} {}#{} {} {}",
-                    pr.title, pr.repo, pr.number, pr.author, pr.branch
+                    "{} {}#{} {} {} {}",
+                    pr.title,
+                    pr.repo,
+                    pr.number,
+                    pr.author,
+                    pr.branch,
+                    pr.linear
+                        .iter()
+                        .map(|i| i.identifier.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ")
                 )
                 .to_lowercase();
                 terms.iter().all(|t| hay.contains(t))
@@ -537,7 +558,7 @@ impl App {
                 n => format!("a show {n} stale · "),
             };
             Line::styled(
-                format!("enter checkout · shift+enter open · tab switch · / filter · {stale_hint}r refresh · j/k move · ^d/^u scroll · q quit"),
+                format!("enter checkout · shift+enter open · i linear · tab switch · / filter · {stale_hint}r refresh · j/k move · ^d/^u scroll · q quit"),
                 DIM,
             )
         };
@@ -691,6 +712,10 @@ impl App {
             }
             State::Open => {}
         }
+        for issue in &pr.linear {
+            sub.push(Span::raw("  "));
+            sub.push(Span::styled(issue.identifier.clone(), issue_style(issue)));
+        }
         frame.render_widget(
             Paragraph::new(vec![
                 Line::styled(truncate(&pr.title, width.saturating_sub(1)), title_style),
@@ -751,9 +776,24 @@ impl App {
             pr.title.clone(),
             Style::new().add_modifier(Modifier::BOLD),
         )];
+        let issues: Vec<Vec<Span<'static>>> = pr
+            .linear
+            .iter()
+            .map(|issue| {
+                vec![
+                    Span::styled(
+                        issue.identifier.clone(),
+                        issue_style(issue).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(format!(" {} ", issue.state), issue_style(issue)),
+                    Span::raw(issue.title.clone()),
+                ]
+            })
+            .collect();
         let mut lines: Vec<Line<'static>> = markdown::wrap(&title, width)
             .into_iter()
             .chain(markdown::wrap(&meta, width))
+            .chain(issues.iter().flat_map(|spans| markdown::wrap(spans, width)))
             .map(Line::from)
             .collect();
         lines.push(Line::raw(""));
@@ -1224,6 +1264,7 @@ fn event_loop(
                 let _ = poke.send(());
             }
             KeyCode::Char('o') => open_web(app.selected_pr()),
+            KeyCode::Char('i') => open_issues(app.selected_pr()),
             KeyCode::Char('a') => {
                 app.show_stale = !app.show_stale;
                 app.settle();
@@ -1237,6 +1278,17 @@ fn open_web(pr: Option<&Pr>) {
     if let Some(pr) = pr {
         let _ = Command::new("gh")
             .args(["pr", "view", "--web", &pr.url])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+    }
+}
+
+fn open_issues(pr: Option<&Pr>) {
+    for issue in pr.map_or(&[][..], |pr| &pr.linear) {
+        let _ = Command::new("linear")
+            .args(["issue", "view", "--web", &issue.url])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())

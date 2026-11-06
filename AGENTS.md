@@ -170,6 +170,10 @@ Server/headless system configuration:
   I reviewed updated in the last 14 days, merged/closed included, and my own open ones (three concurrent
   `gh api graphql` searches). PRs not updated in 60 days are hidden until `a` shows them; a stack shows whole
   as long as one member is fresh (`stacks::stale`).
+  Each PR carries the Linear issues linked to it (`src/linear.rs`): one `linear api` request per list asks
+  `attachmentsForURL` for every PR URL, the link Linear's GitHub integration records, so it holds whatever the
+  branch is named. Linear failing or absent leaves them out. The picker shows their identifiers by state, the
+  issues in the description pane, `i` opens them; the bar's cards show them too, and both filters match them.
   The description pane renders GitHub markdown itself (`src/markdown.rs`: tables, alerts, task lists, the
   HTML of templates) with images drawn inline; uploads are fetched through the signed URLs of the PR's
   `bodyHTML`. List, avatars and images cached in `~/.cache/reviews/`; the `reviews-refresh` user timer runs

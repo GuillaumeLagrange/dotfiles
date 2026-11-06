@@ -11,6 +11,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::linear::{self, Issue};
+
 const QUERY: &str = r#"
 fragment Fields on PullRequest {
   number title url body state isDraft updatedAt headRefName additions deletions changedFiles
@@ -98,6 +100,9 @@ pub struct Pr {
     /// standing; not the pull request's review decision.
     pub decision: Option<Decision>,
     pub checks: Option<Checks>,
+    /// Linear issues linked to it; empty when Linear could not be asked.
+    #[serde(default)]
+    pub linear: Vec<Issue>,
 }
 
 /// The searches, each a tab of the picker. Separate requests, not one query:
@@ -355,6 +360,7 @@ impl Node {
             avatar_url,
             decision,
             checks,
+            linear: Vec::new(),
         }
     }
 }
@@ -580,9 +586,13 @@ fn collect(nodes: Vec<Node>, me: &str) -> Vec<Pr> {
     prs
 }
 
+/// A search's pull requests with their Linear issues. Linear failing, or its
+/// CLI missing, leaves them without.
 pub fn fetch(query: Query) -> Result<Vec<Pr>> {
     let data: Data = graphql(QUERY, &[("q", query.search())])?;
-    Ok(collect(data.search.nodes, &data.viewer.login))
+    let mut prs = collect(data.search.nodes, &data.viewer.login);
+    let _ = linear::attach(&mut prs);
+    Ok(prs)
 }
 
 /// Fetch every list and cache them, for the picker to open on.

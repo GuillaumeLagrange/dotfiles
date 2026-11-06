@@ -53,7 +53,7 @@ ClickPanel {
     function visibleRows(): var {
         if (find.query === "")
             return root.rows;
-        return find.filter(root.rows.filter(r => r.kind !== "stack"), pr => `${pr.title} ${pr.repo} #${pr.number} ${pr.author}`);
+        return find.filter(root.rows.filter(r => r.kind !== "stack"), pr => `${pr.title} ${pr.repo} #${pr.number} ${pr.author} ${(pr.linear ?? []).map(i => i.identifier).join(" ")}`);
     }
 
     // As in the picker: the PRs asked of me, and open members of their stacks.
@@ -123,6 +123,20 @@ ClickPanel {
             return Theme.yellow;
         default:
             return Theme.grey;
+        }
+    }
+
+    // As the picker colors them, by the state's category.
+    function issueColor(kind: string): color {
+        switch (kind) {
+        case "started":
+            return Theme.yellow;
+        case "completed":
+            return Theme.blue;
+        case "canceled":
+            return Theme.grey;
+        default:
+            return Theme.dim;
         }
     }
 
@@ -603,6 +617,20 @@ ClickPanel {
                                     "tnum": 1
                                 }
                                 font.pixelSize: 11
+                            }
+
+                            Repeater {
+                                model: card.pr.linear ?? []
+
+                                Text {
+                                    required property var modelData
+
+                                    text: modelData.identifier
+                                    color: root.issueColor(modelData.kind)
+                                    font.family: Theme.ui
+                                    font.pixelSize: 11
+                                    font.weight: Font.DemiBold
+                                }
                             }
                         }
                     }

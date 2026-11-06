@@ -23,13 +23,19 @@ fn url(repo: &str, number: u64) -> String {
     format!("https://github.com/acme/{repo}/pull/{number}")
 }
 
-/// Two PRs to review, a stack and a lone PR reviewed, two of mine.
+/// Two PRs to review, the first linked to a Linear issue, a stack and a lone
+/// PR reviewed, two of mine.
 fn reviews() -> Value {
+    let mut linked = pr(101, "app", "Speed up the parser", "alice", "alone", "fast");
+    linked["linear"] = json!([{
+        "identifier": "ENG-42", "title": "Parsing is slow", "state": "In Progress",
+        "kind": "started", "url": "https://linear.app/acme/issue/ENG-42"
+    }]);
     json!({
         "snapshot": "",
         "fetched_at": 1_700_000_000,
         "requested": tab(vec![
-            pr(101, "app", "Speed up the parser", "alice", "alone", "fast"),
+            linked,
             pr(102, "web", "Fix flaky login test", "bob", "alone", "flaky"),
         ]),
         "reviewed": tab(vec![
@@ -102,6 +108,17 @@ fn typing_filters_the_tab_and_escape_clears_before_closing() {
 
     s.key("Escape");
     s.wait_for("the panel to close", |st| st["open"] == false);
+}
+
+#[test]
+fn typing_a_linear_issue_finds_its_pr() {
+    let Some(s) = Session::start(&reviews()) else {
+        return;
+    };
+    open(&s);
+    s.wtype(&["ENG-42"]);
+    let st = s.wait_for("the query", |st| st["query"] == "ENG-42");
+    assert_eq!(st["matching"], json!([101]));
 }
 
 #[test]
