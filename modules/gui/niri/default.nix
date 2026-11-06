@@ -60,6 +60,9 @@
                 }"
                 position x=${toString monitor.position.x} y=${toString monitor.position.y}
                 ${lib.optionalString (monitor.scale != null) "scale ${toString monitor.scale}"}
+                ${lib.optionalString (monitor.sideStruts != null)
+                  "layout { struts { left ${toString monitor.sideStruts}; right ${toString monitor.sideStruts}; }; }"
+                }
             }
           '';
         in

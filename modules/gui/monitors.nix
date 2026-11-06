@@ -18,6 +18,7 @@
           defaultRefreshRate,
           defaultX,
           defaultY,
+          defaultSideStruts ? null,
         }:
         lib.types.submodule {
           options = {
@@ -36,6 +37,11 @@
             scale = lib.mkOption {
               type = lib.types.nullOr lib.types.float;
               default = null;
+            };
+            # niri struts on this output's left and right edges, added to the gaps there.
+            sideStruts = lib.mkOption {
+              type = lib.types.nullOr lib.types.int;
+              default = defaultSideStruts;
             };
             position = {
               x = lib.mkOption {
@@ -70,6 +76,8 @@
             defaultRefreshRate = 60;
             defaultX = laptopWidth;
             defaultY = 1440;
+            # Its always-on pixel orbiting pushes the 2px focus ring off the panel's side edges.
+            defaultSideStruts = 4;
           };
           default = { };
         };
