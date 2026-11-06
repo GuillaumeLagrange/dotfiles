@@ -107,6 +107,10 @@
 
           prefer-no-csd
 
+          hotkey-overlay {
+              skip-at-startup
+          }
+
           layout {
               gaps 2
               default-column-width { proportion 0.5; }
