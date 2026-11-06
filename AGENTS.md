@@ -195,6 +195,13 @@ Server/headless system configuration:
   them with (`--target=bpf`, `__TARGET_ARCH_*`, vmlinux.h from `libbpf/vmlinux.h`, libbpf headers)
 - GPG public key
 
+#### `modules/cargo-tools/`
+
+Rust CLIs nixpkgs lacks, which would otherwise be `cargo install`ed: one `_<name>.nix` each (today only
+`linear`, schpet's linear-cli), picked up by file name and exposed as `pkgs.cargoTools.<name>` and `.#<name>`.
+`just bump [NAME [VERSION]]` runs nix-update on them: latest release (crates.io or GitHub) and both hashes.
+Tools nixpkgs has are taken from `pkgs.unstable` instead.
+
 #### `modules/stockly/`
 
 Work-specific configurations:

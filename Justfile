@@ -40,3 +40,17 @@ test-rust:
 
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test
+
+# Move tools of modules/cargo-tools (all when none named) to their latest release, or NAME to VERSION
+bump *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Not stable's 1.15: it cannot read crates.io versions off fetchCrate's static.crates.io URLs
+    update() { nix run --inputs-from . nixpkgs-unstable#nix-update -- --flake --build "$@"; }
+    set -- {{ args }}
+    if [ $# -eq 2 ]; then
+        update --version "$2" "$1"
+        exit
+    fi
+    [ $# -gt 0 ] || set -- $(cd modules/cargo-tools && ls _*.nix | sed 's/^_//; s/\.nix$//')
+    for tool; do update "$tool"; done

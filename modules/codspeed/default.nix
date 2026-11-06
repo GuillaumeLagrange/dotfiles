@@ -67,6 +67,11 @@
         [
           awscli2
           pkgs.unstable.uv
+          cargoTools.linear
+          pkgs.unstable.cargo-cross
+          pkgs.unstable.cargo-insta
+          pkgs.unstable.cargo-release
+          pkgs.unstable.taws
         ]
         ++ lib.optionals stdenv.isLinux [
           (writeShellScriptBin "valgrind" ''

@@ -38,6 +38,7 @@
         [
           bear
           btop
+          pkgs.unstable.cargo-nextest
           compiledb
           fastfetch
           fd

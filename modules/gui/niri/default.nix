@@ -29,6 +29,8 @@
         niri
         xwayland-satellite
         workspaces
+        # secret-tool, through which CLIs such as linear reach gnome-keyring
+        libsecret
       ];
 
       # Numbered workspaces the sway way: see workspaces.py.
