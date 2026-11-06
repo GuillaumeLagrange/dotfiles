@@ -97,85 +97,93 @@
               fi
             }
 
-            # WORKSPACE_ROOT belongs to the session a pane is in, not to the
-            # directory it stands in, so `cd ~` must not send cdr back to the
-            # workspace. The multiplexer normally hands it down: zellij fixes a
-            # pane's environment when the server starts, and `wt` starts it with
-            # this in its own. A session attached any other way (`zellij attach`,
-            # the session-manager plugin, the welcome screen) starts a server that
-            # never saw it, and lands here instead — the session name is the
-            # registry key, so the value can be looked up.
-            if [[ -n "$ZELLIJ_SESSION_NAME" && ! -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" ]] &&
-                 (( $+commands[wt] )); then
-              _wt_root=$(wt path --exact "$ZELLIJ_SESSION_NAME" 2>/dev/null)
-              [[ -d "$_wt_root" ]] && export WORKSPACE_ROOT="$_wt_root"
-              unset _wt_root
-            fi
+          ''
+          (lib.mkIf config.work.enable
+            # zsh
+            ''
+              # WORKSPACE_ROOT belongs to the session a pane is in, not to the
+              # directory it stands in, so `cd ~` must not send cdr back to the
+              # workspace. The multiplexer normally hands it down: zellij fixes a
+              # pane's environment when the server starts, and `wt` starts it with
+              # this in its own. A session attached any other way (`zellij attach`,
+              # the session-manager plugin, the welcome screen) starts a server that
+              # never saw it, and lands here instead — the session name is the
+              # registry key, so the value can be looked up.
+              if [[ -n "$ZELLIJ_SESSION_NAME" && ! -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" ]] &&
+                   (( $+commands[wt] )); then
+                _wt_root=$(wt path --exact "$ZELLIJ_SESSION_NAME" 2>/dev/null)
+                [[ -d "$_wt_root" ]] && export WORKSPACE_ROOT="$_wt_root"
+                unset _wt_root
+              fi
 
-            # A new pane starts in the *resolved* cwd of the one it was opened
-            # from: zellij reads it from the process, and there is nothing to tell
-            # it otherwise (no OSC 7 support, and `default_cwd` overrides the cwd
-            # wholesale). Inside a session that lands us in the workspace, where
-            # `../<repo>` reaches the main checkout rather than the session, so
-            # walk back in through the mirror symlink that leads here.
-            if [[ -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" && "$PWD" != $WORKSPACE_ROOT* ]]; then
-              for _wt_link in "$WORKSPACE_ROOT"/*(@N); do
-                _wt_target=''${_wt_link:A}
-                if [[ "$PWD" == "$_wt_target" || "$PWD" == "$_wt_target"/* ]]; then
-                  builtin cd -- "$_wt_link''${PWD#$_wt_target}"
-                  break
-                fi
-              done
-              unset _wt_link _wt_target
-            fi
+              # A new pane starts in the *resolved* cwd of the one it was opened
+              # from: zellij reads it from the process, and there is nothing to tell
+              # it otherwise (no OSC 7 support, and `default_cwd` overrides the cwd
+              # wholesale). Inside a session that lands us in the workspace, where
+              # `../<repo>` reaches the main checkout rather than the session, so
+              # walk back in through the mirror symlink that leads here.
+              if [[ -f "''${WORKSPACE_ROOT:-/nonexistent}/.wt/session.json" && "$PWD" != $WORKSPACE_ROOT* ]]; then
+                for _wt_link in "$WORKSPACE_ROOT"/*(@N); do
+                  _wt_target=''${_wt_link:A}
+                  if [[ "$PWD" == "$_wt_target" || "$PWD" == "$_wt_target"/* ]]; then
+                    builtin cd -- "$_wt_link''${PWD#$_wt_target}"
+                    break
+                  fi
+                done
+                unset _wt_link _wt_target
+              fi
 
-            # The root everything is navigated relative to: a session directory
-            # when one encloses us, else whatever re-pointed WORKSPACE_ROOT (a
-            # session we are a pane of, a container, the workspace itself), else
-            # $HOME.
-            #
-            # The walk uses $PWD rather than the resolved path on purpose. A
-            # session reaches the repos it does not own through symlinks, so the
-            # resolved path of one of those leads out of the session while the
-            # path we walked in through still points at it.
-            workspace_root() {
-              local dir=$PWD
-              while [[ -n "$dir" && "$dir" != "/" ]]; do
-                if [[ -f "$dir/.wt/session.json" ]]; then
-                  print -r -- "$dir"
-                  return
-                fi
-                dir=''${dir:h}
-              done
-              print -r -- "''${WORKSPACE_ROOT:-$HOME}"
-            }
+              # The root everything is navigated relative to: a session directory
+              # when one encloses us, else whatever re-pointed WORKSPACE_ROOT (a
+              # session we are a pane of, a container, the workspace itself), else
+              # $HOME.
+              #
+              # The walk uses $PWD rather than the resolved path on purpose. A
+              # session reaches the repos it does not own through symlinks, so the
+              # resolved path of one of those leads out of the session while the
+              # path we walked in through still points at it.
+              workspace_root() {
+                local dir=$PWD
+                while [[ -n "$dir" && "$dir" != "/" ]]; do
+                  if [[ -f "$dir/.wt/session.json" ]]; then
+                    print -r -- "$dir"
+                    return
+                  fi
+                  dir=''${dir:h}
+                done
+                print -r -- "''${WORKSPACE_ROOT:-$HOME}"
+              }
 
-            # Rename the zellij tab after the repo. Only `cdr` does this: a chpwd
-            # hook that renamed on every `cd` clobbered hand-set tab names and was
-            # removed (e7ce169).
-            # The first path component falls back to the only directory whose name
-            # contains it, then to an fzf pick.
-            cdr() {
-              local root=$(workspace_root)
-              if (( $# == 0 )) || [[ -d "$root/$1" ]]; then
-                cd "$root/$@" || return
-              else
-                local first=''${1%%/*} rest= pick
-                [[ "$1" == */* ]] && rest=/''${1#*/}
-                local -a matches=( "$root"/*''${(b)first}*(-/N:t) )
-                if (( $#matches == 1 )); then
-                  pick=$matches[1]
+              # Rename the zellij tab after the repo. Only `cdr` does this: a chpwd
+              # hook that renamed on every `cd` clobbered hand-set tab names and was
+              # removed (e7ce169).
+              # The first path component falls back to the only directory whose name
+              # contains it, then to an fzf pick.
+              cdr() {
+                local root=$(workspace_root)
+                if (( $# == 0 )) || [[ -d "$root/$1" ]]; then
+                  cd "$root/$@" || return
                 else
-                  pick=$(print -rl -- "$root"/*(-/N:t) | ${pkgs.fzf}/bin/fzf --query="$first" \
-                    --prompt='repo> ' --height='40%' --reverse) || return
+                  local first=''${1%%/*} rest= pick
+                  [[ "$1" == */* ]] && rest=/''${1#*/}
+                  local -a matches=( "$root"/*''${(b)first}*(-/N:t) )
+                  if (( $#matches == 1 )); then
+                    pick=$matches[1]
+                  else
+                    pick=$(print -rl -- "$root"/*(-/N:t) | ${pkgs.fzf}/bin/fzf --query="$first" \
+                      --prompt='repo> ' --height='40%' --reverse) || return
+                  fi
+                  cd "$root/$pick$rest" || return
                 fi
-                cd "$root/$pick$rest" || return
-              fi
-              if [[ -n "$ZELLIJ" ]] && (( $+commands[mux-name] )); then
-                zellij action rename-tab "$(mux-name "$PWD")"
-              fi
-            }
-            compdef '_files -W "$(workspace_root)" -/' cdr
+                if [[ -n "$ZELLIJ" ]] && (( $+commands[mux-name] )); then
+                  zellij action rename-tab "$(mux-name "$PWD")"
+                fi
+              }
+              compdef '_files -W "$(workspace_root)" -/' cdr
+            ''
+          )
+          #zsh
+          ''
 
             # Fuzzy-pick a worktree of the current repo and cd into it. The
             # displayed line carries the path in a trailing tab-delimited field so

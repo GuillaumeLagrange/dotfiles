@@ -16,6 +16,7 @@
         imports = with self.modules.homeManager; [ guillaume ];
         # No refresh in the mode: niri then picks the highest one (240 Hz).
         monitors.mainHome.refreshRate = null;
+        work.enable = false;
       };
 
       boot.loader.efi.canTouchEfiVariables = true;

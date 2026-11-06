@@ -88,8 +88,12 @@ PanelWindow {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            ReviewsPill {
+            // Not loaded at all without work tooling, so the Reviews service never runs.
+            Loader {
                 Layout.alignment: Qt.AlignVCenter
+                active: Config.reviewsEnabled
+                visible: item?.shown ?? false
+                sourceComponent: ReviewsPill {}
             }
 
             ClaudePill {

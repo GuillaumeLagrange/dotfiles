@@ -34,7 +34,7 @@
           exec direnv exec "$dir" cargo install --path ${path} --locked
         '';
     in
-    {
+    lib.mkIf config.work.enable {
       programs.granted.enable = true;
 
       programs.git = {
@@ -89,34 +89,41 @@
 
   # Desktop additions on top of the headless tooling.
   flake.modules.homeManager.codspeed =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     {
       imports = [ self.modules.homeManager.codspeed-headless ];
 
-      programs.ssh = {
-        settings = {
-          "codspeeds-mac-mini*" = {
-            ForwardAgent = true;
-            User = "codspeed";
-            RemoteForward = [
-              {
-                host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
-                bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
-              }
-            ];
+      config = lib.mkIf config.work.enable {
+        programs.ssh = {
+          settings = {
+            "codspeeds-mac-mini*" = {
+              ForwardAgent = true;
+              User = "codspeed";
+              RemoteForward = [
+                {
+                  host.address = "/run/user/1000/gnupg/S.gpg-agent.extra";
+                  bind.address = "/Users/codspeed/.gnupg/S.gpg-agent";
+                }
+              ];
+            };
           };
         };
-      };
 
-      home.packages = with pkgs; [
-        kdePackages.kcachegrind
-        # SWT reads adw-gtk3 as a light theme under stylix's dark colors: dark text on dark bg
-        (dbeaver-bin.overrideAttrs (old: {
-          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ makeWrapper ];
-          postFixup = (old.postFixup or "") + ''
-            wrapProgram $out/bin/dbeaver --set GTK_THEME Adwaita:dark
-          '';
-        }))
-      ];
+        home.packages = with pkgs; [
+          kdePackages.kcachegrind
+          # SWT reads adw-gtk3 as a light theme under stylix's dark colors: dark text on dark bg
+          (dbeaver-bin.overrideAttrs (old: {
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ makeWrapper ];
+            postFixup = (old.postFixup or "") + ''
+              wrapProgram $out/bin/dbeaver --set GTK_THEME Adwaita:dark
+            '';
+          }))
+        ];
+      };
     };
 }

@@ -64,6 +64,6 @@
       # wt is workspace-agnostic and reads ~/.config/wt/config.toml, which is
       # maintained by hand: naming the repos it may touch describes a codebase, and
       # this repository is public.
-      config.home.packages = [ wt ];
+      config.home.packages = lib.mkIf config.work.enable [ wt ];
     };
 }

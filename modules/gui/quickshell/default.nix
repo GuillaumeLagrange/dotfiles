@@ -238,6 +238,7 @@
             readonly property var openUrl: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.xdg-utils}/bin/xdg-open"]
             // The pill's data (`--json`) and its refresh, from the picker's own binary.
             readonly property string reviews: "${lib.getExe reviews}"
+            readonly property bool reviewsEnabled: ${lib.boolToString config.work.enable}
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"
             readonly property string df: "${pkgs.coreutils}/bin/df"

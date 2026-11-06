@@ -255,19 +255,19 @@
         zellijAttach
         ompPanel
         ompFixit
-        review
-      ];
+      ]
+      ++ lib.optionals config.work.enable [ review ];
 
       # Keeps the reviews cache fresh so the picker opens on a recent list. Tied to the
       # graphical session: gh's token is in its keyring.
-      systemd.user.services.reviews-refresh = {
+      systemd.user.services.reviews-refresh = lib.mkIf config.work.enable {
         Unit.Description = "Refresh the reviews picker cache";
         Service = {
           Type = "oneshot";
           ExecStart = "${lib.getExe reviews} --refresh";
         };
       };
-      systemd.user.timers.reviews-refresh = {
+      systemd.user.timers.reviews-refresh = lib.mkIf config.work.enable {
         Unit = {
           Description = "Refresh the reviews picker cache every 5 minutes";
           PartOf = [ "graphical-session.target" ];

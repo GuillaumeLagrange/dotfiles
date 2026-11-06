@@ -98,7 +98,10 @@ Personal systems configuration:
   so the out-of-tree module builds), Sunshine server (KMS capture, NVENC)
 - Same disk layout as granary: LUKS2 partition `snakewater-crypt` unlocked by the TPM alone (PCR 7, secure
   boot through lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`, ESP `snakewater-esp`
-- No work tooling: does not import the `codspeed` NixOS module (1Password, Oneleet)
+- No work tooling: does not import the `codspeed` NixOS module (1Password, Oneleet), and sets the Home Manager
+  option `work.enable = false` (`modules/base/home-manager.nix`, on by default), which drops the codspeed Home
+  Manager modules, `wt` and `cdr`, the omp MCP servers of `ai/omp/mcp.json`, `review` with its refresh timer and
+  bar pill, the 1Password autostart and Slack
 
 #### `hosts/gullywash/`
 

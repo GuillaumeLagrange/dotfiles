@@ -93,7 +93,7 @@
               }
           }
 
-          spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"
+          ${lib.optionalString config.work.enable ''spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"''}
           spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
 
           switch-events {
@@ -135,7 +135,7 @@
               Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
               Super+Alt+L { spawn "${config.lock}"; }
               Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
-              Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "review"; }
+              ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "review"; }''}
               // omp-panel in its own floating window: Esc closes it, Enter goes to the omp.
               Mod+A { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }
               Mod+BackSpace { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }

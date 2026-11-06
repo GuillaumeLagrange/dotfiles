@@ -239,7 +239,8 @@ impl Session {
         Some(session)
     }
 
-    /// Points the copy's `reviews` at the stub and gives the reviews pill the probe.
+    /// Points the copy's `reviews` at the stub, loads the reviews pill even on a host
+    /// without work tooling, and gives it the probe.
     fn instrument(shell: &Path, reviews: &Path) {
         let config = shell.join("Config.qml");
         let text = std::fs::read_to_string(&config).unwrap();
@@ -258,6 +259,19 @@ impl Session {
                 "    readonly property string reviews: \"{}\"",
                 reviews.display()
             ),
+        );
+        let enabled = text
+            .lines()
+            .find(|l| {
+                l.trim_start()
+                    .starts_with("readonly property bool reviewsEnabled:")
+            })
+            .expect("Config.qml has no `reviewsEnabled`")
+            .to_owned();
+        splice(
+            &config,
+            &enabled,
+            "    readonly property bool reviewsEnabled: true",
         );
         splice(
             &shell.join("popups/ReviewRequests.qml"),

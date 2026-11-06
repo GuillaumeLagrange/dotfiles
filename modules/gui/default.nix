@@ -18,7 +18,12 @@
   };
 
   flake.modules.homeManager.gui =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     {
       imports = with self.modules.homeManager; [
         monitors
@@ -33,46 +38,48 @@
         niri
       ];
 
-      home.packages = with pkgs; [
-        btop
-        calibre
-        d-spy
-        ddcutil
-        discord
-        gnome-themes-extra
-        gnome-tweaks
-        libnotify
-        libreoffice
-        pavucontrol
-        playerctl
-        pomodoro-gtk
-        unstable.proton-pass
-        unstable.proton-vpn
-        qwerty-fr
-        signal-desktop
-        slack
-        # Spotify picks X11 whenever DISPLAY is set, and XWayland mis-scales on mixed-scale outputs
-        (symlinkJoin {
-          name = "spotify";
-          paths = [ spotify ];
-          nativeBuildInputs = [ makeWrapper ];
-          postBuild = ''
-            wrapProgram $out/bin/spotify --unset DISPLAY
-          '';
-        })
-        telegram-desktop
-        transmission-remote-gtk
-        transmission_4-gtk
-        vlc
-        wdisplays
-        wev
-        wireguard-tools
-        wl-clipboard
+      home.packages =
+        with pkgs;
+        [
+          btop
+          calibre
+          d-spy
+          ddcutil
+          discord
+          gnome-themes-extra
+          gnome-tweaks
+          libnotify
+          libreoffice
+          pavucontrol
+          playerctl
+          pomodoro-gtk
+          unstable.proton-pass
+          unstable.proton-vpn
+          qwerty-fr
+          signal-desktop
+          # Spotify picks X11 whenever DISPLAY is set, and XWayland mis-scales on mixed-scale outputs
+          (symlinkJoin {
+            name = "spotify";
+            paths = [ spotify ];
+            nativeBuildInputs = [ makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/spotify --unset DISPLAY
+            '';
+          })
+          telegram-desktop
+          transmission-remote-gtk
+          transmission_4-gtk
+          vlc
+          wdisplays
+          wev
+          wireguard-tools
+          wl-clipboard
 
-        adwaita-icon-theme
+          adwaita-icon-theme
 
-        obsidian
-      ];
+          obsidian
+        ]
+        ++ lib.optionals config.work.enable [ pkgs.slack ];
 
       home.file = {
         ".config/swappy/config" = {
