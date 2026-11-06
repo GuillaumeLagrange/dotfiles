@@ -163,6 +163,10 @@
       services.udev.packages = [
         pkgs.yubikey-personalization
       ];
+      # Keep the DualSense touchpad from moving the pointer (ArchWiki, Gamepad); games still get it.
+      services.udev.extraRules = ''
+        ATTRS{name}=="*Wireless Controller Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+      '';
       services.pcscd.enable = true;
 
       users.users.guillaume.extraGroups = [
