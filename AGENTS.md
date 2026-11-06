@@ -126,10 +126,12 @@ Desktop environment configuration:
 - Niri window manager setup
 - sway-like numbered workspaces (`modules/gui/niri/workspaces.py`, `niri-workspaces`): none is declared in the
   config; Mod+N / Mod+Shift+N run `niri-workspaces focus|move N`, which names an empty workspace of the focused
-  output N when N does not exist yet, and unnames an empty one left behind so niri removes it. The
+  output N when N does not exist yet and puts it in place before switching (so niri slides to it), and unnames an
+  empty one left behind so niri removes it. The
   `niri-workspaces` user service (`watch`) keeps them so for what niri's own actions do (Mod+J/K, opening a
-  window on an unnamed workspace, hotplug), sorts each output's numbers, and sends Signal/Spotify to 5
-  (`--assign`). It talks to niri's socket by id: `niri msg` reads a name like "1" as an index. Tests:
+  window on an unnamed workspace, hotplug), gives an output showing an unnamed workspace (at niri's start, or
+  once its last one moved to another output) the lowest free number, sorts each output's numbers, and sends
+  Signal/Spotify to 5 (`--assign`). It talks to niri's socket by id: `niri msg` reads a name like "1" as an index. Tests:
   `modules/gui/quickshell/tests/tests/workspaces.rs`.
 - niri stall tracing (`modules/gui/niri/stall-tracing.nix`, off since the ttm fix below: flip its `enable`), for stutters with no known trigger:
   `niri-stall.service` runs `niri-stall.bt` (bpftrace) and logs each niri event-loop iteration over 30 ms,

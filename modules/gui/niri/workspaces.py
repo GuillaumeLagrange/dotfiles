@@ -5,8 +5,9 @@ or is on screen, is unique across outputs, and is created where you go to it.
   niri-workspaces move N    send the focused column to N, creating it there
   niri-workspaces sort      put each output's named workspaces in order
   niri-workspaces watch [--assign APP_ID_REGEX=N]...
-      keep it so: drop the name of an empty workspace left behind, number an
-      unnamed one that gets a window, send new matching windows to N
+      keep it so: drop the name of an empty workspace left behind, give the
+      lowest free number to an unnamed one that gets a window or is shown,
+      send new matching windows to N
 
 Talks to niri's socket rather than `niri msg`, which reads "1" as an index.
 """
@@ -97,6 +98,11 @@ def find(wss, name):
 def focus(name):
     wss = workspaces()
     target, new = find(wss, name)
+    # Created and put in place before the switch: moving a workspace cancels
+    # niri's switch animation, so the switch then slides like to an old one.
+    if new:
+        action("SetWorkspaceName", name=name, workspace=ref(target))
+        sort()
     # Only what target replaces on its output is left; another output's stays shown.
     left = next(
         ws for ws in wss if ws["is_active"] and ws["output"] == target["output"]
@@ -105,9 +111,6 @@ def focus(name):
         # Unnamed before it is left, niri removes it on the switch.
         action("UnsetWorkspaceName", reference=ref(left))
     action("FocusWorkspace", reference=ref(target))
-    if new:
-        action("SetWorkspaceName", name=name, workspace=ref(target))
-        sort()
 
 
 def move(name):
@@ -141,12 +144,14 @@ def tidy(assign, seen):
                 break
     seen.intersection_update(w["id"] for w in windows)
 
-    wss = workspaces()
-    names = {ws["name"] for ws in wss if ws["name"] is not None}
-    for ws in sorted(wss, key=lambda ws: (ws["output"] or "", ws["idx"])):
+    wss = sorted(workspaces(), key=lambda ws: (ws["output"] or "", ws["idx"]))
+    for ws in wss:
         if ws["name"] is not None and empty(ws) and not ws["is_active"]:
             action("UnsetWorkspaceName", reference=ref(ws))
-        elif ws["name"] is None and not empty(ws):
+            ws["name"] = None
+    names = {ws["name"] for ws in wss if ws["name"] is not None}
+    for ws in wss:
+        if ws["name"] is None and (ws["is_active"] or not empty(ws)):
             name = next(str(i) for i in itertools.count(1) if str(i) not in names)
             names.add(name)
             action("SetWorkspaceName", name=name, workspace=ref(ws))

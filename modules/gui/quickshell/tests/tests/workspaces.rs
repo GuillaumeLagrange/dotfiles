@@ -1,5 +1,6 @@
 //! sway-like numbered workspaces: `niri-workspaces` and the bar's cells. niri
-//! starts with one unnamed workspace; numbers exist only once gone to.
+//! starts with one unnamed workspace; numbers exist only once gone to, or once
+//! the watcher names what an output shows.
 
 use quickshell_tests::Session;
 use serde_json::{json, Value};
@@ -162,6 +163,33 @@ fn the_watcher_drops_an_empty_number_left_by_other_means() {
 }
 
 #[test]
+fn the_watcher_numbers_what_each_output_shows() {
+    let Some(mut s) = Session::start_with_outputs(&reviews(), 2) else {
+        return;
+    };
+    s.spawn("niri-workspaces", &["watch"]);
+    s.wait_until("both outputs to show a number", || {
+        let mut names = numbers(&s);
+        names.sort();
+        names == ["1", "2"]
+    });
+
+    // The output left with nothing gets the lowest free number.
+    fill(&mut s, "1");
+    s.run("niri", &["msg", "action", "move-workspace-to-monitor-next"]);
+    s.wait_until("each output to show a number again", || {
+        let ws = workspaces(&s);
+        let mut names = numbers(&s);
+        names.sort();
+        names == ["1", "2"]
+            && ws
+                .iter()
+                .filter(|w| w["is_active"] == true)
+                .all(|w| w["name"].is_string())
+    });
+}
+
+#[test]
 fn an_empty_number_shown_on_another_output_stays() {
     let Some(mut s) = Session::start_with_outputs(&reviews(), 2) else {
         return;
@@ -205,10 +233,10 @@ fn the_watcher_sends_assigned_apps_to_their_number() {
         ws.iter()
             .any(|w| w["id"] == window["workspace_id"] && w["name"] == "5")
     });
-    // The window opened on an unnamed workspace, which the watcher may have
-    // numbered before moving the window off it; it unnames it once empty.
-    s.wait_until("only 5 to be left", || numbers(&s) == ["5"]);
-    assert_eq!(focused(&s), None, "focus stays on the unnamed workspace");
+    // The watcher named the workspace shown at its start 1, where the window
+    // opened before it moved it.
+    s.wait_until("only 1 and 5 to be left", || numbers(&s) == ["1", "5"]);
+    assert_eq!(focused(&s).as_deref(), Some("1"), "focus stays on 1");
 }
 
 #[test]
