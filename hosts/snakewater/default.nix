@@ -178,6 +178,8 @@
       programs.steam = {
         enable = true;
         extest.enable = true;
+        # XLM runs XIVLauncher in Steam's FHS env; it stores the password through libsecret.
+        extraPackages = [ pkgs.libsecret ];
       };
 
       nixpkgs.config.allowUnfree = true;
