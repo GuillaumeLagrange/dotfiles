@@ -214,6 +214,7 @@
         distrobox
         perf
         tpm2-tools
+        lutris
       ];
 
       boot.binfmt.emulatedSystems = [
