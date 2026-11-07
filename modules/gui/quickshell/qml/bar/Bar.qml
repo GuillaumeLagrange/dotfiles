@@ -125,4 +125,10 @@ PanelWindow {
             }
         }
     }
+
+    StartCorner {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+    }
 }

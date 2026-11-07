@@ -95,6 +95,16 @@ impl Session {
 
     /// As `start`, with `outputs` 1920x1080 outputs.
     pub fn start_with_outputs(reviews: &Value, outputs: u8) -> Option<Self> {
+        Self::boot(reviews, outputs, &[])
+    }
+
+    /// As `start`, with these desktop entries installed, by id and contents.
+    /// Their `Exec` can run `app`, a stub that records its arguments in `app.log`.
+    pub fn start_with_apps(reviews: &Value, apps: &[(&str, &str)]) -> Option<Self> {
+        Self::boot(reviews, 1, apps)
+    }
+
+    fn boot(reviews: &Value, outputs: u8, apps: &[(&str, &str)]) -> Option<Self> {
         let env_dir = TEST_ENV.as_deref()?;
         static N: AtomicUsize = AtomicUsize::new(0);
         // Short: the wayland socket path has to fit in a sockaddr_un.
@@ -129,6 +139,18 @@ impl Session {
             &root.join("bin/review"),
             &format!("printf '%s\\n' \"$*\" >> {}\n", p("review.log")),
         );
+        write_exe(
+            &root.join("bin/app"),
+            &format!("printf '%s\\n' \"$*\" >> {}\n", p("app.log")),
+        );
+        std::fs::create_dir_all(root.join("share/applications")).unwrap();
+        for (id, contents) in apps {
+            std::fs::write(
+                root.join(format!("share/applications/{id}.desktop")),
+                contents,
+            )
+            .unwrap();
+        }
 
         // The layout is pinned: niri would take the host's from localed.
         std::fs::write(
@@ -298,6 +320,21 @@ impl Session {
             shell.join("bar/WorkspacesProbe.qml"),
         )
         .unwrap();
+        splice(
+            &shell.join("popups/StartMenu.qml"),
+            "    property int cursor: -1\n",
+            "    property int cursor: -1\n    property alias probeQuery: find.query\n    property alias probeList: list\n    property alias probeGrid: grid\n",
+        );
+        splice(
+            &shell.join("bar/StartCorner.qml"),
+            "    StartMenu {\n        id: menu\n",
+            "    StartProbe {\n        menu: menu\n    }\n\n    StartMenu {\n        id: menu\n",
+        );
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("StartProbe.qml"),
+            shell.join("bar/StartProbe.qml"),
+        )
+        .unwrap();
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
@@ -334,6 +371,37 @@ impl Session {
     pub fn state(&self) -> Value {
         self.try_state()
             .unwrap_or_else(|| panic!("the probe did not answer\n{}", self.logs()))
+    }
+
+    /// The start menu's state: see StartProbe.qml.
+    pub fn start_menu(&self) -> Value {
+        let out = self
+            .command("qs")
+            .arg("-p")
+            .arg(self.path("shell"))
+            .args(["ipc", "call", "start", "state"])
+            .stdout(Stdio::piped())
+            .output()
+            .unwrap();
+        serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|_| panic!("the start probe did not answer\n{}", self.logs()))
+    }
+
+    /// Waits for the start menu to reach a state, and returns it.
+    pub fn wait_for_start(&self, what: &str, pred: impl Fn(&Value) -> bool) -> Value {
+        let start = Instant::now();
+        loop {
+            let s = self.start_menu();
+            if pred(&s) {
+                return s;
+            }
+            assert!(
+                start.elapsed() < TIMEOUT,
+                "timed out waiting for {what}; last state {s}\n{}",
+                self.logs()
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     /// The workspace cells of the bar: see WorkspacesProbe.qml.
@@ -478,6 +546,10 @@ impl Session {
 
     pub fn click(&self) {
         self.wlrctl(&["click", "left"]);
+    }
+
+    pub fn right_click(&self) {
+        self.wlrctl(&["click", "right"]);
     }
 
     /// Waits for a condition the caller checks itself.

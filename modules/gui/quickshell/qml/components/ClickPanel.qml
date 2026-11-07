@@ -26,6 +26,8 @@ PanelWindow {
     // Sampled when the panel opens: mapping functions are not reactive.
     property real triggerCenter: 0
     property real triggerTop: 0
+    // Where the pointer last was on the output, in this window's coordinates.
+    readonly property point pointer: fieldHover.point.position
 
     default property alias content: holder.data
     readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
@@ -76,6 +78,10 @@ PanelWindow {
         focus: true
 
         Keys.onEscapePressed: root.close()
+
+        HoverHandler {
+            id: fieldHover
+        }
 
         TapHandler {
             id: backdrop

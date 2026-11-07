@@ -357,9 +357,13 @@
             hot-corners {
               top-left
               // Patched in (patch.nix): the pointer has to rest in the corner, and is kept
-              // from sliding onto the left output within 50 px of it.
+              // from sliding onto the neighbouring output within 50 px of it. The bottom-left
+              // corner is the bar's start menu (quickshell StartCorner): barrier only.
               delay-ms 150
               barrier 50
+              barrier-corners {
+                bottom-left
+              }
             }
           }
 

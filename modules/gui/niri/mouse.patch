@@ -1,8 +1,8 @@
 diff --git a/niri-config/src/gestures.rs b/niri-config/src/gestures.rs
-index dcf296a..b046bad 100644
+index dcf296a..c8d422b 100644
 --- a/niri-config/src/gestures.rs
 +++ b/niri-config/src/gestures.rs
-@@ -109,4 +109,11 @@ pub struct HotCorners {
+@@ -109,4 +109,27 @@ pub struct HotCorners {
      pub bottom_left: bool,
      #[knuffel(child)]
      pub bottom_right: bool,
@@ -13,35 +13,66 @@ index dcf296a..b046bad 100644
 +    /// crossing onto a neighbouring output.
 +    #[knuffel(child, unwrap(argument), default)]
 +    pub barrier: u16,
++    /// Corners that get the barrier without opening the overview, for another client (a bar)
++    /// that acts on them.
++    #[knuffel(child, default)]
++    pub barrier_corners: Corners,
++}
++
++#[derive(knuffel::Decode, Debug, Default, Clone, Copy, PartialEq)]
++pub struct Corners {
++    #[knuffel(child)]
++    pub top_left: bool,
++    #[knuffel(child)]
++    pub top_right: bool,
++    #[knuffel(child)]
++    pub bottom_left: bool,
++    #[knuffel(child)]
++    pub bottom_right: bool,
  }
 diff --git a/niri-config/src/lib.rs b/niri-config/src/lib.rs
-index 329b766..d7fbd88 100644
+index 329b766..359d868 100644
 --- a/niri-config/src/lib.rs
 +++ b/niri-config/src/lib.rs
-@@ -752,6 +752,8 @@ mod tests {
+@@ -752,6 +752,11 @@ mod tests {
                      top-right
                      bottom-left
                      bottom-right
 +                    delay-ms 150
 +                    barrier 40
++                    barrier-corners {
++                        bottom-left
++                    }
                  }
              }
  
-@@ -1193,6 +1195,8 @@ mod tests {
+@@ -1193,6 +1198,14 @@ mod tests {
                                  top_right: true,
                                  bottom_left: true,
                                  bottom_right: true,
 +                                delay_ms: 150,
 +                                barrier: 40,
++                                barrier_corners: Corners {
++                                    top_left: false,
++                                    top_right: false,
++                                    bottom_left: true,
++                                    bottom_right: false,
++                                },
                              },
                          ),
                          layout: None,
-@@ -1660,6 +1664,8 @@ mod tests {
+@@ -1660,6 +1673,14 @@ mod tests {
                      top_right: false,
                      bottom_left: false,
                      bottom_right: false,
 +                    delay_ms: 0,
 +                    barrier: 0,
++                    barrier_corners: Corners {
++                        top_left: false,
++                        top_right: false,
++                        bottom_left: false,
++                        bottom_right: false,
++                    },
                  },
              },
              overview: Overview {
@@ -111,7 +142,7 @@ index f1ad493..02d797b 100644
                  let mod_down = modifiers_from_state(mods).contains(mod_key.to_modifiers());
                  if mod_down {
 diff --git a/src/niri.rs b/src/niri.rs
-index ec40e01..54a2e10 100644
+index ec40e01..befcff7 100644
 --- a/src/niri.rs
 +++ b/src/niri.rs
 @@ -14,6 +14,7 @@ use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as
@@ -138,7 +169,7 @@ index ec40e01..54a2e10 100644
              tablet_cursor_location: None,
              gesture_swipe_3f_cumulative: None,
              overview_scroll_swipe_gesture: ScrollSwipeGesture::new(),
-@@ -3054,14 +3057,111 @@ impl Niri {
+@@ -3054,14 +3057,115 @@ impl Niri {
          Some((output, pos_within_output))
      }
  
@@ -196,8 +227,8 @@ index ec40e01..54a2e10 100644
 +    }
 +
 +    /// Keeps the pointer on `output` when it would leave it across an edge within `barrier`
-+    /// pixels of an enabled hot corner, so that the corner stays easy to hit next to another
-+    /// output.
++    /// pixels of an enabled hot corner or a `barrier-corners` one, so that the corner stays
++    /// easy to hit next to another output.
 +    pub fn hot_corner_barrier(
 +        &self,
 +        output: &Output,
@@ -205,7 +236,7 @@ index ec40e01..54a2e10 100644
 +        mut new_pos: Point<f64, Logical>,
 +    ) -> Point<f64, Logical> {
 +        let hot_corners = self.hot_corners(output);
-+        if hot_corners.off || hot_corners.barrier == 0 {
++        if hot_corners.barrier == 0 {
 +            return new_pos;
 +        }
 +
@@ -214,13 +245,17 @@ index ec40e01..54a2e10 100644
 +        let (left, top) = (geom.loc.x, geom.loc.y);
 +        let (right, bottom) = (left + geom.size.w - 1., top + geom.size.h - 1.);
 +
-+        let [top_left, top_right, bottom_left, bottom_right] =
-+            Self::enabled_hot_corners(&hot_corners);
++        let hot = if hot_corners.off {
++            [false; 4]
++        } else {
++            Self::enabled_hot_corners(&hot_corners)
++        };
++        let only = hot_corners.barrier_corners;
 +        for (enabled, at_left, at_top) in [
-+            (top_left, true, true),
-+            (top_right, false, true),
-+            (bottom_left, true, false),
-+            (bottom_right, false, false),
++            (hot[0] || only.top_left, true, true),
++            (hot[1] || only.top_right, false, true),
++            (hot[2] || only.bottom_left, true, false),
++            (hot[3] || only.bottom_right, false, false),
 +        ] {
 +            if !enabled {
 +                continue;
@@ -253,7 +288,7 @@ index ec40e01..54a2e10 100644
  
          if hot_corners.off {
              return false;
-@@ -3076,21 +3176,18 @@ impl Niri {
+@@ -3076,21 +3180,18 @@ impl Niri {
              Rectangle::new(corner, Size::new(1., 1.)).contains(pos)
          };
  

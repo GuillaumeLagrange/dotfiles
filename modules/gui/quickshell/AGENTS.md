@@ -26,12 +26,14 @@ qml/
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (the picker's
                 tabs of PRs and their stacks, from `reviews --json`), Yubikey
                 (yubikey-touch-detector's socket), TrayOrder (the tray's drawer
-                and pinned icons, in order).
-  bar/          Bar.qml plus one file per widget.
+                and pinned icons, in order), StartPins (the start menu's pins).
+  bar/          Bar.qml plus one file per widget; StartCorner is the start
+                menu's hot corner.
   popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
-                Bluetooth, Volume, ReviewRequests.
+                Bluetooth, Volume, ReviewRequests, StartMenu.
 tests/          The bar driven headless (below): a Rust crate, TestProbe.qml,
-                and the niri patch that makes it possible.
+                WorkspacesProbe.qml, StartProbe.qml, and the niri patch that
+                makes it possible.
 ```
 
 `niri-state` lives beside the bar
@@ -83,6 +85,10 @@ typed keys land in whatever has focus.
   and `WorkspacesProbe.qml`, read by `qs ipc call workspaces cells`: each
   workspace cell's name and place. Assertions are on that, not on pixels. The
   splices that wire them in fail loudly when the source they match moves.
+  `StartProbe.qml` (`qs ipc call start state`) reads the start menu: open,
+  query, cursor, the pinned ids, and the tiles and rows with their centres.
+  `Session::start_with_apps` installs desktop entries in the fixture's
+  `XDG_DATA_DIRS`; their `Exec` runs the `app` stub.
 - `tests/workspaces.rs` drives `niri-workspaces` (`focus`, `move`, `watch`) and
   the bar's workspace cells; `Session::open_window` opens a tiled window (a
   second `qs` with a `FloatingWindow`, app id `org.quickshell`) so a workspace
@@ -218,6 +224,25 @@ the box's edge changes section, and each step moves what it was measured
 against away from the pointer, so the order never flickers. Places are
 offsets from the right edge: the bar is right-anchored, so the drawer opening
 leftwards never moves a pin.
+
+**The start menu opens from the bar's bottom-left corner** (`bar/StartCorner.qml`,
+`popups/StartMenu.qml`): a 4px zone in the bar window, after the pointer rests
+150ms there, like niri's top-left corner for the overview. niri's hot corners
+can only toggle the overview, so this one is the bar's; niri still holds the
+pointer at it on an output whose left edge borders another (`barrier-corners`
+in `../niri/default.nix`, patched in by `../niri/mouse.patch`), or the pointer
+slides past it onto the neighbour. It is a `ClickPanel`, for
+the keyboard and the click-anywhere dismissal: pinned apps in a grid, then every
+`DesktopEntries` application that is not `NoDisplay`. A right click pins or
+unpins, dragging a tile moves it, typing filters with `FindBar`, and the arrows
+walk the tiles then the rows. Pins are desktop entry ids in
+`~/.local/state/quickshell/start-pins.json`, set from the menu and not from Nix;
+a pin whose app is gone stays in the file and is not shown. Apps launch through
+`niri msg action spawn` (`Config.launch`), so they get the session's
+environment, with `Config.termExec` for `Terminal=true` and `env -C` for
+`Path=`. The menu covers the corner while open, so closing it with the pointer
+still there would re-enter the corner: the corner only re-arms once the pointer
+leaves it, decided by where `ClickPanel.pointer` was when the menu closed.
 
 **Panels are placed by the bar's geometry, not by the compositor.** The pill's
 position is sampled with `mapToItem` when the panel opens, since mapping

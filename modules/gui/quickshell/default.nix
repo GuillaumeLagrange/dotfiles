@@ -158,6 +158,8 @@
         dot = glyph "F111";
         submenu = glyph "F0DA";
         more = glyph "F01D8";
+        pin = glyph "F0403";
+        apps = glyph "F003B";
         larrow = builtins.fromJSON ''"\u2039"'';
         rarrow = builtins.fromJSON ''"\u203a"'';
       };
@@ -238,6 +240,12 @@
             readonly property var reviewMine: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--mine"]
             // A URL is appended; through niri so the browser gets the session's environment.
             readonly property var openUrl: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.xdg-utils}/bin/xdg-open"]
+            // An app from the start menu: its command is appended. Through niri, like the
+            // bindings, so it gets the session's environment and not the bar's.
+            readonly property var launch: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--"]
+            // Prefixes an app that asks for a terminal, then one with a working directory.
+            readonly property var termExec: ${builtins.toJSON config.termExec}
+            readonly property var chdir: ["${pkgs.coreutils}/bin/env", "-C"]
             // The pill's data (`--json`) and its refresh, from the picker's own binary.
             readonly property string reviews: "${lib.getExe reviews}"
             readonly property bool reviewsEnabled: ${lib.boolToString config.work.enable}
