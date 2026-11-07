@@ -102,6 +102,24 @@
         capSysAdmin = true;
         openFirewall = true;
         package = pkgs.sunshine.override { cudaSupport = true; };
+        settings = {
+          output_name = "DP-4";
+          # The Dell is off while an app streams, so everything opens on the captured screen. Undo runs
+          # when the app quits, not when Moonlight merely disconnects.
+          global_prep_cmd =
+            let
+              dell = config.home-manager.users.guillaume.monitors.secondaryHome.name;
+              dellOutput =
+                action:
+                pkgs.writeShellScript "dell-${action}" ''${pkgs.niri}/bin/niri msg output "${dell}" ${action}'';
+            in
+            builtins.toJSON [
+              {
+                do = "${dellOutput "off"}";
+                undo = "${dellOutput "on"}";
+              }
+            ];
+        };
       };
 
       networking.hostName = "snakewater";
