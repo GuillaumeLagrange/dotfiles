@@ -23,6 +23,14 @@
           "mark, psi some avg10: memory $(avg10 /proc/pressure/memory) io $(avg10 /proc/pressure/io) cpu $(avg10 /proc/pressure/cpu)"
         ${pkgs.libnotify}/bin/notify-send -t 2000 "Stutter marked"
       '';
+
+      # Takes a connector or the "make model serial" name the config's outputs use.
+      toggleOutput = pkgs.writeShellScript "niri-toggle-output" ''
+        on=$(${pkgs.niri}/bin/niri msg --json outputs | ${pkgs.jq}/bin/jq --arg n "$1" \
+          '[.[] | select(.name == $n or "\(.make) \(.model) \(.serial // "Unknown")" == $n)][0].current_mode != null')
+        if [ "$on" = true ]; then action=off; else action=on; fi
+        exec ${pkgs.niri}/bin/niri msg output "$1" "$action"
+      '';
     in
     {
       home.packages = with pkgs; [
@@ -277,6 +285,7 @@
               Mod+Shift+E { quit; }
               Ctrl+Alt+Delete { quit; }
               Mod+Shift+P { power-off-monitors; }
+              Mod+Shift+M hotkey-overlay-title="Toggle Secondary Monitor" { spawn "${toggleOutput}" "${config.monitors.secondaryHome.name}"; }
           }
 
           // Open full width as a maximized column, so Mod+F restores the default width.
