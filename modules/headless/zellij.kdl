@@ -80,6 +80,16 @@ keybinds clear-defaults=true {
         bind "k" { MoveFocus "up"; }
         bind "l" { MoveFocus "right"; }
         bind "n" { NewPane; SwitchToMode "locked"; }
+        bind "o" {
+            Run "zellij-close-other-panes" {
+                floating true
+                close_on_exit true
+                width 1
+                height 1
+                name "close other panes"
+            }
+            SwitchToMode "locked"
+        }
         bind "p" { SwitchToMode "normal"; }
         bind "r" { NewPane "right"; SwitchToMode "locked"; }
         bind "s" { NewPane "stacked"; SwitchToMode "locked"; }

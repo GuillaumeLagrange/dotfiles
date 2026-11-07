@@ -169,6 +169,15 @@
         text = builtins.readFile ./zellij-close-other-tabs.sh;
       };
 
+      zellijCloseOtherPanes = pkgs.writeShellApplication {
+        name = "zellij-close-other-panes";
+        runtimeInputs = [
+          config.programs.zellij.package
+          pkgs.jq
+        ];
+        text = builtins.readFile ./zellij-close-other-panes.sh;
+      };
+
       zellijFzfUrl = pkgs.writeShellApplication {
         name = "zellij-fzf-url";
         runtimeInputs = [
@@ -251,6 +260,7 @@
         muxName
         zellijRenameCurrent
         zellijCloseOtherTabs
+        zellijCloseOtherPanes
         zellijFzfUrl
         zellijAttach
         ompPanel
