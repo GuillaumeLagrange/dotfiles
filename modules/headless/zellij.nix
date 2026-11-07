@@ -58,7 +58,7 @@
             exec niri msg action focus-window --id "$window"
           fi
           if [[ ! -t 0 ]]; then
-            exec niri msg action spawn -- ${lib.escapeShellArgs config.termExec} "$0" "$session"
+            exec niri msg action spawn -- ${lib.escapeShellArgs config.termExec} --app-id=zellij-session "$0" "$session"
           fi
         fi
 

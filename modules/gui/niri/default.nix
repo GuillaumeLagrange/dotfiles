@@ -142,8 +142,7 @@
           binds {
               Mod+Shift+Slash { show-hotkey-overlay; }
 
-              // Its own class, so the window rule below opens it half width.
-              Mod+Return { spawn ${quoteArgs config.term} "--class" "kitty-half"; }
+              Mod+Return { spawn ${quoteArgs config.term}; }
               Mod+D { spawn "vicinae" "toggle"; }
               Mod+Shift+D { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
               Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
@@ -151,8 +150,9 @@
               Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
               Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
               Super+Alt+L { spawn "${config.lock}"; }
-              Mod+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "zsm"; }
-              ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs config.term} "-e" "zsh" "-i" "-c" "review"; }''}
+              // Class zellij-session: the window rule below opens them full width, like zellij-attach's.
+              Mod+Backslash { spawn ${quoteArgs config.term} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "zsm"; }
+              ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs config.term} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "review"; }''}
               // omp-panel in its own floating window: Esc closes it, Enter goes to the omp.
               Mod+A { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }
               Mod+BackSpace { spawn ${quoteArgs config.term} "--class" "omp-panel" "-e" "omp-panel"; }
@@ -288,17 +288,18 @@
               Mod+Shift+M hotkey-overlay-title="Toggle Secondary Monitor" { spawn "${toggleOutput}" "${config.monitors.secondaryHome.name}"; }
           }
 
-          // Open full width as a maximized column, so Mod+F restores the default width.
           window-rule {
               geometry-corner-radius 4
               clip-to-geometry true
-              open-maximized true
           }
 
+          // Open full width as a maximized column, so Mod+F restores the default width.
           window-rule {
-              match app-id="^kitty-half$"
+              match app-id="^zellij-session$"
+              match app-id="^firefox$"
+              exclude title="^Picture-in-Picture$"
 
-              open-maximized false
+              open-maximized true
           }
 
           window-rule {
@@ -326,7 +327,6 @@
               exclude app-id="^steam$" title="^(Steam|Special Offers|Steam Big Picture Mode)$"
 
               default-column-width { proportion 0.25; }
-              open-maximized false
           }
 
           window-rule {

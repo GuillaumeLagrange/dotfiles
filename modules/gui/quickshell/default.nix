@@ -168,7 +168,7 @@
         firefox = glyph "F0239";
         chromium-browser = glyph "F02AF";
         kitty = glyph "F018D";
-        kitty-half = glyph "F018D";
+        zellij-session = glyph "F018D";
         omp-panel = glyph "F018D";
         "com.mitchellh.ghostty" = glyph "F02A0";
         slack = glyph "F04B1";
@@ -222,6 +222,8 @@
                 ]
                 ++ lib.splitString " " config.term
                 ++ [
+                  "--class"
+                  "zellij-session"
                   "-e"
                   "zsh"
                   "-i"
