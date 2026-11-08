@@ -26,7 +26,6 @@
     }:
     {
       imports = with self.modules.homeManager; [
-        monitors
         brightness
         screen-tools
         browsers

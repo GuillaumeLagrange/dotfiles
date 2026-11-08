@@ -8,6 +8,7 @@
     }:
     let
       workspaces = pkgs.callPackage ./_workspaces.nix { };
+      displays = pkgs.callPackage ./_displays.nix { };
 
       # Only granary has caffeine.service; elsewhere logind suspends on the lid anyway.
       lidClose = pkgs.writeShellScript "niri-lid-close" ''
@@ -23,20 +24,13 @@
           "mark, psi some avg10: memory $(avg10 /proc/pressure/memory) io $(avg10 /proc/pressure/io) cpu $(avg10 /proc/pressure/cpu)"
         ${pkgs.libnotify}/bin/notify-send -t 2000 "Stutter marked"
       '';
-
-      # Takes a connector or the "make model serial" name the config's outputs use.
-      toggleOutput = pkgs.writeShellScript "niri-toggle-output" ''
-        on=$(${pkgs.niri}/bin/niri msg --json outputs | ${pkgs.jq}/bin/jq --arg n "$1" \
-          '[.[] | select(.name == $n or "\(.make) \(.model) \(.serial // "Unknown")" == $n)][0].current_mode != null')
-        if [ "$on" = true ]; then action=off; else action=on; fi
-        exec ${pkgs.niri}/bin/niri msg output "$1" "$action"
-      '';
     in
     {
       home.packages = with pkgs; [
         niri
         xwayland-satellite
         workspaces
+        displays
         # secret-tool, through which CLIs such as linear reach gnome-keyring
         libsecret
       ];
@@ -57,35 +51,34 @@
         Install.WantedBy = [ "graphical-session.target" ];
       };
 
+      # Saved display setups (displays.py): applies the last used one of the monitors plugged in.
+      systemd.user.services.niri-displays = {
+        Unit = {
+          Description = "Apply the saved display setup of the connected monitors";
+          PartOf = [ "graphical-session.target" ];
+          After = [ "graphical-session.target" ];
+        };
+        Service = {
+          ExecStart = "${displays}/bin/niri-displays watch";
+          Environment = [ "PYTHONUNBUFFERED=1" ];
+          Restart = "on-failure";
+          RestartSec = 2;
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
+
       xdg.configFile."niri/config.kdl".text =
         let
           numbers = map toString (lib.range 1 9);
-
           quoteArgs = str: lib.concatMapStringsSep " " (arg: ''"${arg}"'') (lib.splitString " " str);
-
-          mkOutput = monitor: ''
-            output "${monitor.name}" {
-                mode "${monitor.resolution}${
-                  lib.optionalString (monitor.refreshRate != null) "@${toString monitor.refreshRate}.000"
-                }"
-                position x=${toString monitor.position.x} y=${toString monitor.position.y}
-                ${lib.optionalString (monitor.scale != null) "scale ${toString monitor.scale}"}
-                ${lib.optionalString (monitor.sideStruts != null)
-                  "layout { struts { left ${toString monitor.sideStruts}; right ${toString monitor.sideStruts}; }; }"
-                }
-            }
-          '';
         in
         # kdl
         ''
-          ${mkOutput config.monitors.laptop}
-
-          // Home setup
-          ${mkOutput config.monitors.mainHome}
-          ${mkOutput config.monitors.secondaryHome}
-
-          // Office setup
-          ${mkOutput config.monitors.mainOffice}
+          // Modes and positions are saved setups (niri-displays), not config. What the IPC cannot set stays here:
+          // the KTC's always-on pixel orbiting pushes the 2px focus ring off the panel's side edges.
+          output "Shenzhen KTC Technology Group OLED G27P6 Unknown" {
+              layout { struts { left 4; right 4; }; }
+          }
 
           input {
               focus-follows-mouse max-scroll-amount="10%"
@@ -285,7 +278,8 @@
               Mod+Shift+E { quit; }
               Ctrl+Alt+Delete { quit; }
               Mod+Shift+P { power-off-monitors; }
-              Mod+Shift+M hotkey-overlay-title="Toggle Secondary Monitor" { spawn "${toggleOutput}" "${config.monitors.secondaryHome.name}"; }
+              Mod+M hotkey-overlay-title="Next Display Setup" { spawn "${displays}/bin/niri-displays" "next"; }
+              Mod+Shift+M hotkey-overlay-title="Previous Display Setup" { spawn "${displays}/bin/niri-displays" "prev"; }
           }
 
           window-rule {

@@ -14,8 +14,6 @@
 
       home-manager.users.guillaume = {
         imports = with self.modules.homeManager; [ guillaume ];
-        # No refresh in the mode: niri then picks the highest one (240 Hz).
-        monitors.mainHome.refreshRate = null;
         work.enable = false;
       };
 
@@ -108,7 +106,7 @@
           # when the app quits, not when Moonlight merely disconnects.
           global_prep_cmd =
             let
-              dell = config.home-manager.users.guillaume.monitors.secondaryHome.name;
+              dell = "Dell Inc. DELL S2421HS 45WFW83";
               dellOutput =
                 action:
                 pkgs.writeShellScript "dell-${action}" ''${pkgs.niri}/bin/niri msg output "${dell}" ${action}'';

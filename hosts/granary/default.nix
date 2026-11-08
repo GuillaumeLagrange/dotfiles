@@ -25,11 +25,6 @@
         in
         {
           imports = with self.modules.homeManager; [ guillaume ];
-          monitors.laptop = {
-            resolution = "2880x1920";
-            scale = 1.6;
-          };
-
           # Framework's Windows Dolby tuning for this codec (DEV_0285_SUBSYS_F111000F),
           # converted by github.com/antoinecellerier/speaker-tuning-to-easyeffects
           # with `--profile music`.

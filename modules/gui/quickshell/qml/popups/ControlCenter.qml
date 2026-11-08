@@ -24,6 +24,9 @@ ClickPanel {
     panelWidth: 420
     accent: Quick.gearColor
 
+    onShown: Displays.refresh()
+    onHidden: displays.naming = false
+
     readonly property var battery: UPower.displayDevice
     readonly property bool hasBattery: !!battery && battery.isLaptopBattery && battery.isPresent
     readonly property int batteryPct: hasBattery ? Math.round(battery.percentage * 100) : 0
@@ -300,7 +303,7 @@ ClickPanel {
                 // A ListView has no implicit height, and the panel's window covers
                 // the output, so the rest of the panel is measured out of the
                 // screen rather than guessed.
-                Layout.preferredHeight: Math.min(list.contentHeight, 480, Math.max(120, root.height - 420))
+                Layout.preferredHeight: Math.min(list.contentHeight, 480, Math.max(120, root.height - 420 - displays.implicitHeight))
                 visible: Notifs.history.length > 0
                 clip: true
                 spacing: 6
@@ -443,6 +446,12 @@ ClickPanel {
                     }
                 }
             }
+        }
+
+        DisplaySetups {
+            id: displays
+
+            accent: root.accent
         }
 
         RowLayout {

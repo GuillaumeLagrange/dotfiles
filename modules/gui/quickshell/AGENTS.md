@@ -26,11 +26,12 @@ qml/
                 (NetworkManager), Bt (BlueZ), Recorder (IPC in), Reviews (the picker's
                 tabs of PRs and their stacks, from `reviews --json`), Yubikey
                 (yubikey-touch-detector's socket), TrayOrder (the tray's drawer
-                and pinned icons, in order), StartPins (the start menu's pins).
+                and pinned icons, in order), StartPins (the start menu's pins),
+                Displays (saved display setups, through `niri-displays`).
   bar/          Bar.qml plus one file per widget; StartCorner is the start
                 menu's hot corner.
-  popups/       NowPlaying, Calendar, ControlCenter, NotifPopups, Networks,
-                Bluetooth, Volume, ReviewRequests, StartMenu.
+  popups/       NowPlaying, Calendar, ControlCenter (with DisplaySetups),
+                NotifPopups, Networks, Bluetooth, Volume, ReviewRequests, StartMenu.
 tests/          The bar driven headless (below): a Rust crate, TestProbe.qml,
                 WorkspacesProbe.qml, StartProbe.qml, and the niri patch that
                 makes it possible.
@@ -93,6 +94,8 @@ typed keys land in whatever has focus.
   the bar's workspace cells; `Session::open_window` opens a tiled window (a
   second `qs` with a `FloatingWindow`, app id `org.quickshell`) so a workspace
   has something on it.
+- `tests/displays.rs` drives `niri-displays` (`save`, `apply`, `rename`, `order`,
+  `next`/`prev`, `watch`) on two headless outputs, moved with `niri msg output`.
 - What would leave the fixture is a stub on niri's `PATH` that records its
   arguments: `reviews` (Config.reviews is pointed at it; `--json` prints the
   test's fixture) and `review`, which the panel spawns through `niri msg action

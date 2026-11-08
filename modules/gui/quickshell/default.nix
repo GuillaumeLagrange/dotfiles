@@ -34,6 +34,9 @@
       # A click on a workspace cell goes where Mod+N goes. See ../niri/workspaces.py.
       niriWorkspaces = pkgs.callPackage ../niri/_workspaces.nix { };
 
+      # The control centre's display setups. See ../niri/displays.py.
+      niriDisplays = pkgs.callPackage ../niri/_displays.nix { };
+
       claudeUsage = pkgs.writeShellScriptBin "claude-usage-qs" ''
         export PATH="${lib.makeBinPath [ pkgs.jq ]}:$PATH"
         exec ${pkgs.bash}/bin/bash ${../bar-scripts/claude-usage.sh} "$@"
@@ -160,6 +163,9 @@
         more = glyph "F01D8";
         pin = glyph "F0403";
         apps = glyph "F003B";
+        plus = glyph "F0415";
+        close = glyph "F0156";
+        monitor = glyph "F0379";
         larrow = builtins.fromJSON ''"\u2039"'';
         rarrow = builtins.fromJSON ''"\u203a"'';
       };
@@ -209,6 +215,9 @@
             readonly property string niriState: "${niriState}/bin/niri-state"
             readonly property string niri: "${pkgs.niri}/bin/niri"
             readonly property string niriWorkspaces: "${niriWorkspaces}/bin/niri-workspaces"
+            readonly property string niriDisplays: "${niriDisplays}/bin/niri-displays"
+            // Arranges the monitors a display setup is saved from.
+            readonly property var wdisplays: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.wdisplays}/bin/wdisplays"]
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
             readonly property string btPair: "${btPair}/bin/bt-pair"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
@@ -292,6 +301,7 @@
           pkgs.wlrctl
           pkgs.dbus
           niriWorkspaces
+          niriDisplays
         ];
         postBuild = "ln -s ${shellDir} $out/shell";
       };

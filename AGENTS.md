@@ -124,6 +124,15 @@ Shared configuration modules:
 Desktop environment configuration:
 
 - Niri window manager setup
+- Display setups (`modules/gui/niri/displays.py`, `niri-displays`): no monitor's mode, scale or position is in
+  the config. Arrange them with anything (wdisplays, `niri msg output`), then save the layout under a name from
+  the control centre's Displays section (+); its cards draw each setup's monitors to scale, a click applies one,
+  the × on hover deletes it. A setup records every connected monitor ("make model serial", on or off) and fits
+  only where exactly those are connected, like a kanshi profile. Mod+M / Mod+Shift+M cycle the setups that fit,
+  with a notification. The `niri-displays` user service (`watch`) applies the last used fitting setup at login
+  and whenever a monitor is plugged or unplugged, and leaves a layout changed by hand alone otherwise. Saved in
+  `~/.local/state/niri-displays/setups.json`. What the IPC cannot set (the KTC's side struts) stays an
+  `output` block in the niri config. Tests: `modules/gui/quickshell/tests/tests/displays.rs`.
 - sway-like numbered workspaces (`modules/gui/niri/workspaces.py`, `niri-workspaces`): none is declared in the
   config; Mod+N / Mod+Shift+N run `niri-workspaces focus|move N`, which names an empty workspace of the focused
   output N when N does not exist yet and puts it in place before switching (so niri slides to it), and unnames an

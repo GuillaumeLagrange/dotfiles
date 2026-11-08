@@ -449,6 +449,11 @@ impl Session {
         String::from_utf8(out.stdout).unwrap()
     }
 
+    /// Runs a binary of the test env in the session, and says whether it succeeded.
+    pub fn succeeds(&self, bin: &str, args: &[&str]) -> bool {
+        self.command(bin).args(args).status().unwrap().success()
+    }
+
     /// Starts a binary of the test env for the rest of the session; its output
     /// goes to `<bin>.log`.
     pub fn spawn(&mut self, bin: &str, args: &[&str]) {
