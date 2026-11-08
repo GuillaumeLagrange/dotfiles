@@ -232,7 +232,8 @@ can only toggle the overview, so this one is the bar's; niri still holds the
 pointer at it on an output whose left edge borders another (`barrier-corners`
 in `../niri/default.nix`, patched in by `../niri/mouse.patch`), or the pointer
 slides past it onto the neighbour. It is a `ClickPanel`, for
-the keyboard and the click-anywhere dismissal: pinned apps in a grid, then every
+the keyboard, with `closeOnLeave`: it closes 300ms after the pointer leaves the
+menu and the strip of bar below it (a click elsewhere or Escape also close it). Pinned apps in a grid, then every
 `DesktopEntries` application that is not `NoDisplay`. A right click pins or
 unpins, dragging a tile moves it, typing filters with `FindBar`, and the arrows
 walk the tiles then the rows. Pins are desktop entry ids in

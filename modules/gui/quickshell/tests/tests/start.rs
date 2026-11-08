@@ -85,6 +85,20 @@ fn resting_in_the_corner_opens_the_menu_and_closing_it_there_does_not_reopen_it(
 }
 
 #[test]
+fn the_menu_stays_open_over_it_and_closes_once_the_pointer_leaves() {
+    let Some(s) = start() else {
+        return;
+    };
+    open(&s);
+    point_at_named(&s, "rows", "Beta");
+    std::thread::sleep(Duration::from_millis(600));
+    assert_eq!(s.start_menu()["open"], true);
+
+    s.point_at(1500.0, 300.0);
+    s.wait_for_start("the menu to close", |st| st["open"] == false);
+}
+
+#[test]
 fn right_clicking_an_app_pins_it_and_right_clicking_its_tile_unpins_it() {
     let Some(s) = start() else {
         return;

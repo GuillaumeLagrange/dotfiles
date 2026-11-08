@@ -20,6 +20,7 @@ ClickPanel {
 
     accent: Theme.blue
     panelWidth: root.columns * root.cellWidth + root.pad * 2
+    closeOnLeave: true
 
     readonly property var apps: DesktopEntries.applications.values.filter(e => !e.noDisplay).sort((a, b) => a.name.localeCompare(b.name))
     // Pins of apps no longer installed stay in the file, in case they come back.

@@ -22,12 +22,18 @@ PanelWindow {
     // A fixed width for panels whose rows all fill it and so report no width
     // of their own; 0 sizes the bubble to its content.
     property int panelWidth: 0
+    // Close once the pointer leaves the bubble and the strip below it down to
+    // the trigger, after a grace for overshoots.
+    property bool closeOnLeave: false
 
     // Sampled when the panel opens: mapping functions are not reactive.
     property real triggerCenter: 0
     property real triggerTop: 0
+    property real triggerLeft: 0
+    property real triggerRight: 0
     // Where the pointer last was on the output, in this window's coordinates.
     readonly property point pointer: fieldHover.point.position
+    readonly property bool pointerInside: fieldHover.hovered && root.pointer.x >= Math.min(bubble.x, root.triggerLeft) && root.pointer.x <= Math.max(bubble.x + bubble.width, root.triggerRight) && root.pointer.y >= bubble.y
 
     default property alias content: holder.data
     readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
@@ -39,6 +45,8 @@ PanelWindow {
         const trigger = root.target.mapToItem(null, 0, 0, root.target.width, root.target.height);
         root.triggerCenter = trigger.x + trigger.width / 2;
         root.triggerTop = trigger.y;
+        root.triggerLeft = trigger.x;
+        root.triggerRight = trigger.x + trigger.width;
         root.visible = true;
         root.shown();
     }
@@ -54,8 +62,25 @@ PanelWindow {
             root.open();
     }
 
-    onVisibleChanged: if (!root.visible)
-        root.hidden()
+    // Only a move out arms it: the pointer may not be reported until it moves.
+    onPointerInsideChanged: {
+        if (root.closeOnLeave && root.visible && !root.pointerInside)
+            leave.restart();
+        else
+            leave.stop();
+    }
+
+    onVisibleChanged: if (!root.visible) {
+        leave.stop();
+        root.hidden();
+    }
+
+    Timer {
+        id: leave
+
+        interval: 300
+        onTriggered: root.close()
+    }
 
     screen: root.target.QsWindow.window?.screen ?? null
     visible: false
