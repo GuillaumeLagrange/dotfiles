@@ -1,6 +1,6 @@
 // Native SNI host, folded behind three dots: a row of applet icons is noise
 // most of the time, so the pill keeps the bar to a fixed width and unfolds the
-// icons inline when the pointer is on it - a drawer in the bar itself, not a
+// icons inline when the pointer is on the dots - a drawer in the bar itself, not a
 // panel above it, so nothing has to survive the pointer crossing a gap.
 //
 // Icons are dragged to reorder them, and out of the drawer (the recessed box)
@@ -279,8 +279,16 @@ Rectangle {
         menu.open();
     }
 
-    HoverHandler {
-        id: hover
+    // Only the drawer opens the drawer: pins sit beside it and are reached
+    // without unfolding it.
+    Item {
+        visible: root.geometry.showBox
+        width: root.edge + root.geometry.boxLeft + root.geometry.boxWidth
+        height: parent.height
+
+        HoverHandler {
+            id: hover
+        }
     }
 
     // The pill sits between others, so the pointer crosses it on the way

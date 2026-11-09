@@ -213,7 +213,9 @@ scrolls, so the scrollbar is shown exactly while the cap is doing something and
 the rows give up its width rather than have the handle over their border.
 
 **The tray is an inline drawer, not a panel** (`bar/Tray.qml`): three dots that
-widen into the applet icons while the pointer is on the pill. The icons live in
+widen into the applet icons while the pointer is on the dots or the open drawer
+(hovering a pin leaves it shut).
+The icons live in
 the bar window itself, so hovering into them never crosses a gap and no second
 surface has to stay alive under the pointer. It is gated by a `HoverGate` at
 200ms each way - the pill sits between others, so without a dwell it flicks
