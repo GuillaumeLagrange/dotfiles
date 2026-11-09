@@ -59,7 +59,9 @@ PopupPanel {
 
                     readonly property color rail: Media.colorFor(modelData)
                     readonly property bool playing: modelData.isPlaying
-                    readonly property bool hasLength: modelData.lengthSupported && modelData.length > 0
+                    // Firefox gives a live stream an infinite duration, which arrives as
+                    // the int64 limit in µs: 153722867280 minutes. No real track lasts a year.
+                    readonly property bool hasLength: modelData.lengthSupported && modelData.length > 0 && modelData.length < 365 * 86400
                     readonly property double position: {
                         root.tick;
                         return modelData.position;
@@ -222,7 +224,8 @@ PopupPanel {
 
                                 // A missing mpris:length is not a live stream: browsers
                                 // publish the track before its duration. Hide the bar and
-                                // end time rather than show a bogus 0:00 until it arrives.
+                                // end time rather than show a bogus 0:00 until it arrives,
+                                // and for a live stream, whose length is infinite.
                                 Item {
                                     Layout.fillWidth: true
                                     visible: !row.hasLength
@@ -246,9 +249,11 @@ PopupPanel {
                             Layout.alignment: Qt.AlignVCenter
                             spacing: 2
 
+                            // A live stream has no previous or next: the player says so.
                             GlyphButton {
                                 glyph: Config.glyph.prev
                                 glyphSize: 12
+                                enabled: row.modelData.canGoPrevious
                                 onClicked: row.modelData.previous()
                             }
 
@@ -263,6 +268,7 @@ PopupPanel {
                             GlyphButton {
                                 glyph: Config.glyph.next
                                 glyphSize: 12
+                                enabled: row.modelData.canGoNext
                                 onClicked: row.modelData.next()
                             }
                         }

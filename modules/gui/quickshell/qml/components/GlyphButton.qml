@@ -19,6 +19,8 @@ Rectangle {
     implicitWidth: Math.round(root.glyphSize * 2.2)
     implicitHeight: root.implicitWidth
     radius: width / 2
+    // Disabled, its handlers stop: no hover disc, no click.
+    opacity: root.enabled ? 1 : 0.3
     color: {
         if (root.filled)
             return root.hovered ? Qt.lighter(root.tint, 1.15) : root.tint;
