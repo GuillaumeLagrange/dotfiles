@@ -64,6 +64,13 @@ RowLayout {
         return true;
     }
 
+    // The cursor step of Ctrl+N / Ctrl+P, emacs' Down and Up; 0 for any other key.
+    function step(event: var): int {
+        if ((event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) !== Qt.ControlModifier)
+            return 0;
+        return event.key === Qt.Key_N ? 1 : event.key === Qt.Key_P ? -1 : 0;
+    }
+
     Layout.fillWidth: true
     Layout.leftMargin: 8
     Layout.rightMargin: 8

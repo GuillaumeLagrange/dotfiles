@@ -549,7 +549,10 @@ ClickPanel {
                     event.accepted = false;
             }
             Keys.onPressed: event => {
-                event.accepted = find.type(event);
+                const delta = find.step(event);
+                if (delta !== 0)
+                    root.step(delta);
+                event.accepted = delta !== 0 || find.type(event);
             }
             implicitHeight: Math.min(contentHeight, 260)
             clip: true

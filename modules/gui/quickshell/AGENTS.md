@@ -335,7 +335,7 @@ do not reshuffle under the pointer.
 
 Both lists take the keyboard: the panel focuses its `ListView` when it opens
 (niri hands an on-demand layer surface focus as it maps, so Mod+B needs no
-click), Up/Down move a cursor kept on the panel by item (`cursor`, outlined in
+click), Up/Down or Ctrl+P/Ctrl+N move a cursor kept on the panel by item (`cursor`, outlined in
 the accent), and Enter is the row's Connect - Pair for an unpaired device, the
 passphrase field for an unknown secured network. A connected row just opens.
 Typing filters the list fuzzily (`components/FindBar.qml`: the query's
