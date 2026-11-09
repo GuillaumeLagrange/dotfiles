@@ -9,6 +9,7 @@
       self.modules.nixos.secure-boot
       ./hardware.nix
       ./configuration.nix
+      (import ../../modules/desktop/gdm-wallpaper.nix ./gdm-wallpaper.jpg)
       { home-manager.users.guillaume.imports = [ self.modules.homeManager.personal-desktop ]; }
     ];
   };
