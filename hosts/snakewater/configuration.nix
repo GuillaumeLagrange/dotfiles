@@ -59,6 +59,9 @@
     openFirewall = true;
     package = pkgs.sunshine.override { cudaSupport = true; };
     settings = {
+      # Unset, Sunshine picks wlr-screencopy (a copy through niri each frame) and drops CAP_SYS_ADMIN.
+      capture = "kms";
+      encoder = "nvenc";
       output_name = "DP-4";
       global_prep_cmd =
         let
@@ -75,6 +78,8 @@
         ];
     };
   };
+  # CAP_SYS_NICE gives Sunshine's EGL context high GPU priority, keeping capture ahead of a busy game.
+  security.wrappers.sunshine.capabilities = lib.mkForce "cap_sys_admin,cap_sys_nice+p";
 
   services.logind.settings.Login = {
     HandlePowerKey = "suspend";
