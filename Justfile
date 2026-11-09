@@ -41,6 +41,10 @@ test-rust:
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test
 
+# Remove every crate's target directory
+clean:
+    for crate in {{ crates }}; do (cd "$crate" && cargo clean); done
+
 # Move tools of pkgs/cargo-tools (all when none named) to their latest release, or NAME to VERSION
 bump *args:
     #!/usr/bin/env bash
