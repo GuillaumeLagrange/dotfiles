@@ -151,6 +151,16 @@ impl Session {
             )
             .unwrap();
         }
+        // The zellij tab name a test puts in `tab`, as Config.reviewTab prints it.
+        write_exe(
+            &root.join("bin/review-tab"),
+            &format!("cat {} 2>/dev/null\n", p("tab")),
+        );
+        // What Config.openUrl runs.
+        write_exe(
+            &root.join("bin/open-url"),
+            &format!("printf '%s\\n' \"$*\" >> {}\n", p("open-url.log")),
+        );
 
         // The layout is pinned: niri would take the host's from localed.
         std::fs::write(
@@ -173,7 +183,7 @@ impl Session {
             .arg(&shell)
             .status()
             .unwrap();
-        Self::instrument(&shell, &root.join("bin/reviews"));
+        Self::instrument(&shell, &root.join("bin"));
 
         let env = vec![
             ("HOME".into(), p("home")),
@@ -261,40 +271,30 @@ impl Session {
         Some(session)
     }
 
-    /// Points the copy's `reviews` at the stub, loads the reviews pill even on a host
-    /// without work tooling, and gives it the probe.
-    fn instrument(shell: &Path, reviews: &Path) {
+    /// Points the copy's `reviews`, `reviewTab` and `openUrl` at the stubs in `bin`,
+    /// loads the reviews pill even on a host without work tooling, and gives it the probe.
+    fn instrument(shell: &Path, bin: &Path) {
         let config = shell.join("Config.qml");
         let text = std::fs::read_to_string(&config).unwrap();
-        let line = text
-            .lines()
-            .find(|l| {
-                l.trim_start()
-                    .starts_with("readonly property string reviews:")
-            })
-            .expect("Config.qml has no `reviews` path")
-            .to_owned();
-        splice(
-            &config,
-            &line,
-            &format!(
-                "    readonly property string reviews: \"{}\"",
-                reviews.display()
-            ),
-        );
-        let enabled = text
-            .lines()
-            .find(|l| {
-                l.trim_start()
-                    .starts_with("readonly property bool reviewsEnabled:")
-            })
-            .expect("Config.qml has no `reviewsEnabled`")
-            .to_owned();
-        splice(
-            &config,
-            &enabled,
-            "    readonly property bool reviewsEnabled: true",
-        );
+        let set = |decl: &str, value: String| {
+            let line = text
+                .lines()
+                .find(|l| {
+                    l.trim_start()
+                        .starts_with(&format!("readonly property {decl}:"))
+                })
+                .unwrap_or_else(|| panic!("Config.qml has no `{decl}`"));
+            splice(
+                &config,
+                line,
+                &format!("    readonly property {decl}: {value}"),
+            );
+        };
+        let stub = |name: &str| format!("\"{}\"", bin.join(name).display());
+        set("string reviews", stub("reviews"));
+        set("string reviewTab", stub("review-tab"));
+        set("var openUrl", format!("[{}]", stub("open-url")));
+        set("bool reviewsEnabled", "true".into());
         splice(
             &shell.join("popups/ReviewRequests.qml"),
             "    property string cursor: \"\"\n",

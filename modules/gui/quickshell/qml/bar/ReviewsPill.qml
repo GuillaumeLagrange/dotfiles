@@ -1,5 +1,6 @@
-// Pull requests awaiting my review, counted; clicking lists them with the
-// picker's other tabs. The panel's buttons refresh the lists and open the picker.
+// Pull requests awaiting my review, counted; clicking or Mod+" lists them with
+// the picker's other tabs. The panel's buttons refresh the lists and open the picker.
+import QtQuick
 import qs
 import qs.components
 import qs.services
@@ -7,6 +8,8 @@ import qs.popups
 
 Pill {
     id: root
+
+    required property string monitor
 
     // Up while any tab lists something, so my own PRs stay reachable with no review asked of me.
     // Read by the bar's Loader: `visible` would follow the Loader's own.
@@ -22,5 +25,14 @@ Pill {
         id: panel
 
         target: root
+    }
+
+    Connections {
+        target: Reviews
+
+        function onPanelToggleRequested(): void {
+            if (root.visible && root.monitor === Niri.focusedOutput)
+                panel.toggle();
+        }
     }
 }

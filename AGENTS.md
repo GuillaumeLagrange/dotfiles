@@ -189,9 +189,12 @@ Server/headless system configuration:
   `reviews --refresh` every 5 minutes while the graphical session is up, so the list opens fresh. The bar's
   PR pill (left of Claude) shows what `reviews --json` prints: every tab from that cache, laid out with their
   stacks as the picker shows them, with and without the stale ones, so the CLI is the bar's only source. The
-  pill counts the requested ones; clicking it lists the tabs (the last picked one and the "Show N stale" toggle are
-  kept across opens; typing filters, Tab cycles the tabs, Up/Down/Enter pick); the panel's refresh button runs
-  `reviews --refresh`, its terminal button runs what Mod+Shift+\ does, right-clicking a PR opens it on GitHub (the picker's Shift+Enter) and clicking a PR runs `review --pr URL` (`review --mine URL BRANCH` in My PRs) without a terminal, as if it were picked:
+  pill counts the requested ones; clicking it or Mod+" lists the tabs (the last picked one and the "Show N stale" toggle are
+  kept across opens; typing filters, Tab cycles the tabs, Up/Down or Ctrl+P/Ctrl+N move, Left/Right reach the
+  PR's Linear issues, Enter picks). It opens with no PR selected, unless the focused window's zellij tab (`review-tab` in
+  `modules/gui/quickshell/default.nix`) is a review tab `<repo>#<number>` one of the tabs lists: that tab and PR are selected.
+  The panel's refresh button runs
+  `reviews --refresh`, its terminal button runs what Mod+Shift+\ does, right-clicking a PR opens it on GitHub (the picker's Shift+Enter), clicking one of its Linear issues opens that in the browser, and clicking a PR runs `review --pr URL` (`review --mine URL BRANCH` in My PRs) without a terminal, as if it were picked:
   `zellij-attach --focus` (also zsm's Enter) focuses the window showing the session or opens one. Off PATH: `review` (`reviews/review.sh`, niri `Mod+Shift+\`) is
   the entrypoint. A PR to review opens in a tab `<repo>#<number>` of the `reviews` zellij session, whose wt
   session I create (`wt add` the repo there when it is still a symlink or missing from the mirror; run without a terminal, failures are notifications), checks the PR out and opens diffy

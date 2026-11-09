@@ -45,6 +45,16 @@
       # The derivation zellij.nix installs: the bar reads the picker's data through it.
       reviews = pkgs.callPackage ../../headless/reviews/_package.nix { };
 
+      # The zellij tab the focused window shows, for the PR panel to start on the PR it reviews. zellij
+      # titles its terminal `<session> | <pane>`; with several clients on a session, zellij picks one.
+      reviewTab = pkgs.writeShellScript "review-tab" ''
+        title=$(${pkgs.niri}/bin/niri msg --json focused-window | ${pkgs.jq}/bin/jq -r '.title // empty')
+        session=''${title%% | *}
+        [ -n "$session" ] || exit 0
+        ${config.programs.zellij.package}/bin/zellij --session "$session" action current-tab-info --json 2>/dev/null |
+          ${pkgs.jq}/bin/jq -r '.name // empty'
+      '';
+
       # Pairing needs an agent to answer BlueZ's prompts, and QML cannot export
       # one. See bt-pair.py.
       btPair = pkgs.writers.writePython3Bin "bt-pair" {
@@ -284,6 +294,8 @@
             readonly property var chdir: ["${pkgs.coreutils}/bin/env", "-C"]
             // The pill's data (`--json`) and its refresh, from the picker's own binary.
             readonly property string reviews: "${lib.getExe reviews}"
+            // The name of the zellij tab in the focused window, if it shows one.
+            readonly property string reviewTab: "${reviewTab}"
             readonly property bool reviewsEnabled: ${lib.boolToString config.work.enable}
             readonly property string systemdInhibit: "${pkgs.systemd}/bin/systemd-inhibit"
             readonly property string sleepBin: "${pkgs.coreutils}/bin/sleep"

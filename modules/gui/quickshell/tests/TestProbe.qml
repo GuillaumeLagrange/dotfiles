@@ -11,6 +11,23 @@ Item {
     required property Item pill
     required property var panel
 
+    // The panel's Linear issue buttons on screen, by identifier.
+    function chips(item: Item, win: var, out: var): var {
+        for (const child of item.children) {
+            if (child.modelData?.identifier !== undefined && typeof child.selected === "boolean" && child.visible) {
+                const at = child.mapToItem(null, 0, 0, child.width, child.height);
+                out[child.modelData.identifier] = {
+                    x: at.x,
+                    y: win.screen.height - win.height + at.y,
+                    w: at.width,
+                    h: at.height
+                };
+            }
+            probe.chips(child, win, out);
+        }
+        return out;
+    }
+
     IpcHandler {
         target: "test"
 
@@ -25,6 +42,8 @@ Item {
                 tab: panel.tab,
                 query: panel.probeQuery,
                 cursor: panel.cursor,
+                issueCursor: panel.issueCursor,
+                chips: panel.visible ? probe.chips(panel.contentItem, panel, {}) : {},
                 matching: panel.matching.map(r => r.kind === "stack" ? "stack" : r.number),
                 pill: {
                     // The bar window is anchored to the bottom of the output.

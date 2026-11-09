@@ -100,4 +100,15 @@ Singleton {
         printErrors: false
         onFileChanged: root.reload()
     }
+
+    // Mod+" reaches every bar; the one on the focused output answers.
+    signal panelToggleRequested
+
+    IpcHandler {
+        target: "reviews"
+
+        function panel(): void {
+            root.panelToggleRequested();
+        }
+    }
 }

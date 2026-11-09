@@ -93,7 +93,9 @@ PanelWindow {
                 Layout.alignment: Qt.AlignVCenter
                 active: Config.reviewsEnabled
                 visible: item?.shown ?? false
-                sourceComponent: ReviewsPill {}
+                sourceComponent: ReviewsPill {
+                    monitor: bar.monitor
+                }
             }
 
             ClaudePill {

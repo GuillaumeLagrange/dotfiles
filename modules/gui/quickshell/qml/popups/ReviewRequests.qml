@@ -1,13 +1,17 @@
 // Pull requests as the reviews picker lists them, in its tabs: awaiting my
 // review, reviewed lately, and mine. One card per PR, railed by its checks, a
 // GitHub stack's members gathered under its heading, top first. Clicking a card
-// opens it the way picking it in the picker does; the title's buttons refresh
-// the lists and open the picker itself. Typing filters the tab's PRs, Tab and
-// Shift+Tab cycle the tabs, Up/Down and Enter pick one.
+// opens it the way picking it in the picker does, clicking one of its Linear
+// issues opens that in the browser; the title's buttons refresh the lists and
+// open the picker itself. Typing filters the tab's PRs, Tab and Shift+Tab cycle
+// the tabs, Up/Down (Ctrl+P/Ctrl+N) move between PRs, Left/Right between a PR
+// and its issues, and Enter opens what the cursor is on. It opens on the PR
+// whose review tab the focused window shows, else on none.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Widgets
 import qs
 import qs.components
@@ -49,6 +53,12 @@ ClickPanel {
     readonly property var matching: root.visibleRows()
     // The PR the arrow keys are on, by url: a refresh replaces every row.
     property string cursor: ""
+    // The cursor's Linear issue, by index; -1 is the PR itself.
+    property int issueCursor: -1
+    // The PR whose review tab the focused window shows.
+    property string here: ""
+
+    onCursorChanged: root.issueCursor = -1
 
     function visibleRows(): var {
         if (find.query === "")
@@ -67,10 +77,51 @@ ClickPanel {
         Quickshell.execDetached(root.tab === "mine" ? Config.reviewMine.concat([pr.url, pr.branch]) : Config.reviewPr.concat([pr.url]));
     }
 
-    // Puts the cursor on the first PR, which typing makes the best match.
-    function first(): void {
-        root.cursor = root.visibleRows().find(r => root.pickable(r))?.url ?? "";
-        list.positionViewAtBeginning();
+    function openIssue(issue: var): void {
+        root.close();
+        Quickshell.execDetached(Config.openUrl.concat([issue.url]));
+    }
+
+    // Puts the cursor on the best match while typing, else on the PR of the
+    // focused review tab when this tab lists it, else nowhere until an arrow.
+    function place(): void {
+        const rows = root.visibleRows();
+        const pr = rows.find(r => root.pickable(r) && (find.query !== "" || r.url === root.here));
+        root.cursor = pr?.url ?? "";
+        if (pr && find.query === "")
+            list.positionViewAtIndex(rows.indexOf(pr), ListView.Contain);
+        else
+            list.positionViewAtBeginning();
+    }
+
+    // A review tab is named `<repo>#<number>` (review.sh). The PR is looked for
+    // in this tab first, then in the others, switching to the one listing it.
+    function locate(name: string): void {
+        const m = /^(.+)#(\d+)$/.exec(name.trim());
+        if (!m || !root.visible || root.cursor !== "" || find.query !== "")
+            return;
+        const keys = [root.tab].concat(root.tabs.map(t => t.key).filter(k => k !== root.tab));
+        for (const key of keys) {
+            const rows = Reviews.showStale ? Reviews[key].all : Reviews[key].rows;
+            const pr = rows.find(r => root.pickable(r) && r.repo === m[1] && r.number === Number(m[2]));
+            if (!pr)
+                continue;
+            root.here = pr.url;
+            if (key === root.tab)
+                root.place();
+            else
+                Reviews.tab = key;
+            return;
+        }
+    }
+
+    Process {
+        id: focusedTab
+
+        command: [Config.reviewTab]
+        stdout: StdioCollector {
+            onStreamFinished: root.locate(this.text)
+        }
     }
 
     function step(delta: int): void {
@@ -83,6 +134,14 @@ ClickPanel {
         list.positionViewAtIndex(root.matching.indexOf(picks[next]), ListView.Contain);
     }
 
+    // Between the cursor's PR (-1) and its Linear issues.
+    function side(delta: int): void {
+        const pr = root.matching.find(r => root.pickable(r) && r.url === root.cursor);
+        if (!pr)
+            return;
+        root.issueCursor = Math.max(-1, Math.min((pr.linear ?? []).length - 1, root.issueCursor + delta));
+    }
+
     function cycle(delta: int): void {
         const i = root.tabs.findIndex(t => t.key === root.tab);
         Reviews.tab = root.tabs[(i + delta + root.tabs.length) % root.tabs.length].key;
@@ -90,18 +149,21 @@ ClickPanel {
 
     // Deferred: `rows` still holds the previous tab while this runs.
     onTabChanged: if (root.visible)
-        Qt.callLater(root.first)
+        Qt.callLater(root.place)
 
     // Sampled on open; the ages only need to be right when looked at.
     property real now: Date.now() / 1000
     onShown: {
         root.now = Date.now() / 1000;
-        root.first();
+        root.here = "";
+        root.place();
+        focusedTab.running = true;
         list.forceActiveFocus();
     }
     onHidden: {
         find.query = "";
         root.cursor = "";
+        root.here = "";
     }
 
     function age(at: real): string {
@@ -219,7 +281,7 @@ ClickPanel {
 
             accent: root.accent
             empty: root.matching.length === 0
-            onQueryChanged: root.first()
+            onQueryChanged: root.place()
         }
 
         ListView {
@@ -227,7 +289,12 @@ ClickPanel {
 
             function pickCursor(): void {
                 const pr = root.matching.find(r => root.pickable(r) && r.url === root.cursor);
-                if (pr)
+                if (!pr)
+                    return;
+                const issue = (pr.linear ?? [])[root.issueCursor];
+                if (issue)
+                    root.openIssue(issue);
+                else
                     root.pick(pr);
             }
 
@@ -242,6 +309,8 @@ ClickPanel {
             keyNavigationEnabled: false
             Keys.onUpPressed: root.step(-1)
             Keys.onDownPressed: root.step(1)
+            Keys.onLeftPressed: root.side(-1)
+            Keys.onRightPressed: root.side(1)
             Keys.onTabPressed: root.cycle(1)
             Keys.onBacktabPressed: root.cycle(-1)
             Keys.onReturnPressed: list.pickCursor()
@@ -253,7 +322,10 @@ ClickPanel {
                     event.accepted = false;
             }
             Keys.onPressed: event => {
-                event.accepted = find.type(event);
+                const delta = find.step(event);
+                if (delta !== 0)
+                    root.step(delta);
+                event.accepted = delta !== 0 || find.type(event);
             }
 
             // Shown only while the list is capped, and the rows give up its width.
@@ -619,17 +691,44 @@ ClickPanel {
                                 font.pixelSize: 11
                             }
 
+                            // A button per issue, opening it in the browser; Left/Right reach them.
                             Repeater {
                                 model: card.pr.linear ?? []
 
-                                Text {
-                                    required property var modelData
+                                Rectangle {
+                                    id: chip
 
-                                    text: modelData.identifier
-                                    color: root.issueColor(modelData.kind)
-                                    font.family: Theme.ui
-                                    font.pixelSize: 11
-                                    font.weight: Font.DemiBold
+                                    required property var modelData
+                                    required property int index
+                                    readonly property bool selected: card.current && root.issueCursor === index
+
+                                    implicitWidth: issue.implicitWidth + 12
+                                    implicitHeight: issue.implicitHeight + 4
+                                    radius: height / 2
+                                    color: chip.selected || chipArea.containsMouse ? Theme.hoverFill : "transparent"
+                                    border.width: chip.selected ? 1 : 0
+                                    border.color: Theme.alpha(root.accent, 0.6)
+
+                                    Text {
+                                        id: issue
+
+                                        anchors.centerIn: parent
+                                        text: chip.modelData.identifier
+                                        color: root.issueColor(chip.modelData.kind)
+                                        font.family: Theme.ui
+                                        font.pixelSize: 11
+                                        font.weight: Font.DemiBold
+                                    }
+
+                                    // Takes the press, so the card's own tap does not open the PR too.
+                                    MouseArea {
+                                        id: chipArea
+
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.openIssue(chip.modelData)
+                                    }
                                 }
                             }
                         }

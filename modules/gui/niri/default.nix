@@ -159,6 +159,7 @@
               Mod+Ctrl+N { spawn ${quoteArgs "${config.quickshellIpc} notifs dnd"}; }
               Mod+P { spawn ${quoteArgs "${config.quickshellIpc} media panel"}; }
               Mod+B { spawn ${quoteArgs "${config.quickshellIpc} bt panel"}; }
+              ${lib.optionalString config.work.enable "Mod+Shift+Apostrophe { spawn ${quoteArgs "${config.quickshellIpc} reviews panel"}; }"}
 
               XF86AudioRaiseVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.up}"; }
               XF86AudioLowerVolume allow-when-locked=true { spawn "sh" "-c" "${config.audio.down}"; }
