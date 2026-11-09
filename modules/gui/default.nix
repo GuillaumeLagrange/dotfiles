@@ -254,35 +254,6 @@
           ];
       };
 
-      systemd.user = {
-        enable = true;
-        startServices = true;
-        services = {
-          cliphist-wipe = {
-            Unit = {
-              Description = "Wipe cliphist at midnight";
-            };
-            Service = {
-              ExecStart = "${pkgs.cliphist}/bin/cliphist wipe";
-            };
-          };
-        };
-        timers = {
-          cliphist-wipe = {
-            Unit = {
-              Description = "Run cliphist wipe daily at midnight";
-            };
-            Install = {
-              WantedBy = [ "timers.target" ];
-            };
-            Timer = {
-              OnCalendar = "*-*-* 00:00:00";
-              Persistent = true;
-            };
-          };
-        };
-      };
-
       programs.chromium.enable = true;
 
       programs.feh.enable = true;
