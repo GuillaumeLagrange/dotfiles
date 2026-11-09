@@ -33,7 +33,8 @@ The installation ISO:
 nix build .#nixosConfigurations.guiom-nixos-installation.config.system.build.isoImage
 ```
 
-`just check` runs every linter and test suite, `just format` formats everything.
+`just check` runs every linter and test suite, `just format` formats everything, both from the devshell
+(`nix develop`, or direnv through `.envrc`).
 
 ## How it is laid out
 

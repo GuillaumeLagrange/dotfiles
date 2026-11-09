@@ -1,5 +1,6 @@
 # Run by prek (`just hooks` installs it): formatters on the staged files, then each touched
 # crate's clippy. A formatter that rewrites a file fails the commit; stage the result.
+# The tools come from the devshell (.envrc), so commit from inside it.
 # Skip with `git commit --no-verify`.
 repos:
   - repo: local
@@ -16,22 +17,22 @@ repos:
         files: ^nvim/.*\.lua$
       - id: ruff-format
         name: ruff format
-        entry: nix run nixpkgs#ruff -- format
+        entry: ruff format
         language: system
         files: \.py$
       - id: shfmt
         name: shfmt
-        entry: nix run nixpkgs#shfmt -- -w -i 2 -ci
+        entry: shfmt -w -i 2 -ci
         language: system
         files: \.sh$
       - id: qmlformat
         name: qmlformat
-        entry: nix shell nixpkgs#qt6.qtdeclarative -c qmlformat -i
+        entry: qmlformat -i
         language: system
         files: \.qml$
       - id: biome-format
         name: biome format
-        entry: nix run nixpkgs#biome -- format --write --line-width 120
+        entry: biome format --write --line-width 120
         language: system
         files: \.ts$
 

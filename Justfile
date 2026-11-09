@@ -18,10 +18,10 @@ format:
     git ls-files -z '*.nix' | xargs -0r nixfmt
     stylua nvim
     for crate in {{ crates }}; do (cd "$crate" && cargo fmt); done
-    git ls-files -z '*.py' | xargs -0r nix run nixpkgs#ruff -- format
-    git ls-files -z '*.sh' | xargs -0r nix run nixpkgs#shfmt -- -w -i 2 -ci
-    git ls-files -z '*.qml' | xargs -0r nix shell nixpkgs#qt6.qtdeclarative -c qmlformat -i
-    git ls-files -z '*.ts' | xargs -0r nix run nixpkgs#biome -- format --write --line-width 120
+    git ls-files -z '*.py' | xargs -0r ruff format
+    git ls-files -z '*.sh' | xargs -0r shfmt -w -i 2 -ci
+    git ls-files -z '*.qml' | xargs -0r qmlformat -i
+    git ls-files -z '*.ts' | xargs -0r biome format --write --line-width 120
 
 lint-nix:
     git ls-files -z '*.nix' | xargs -0 nixfmt --check
@@ -45,8 +45,7 @@ test-omp:
 bump *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Not stable's 1.15: it cannot read crates.io versions off fetchCrate's static.crates.io URLs
-    update() { nix run --inputs-from . nixpkgs-unstable#nix-update -- --flake --build "$@"; }
+    update() { nix-update --flake --build "$@"; }
     set -- {{ args }}
     if [ $# -eq 2 ]; then
         update --version "$2" "$1"

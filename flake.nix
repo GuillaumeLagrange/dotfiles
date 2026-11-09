@@ -54,6 +54,8 @@
 
         # overlays.default and packages
         ./pkgs
+        # devShells.default: the Justfile's and the hooks' tools
+        ./devshell.nix
 
         # Groups: modules.nixos.<name> and modules.homeManager.<name>
         ./modules/core
