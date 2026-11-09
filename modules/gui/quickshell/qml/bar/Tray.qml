@@ -240,9 +240,15 @@ Rectangle {
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 onSingleTapped: {
-                    if (entry.modelData.onlyMenu)
+                    if (entry.modelData.onlyMenu) {
                         root.openMenu(entry.modelData.menu);
-                    else
+                        return;
+                    }
+                    entry.modelData.activate();
+                    // Wine turns a second Activate within the double-click time
+                    // into a double click, which is what restores most Windows
+                    // apps from the tray (Battle.net ignores a single one).
+                    if (entry.modelData.id.startsWith("wine-"))
                         entry.modelData.activate();
                 }
             }
@@ -254,7 +260,16 @@ Rectangle {
 
             TapHandler {
                 acceptedButtons: Qt.RightButton
-                onSingleTapped: root.openMenu(entry.modelData.menu)
+                onSingleTapped: point => {
+                    if (entry.modelData.hasMenu) {
+                        root.openMenu(entry.modelData.menu);
+                        return;
+                    }
+                    const bar = root.QsWindow.window;
+                    const x = bar.screen.x + point.scenePosition.x;
+                    const y = bar.screen.y + bar.screen.height - bar.height + point.scenePosition.y;
+                    Quickshell.execDetached([Config.trayContextMenu, entry.modelData.id, String(Math.round(x)), String(Math.round(y))]);
+                }
             }
         }
     }

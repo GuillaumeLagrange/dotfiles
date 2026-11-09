@@ -56,6 +56,32 @@
         ];
       } (builtins.readFile ./bt-pair.py);
 
+      # Opens the context menu of a tray item that has no DBusMenu, which the
+      # app then draws itself (Wine's icons). Quickshell only exposes `display`,
+      # which needs a DBusMenu, so ContextMenu is called here; the item is found
+      # by its Id, the only part of its address SystemTrayItem gives.
+      trayContextMenu = pkgs.writeShellApplication {
+        name = "tray-context-menu";
+        runtimeInputs = [
+          pkgs.systemd
+          pkgs.jq
+        ];
+        text = ''
+          id=$1 x=$2 y=$3
+          items=$(busctl --user --json=short get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+            org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems | jq -r '.data[]')
+          while IFS= read -r item; do
+            service=''${item%%/*} path=/''${item#*/}
+            got=$(busctl --user --json=short get-property "$service" "$path" org.kde.StatusNotifierItem Id 2>/dev/null | jq -r .data) || continue
+            if [ "$got" = "$id" ]; then
+              exec busctl --user call "$service" "$path" org.kde.StatusNotifierItem ContextMenu ii "$x" "$y"
+            fi
+          done <<<"$items"
+          echo "tray-context-menu: no tray item $id" >&2
+          exit 1
+        '';
+      };
+
       # Qt's `TextMetrics.tightBoundingRect` clamps a glyph's ink box to the
       # baseline, so a glyph drawn entirely above it (the tray's three dots)
       # reports a box that is too tall and centres too high. The real outline
@@ -220,6 +246,7 @@
             readonly property var wdisplays: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.wdisplays}/bin/wdisplays"]
             readonly property string claudeUsage: "${claudeUsage}/bin/claude-usage-qs"
             readonly property string btPair: "${btPair}/bin/bt-pair"
+            readonly property string trayContextMenu: "${trayContextMenu}/bin/tray-context-menu"
             readonly property string screenrecord: ${builtins.toJSON config.screenrecordScreenTool}
             // Mod+Shift+\, spawned through niri so it runs in the same environment as the bind.
             readonly property var review: ${

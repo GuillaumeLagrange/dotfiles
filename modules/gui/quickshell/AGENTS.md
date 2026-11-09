@@ -360,6 +360,15 @@ it. The stack is also what keeps each level's `QsMenuOpener` alive, which the
 menu contents depend on (next gotcha), and a popped level is destroyed, so
 `stack.clear()` on hide closes the menu for the application too.
 
+**Wine's tray icons have no DBusMenu** (Proton's SNI, `Id` `wine-…`): the app
+draws its own menu when the item's `ContextMenu(x, y)` is called. Quickshell
+does not expose that method, so a right click on an item without `hasMenu` runs
+`tray-context-menu ID X Y` (`default.nix`), which finds the item by `Id` among
+the watcher's registered items and calls it with busctl. Wine turns a second
+`Activate` within the double-click time into a double click, which is what
+restores Battle.net (it ignores a single one), so a left click on a `wine-` item
+activates twice.
+
 **Config.qml is generated, for the same reason the eww yuck was**: every binary
 is an absolute store path, and every nerd-font glyph is decoded in Nix from a
 JSON `\u` escape (`glyph "F0493"`, surrogate pairs handled) so no QML source
