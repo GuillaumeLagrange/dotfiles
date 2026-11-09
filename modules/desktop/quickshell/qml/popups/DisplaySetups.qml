@@ -2,7 +2,8 @@
 // saved setup, drawn as its monitors to scale, the connected monitors' first.
 // A click applies one, a right click renames it, dragging moves it (the order
 // Mod+M cycles in), + names the current layout, Arrange opens wdisplays to make
-// one. Setups for other monitors stay listed, dimmed, so they can be deleted.
+// one. Setups for other monitors are hidden until asked for, then listed
+// dimmed, so they can be deleted.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -210,10 +211,12 @@ ColumnLayout {
         readonly property int cellHeight: grid.cardHeight + grid.gap
         // The connected monitors' setups come first; a card moves only among its own group.
         readonly property int fitting: Displays.setups.filter(s => s.fits).length
+        readonly property int other: Displays.setups.length - grid.fitting
+        readonly property int shown: Displays.showOther ? Displays.setups.length : grid.fitting
 
         Layout.fillWidth: true
-        visible: Displays.setups.length > 0
-        implicitHeight: Math.ceil(Displays.ordered.length / grid.columns) * grid.cellHeight - grid.gap
+        visible: grid.shown > 0
+        implicitHeight: Math.ceil(grid.shown / grid.columns) * grid.cellHeight - grid.gap
 
         Repeater {
             model: Displays.ordered
@@ -241,6 +244,7 @@ ColumnLayout {
                 color: card.active ? Theme.alpha(root.accent, 0.12) : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.05) : Theme.well)
                 border.width: 1
                 border.color: card.active ? root.accent : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.18) : "transparent")
+                visible: card.fits || Displays.showOther
                 opacity: card.fits ? 1 : 0.45
 
                 Behavior on x {
@@ -408,6 +412,32 @@ ColumnLayout {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        Layout.fillWidth: true
+        visible: grid.other > 0
+        implicitHeight: 26
+        radius: Theme.rowRadius
+        color: otherHover.hovered ? Theme.hoverFill : "transparent"
+
+        Text {
+            anchors.centerIn: parent
+            text: Displays.showOther ? `Hide ${grid.other} for other screens` : `Show ${grid.other} for other screens`
+            color: otherHover.hovered ? Theme.fg : Theme.dim
+            font.family: Theme.ui
+            font.pixelSize: 11
+        }
+
+        HoverHandler {
+            id: otherHover
+
+            cursorShape: Qt.PointingHandCursor
+        }
+
+        TapHandler {
+            onSingleTapped: Displays.showOther = !Displays.showOther
         }
     }
 

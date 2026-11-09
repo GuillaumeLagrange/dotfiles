@@ -171,7 +171,8 @@ config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the 
   the config. Arrange them with anything (wdisplays, `niri msg output`), then save the layout under a name from
   the control centre's Displays section (+); its cards draw each setup's monitors to scale, a click applies one,
   the × on hover deletes it. A setup records every connected monitor ("make model serial", on or off) and fits
-  only where exactly those are connected, like a kanshi profile. Mod+M / Mod+Shift+M cycle the setups that fit,
+  only where exactly those are connected, like a kanshi profile; the section hides the setups that do not fit
+  behind a "Show N for other screens" toggle (kept across opens). Mod+M / Mod+Shift+M cycle the setups that fit,
   with a notification. The `niri-displays` user service (`watch`) applies the last used fitting setup at login
   and whenever a monitor is plugged or unplugged, and leaves a layout changed by hand alone otherwise. Saved in
   `~/.local/state/niri-displays/setups.json`. What the IPC cannot set (the KTC's side struts) stays an

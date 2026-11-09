@@ -14,6 +14,8 @@ Singleton {
     // The connected monitors' setups first, then the others.
     readonly property var ordered: root.setups.filter(s => s.fits).concat(root.setups.filter(s => !s.fits))
     readonly property bool anyFits: root.setups.some(s => s.fits)
+    // Setups for monitors not connected are listed too; kept across opens.
+    property bool showOther: false
     property string error: ""
     property bool _again: false
 
