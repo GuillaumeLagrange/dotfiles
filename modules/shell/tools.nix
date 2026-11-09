@@ -17,6 +17,7 @@ let
     text = ''
       DYNAMIC_LINKER=${pkgs.stdenv.cc.bintools.dynamicLinker}
       ZLIB_LIB=${lib.makeLibraryPath [ pkgs.zlib ]}
+      LD_WRAPPER=${pkgs.rustup}/nix-support/ld-wrapper.sh
     ''
     + builtins.readFile ./rustup-repatch.sh;
   };
