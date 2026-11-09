@@ -1,5 +1,5 @@
 -- `:Fixit [text]`: hands what the user wants fixed to an omp worker (the `omp-fixit` CLI,
--- modules/headless/omp-fixit.sh) with a snapshot of this nvim taken when the command ran: what the
+-- modules/shell/omp-fixit.sh) with a snapshot of this nvim taken when the command ran: what the
 -- user typed, ran and saw, the windows, the config and cwd repos, and whatever plugins registered
 -- with `add_context` (diffy's sessions). Without text, a float takes it.
 local M = {}

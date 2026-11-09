@@ -38,27 +38,27 @@ repos:
       - &rust
         id: rust-wt
         name: wt (cargo fmt, clippy)
-        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' wt
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/wt
         language: system
-        files: ^wt/
+        files: ^pkgs/wt/
         pass_filenames: false
       - <<: *rust
         id: rust-niri-state
         name: niri-state (cargo fmt, clippy)
-        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/gui/niri-state
-        files: ^modules/gui/niri-state/
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/niri-state
+        files: ^pkgs/niri-state/
       - <<: *rust
         id: rust-quickshell-tests
         name: quickshell tests (cargo fmt, clippy)
-        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/gui/quickshell/tests
-        files: ^modules/gui/quickshell/tests/
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/desktop/quickshell/tests
+        files: ^modules/desktop/quickshell/tests/
       - <<: *rust
         id: rust-omp-panel
         name: omp-panel (cargo fmt, clippy)
-        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/headless/omp-panel
-        files: ^modules/headless/omp-panel/
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/omp-panel
+        files: ^pkgs/omp-panel/
       - <<: *rust
         id: rust-reviews
         name: reviews (cargo fmt, clippy)
-        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/headless/reviews
-        files: ^modules/headless/reviews/
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/reviews
+        files: ^pkgs/reviews/

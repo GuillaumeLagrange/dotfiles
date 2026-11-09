@@ -1,4 +1,4 @@
-// Names an omp started by the `omp-fixit` CLI (modules/headless/omp-fixit.sh) after what it works
+// Names an omp started by the `omp-fixit` CLI (modules/shell/omp-fixit.sh) after what it works
 // on. OMP_FIXIT holds the task's name: the session is titled with it from the start, and the
 // `fixit_title` tool appends a short summary once the agent knows what the task is about, to the
 // session title (what omp-panel shows) and to the zellij tab.

@@ -1,3 +1,4 @@
+# secure-boot: lanzaboote signs the boot chain, with keys enrolled on first boot.
 { inputs, ... }:
 {
   flake.modules.nixos.secure-boot =

@@ -1,5 +1,5 @@
 {
-  description = "Home Manager configuration of guillaume";
+  description = "Guillaume's machines and home-manager configs";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
@@ -12,7 +12,6 @@
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
-    import-tree.url = "github:vic/import-tree";
     lanzaboote = {
       url = "github:nix-community/lanzaboote/v1.0.0";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -37,15 +36,48 @@
     };
   };
 
+  # Every file that defines a module or an output is listed here, so a name leads to
+  # its file: `self.modules.<class>.<name>` comes from modules/<name> or homes/<name>.nix.
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+
       imports = [
-        # Consumable outputs: nixosConfigurations and homeConfigurations
-        (inputs.import-tree ./hosts)
-        ./home-configurations.nix
-        # Reusable nixos/homeManager modules they are built from
-        (inputs.import-tree ./modules)
+        inputs.flake-parts.flakeModules.modules
+        # Lets several files define homeConfigurations.
+        inputs.home-manager.flakeModules.home-manager
+
+        # overlays.default and packages
+        ./pkgs
+
+        # Groups: modules.nixos.<name> and modules.homeManager.<name>
+        ./modules/core
+        ./modules/shell
+        ./modules/desktop
+        ./modules/work
+        ./modules/laptop.nix
+        ./modules/encrypted-disk.nix
+        ./modules/secure-boot.nix
+        ./modules/stall-tracing
+
+        # Homes: modules.homeManager.<name>, and homeConfigurations
+        ./homes/work-laptop.nix
+        ./homes/personal-desktop.nix
+        ./homes/server.nix
+        ./homes/codspeed-mac.nix
+        ./homes/cloud.nix
+
+        # Hosts: nixosConfigurations.<name>
+        ./hosts/badlands
+        ./hosts/granary
+        ./hosts/snakewater
+        ./hosts/gullywash
+        ./hosts/installer.nix
       ];
     };
 }

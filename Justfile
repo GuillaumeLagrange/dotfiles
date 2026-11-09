@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-crates := "wt modules/gui/niri-state modules/gui/quickshell/tests modules/headless/omp-panel modules/headless/reviews"
+crates := "pkgs/wt pkgs/niri-state pkgs/omp-panel pkgs/reviews modules/desktop/quickshell/tests"
 
 # Lint and test everything
 check: lint test
@@ -41,7 +41,7 @@ test-rust:
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test
 
-# Move tools of modules/cargo-tools (all when none named) to their latest release, or NAME to VERSION
+# Move tools of pkgs/cargo-tools (all when none named) to their latest release, or NAME to VERSION
 bump *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -52,5 +52,5 @@ bump *args:
         update --version "$2" "$1"
         exit
     fi
-    [ $# -gt 0 ] || set -- $(cd modules/cargo-tools && ls _*.nix | sed 's/^_//; s/\.nix$//')
+    [ $# -gt 0 ] || set -- $(cd pkgs/cargo-tools && ls *.nix | sed 's/\.nix$//')
     for tool; do update "$tool"; done

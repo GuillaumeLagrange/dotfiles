@@ -1,0 +1,78 @@
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
+{
+  _class = "nixos";
+
+  boot.loader.efi.canTouchEfiVariables = true;
+  networking.networkmanager.enable = true;
+
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+  };
+
+  nix.extraOptions = ''
+    trusted-users = root guillaume
+  '';
+
+  programs.nix-ld.enable = true;
+
+  # Set with `timedatectl set-timezone`, unless a host pins it.
+  time.timeZone = lib.mkDefault null;
+
+  programs.zsh.enable = true;
+
+  users.users.guillaume = {
+    isNormalUser = true;
+    description = "Guillaume";
+    extraGroups = [
+      "wheel"
+      "docker"
+    ];
+    shell = pkgs.zsh;
+  };
+
+  home-manager.useGlobalPkgs = true;
+  home-manager.useUserPackages = true;
+  home-manager.backupFileExtension = "backup";
+  home-manager.users.guillaume.stylix.overlays.enable = false;
+  home-manager.users.guillaume.manual.manpages.enable = false;
+
+  virtualisation.docker.enable = true;
+
+  environment.systemPackages = with pkgs; [
+    wget
+    home-manager
+  ];
+
+  programs.nix-index-database.comma.enable = true;
+  programs.nix-index.enable = false;
+  programs.command-not-found.enable = false;
+  documentation.nixos.enable = false;
+
+  nix.optimise.automatic = true;
+  programs.nh = {
+    enable = true;
+    clean = {
+      enable = true;
+      dates = "weekly";
+      extraArgs = "--keep-since 7d --keep 3";
+    };
+  };
+
+  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+
+  system.activationScripts.binbash = {
+    text = ''
+      mkdir -p /bin
+      ln -sf ${pkgs.bash}/bin/bash /bin/bash
+    '';
+  };
+}

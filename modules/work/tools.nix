@@ -1,0 +1,78 @@
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
+let
+  codspeed_root = "${config.home.homeDirectory}/codspeed";
+  vgbasedir = "\${WORKSPACE_ROOT:-${codspeed_root}}/valgrind-codspeed";
+
+  cargoInstall =
+    name: repo: path:
+    pkgs.writeShellScriptBin name ''
+      dir="''${WORKSPACE_ROOT:-${codspeed_root}}/${repo}"
+      cd "$dir" || exit 1
+      exec direnv exec "$dir" cargo install --path ${path} --locked
+    '';
+in
+{
+  _class = "homeManager";
+
+  programs.granted.enable = true;
+
+  programs.git = {
+    settings = {
+      diff.lfstext.textconv = "cat";
+    };
+  };
+
+  home.shellAliases = {
+    ct = "cargo nextest run";
+    mj = "make -j";
+    m = "make";
+    cm = "cmake ..";
+    bazel = "bazelisk";
+    cdtmp = "cd $(ls -td /tmp/profile.*.out | head -n 1)";
+    turbo = "pnpm turbo";
+    codstaging = "export CODSPEED_PROFILE=staging";
+    coddev = "export CODSPEED_PROFILE=dev";
+    codprod = "unset CODSPEED_PROFILE";
+  };
+
+  home.sessionVariables = {
+    CODSPEED_ROOT = codspeed_root;
+    WORKSPACE_ROOT = codspeed_root;
+  };
+
+  home.packages =
+    with pkgs;
+    [
+      awscli2
+      pkgs.unstable.uv
+      cargoTools.linear
+      pkgs.unstable.cargo-cross
+      pkgs.unstable.cargo-insta
+      pkgs.unstable.cargo-release
+      pkgs.unstable.taws
+      # Its config (~/.config/wt/config.toml) names private repos, so it is not in here.
+      wt
+    ]
+    ++ lib.optionals stdenv.isLinux [
+      (writeShellScriptBin "valgrind" ''
+        RUSTUP_FORCE_ARG0=cargo exec "${vgbasedir}/vg-in-place" "$@"
+      '')
+    ]
+    ++ [
+      (cargoInstall "cicc" "codspeed-rust" "./crates/cargo-codspeed")
+      (cargoInstall "cicr" "codspeed" ".")
+      (cargoInstall "cieh" "codspeed" "./crates/exec-harness")
+      (cargoInstall "cicm" "codspeed" "./crates/memtrack")
+
+      (writeShellScriptBin "local_run_helper" ''
+        archive_name="''${1:-sample.tar.gz}"
+        runner_profile_dir=$(ls -td /tmp/profile.*.out | head -n 1)
+        tar -czf "$archive_name" -C "$runner_profile_dir" .
+      '')
+    ];
+}

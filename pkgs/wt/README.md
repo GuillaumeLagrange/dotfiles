@@ -1,0 +1,155 @@
+# wt
+
+Feature-scoped workspaces spanning several repos: a set of worktrees inside a
+mirror of the whole checkout, so every sibling path keeps resolving.
+
+```
+wt                 attach to a session, picking one when none is named
+wt <id>            the same, by name or unique prefix; a running session keeps the
+                   tabs it has, gaining only the ones its members lack
+wt new <name>      pick members, mirror the workspace, check them out detached
+wt add <repo>      turn a mirror symlink into a worktree, and open a tab for it
+wt promote <repo>  the swap backwards: the main checkout takes the branch
+wt recreate [<id>] throw the zellij session away and come back to a new one
+wt mv <id> <name>  rename (alias `rename`); moves the directory when it sits at the
+                   default path and repairs its worktrees; refused while zellij runs it
+wt rm [<id>]       guarded teardown (dirty tree / unpushed / stashes; --force)
+wt ls [--json]     sessions, members, branches
+wt path [<id>]     a session root, for shell use; --exact, for a name from elsewhere
+wt main [--path]   the main checkout's zellij session, or with --path its root (the workspace)
+wt tabs [<id>]     open the tabs a running session's members lack, for a client another tool attached
+wt sync [--fix]    drift report / repair
+```
+
+## Layout
+
+```
+crates/core/     registry, mirror, hydration, git, branch, drift, zellij
+crates/cli/      the `wt` binary
+crates/cli/tests/  the end-to-end suite
+```
+
+## Build
+
+The CLI is packaged (`package.nix`, installed by the `work` group of the dotfiles), so
+a rebuild is enough. For the dev loop:
+
+```sh
+cargo build            # or: nix shell nixpkgs#cargo nixpkgs#rustc --command cargo build
+cargo nextest run      # unit tests and the end-to-end suite
+```
+
+The suite in `crates/cli/tests/` drives the built binary against a throwaway
+workspace: real git repos, real worktrees, its own `HOME` and XDG directories, so a
+test can neither read nor damage the machine's own sessions. `common::Fixture` builds
+one per test, and drops it on the way out. The zellij tests start real servers —
+isolated by the fixture's `XDG_RUNTIME_DIR` and `XDG_CACHE_HOME` — and skip with a
+note when zellij is not installed; the same goes for the direnv test.
+
+## Configuration
+
+`~/.config/wt/config.toml`, written by hand — naming the repos wt may touch
+describes a codebase, which is not something to commit to a dotfiles repo. Nothing
+about a particular workspace is compiled in either, so `workspace` is required;
+every other key has a default:
+
+```toml
+workspace = "~/work"                 # the multi-repo checkout to mirror; else $WT_WORKSPACE
+default_root = "~/work/sessions"     # default: <workspace>/sessions
+main_session = "work-main"           # the zellij session in the workspace itself; default: <workspace name>-main
+repos = ["app", "docs", "lib"]       # the picker's pre-approved list, and the tabs' order; default: every repo
+hydrate = [".envrc", ".env*"]        # git-ignored paths a worktree needs; see below
+```
+
+Members' tabs sit in `repos` order, unlisted ones after by name; a tab wt opens
+mid-session is moved into place, and tabs that are nobody's are left where they
+are. Tabs are named by `mux-name`, as the zellij rename keybind names them, or
+after the bare repo where it is not on PATH.
+
+Unknown keys are an error rather than a shrug, so a typo says so.
+
+`WORKSPACE_ROOT` is deliberately *not* read: inside a session it points at the
+mirror, not at the checkout the mirror was built from.
+
+Repo names and branch names are never hardcoded. Members come from `repos`, and
+each one is checked out **detached** at its own main branch — `origin/HEAD`, else a
+`GIT_MAIN_BRANCH` that resolves there, else whichever of `main`/`master`/`staging`/
+`trunk`/`develop` exists. Naming a branch is left to whoever does the work.
+
+Hydration copies the paths `hydrate` names, as they stand, and runs `direnv allow`.
+Which git-ignored files a worktree is unusable without is a property of a codebase,
+so the list is configuration; the default is `.envrc`, `.env*`, `.nvim.lua`,
+`.taplo.toml`, `.claude/settings.local.json`. A pattern with no `/` matches a name
+at any depth, one with a `/` matches the path from the repo root, and `*` stands for
+any run of characters within a single name. An empty list is taken at its word.
+
+Keep it to *environment*. Anything heavier — installed dependencies, generated code
+— belongs in the repo's own `post-checkout` hook, and state does not travel at all:
+a `Session.vim` records a cwd and absolute paths, so a copy restores the checkout it
+was written in. For the same reason the mirror leaves out the workspace's own.
+
+## The session root
+
+`WORKSPACE_ROOT` points at the session, so anything resolving paths against it
+lands in the session's own repos. It is a property of the **session**, not of a
+directory: `cd ~` inside one must not send `cdr` back to the workspace, which rules
+out direnv.
+
+It is set for a whole zellij session by **starting its server with it in the
+environment**: panes inherit the server's environment, and the server inherits the
+environment of whoever started it — on creation and on resurrection alike, since both
+start a server. `wt <id>` is that starter, and `zsm` does the same when `wt path
+--exact <name>` resolves a session it was given by name.
+
+`wt <id>` always brings the server up itself, detached, before doing anything else —
+even when it is only going to switch to it from inside another session, because
+letting zellij's own server spawn the target would hand it an environment that never
+saw the root.
+
+Nothing is written for zellij to read. A generated layout would work too, but a
+layout — like `--config` — *replaces* what it is given rather than adding to it, so
+carrying one variable would mean restating the tab bar, the status bar and every
+other default in a file wt owns. Zellij has no additive mechanism for this: there
+is no `set-env` action, no `include`, and the `env` block in the layout zellij
+serializes for resurrection is ignored.
+
+A pane attached some other way (the session-manager plugin, the welcome screen,
+plain `zellij attach`) gets no value; a shell repairs that itself from
+`$ZELLIJ_SESSION_NAME`, which is the registry key, with the same call.
+
+## Rebuilding a session
+
+A zellij session outlives its server: what it had is saved and restored on the next
+start, layout included. So an edited layout never reaches a session that already
+exists, and `wt recreate` is the way out. It is one `delete-session --force` — what
+`zsk` does — followed by the ordinary attach, so the session comes up exactly as a
+first `wt <id>` would build it.
+
+The one thing that cannot be done in a straight line is doing this **from inside the
+session**, because the process asking is a pane of what it is deleting, and the
+terminal belongs to whoever started the client. It goes: write `<session>/.wt/recreate`,
+delete, die with the panes. The terminal falls back to the `wt` that handed it over,
+which is sitting between two clients; it takes the request and attaches again, into a
+session that no longer exists and is therefore built fresh.
+
+The request on disk is what a client exiting cannot say by itself: quitting,
+detaching and being deleted all look the same from out here, so without it `wt` would
+either trap the terminal in a session it can never leave or never rebuild anything.
+A terminal that reached the session some other way (`zsm`, plain `zellij attach`)
+lands back at its shell, and the next `wt <id>` honours the request.
+
+## State
+
+| what             | where                               |
+| ---------------- | ----------------------------------- |
+| session registry | `$XDG_STATE_HOME/wt/sessions.json` |
+| session marker   | `<session>/.wt/session.json`       |
+| rebuild request  | `<session>/.wt/recreate`           |
+
+The registry stores only what nothing else knows: path, title, extra ticket keys.
+Members and branches are read from the filesystem and git on every call, so they
+cannot go stale.
+
+The marker is what an ancestor walk finds: it is how `cdr` and wt itself answer
+"which session is this?" from inside a member — including a symlinked one, whose
+resolved path leads back out to the workspace.

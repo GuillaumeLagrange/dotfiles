@@ -1,4 +1,4 @@
-// Publishes this session's state for omp-panel (modules/headless/omp-panel).
+// Publishes this session's state for omp-panel (pkgs/omp-panel).
 //
 // Every interactive omp running in a zellij pane keeps one JSON file at
 // $XDG_RUNTIME_DIR/omp-panel/<session>/<pane>.json, rewritten on each change and
