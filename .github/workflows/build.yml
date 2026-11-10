@@ -1,0 +1,37 @@
+name: Build
+
+# Runs on gullywash's self-hosted runner, so only for pushes and manual runs, never pull requests.
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: [self-hosted, gullywash]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build hosts and homes
+        run: |
+          # main and flake-update keep their builds from the GC: they are what the cache must serve.
+          case "$GITHUB_REF_NAME" in
+            main | flake-update) roots="$CI_ROOTS/$GITHUB_REF_NAME"; mkdir -p "$roots" ;;
+            *) roots= ;;
+          esac
+          fail=0
+          for target in \
+            granary=nixosConfigurations.granary.config.system.build.toplevel \
+            snakewater=nixosConfigurations.snakewater.config.system.build.toplevel \
+            gullywash=nixosConfigurations.gullywash.config.system.build.toplevel \
+            home-guillaume=homeConfigurations.guillaume.activationPackage; do
+            name=${target%%=*}
+            echo "::group::$name"
+            if [ -n "$roots" ]; then link=(--out-link "$roots/$name"); else link=(--no-link); fi
+            nix build --keep-going --print-build-logs ".#${target#*=}" "${link[@]}" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail

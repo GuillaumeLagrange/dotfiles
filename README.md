@@ -4,12 +4,12 @@ My NixOS machines, my home-manager configs, and the tools I wrote for them.
 
 ## Machines
 
-| Host         | What                                         | Home               |
-| ------------ | -------------------------------------------- | ------------------ |
-| `badlands`   | work laptop                                  | `work-laptop`      |
-| `granary`    | Framework laptop, work                       | `work-laptop`      |
-| `snakewater` | gaming and dev desktop, streams with Sunshine | `personal-desktop` |
-| `gullywash`  | home server: ZFS storage, Docker services    | `server`           |
+| Host         | What                                                        | Home               |
+| ------------ | ----------------------------------------------------------- | ------------------ |
+| `badlands`   | work laptop                                                 | `work-laptop`      |
+| `granary`    | Framework laptop, work                                      | `work-laptop`      |
+| `snakewater` | gaming and dev desktop, streams with Sunshine               | `personal-desktop` |
+| `gullywash`  | home server: ZFS storage, Docker services, Nix binary cache | `server`           |
 
 ## Using it
 

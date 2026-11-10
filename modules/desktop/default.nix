@@ -2,11 +2,13 @@
 { inputs, lib, ... }:
 {
   # The graphical session: GDM, niri, pipewire, bluetooth, printing, locale and
-  # keyboard layout, plus what every such machine runs (steam, distrobox, zram).
+  # keyboard layout, plus what every such machine runs (steam, distrobox, zram),
+  # and gullywash's binary cache.
   flake.modules.nixos.desktop = {
     imports = [
       inputs.stylix.nixosModules.stylix
       ./nixos.nix
+      ./nix-cache.nix
     ];
   };
 

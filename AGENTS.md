@@ -140,7 +140,11 @@ Rules:
   `work` NixOS group (1Password, Oneleet) nor the home-manager ones, so no codspeed tools, `wt`, `cdr`, omp MCP
   servers of `ai/omp/mcp.json`, `review` with its refresh timer and bar pill, 1Password autostart or Slack
 - `gullywash`: home server: ZFS (`zfs.nix`: ARC limit, scrubs, mail notifications), Docker, firewall for
-  HTTP/HTTPS and WireGuard, nightly config backup
+  HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
+  (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that builds the
+  hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`, roots in `/var/lib/ci-roots`).
+  `hosts/gullywash/README.md` has the steps no config holds (signing key, password, runner token); keep it
+  current when either changes
 - `installer.nix`: the installation ISO
 - `guiom_ssh.pub`: my SSH key, authorized on the hosts that run sshd
 
@@ -165,8 +169,9 @@ helpers (`zsm`, `zsk`, the rename and close keybinds' scripts, `omp-fixit`). Als
 
 #### `desktop`
 
-A machine I sit in front of: GDM, niri, pipewire, bluetooth, printing, steam on the NixOS side; niri's
-config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the home-manager side.
+A machine I sit in front of: GDM, niri, pipewire, bluetooth, printing, steam and gullywash's binary cache
+(`nix-cache.nix`, password in a hand-written `/etc/nix/netrc`, see `hosts/gullywash/README.md`) on the NixOS
+side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the home-manager side.
 
 - Display setups (`pkgs/niri-displays/displays.py`, `niri-displays`): no monitor's mode, scale or position is in
   the config. Arrange them with anything (wdisplays, `niri msg output`), then save the layout under a name from
