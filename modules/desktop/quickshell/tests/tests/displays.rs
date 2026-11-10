@@ -161,7 +161,8 @@ fn setups_for_other_monitors_do_not_apply() {
 }
 
 /// The watcher applies the last used setup of the connected monitors when it
-/// first sees them, as at login or once a monitor is plugged in.
+/// first sees them, as at login or once a monitor is plugged in. At login, it
+/// focuses the top-left output, which takes the cursor along.
 #[test]
 fn watcher_applies_the_last_used_setup() {
     let Some(mut s) = session() else { return };
@@ -172,9 +173,12 @@ fn watcher_applies_the_last_used_setup() {
     displays(&s, &["save", "side"]);
     displays(&s, &["apply", "stacked"]);
     place(&s, "HEADLESS-2", -1920, 0);
+    s.run("niri", &["msg", "action", "focus-monitor", "HEADLESS-2"]);
+    assert_eq!(s.niri(&["focused-output"])["name"], "headless-2");
 
     s.spawn("niri-displays", &["watch"]);
     s.wait_until("the watcher to apply the setup", || layout(&s) == stacked);
+    assert_eq!(s.niri(&["focused-output"])["name"], "headless-1");
 
     // Once applied, a layout changed by hand is left alone.
     place(&s, "HEADLESS-2", 1920, 0);

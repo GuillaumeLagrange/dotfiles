@@ -186,9 +186,11 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   only where exactly those are connected, like a kanshi profile; the section hides the setups that do not fit
   behind a "Show N for other screens" toggle (kept across opens). Mod+M / Mod+Shift+M cycle the setups that fit,
   with a notification. The `niri-displays` user service (`watch`) applies the last used fitting setup at login
-  and whenever a monitor is plugged or unplugged, and leaves a layout changed by hand alone otherwise. Saved in
-  `~/.local/state/niri-displays/setups.json`. What the IPC cannot set (the KTC's side struts) stays an
-  `output` block in the niri config. Tests: `modules/desktop/quickshell/tests/tests/displays.rs`.
+  and whenever a monitor is plugged or unplugged, and leaves a layout changed by hand alone otherwise. Applying a
+  setup focuses the focused output again, so the cursor follows outputs that moved; at login the top-left one
+  instead of niri's first by name. Saved in `~/.local/state/niri-displays/setups.json`. What the IPC cannot set
+  (the KTC's side struts) stays an `output` block in the niri config. Tests:
+  `modules/desktop/quickshell/tests/tests/displays.rs`.
 - sway-like numbered workspaces (`pkgs/niri-workspaces/workspaces.py`, `niri-workspaces`): none is declared in
   the config; Mod+N / Mod+Shift+N run `niri-workspaces focus|move N`, which names an empty workspace of the
   focused output N when N does not exist yet and puts it in place before switching (so niri slides to it), and

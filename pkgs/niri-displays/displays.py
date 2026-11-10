@@ -153,11 +153,13 @@ def output(name, *args):
     subprocess.run([NIRI, "msg", "output", name, *args], check=True)
 
 
-def apply(setup):
+def apply(setup, login=False):
     current = connected()
     if not fits(setup, current):
         raise SystemExit(f"{setup['name']!r} is for other monitors")
     now = {r["id"]: r for r in snapshot(current)}
+    changed = not all(same(o, now[o["id"]]) for o in setup["outputs"])
+    focused = request("FocusedOutput")["FocusedOutput"]
     # Monitors are turned on before others are turned off, so the session is never left without one.
     for rec in setup["outputs"]:
         if not rec["on"]:
@@ -180,6 +182,16 @@ def apply(setup):
     for rec in setup["outputs"]:
         if not rec["on"] and now[rec["id"]]["on"]:
             output(current[rec["id"]]["name"], "off")
+    if changed:
+        # niri leaves the cursor where it was, now maybe on another output than
+        # the focused one: focusing again puts it back. At login, niri focused
+        # the first output by name; the top-left one is taken instead.
+        on = {current[r["id"]]["name"]: r for r in setup["outputs"] if r["on"]}
+        if login or focused is None or focused["name"] not in on:
+            target = min(on, key=lambda name: (on[name]["y"], on[name]["x"]))
+        else:
+            target = focused["name"]
+        request({"Action": {"FocusMonitor": {"output": target}}})
     setups = load()
     for s in setups:
         if s["name"] == setup["name"]:
@@ -281,10 +293,13 @@ def settle():
     from those seen last in this niri session."""
     current = connected()
     seen = {"socket": os.environ["NIRI_SOCKET"], "ids": sorted(current)}
+    login = True
     try:
         with open(runtime("seen")) as f:
-            if json.load(f) == seen:
-                return
+            last = json.load(f)
+        if last == seen:
+            return
+        login = last.get("socket") != seen["socket"]
     except (FileNotFoundError, ValueError):
         pass
     fitting = [s for s in load() if fits(s, current)]
@@ -294,7 +309,7 @@ def settle():
         setup = max(fitting, key=lambda s: s.get("used", 0))
         if not active(setup, current):
             print(f"applying {setup['name']!r}", flush=True)
-            apply(setup)
+            apply(setup, login)
     # Written last: a failed apply is retried when the unit restarts.
     with open(runtime("seen"), "w") as f:
         json.dump(seen, f)
