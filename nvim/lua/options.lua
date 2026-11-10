@@ -14,29 +14,27 @@ vim.opt.showmode = false
 vim.opt.clipboard = 'unnamedplus'
 
 -- Use OSC52 as clipboard provider when SSHed (copies to local clipboard).
--- When running nested inside another nvim's :terminal, the parent doesn't
--- forward OSC52 responses, so paste would hang for 10s before timing out.
--- Fall back to the unnamed register for paste in that case.
+-- Paste never uses OSC52: it queries the terminal with `OSC 52;c;?` and blocks
+-- up to 10s waiting for a reply. tmux only implements the *set* half of OSC 52
+-- (`set-clipboard`), so under tmux the query is swallowed and no reply ever
+-- comes; kitty answers only after an interactive `read-clipboard-ask` prompt.
+-- Read nvim's own register instead; to paste text from the local machine use
+-- the terminal's paste.
 if os.getenv('SSH_TTY') then
   local osc52 = require('vim.ui.clipboard.osc52')
   local register_paste = function()
     return vim.split(vim.fn.getreg(''), '\n')
   end
-  vim.print(require('utils').is_nested_nvim())
-  local paste = require('utils').is_nested_nvim() and {
-    ['+'] = register_paste,
-    ['*'] = register_paste,
-  } or {
-    ['+'] = osc52.paste('+'),
-    ['*'] = osc52.paste('*'),
-  }
   vim.g.clipboard = {
     name = 'OSC 52',
     copy = {
       ['+'] = osc52.copy('+'),
       ['*'] = osc52.copy('*'),
     },
-    paste = paste,
+    paste = {
+      ['+'] = register_paste,
+      ['*'] = register_paste,
+    },
   }
 end
 
