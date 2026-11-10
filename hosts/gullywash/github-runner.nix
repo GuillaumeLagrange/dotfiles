@@ -1,5 +1,6 @@
 # Self-hosted runner for this repo's build workflow (.github/workflows/build.yml): its builds land in the
 # store harmonia serves, and the out-links in /var/lib/ci-roots keep them from the GC.
+{ lib, ... }:
 {
   _class = "nixos";
 
@@ -11,6 +12,9 @@
 
   # Outside the runner's state directory, which the module wipes on every re-registration.
   systemd.tmpfiles.rules = [ "d /var/lib/ci-roots 0755 github-runner github-runner -" ];
+
+  # nh clean deletes GC roots older than --keep-since; main's roots only move when main does.
+  programs.nh.clean.extraArgs = lib.mkForce "--keep-since 7d --keep 3 --no-gcroots";
 
   services.github-runners.gullywash = {
     enable = true;
