@@ -133,7 +133,7 @@ Rules:
   locks and blanks instead of suspending, driven from the bar's control centre), `keylightd.nix` (keyboard
   backlight), `ttm-reclaim.nix` (see stall tracing below), `easyeffects.nix` (Framework's Dolby speaker tuning)
 - `snakewater`: personal gaming/dev desktop: Ryzen 7800X3D, RTX 4080 (proprietary driver, open kernel module,
-  LTS kernel so the out-of-tree module builds), Sunshine server (KMS capture, NVENC). Same disk layout as
+  LTS kernel so the out-of-tree module builds, both from nixos-unstable for a current driver), Sunshine server (KMS capture, NVENC). Same disk layout as
   granary (`encrypted-disk`): LUKS2 partition unlocked by the TPM alone (PCR 7, secure boot through
   lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`. No work tooling: it imports neither the
   `work` NixOS group (1Password, Oneleet) nor the home-manager ones, so no codspeed tools, `wt`, `cdr`, omp MCP

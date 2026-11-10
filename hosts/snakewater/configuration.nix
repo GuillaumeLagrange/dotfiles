@@ -11,8 +11,8 @@
   networking.nftables.enable = true;
 
   boot.supportedFilesystems = [ "btrfs" ];
-  # LTS: NVIDIA's module lags behind linuxPackages_latest.
-  boot.kernelPackages = pkgs.linuxPackages;
+  # LTS: NVIDIA's module lags behind linuxPackages_latest. From unstable so the driver (same package set) is current.
+  boot.kernelPackages = pkgs.unstable.linuxPackages;
   # From `btrfs inspect-internal map-swapfile -r /swap/swapfile`; changes if the file is recreated.
   boot.kernelParams = [
     "resume_offset=533760"
