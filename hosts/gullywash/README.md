@@ -65,8 +65,9 @@ Step 2 again, then `docker compose up -d --no-deps traefik`, then rewrite every 
 ## GitHub Actions runner
 
 `github-runner.nix` registers gullywash as a self-hosted runner (labels `self-hosted`, `gullywash`) for this repo.
-`.github/workflows/build.yml` runs on it for every push and builds the hosts and homes; the builds of `main` and
-`flake-update` stay rooted in `/var/lib/ci-roots/<branch>/`, so the cache keeps serving them.
+`.github/workflows/build.yml` runs on it for every push and builds the hosts and homes. The builds of `main` stay
+rooted in `/var/lib/ci-roots/main/`, those of Dependabot's nightly flake update PR (`.github/dependabot.yml`, one
+PR for every input, refreshed until merged) in `/var/lib/ci-roots/flake-update/`, so the cache keeps serving them.
 
 ### Recreating it
 

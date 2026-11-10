@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # One PR with every flake input, refreshed each night until merged; build.yml builds it on gullywash.
+  - package-ecosystem: nix
+    directory: /
+    schedule:
+      interval: daily
+      time: "03:00"
+      timezone: Europe/Paris
+    groups:
+      flake-inputs:
+        patterns: ["*"]

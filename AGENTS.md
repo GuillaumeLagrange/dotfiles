@@ -142,7 +142,8 @@ Rules:
 - `gullywash`: home server: ZFS (`zfs.nix`: ARC limit, scrubs, mail notifications), Docker, firewall for
   HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
   (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that builds the
-  hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`, roots in `/var/lib/ci-roots`).
+  hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`, roots in `/var/lib/ci-roots`),
+  Dependabot's nightly flake update PR included (`.github/dependabot.yml`).
   `hosts/gullywash/README.md` has the steps no config holds (signing key, password, runner token); keep it
   current when either changes
 - `installer.nix`: the installation ISO

@@ -17,11 +17,13 @@ jobs:
 
       - name: Build hosts and homes
         run: |
-          # main and flake-update keep their builds from the GC: they are what the cache must serve.
+          # main and the pending flake update keep their builds from the GC: they are what the cache must serve.
           case "$GITHUB_REF_NAME" in
-            main | flake-update) roots="$CI_ROOTS/$GITHUB_REF_NAME"; mkdir -p "$roots" ;;
+            main) roots="$CI_ROOTS/main" ;;
+            dependabot/nix/*) roots="$CI_ROOTS/flake-update" ;;
             *) roots= ;;
           esac
+          if [ -n "$roots" ]; then mkdir -p "$roots"; fi
           fail=0
           for target in \
             granary=nixosConfigurations.granary.config.system.build.toplevel \
