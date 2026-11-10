@@ -18,6 +18,7 @@
     imports = [
       ./apps.nix
       ./audio.nix
+      ./easyeffects.nix
       ./firefox.nix
       ./lock.nix
       ./niri.nix

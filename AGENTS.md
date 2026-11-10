@@ -104,11 +104,6 @@ Rules:
 - Imports point down only: host → home → group → part → `pkgs/`. Groups do not import other groups.
 - Only hosts, homes and groups see `self`/`inputs`. Parts get everything through module args; whatever
   comes from an input is imported by the part's group.
-- Values shared between parts are plain Nix, not options: a `let` when one file uses them, a function
-  file imported by path when several do (`modules/desktop/commands.nix`), or home-manager's own options
-  (`config.programs.kitty.package`). The only custom options are `work.enable` (declared by the desktop
-  group, set by `work-desktop`, read by niri and the bar, whose config is generated text) and
-  `quickshellTestEnv` (read by the bar's tests).
 - A program I wrote is a package in `pkgs/`, `pkgs.<name>` everywhere through the overlay; modules only
   configure.
 
@@ -116,7 +111,7 @@ Rules:
 | ------------ | ------------------------------------------------------- | ------------------------------------------ |
 | `badlands`   | core desktop laptop secure-boot work                    | `work-laptop`                              |
 | `granary`    | core desktop laptop encrypted-disk secure-boot work     | `work-laptop` + `hosts/granary/easyeffects.nix` |
-| `snakewater` | core desktop encrypted-disk secure-boot                 | `personal-desktop`                         |
+| `snakewater` | core desktop encrypted-disk secure-boot                 | `personal-desktop` + `hosts/snakewater/easyeffects.nix` |
 | `gullywash`  | core                                                    | `server` + blue zellij accent              |
 
 | home               | home-manager groups                   | standalone output |
@@ -138,7 +133,8 @@ Rules:
   granary (`encrypted-disk`): LUKS2 partition unlocked by the TPM alone (PCR 7, secure boot through
   lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`. No work tooling: it imports neither the
   `work` NixOS group (1Password, Oneleet) nor the home-manager ones, so no codspeed tools, `wt`, `cdr`, omp MCP
-  servers of `ai/omp/mcp.json`, `review` with its refresh timer and bar pill, 1Password autostart or Slack
+  servers of `ai/omp/mcp.json`, `review` with its refresh timer and bar pill, 1Password autostart or Slack.
+  Its own part: `easyeffects.nix` (Arctis Nova Pro Wireless: headphone EQ; mic RNNoise, gate and EQ)
 - `gullywash`: home server: ZFS (`zfs.nix`: ARC limit, scrubs, mail notifications), Docker, firewall for
   HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
   (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that builds the
@@ -174,6 +170,10 @@ A machine I sit in front of: GDM, niri, pipewire, bluetooth, printing, steam and
 (`nix-cache.nix`, password in a hand-written `/etc/nix/netrc`, see `hosts/gullywash/README.md`) on the NixOS
 side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the home-manager side.
 
+- EasyEffects (`easyeffects.nix`): `easyeffects.autoload.<preset> = { device; profile; preset = ./file.json; }`
+  installs the preset and loads it on that device and profile (`hosts/granary/easyeffects.nix`,
+  `hosts/snakewater/easyeffects.nix`); any other device gets the empty `Flat` preset, on input and output.
+  Unset, EasyEffects does not run.
 - Display setups (`pkgs/niri-displays/displays.py`, `niri-displays`): no monitor's mode, scale or position is in
   the config. Arrange them with anything (wdisplays, `niri msg output`), then save the layout under a name from
   the control centre's Displays section (+); its cards draw each setup's monitors to scale, a click applies one,
