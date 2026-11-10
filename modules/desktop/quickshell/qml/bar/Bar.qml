@@ -71,10 +71,6 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Theme.gap
 
-            YubikeyPill {
-                Layout.alignment: Qt.AlignVCenter
-            }
-
             RecordPill {
                 Layout.alignment: Qt.AlignVCenter
             }

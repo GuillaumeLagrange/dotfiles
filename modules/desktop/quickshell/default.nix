@@ -127,7 +127,6 @@ let
     ethernetOff = glyph "F0202";
     vpn = glyph "F0582";
     lock = glyph "F033E";
-    fingerprint = glyph "F0237";
     search = glyph "F0349";
     down = glyph "F0045";
     up = glyph "F005D";
@@ -338,32 +337,6 @@ in
         Restart = "on-failure";
       };
       Install.WantedBy = [ "graphical-session.target" ];
-    };
-
-    systemd.user.sockets.yubikey-touch-detector = {
-      Unit.Description = "yubikey-touch-detector socket";
-      Socket = {
-        ListenStream = "%t/yubikey-touch-detector.socket";
-        RemoveOnStop = true;
-      };
-      Install.WantedBy = [ "sockets.target" ];
-    };
-    systemd.user.services.yubikey-touch-detector = {
-      Unit = {
-        Description = "Detects when the YubiKey is waiting for a touch";
-        Requires = [ "yubikey-touch-detector.socket" ];
-      };
-      Service = {
-        ExecStart = lib.getExe (
-          pkgs.yubikey-touch-detector.overrideAttrs (old: {
-            patches = (old.patches or [ ]) ++ [ ./yubikey-touch-detector-reconnect.patch ];
-          })
-        );
-        Environment = [
-          "PATH=${lib.makeBinPath [ config.programs.gpg.package ]}"
-          "YUBIKEY_TOUCH_DETECTOR_LIBNOTIFY=false"
-        ];
-      };
     };
   };
 }
