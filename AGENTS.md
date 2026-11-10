@@ -227,7 +227,9 @@ upstream behaviour live.
 ### Programs (`pkgs/`)
 
 One directory each, with its `package.nix`; `pkgs/default.nix` is the overlay that makes each `pkgs.<name>`,
-and exposes them as `.#<name>`. It also patches niri (`niri/mouse.patch`) and adds `pkgs.unstable`.
+and exposes them as `.#<name>`. It also patches niri (`niri/mouse.patch`) and adds `pkgs.unstable`, whose
+quickshell (the bar's) is patched to take virtual sinks and sources, such as EasyEffects' source, for
+devices (`quickshell/virtual-devices.patch`).
 
 - `wt/`: feature-scoped multi-repo workspaces (see its README). Installed by the `work` group.
 - `omp-panel/`: the floating picker (zellij normal-mode `a`, or niri `Mod+A`/`Mod+BackSpace` in its own

@@ -6,7 +6,28 @@
     unstable = import inputs.nixpkgs-unstable {
       inherit (final.stdenv.hostPlatform) system;
       config.allowUnfree = true;
-      overlays = [ inputs.quickshell.overlays.default ];
+      overlays = [
+        inputs.quickshell.overlays.default
+        # Virtual sinks and sources are devices too: see virtual-devices.patch. The
+        # package is a wrapper copying `unwrapped`, so the copy is pointed at the patched build.
+        (_: qs: {
+          quickshell =
+            let
+              unwrapped = qs.quickshell.unwrapped.overrideAttrs (old: {
+                patches = (old.patches or [ ]) ++ [ ./quickshell/virtual-devices.patch ];
+              });
+            in
+            qs.quickshell.overrideAttrs (old: {
+              installPhase = ''
+                mkdir -p $out
+                cp -r ${unwrapped}/* $out
+              '';
+              passthru = old.passthru // {
+                inherit unwrapped;
+              };
+            });
+        })
+      ];
     };
 
     # Hot-corner delay and barrier, middle click closes in the overview: see mouse.patch.

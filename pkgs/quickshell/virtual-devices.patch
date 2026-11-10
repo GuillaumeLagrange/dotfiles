@@ -1,0 +1,18 @@
+PipeWire marks virtual devices (EasyEffects' source, null sinks) Audio/Source/Virtual
+and Audio/Sink/Virtual; quickshell only matched the plain classes, so such nodes had
+no type and no audio object.
+
+--- a/src/services/pipewire/node.cpp
++++ b/src/services/pipewire/node.cpp
+@@ -132,9 +132,9 @@
+ 
+ void PwNode::initProps(const spa_dict* props) {
+ 	if (const auto* mediaClass = spa_dict_lookup(props, SPA_KEY_MEDIA_CLASS)) {
+-		if (strcmp(mediaClass, "Audio/Sink") == 0) {
++		if (strcmp(mediaClass, "Audio/Sink") == 0 || strcmp(mediaClass, "Audio/Sink/Virtual") == 0) {
+ 			this->type = PwNodeType::AudioSink;
+-		} else if (strcmp(mediaClass, "Audio/Source") == 0) {
++		} else if (strcmp(mediaClass, "Audio/Source") == 0 || strcmp(mediaClass, "Audio/Source/Virtual") == 0) {
+ 			this->type = PwNodeType::AudioSource;
+ 		} else if (strcmp(mediaClass, "Audio/Duplex") == 0) {
+ 			this->type = PwNodeType::AudioDuplex;

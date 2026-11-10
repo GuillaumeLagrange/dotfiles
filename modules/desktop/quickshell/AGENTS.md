@@ -293,9 +293,6 @@ out: they are blips, not something playing - `../niri.nix` tags the volume-key
 feedback sound that way so it stops flashing a row of its own. The shell plays
 that same sound (`Config.volumeChime`) when it changes the default sink's
 volume, 150ms after the last step so a drag chimes once it settles.
-EasyEffects' `easyeffects_sink` / `easyeffects_source` (granary, snakewater) are left out of
-the device lists: EasyEffects moves streams onto them itself, so they are not
-devices to pick.
 
 **`Bluetooth` replaced blueman-applet** (`services/Bt.qml`,
 `popups/Bluetooth.qml`): `Bluetooth.defaultAdapter` carries the radio switch and
