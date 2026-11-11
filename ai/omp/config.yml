@@ -1,7 +1,7 @@
 # Read-only overlay via PI_CONFIG_FILES (modules/shell/ai.nix); wins over
 # ~/.omp/agent/config.yml, which is untracked and where omp writes. Keys you
 # toggle from the UI must live there, not here, or the toggle is shadowed.
-setupVersion: 2
+setupVersion: 3
 modelRoles:
   default: anthropic/claude-opus-5-5
   advisor: anthropic/claude-opus-5-5:off
