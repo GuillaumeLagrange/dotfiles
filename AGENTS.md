@@ -166,10 +166,15 @@ helpers (`zsm`, `zsk`, the rename and close keybinds' scripts, `omp-fixit`). Als
 
 #### `desktop`
 
-A machine I sit in front of: GDM, niri, pipewire, bluetooth, printing, steam and gullywash's binary cache
+A machine I sit in front of: the greeter, niri, pipewire, bluetooth, printing, steam and gullywash's binary cache
 (`nix-cache.nix`, password in a hand-written `/etc/nix/netrc`, see `hosts/gullywash/README.md`) on the NixOS
 side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the home-manager side.
 
+- Greeter (`greeter.nix`): greetd runs Noctalia Greeter (from `pkgs.unstable`, set up by hand: unstable's
+  module needs options stable lacks). Its own compositor shows the login box on every screen at its preferred
+  mode and scale, over `greeter.wallpaper` (set by the host, a `greeter-wallpaper.jpg` next to it); it opens on
+  my password, with the last session (kept in `/var/lib/noctalia-greeter/sync.toml`) picked. Colours are
+  stylix's. The password unlocks gnome-keyring through greetd's PAM service; fingerprint is off there.
 - EasyEffects (`easyeffects.nix`): `easyeffects.autoload.<preset> = { device; profile; preset = ./file.json; }`
   installs the preset and loads it on that device and profile (`hosts/granary/easyeffects.nix`,
   `hosts/snakewater/easyeffects.nix`); any other device gets the empty `Flat` preset, on input and output.

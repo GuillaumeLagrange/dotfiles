@@ -1,15 +1,22 @@
 # desktop: a machine with a screen.
 { inputs, lib, ... }:
 {
-  # The graphical session: GDM, niri, pipewire, bluetooth, printing, locale and
-  # keyboard layout, plus what every such machine runs (steam, distrobox, zram),
+  # The graphical session: the greeter, niri, pipewire, bluetooth, printing, locale
+  # and keyboard layout, plus what every such machine runs (steam, distrobox, zram),
   # and gullywash's binary cache.
   flake.modules.nixos.desktop = {
     imports = [
       inputs.stylix.nixosModules.stylix
+      ./greeter.nix
       ./nixos.nix
       ./nix-cache.nix
     ];
+
+    options.greeter.wallpaper = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = "Image behind the login prompt, on every screen.";
+    };
   };
 
   # The session's config and apps: niri, the quickshell bar, vicinae, lock and idle,

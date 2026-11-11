@@ -56,7 +56,7 @@ graph LR
   a home-manager side, or both, in the same directory:
   - `core`: what every machine and every home has (nix, my user, home-manager, theme)
   - `shell`: the terminal (zsh, zellij, git, editors, CLI tools)
-  - `desktop`: a machine I sit in front of (GDM, niri, the quickshell bar, apps)
+  - `desktop`: a machine I sit in front of (greetd + Noctalia Greeter, niri, the quickshell bar, apps)
   - `work`: CodSpeed tooling, and `work-desktop` for what a work machine with a screen adds
   - `laptop`, `encrypted-disk`, `secure-boot`, `stall-tracing`
 - `pkgs/` holds the programs I wrote (`wt`, `reviews`, `omp-panel`, the niri helpers…), each

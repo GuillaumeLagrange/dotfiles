@@ -6,7 +6,6 @@
   # Swapped-out compositor pages stall niri's main loop.
   systemd.user.services.niri.serviceConfig.MemorySwapMax = 0;
 
-  services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
   services.gnome.gcr-ssh-agent.enable = false;
   i18n.inputMethod.enable = false;

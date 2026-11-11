@@ -16,8 +16,8 @@
       ./caffeine.nix
       ./keylightd.nix
       ./ttm-reclaim.nix
-      (import ../../modules/desktop/gdm-wallpaper.nix ./gdm-wallpaper.jpg)
       {
+        greeter.wallpaper = ./greeter-wallpaper.jpg;
         home-manager.users.guillaume.imports = [
           self.modules.homeManager.work-laptop
           ./easyeffects.nix
