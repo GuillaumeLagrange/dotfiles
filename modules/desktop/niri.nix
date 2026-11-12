@@ -43,6 +43,16 @@ in
     libsecret
   ];
 
+  # The kitty windows the binds below open under their own app id: hidden
+  # entries, there only so the bar's strip finds kitty's icon for them.
+  xdg.desktopEntries = lib.genAttrs [ "zellij-session" "omp-panel" ] (class: {
+    name = class;
+    icon = "kitty";
+    exec = "${commands.terminal} --class ${class}";
+    noDisplay = true;
+    settings.StartupWMClass = class;
+  });
+
   systemd.user.services.niri-workspaces = {
     Unit = {
       Description = "Keep niri's numbered workspaces sway-like";

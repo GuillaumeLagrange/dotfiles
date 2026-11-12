@@ -396,11 +396,8 @@ with every window, and the cells must not be rebuilt for it.
 column is a scrim `Rectangle` with per-corner radii over the tile, rather than
 eww's per-column CSS gradient; the rails are two hairline rectangles.
 
-**Strip marks are monochrome.** A column shows a nerd-font glyph in `Theme.ink`
-from `Config.appGlyph` (keyed by lowercased `app_id`, in `default.nix`), and
-only an app missing from that table falls back to its own icon file,
-desaturated with `MultiEffect`. Add an entry there when a new app shows up
-grey.
+**Strip marks are the apps' own icons**, in colour, from the file niri-state
+resolves; an app with no icon file gets a bare block.
 
 **Rails are one physical pixel and antialiased.** At a fractional scale the
 blocks' rounded, antialiased edges land on half pixels; a crisp rail snaps to

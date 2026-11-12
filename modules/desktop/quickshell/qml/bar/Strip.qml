@@ -3,7 +3,6 @@
 // is (or, for an inactive workspace, would be) on screen, and a scrim over what
 // is scrolled off it. All geometry arrives in final pixels from niri-state.
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import qs
 import qs.components
@@ -100,7 +99,6 @@ Item {
                         id: block
 
                         readonly property int iconPx: Math.min(column.modelData.icon_px, root.bandHeight - 2)
-                        readonly property string mark: Config.appGlyph[column.modelData.app_id] ?? ""
 
                         width: column.modelData.w
                         height: root.bandHeight
@@ -161,35 +159,17 @@ Item {
                             }
                         }
 
-                        // A monochrome glyph where the app has one, in the bar's ink.
-                        Glyph {
-                            anchors.centerIn: parent
-                            visible: block.iconPx > 0 && block.mark !== ""
-                            text: block.mark
-                            color: Theme.ink
-                            size: Math.min(Theme.fontSize, block.iconPx)
-                        }
-
-                        // Otherwise the app's own icon, greyed so it does not bring its
-                        // colours into the bar. An image rather than a glyph centres
-                        // exactly when scaled.
+                        // The app's own icon, in its own colours. An image rather than a
+                        // glyph centres exactly when scaled.
                         Image {
-                            id: appIcon
                             anchors.centerIn: parent
-                            source: block.mark === "" && column.modelData.icon !== "" ? "file://" + column.modelData.icon : ""
-                            visible: false
+                            visible: block.iconPx > 0 && source != ""
+                            source: column.modelData.icon !== "" ? "file://" + column.modelData.icon : ""
                             sourceSize.width: block.iconPx
                             sourceSize.height: block.iconPx
                             width: block.iconPx
                             height: block.iconPx
                             fillMode: Image.PreserveAspectFit
-                        }
-
-                        MultiEffect {
-                            anchors.fill: appIcon
-                            source: appIcon
-                            visible: block.iconPx > 0 && appIcon.source != ""
-                            saturation: -1
                         }
 
                         HoverHandler {

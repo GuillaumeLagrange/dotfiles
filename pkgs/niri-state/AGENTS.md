@@ -54,9 +54,8 @@ block of each pair, so a frame edge that lands in that `SEP_PX` gap is pulled
 onto the block beside it; otherwise the rails run past the focused column.
 `frame_w` is therefore up to `SEP_PX` short of `SCREEN_PX`.
 
-**Icons are keyed twice.** Each block carries its lowercased `app_id`, which
-the bar looks up in its own glyph table, and the resolved icon file, which it
-falls back to (greyed) for apps the table does not know. Resolution is memoised
+**Icons are resolved once per app.** Each block carries the icon file of its
+column's top window, which the bar draws as is. Resolution is memoised
 per `app_id`: niri re-sends the whole window on every title change (a terminal
 spinner is ~12 a second), and an uncached lookup probes ~550 paths.
 

@@ -119,8 +119,6 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
             block.dim_left, block.dim_right, block.cut_left, block.cut_right
         ));
         push_str_escaped(out, &block.tooltip);
-        out.push_str(",\"app_id\":");
-        push_str_escaped(out, &block.app_id);
         out.push_str(&format!(",\"icon_px\":{},\"icon\":", block.icon_px));
         push_str_escaped(out, &block.icon);
         out.push('}');

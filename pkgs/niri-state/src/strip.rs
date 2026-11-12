@@ -35,8 +35,6 @@ pub struct Column {
     pub tiles: Vec<u64>,
     pub urgent: bool,
     pub apps: String,
-    /// Lowercased `app_id` of the app owning the column, for the bar's glyph table.
-    pub app_id: String,
     /// Icon file of the app owning the column; empty when it cannot be resolved.
     pub icon: String,
 }
@@ -61,7 +59,6 @@ pub struct Block {
     pub cut_left: bool,
     pub cut_right: bool,
     pub tooltip: String,
-    pub app_id: String,
     pub icon: String,
     /// Side of the square the icon is drawn at; 0 when the drawn block, cropped
     /// or not, is too narrow to carry one.
@@ -224,7 +221,6 @@ pub fn build_strip(
             cut_left: false,
             cut_right: false,
             tooltip: column.apps.clone(),
-            app_id: column.app_id.clone(),
             icon: column.icon.clone(),
             icon_px: 0,
         })
@@ -362,7 +358,6 @@ pub fn columns_of(state: &State, workspace_id: u64) -> Vec<Column> {
                     .collect::<Vec<_>>()
                     .join(", "),
                 // A stack takes the app of its topmost tile.
-                app_id: tiles[0].app_id.to_lowercase(),
                 icon: tiles[0].icon.clone(),
                 tiles: tiles.iter().map(|w| w.id).collect(),
             }
@@ -385,7 +380,6 @@ mod tests {
             tiles: tiles.to_vec(),
             urgent: false,
             apps: "kitty".into(),
-            app_id: "kitty".into(),
             icon: "/icons/kitty.png".into(),
         }
     }
