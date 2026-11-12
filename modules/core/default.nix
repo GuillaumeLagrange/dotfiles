@@ -11,6 +11,8 @@
     ];
 
     nixpkgs.overlays = [ self.overlays.default ];
+    # `nix-shell -p` and `<nixpkgs>` get unstable; `nixpkgs#` stays the system's.
+    nix.nixPath = [ "nixpkgs=${inputs.nixpkgs-unstable}" ];
   };
 
   # What any home is before it gets a role: identity, xdg dirs, fonts, theme. It
