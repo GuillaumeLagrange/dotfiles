@@ -2,7 +2,9 @@
 //
 // Every interactive session listens on ~/.omp/run/nvim-bridge/<pid>.sock and
 // writes a <pid>.json descriptor next to it, carrying the cwd so a client can
-// pick the session for its project. Protocol is newline-delimited JSON:
+// pick the session for its project, and the session's title and accent (the
+// colour omp tints its prompt with) so a picker can show them. Protocol is
+// newline-delimited JSON:
 //
 //   {"op":"send","text":"..."} -> paste into the composer, no submit
 //   {"op":"submit"}            -> submit whatever the composer holds
@@ -36,8 +38,16 @@ type Ctx = {
 type Pi = {
 	on: (event: string, handler: (event: unknown, ctx: Ctx) => void) => void;
 	sendUserMessage: (text: string) => unknown;
+	getSessionName: () => string | undefined;
 	logger?: { error?: (message: string) => void };
+	pi: {
+		theme: { sessionAccentInputs: unknown };
+		getSessionAccentHex: (name: string, inputs: unknown) => string | undefined;
+	};
 };
+
+// omp has no rename event: poll the title, which is cheap, and rewrite on change.
+const DESCRIPTOR_POLL_MS = 2_000;
 
 // Env comes from the shell that launched omp; absent outside zellij.
 function focusPane(): void {
@@ -92,9 +102,39 @@ function holdInput(ui: Ui): (replay: boolean) => Promise<void> {
 
 export default function nvimBridge(pi: Pi) {
 	let server: net.Server | undefined;
+	let poll: NodeJS.Timeout | undefined;
 	let release = async (_replay: boolean) => {};
 	const sockPath = path.join(RUN_DIR, `${process.pid}.sock`);
 	const metaPath = path.join(RUN_DIR, `${process.pid}.json`);
+
+	/** The prompt's colour as omp draws it: none until the session has a title. */
+	function accent(title: string | undefined): string | null {
+		if (!title) return null;
+		try {
+			return pi.pi.getSessionAccentHex(title, pi.pi.theme.sessionAccentInputs) ?? null;
+		} catch {
+			return null;
+		}
+	}
+
+	let written = "";
+	function writeDescriptor(ctx: Ctx): void {
+		const title = pi.getSessionName() || undefined;
+		const json = JSON.stringify({
+			pid: process.pid,
+			cwd: ctx.cwd,
+			socket: sockPath,
+			// Shown in nvim's session picker, which groups by zellij session.
+			zellij: process.env.ZELLIJ_SESSION_NAME ?? null,
+			// Lets nvim show or hide this omp's pane next to its own.
+			pane: process.env.ZELLIJ_PANE_ID ?? null,
+			title: title ?? null,
+			accent: accent(title),
+		});
+		if (json === written) return;
+		written = json;
+		fs.writeFileSync(metaPath, json);
+	}
 
 	async function dispatch(ctx: Ctx, line: string): Promise<string> {
 		const msg: unknown = JSON.parse(line);
@@ -158,20 +198,17 @@ export default function nvimBridge(pi: Pi) {
 			});
 		});
 		server.on("error", (err) => pi.logger?.error?.(`nvim-bridge: ${err.message}`));
-		server.listen(sockPath, () =>
-			fs.writeFileSync(
-				metaPath,
-				JSON.stringify({
-					pid: process.pid,
-					cwd: ctx.cwd,
-					socket: sockPath,
-					// Shown in nvim's session picker.
-					zellij: process.env.ZELLIJ_SESSION_NAME ?? null,
-					// Lets nvim show or hide this omp's pane next to its own.
-					pane: process.env.ZELLIJ_PANE_ID ?? null,
-				}),
-			),
-		);
+		server.listen(sockPath, () => {
+			writeDescriptor(ctx);
+			poll = setInterval(() => {
+				try {
+					writeDescriptor(ctx);
+				} catch (err) {
+					pi.logger?.error?.(`nvim-bridge: ${String(err)}`);
+				}
+			}, DESCRIPTOR_POLL_MS);
+			poll.unref();
+		});
 		server.unref();
 	});
 
@@ -179,6 +216,9 @@ export default function nvimBridge(pi: Pi) {
 		release(false).catch(() => {});
 		server?.close();
 		server = undefined;
+		clearInterval(poll);
+		poll = undefined;
+		written = "";
 		fs.rmSync(sockPath, { force: true });
 		fs.rmSync(metaPath, { force: true });
 	});

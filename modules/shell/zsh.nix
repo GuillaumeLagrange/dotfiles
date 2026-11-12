@@ -65,8 +65,10 @@
         zle -N copy-buffer-to-clipboard
         bindkey '^[w' copy-buffer-to-clipboard
 
+        # A function, not an alias, so ssh keeps zsh's _ssh completion: kitten's own
+        # completer errors out on oh-my-zsh's anchored matchers (r:|=*, l:|=*).
         if [[ "$TERM" == "xterm-kitty" ]]; then
-          alias ssh="kitten ssh"
+          ssh() { kitten ssh "$@" }
         fi
 
         export PNPM_HOME="${config.home.homeDirectory}/.local/share/pnpm"

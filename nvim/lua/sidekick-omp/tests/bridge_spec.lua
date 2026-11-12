@@ -86,6 +86,42 @@ describe('session discovery', function()
     descriptor({ pid = vim.uv.os_getpid(), zellij = vim.NIL })
     assert.is_nil(session_for(vim.uv.os_getpid()).mux_session)
   end)
+
+  it("carries the omp's title and prompt colour", function()
+    descriptor({ pid = vim.uv.os_getpid(), title = 'Fix the picker', accent = '#fe6217' })
+    local session = session_for(vim.uv.os_getpid())
+    assert.equals('Fix the picker', session.omp_title)
+    assert.equals('#fe6217', session.omp_accent)
+  end)
+end)
+
+describe('picker order', function()
+  local function omp(name, zellij)
+    return { name = name, session = { mux_session = zellij } }
+  end
+  local function names(states)
+    return vim.tbl_map(function(s)
+      return s.name or 'new'
+    end, states)
+  end
+
+  it("puts this zellij session's omps first, then a new one, then the other sessions grouped", function()
+    local states = {
+      omp('fixit-1', 'fixit'),
+      omp('other', 'web'),
+      { tool = 'omp' },
+      omp('mine-1', 'dotfiles'),
+      omp('loose', nil),
+      omp('fixit-2', 'fixit'),
+      omp('mine-2', 'dotfiles'),
+    }
+    assert.same({ 'mine-1', 'mine-2', 'new', 'fixit-1', 'fixit-2', 'other', 'loose' }, names(Omp.order(states, 'dotfiles')))
+  end)
+
+  it('groups by session outside zellij too', function()
+    local states = { omp('b', 'web'), { tool = 'omp' }, omp('a', 'fixit'), omp('c', 'web') }
+    assert.same({ 'new', 'a', 'b', 'c' }, names(Omp.order(states, nil)))
+  end)
 end)
 
 describe('composer ops', function()

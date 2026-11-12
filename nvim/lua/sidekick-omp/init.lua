@@ -5,7 +5,9 @@
 -- descriptor in ~/.omp/run/nvim-bridge. This backend lists those sessions so
 -- `<leader>aa` can attach to an omp already running in another pane, and
 -- `<leader>at` pushes text into its composer. `M.toggle` shows or hides the
--- attached omp's pane: hiding makes nvim's pane fullscreen.
+-- attached omp's pane: hiding makes nvim's pane fullscreen. Sidekick's picker
+-- lists this zellij session's omps first, then the others grouped by zellij
+-- session, each with its title in its prompt's colour.
 --
 -- It is also sidekick's backend for new sessions: starting one opens a zellij
 -- pane running omp and attaches to it once its descriptor shows up.
@@ -19,11 +21,15 @@ local RUN_DIR = vim.env.OMP_NVIM_BRIDGE_DIR or vim.fs.normalize('~/.omp/run/nvim
 ---@field socket string
 ---@field zellij? string zellij session the omp runs in
 ---@field pane? string zellij pane id the omp runs in
+---@field title? string omp's session title
+---@field accent? string hex colour omp tints its prompt with
 
 ---@class sidekick.cli.omp: sidekick.cli.Session
 ---@field omp_pid? integer
 ---@field omp_socket? string
 ---@field omp_pane? string
+---@field omp_title? string
+---@field omp_accent? string
 ---@field spawning? boolean pane requested, omp not registered yet
 ---@field queue? table[] ops issued while spawning
 local M = {}
@@ -122,12 +128,95 @@ local function state_of(info)
     omp_pid = info.pid,
     omp_socket = info.socket,
     omp_pane = info.pane,
+    omp_title = info.title,
+    omp_accent = info.accent,
     mux_session = info.zellij,
   }
 end
 
 function M.sessions()
   return vim.tbl_map(state_of, descriptors())
+end
+
+--- Picker order: the omps of `here` (a zellij session name) first, then the
+--- entry that starts a new one, then every other zellij session's omps
+--- together, sessions by name, then those outside zellij. Stable otherwise.
+---@param states sidekick.cli.State[]
+---@param here? string
+---@return sidekick.cli.State[]
+function M.order(states, here)
+  local function key(state, i)
+    local s = state.session
+    local zellij = s and s.mux_session
+    local rank = not s and 1 or (here and zellij == here) and 0 or zellij and 2 or 3
+    return { rank, zellij or '', i }
+  end
+  local keyed = {}
+  for i, state in ipairs(states) do
+    keyed[i] = { state = state, key = key(state, i) }
+  end
+  table.sort(keyed, function(a, b)
+    for k = 1, 3 do
+      if a.key[k] ~= b.key[k] then
+        return a.key[k] < b.key[k]
+      end
+    end
+    return false
+  end)
+  return vim.tbl_map(function(k)
+    return k.state
+  end, keyed)
+end
+
+--- Sidekick's picker row, with an omp's title in its prompt's colour and the
+--- zellij session it runs in.
+---@param state sidekick.cli.State
+---@param picker? snacks.Picker
+---@param fallback fun(state: sidekick.cli.State, picker?: snacks.Picker): snacks.picker.Highlight[]
+local function format(state, picker, fallback)
+  local s = state.session
+  if not (s and s.backend == 'omp' and s.omp_pid) then
+    return fallback(state, picker)
+  end
+  local icons = require('sidekick.config').ui.icons
+  local status = state.attached and 'attached' or 'started'
+  local status_hl = 'SidekickCli' .. status:gsub('^%l', string.upper)
+  local ret = {} ---@type snacks.picker.Highlight[]
+  if picker then
+    local idx = tostring(state.idx)
+    ret[#ret + 1] = { (' '):rep(#tostring(picker:count()) - #idx) .. idx .. '.', 'SnacksPickerIdx' }
+    ret[#ret + 1] = { ' ' }
+  end
+  ret[#ret + 1] = { icons[status], status_hl }
+  ret[#ret + 1] = { ' ' }
+
+  local title_hl = nil ---@type string?
+  if s.omp_accent then
+    title_hl = 'SidekickOmpAccent' .. s.omp_accent:gsub('#', '')
+    vim.api.nvim_set_hl(0, title_hl, { fg = s.omp_accent })
+  end
+  ret[#ret + 1] = { '▌', title_hl or 'NonText' }
+  ret[#ret + 1] = { ' ' }
+  local width = 40
+  local title = s.omp_title or 'omp'
+  if vim.api.nvim_strwidth(title) > width then
+    title = vim.fn.strcharpart(title, 0, width - 1) .. '…'
+  end
+  ret[#ret + 1] = { title, title_hl }
+  ret[#ret + 1] = { (' '):rep(width + 2 - vim.api.nvim_strwidth(title)) }
+
+  local zellij = ('[%s]'):format(s.mux_session or 'no zellij')
+  ret[#ret + 1] = { zellij, s.mux_session == vim.env.ZELLIJ_SESSION_NAME and 'Special' or 'Comment' }
+  ret[#ret + 1] = { ' ' }
+  if picker then
+    local item = setmetatable({}, state) --[[@as snacks.picker.Item]]
+    item.file = s.cwd
+    item.dir = true
+    vim.list_extend(ret, require('snacks').picker.format.filename(item, picker))
+  else
+    ret[#ret + 1] = { vim.fn.fnamemodify(s.cwd, ':p:~'), 'Directory' }
+  end
+  return ret
 end
 
 ---@param args string[]
@@ -281,6 +370,17 @@ function M.setup()
   local Session = require('sidekick.cli.session')
   Session.setup()
   Session.register('omp', M)
+
+  local State = require('sidekick.cli.state')
+  local get = State.get
+  State.get = function(filter)
+    return M.order(get(filter), vim.env.ZELLIJ_SESSION_NAME)
+  end
+  local Select = require('sidekick.cli.ui.select')
+  local fallback = Select.format
+  Select.format = function(state, picker)
+    return format(state, picker, fallback)
+  end
 end
 
 return M

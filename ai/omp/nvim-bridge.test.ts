@@ -32,12 +32,18 @@ function type(data: string) {
 }
 
 const handlers = new Map<string, (event: unknown, ctx: unknown) => void>();
+let sessionName: string | undefined;
 const pi = {
 	on(event: string, handler: (event: unknown, ctx: unknown) => void) {
 		handlers.set(event, handler);
 	},
 	async sendUserMessage(text: string) {
 		prompts.push(text);
+	},
+	getSessionName: () => sessionName,
+	pi: {
+		theme: { sessionAccentInputs: { accentHex: "#00ff00" } },
+		getSessionAccentHex: (name: string, inputs: { accentHex: string }) => `${inputs.accentHex}:${name}`,
 	},
 };
 const ctx = {
@@ -79,6 +85,8 @@ async function request(msg: unknown): Promise<string> {
 
 describe("nvim-bridge", () => {
 	beforeAll(async () => {
+		// Only the descriptor's poll: the sockets need real time.
+		vi.useFakeTimers({ toFake: ["setInterval"] });
 		nvimBridge(pi);
 		handlers.get("session_start")?.({}, ctx);
 		for (let i = 0; i < 100 && !fs.existsSync(metaPath); i++) {
@@ -87,6 +95,7 @@ describe("nvim-bridge", () => {
 	});
 
 	afterAll(() => {
+		vi.useRealTimers();
 		handlers.get("session_shutdown")?.({}, ctx);
 		fs.rmSync(RUN_DIR, { recursive: true, force: true });
 	});
@@ -98,7 +107,18 @@ describe("nvim-bridge", () => {
 			socket: sockPath,
 			zellij: null,
 			pane: null,
+			title: null,
+			accent: null,
 		});
+	});
+
+	it("follows a rename with the title and the prompt's accent", () => {
+		sessionName = "Fix the picker";
+		vi.advanceTimersByTime(2_000);
+		const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+		assert.equal(meta.title, "Fix the picker");
+		assert.equal(meta.accent, "#00ff00:Fix the picker");
+		sessionName = undefined;
 	});
 
 	it("pastes sent text into the composer", async () => {
