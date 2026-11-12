@@ -1,4 +1,4 @@
-// One bar window, bottom-anchored, 30px of exclusive zone for a 28px bar: the
+// One bar window, bottom-anchored, 34px of exclusive zone for a 32px bar: the
 // top 2px stay transparent so tiled windows stop short of the pills instead of
 // butting against them.
 import QtQuick

@@ -36,11 +36,11 @@ Singleton {
     readonly property string ui: "Inter"
     readonly property int fontSize: 13
 
-    // The window is 30px tall and the bar paints the bottom 28, so tiled windows
+    // The window is 34px tall and the bar paints the bottom 32, so tiled windows
     // stop 2px short of it instead of butting against the pills.
-    readonly property int windowHeight: 30
-    readonly property int barHeight: 28
-    readonly property int pillHeight: 24
+    readonly property int windowHeight: 34
+    readonly property int barHeight: 32
+    readonly property int pillHeight: 28
     readonly property int pillRadius: 4
     readonly property int pillPad: 8
     // A pill's glyph and its label are separate items, so their spacing is a
