@@ -1,11 +1,11 @@
 //! Single niri IPC tap feeding the whole left side of the bar.
 //!
 //! Emits one JSON line per change:
-//!   {"workspaces": [...], "by_output": {"<name>": {"title": ..., "strip": {...}}}}
+//!   {"workspaces": [{..., "strip": {...}}], "titles": {"<output>": ...}, "focused_output": ...}
 //!
-//! The strip is a scale model of the active workspace's scrolling layout: one
-//! block per column, width proportional to the column's real width, plus a frame
-//! marking the part of the workspace that is on screen. Geometry is emitted in
+//! A strip is a scale model of a workspace's scrolling layout: one block per
+//! column, width proportional to the column's real width, plus a frame marking
+//! the part of the workspace that is (or, inactive, would be) on screen. Geometry is emitted in
 //! final pixels, so the QML does no arithmetic and the invariants that matter
 //! hold in one place.
 //!
@@ -26,6 +26,7 @@ mod icons;
 mod json;
 mod model;
 mod strip;
+mod xicons;
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
@@ -127,6 +128,7 @@ fn main() -> std::io::Result<()> {
         }
         dirty = false;
         refresh_outputs(&mut state, &socket, &mut refreshed);
+        state.retry_icons();
         let next = snapshot(&mut state);
         if next != last {
             let mut handle = stdout.lock();

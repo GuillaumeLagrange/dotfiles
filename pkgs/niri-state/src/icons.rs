@@ -9,6 +9,8 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use crate::xicons::XIcons;
+
 /// Probed in order, so a mid-size raster is preferred over an upscale of a small
 /// one or a rasterised SVG.
 const SIZES: [&str; 8] = [
@@ -17,14 +19,21 @@ const SIZES: [&str; 8] = [
 const THEMES: [&str; 3] = ["hicolor", "Adwaita", "gnome"];
 const EXTENSIONS: [&str; 2] = ["png", "svg"];
 
+/// What Proton gives every window of a game it runs outside Steam (a Lutris or
+/// umu launch), so the window title is all that tells them apart.
+const PROTON_SHARED_ID: &str = "steam_app_default";
+
 #[derive(Default)]
 pub struct Icons {
     /// Lowercased `app_id` candidates to the `Icon=` value of their entry.
     names: BTreeMap<String, String>,
+    /// Lowercased `Name=` of each entry to its `Icon=`.
+    titles: BTreeMap<String, String>,
     data_dirs: Vec<PathBuf>,
-    /// `path_for` results by `app_id`: a title change re-sends the whole window,
-    /// and a lookup is hundreds of `stat` calls.
+    /// `path_for` results by `app_id` (and title, for Proton's shared id): a title
+    /// change re-sends the whole window, and a lookup is hundreds of `stat` calls.
     resolved: RefCell<BTreeMap<String, String>>,
+    x: RefCell<XIcons>,
 }
 
 impl Icons {
@@ -44,11 +53,18 @@ impl Icons {
                 .filter(|d| !d.is_empty())
                 .map(PathBuf::from),
         );
-        Icons::new(dirs)
+        let mut icons = Icons::new(dirs);
+        let cache = match std::env::var("XDG_CACHE_HOME") {
+            Ok(dir) => PathBuf::from(dir),
+            Err(_) => Path::new(&home).join(".cache"),
+        };
+        icons.x = RefCell::new(XIcons::new(cache.join("niri-state/icons")));
+        icons
     }
 
     pub fn new(data_dirs: Vec<PathBuf>) -> Icons {
         let mut names = BTreeMap::new();
+        let mut titles = BTreeMap::new();
         for dir in &data_dirs {
             let Ok(entries) = std::fs::read_dir(dir.join("applications")) else {
                 continue;
@@ -75,30 +91,52 @@ impl Icons {
                         .or_insert_with(|| icon.clone());
                 }
                 if let Some(class) = field("StartupWMClass=") {
-                    names.insert(class.to_lowercase(), icon);
+                    names.insert(class.to_lowercase(), icon.clone());
+                }
+                // A Steam game's window is `steam_app_<id>`, its entry only
+                // launches `steam://rungameid/<id>`.
+                if let Some(id) = field("Exec=").and_then(|exec| {
+                    let (_, rest) = exec.split_once("steam://rungameid/")?;
+                    let id: String = rest.chars().take_while(char::is_ascii_digit).collect();
+                    (!id.is_empty()).then_some(id)
+                }) {
+                    names.insert(format!("steam_app_{id}"), icon.clone());
+                }
+                if let Some(name) = field("Name=") {
+                    titles.entry(name.to_lowercase()).or_insert(icon);
                 }
             }
         }
         Icons {
             names,
+            titles,
             data_dirs,
             resolved: RefCell::default(),
+            x: RefCell::default(),
         }
     }
 
     /// Absolute path of the icon file, or an empty string when nothing matches.
-    pub fn path_for(&self, app_id: &str) -> String {
-        if let Some(path) = self.resolved.borrow().get(app_id) {
-            return path.clone();
+    /// An X11 window no entry resolves falls back to the icon it publishes.
+    pub fn path_for(&self, app_id: &str, title: &str, pid: u32) -> String {
+        let key = if app_id == PROTON_SHARED_ID {
+            format!("{app_id}\n{title}")
+        } else {
+            app_id.to_string()
+        };
+        let cached = self.resolved.borrow().get(&key).cloned();
+        let path = cached.unwrap_or_else(|| {
+            let path = self.resolve(app_id, title);
+            self.resolved.borrow_mut().insert(key, path.clone());
+            path
+        });
+        if path.is_empty() {
+            return self.x.borrow_mut().path_for(pid, app_id, title);
         }
-        let path = self.resolve(app_id);
-        self.resolved
-            .borrow_mut()
-            .insert(app_id.to_string(), path.clone());
         path
     }
 
-    fn resolve(&self, app_id: &str) -> String {
+    fn resolve(&self, app_id: &str, title: &str) -> String {
         if app_id.is_empty() {
             return String::new();
         }
@@ -106,12 +144,18 @@ impl Icons {
         // Reverse-DNS ids (`md.Obsidian`) are filed under their last part by some
         // toolkits and under the whole id by others, so try both.
         let tail = id.rsplit('.').next().unwrap_or(&id).to_string();
-        let name = self
-            .names
-            .get(&id)
-            .or_else(|| self.names.get(&tail))
-            .cloned()
-            .unwrap_or(tail);
+        let name = if app_id == PROTON_SHARED_ID {
+            match self.titles.get(&title.to_lowercase()) {
+                Some(name) => name.clone(),
+                None => return String::new(),
+            }
+        } else {
+            self.names
+                .get(&id)
+                .or_else(|| self.names.get(&tail))
+                .cloned()
+                .unwrap_or(tail)
+        };
 
         // `Icon=` may already be a path rather than a themed name.
         if name.starts_with('/') {
@@ -199,7 +243,7 @@ mod tests {
         );
         let icons = Icons::new(vec![dir.to_path_buf()]);
         assert_eq!(
-            icons.path_for("Spotify"),
+            icons.path_for("Spotify", "", 0),
             dir.join("icons/hicolor/48x48/apps/spotify-client.png")
                 .to_str()
                 .unwrap()
@@ -216,7 +260,9 @@ mod tests {
             "obsidian.png",
         );
         let icons = Icons::new(vec![dir.to_path_buf()]);
-        assert!(icons.path_for("md.Obsidian").ends_with("obsidian.png"));
+        assert!(icons
+            .path_for("md.Obsidian", "", 0)
+            .ends_with("obsidian.png"));
     }
 
     #[test]
@@ -226,7 +272,7 @@ mod tests {
         std::fs::create_dir_all(&icons_dir).unwrap();
         std::fs::write(icons_dir.join("kitty.png"), b"").unwrap();
         assert!(Icons::new(vec![dir.to_path_buf()])
-            .path_for("kitty")
+            .path_for("kitty", "", 0)
             .ends_with("kitty.png"));
     }
 
@@ -240,7 +286,43 @@ mod tests {
             "firefox.png",
         );
         let icons = Icons::new(vec![dir.to_path_buf()]);
-        assert_eq!(icons.path_for("com.example.Nothing"), "");
-        assert_eq!(icons.path_for(""), "");
+        assert_eq!(icons.path_for("com.example.Nothing", "", 0), "");
+        assert_eq!(icons.path_for("", "", 0), "");
+    }
+
+    #[test]
+    fn resolves_steam_games_through_their_launch_url() {
+        let dir = scratch("steam");
+        fixture(
+            &dir,
+            "Deadlock",
+            "[Desktop Entry]\nName=Deadlock\nExec=steam steam://rungameid/1422450\nIcon=steam_icon_1422450\n",
+            "steam_icon_1422450.png",
+        );
+        let icons = Icons::new(vec![dir.to_path_buf()]);
+        assert!(icons
+            .path_for("steam_app_1422450", "Deadlock", 0)
+            .ends_with("steam_icon_1422450.png"));
+        assert_eq!(icons.path_for("steam_app_142245", "Deadlock", 0), "");
+    }
+
+    #[test]
+    fn proton_games_outside_steam_resolve_by_title() {
+        let dir = scratch("proton");
+        fixture(
+            &dir,
+            "net.lutris.battlenet-1",
+            "[Desktop Entry]\nName=Battle.net\nIcon=lutris_battlenet\n",
+            "lutris_battlenet.png",
+        );
+        let icons = Icons::new(vec![dir.to_path_buf()]);
+        assert!(icons
+            .path_for("steam_app_default", "Battle.net", 0)
+            .ends_with("lutris_battlenet.png"));
+        // Another game sharing the id must not take the first one's cached icon.
+        assert_eq!(
+            icons.path_for("steam_app_default", "World of Warcraft", 0),
+            ""
+        );
     }
 }

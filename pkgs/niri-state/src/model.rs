@@ -18,8 +18,10 @@ pub struct Window {
     pub tile_w: f64,
     /// Position in the view; niri reports it for floating tiles only.
     pub view_x: Option<f64>,
-    /// Icon file for `app_id`; empty when it cannot be resolved.
+    /// Icon file for `app_id` (and title, for Proton's shared one), or the one an
+    /// X11 window publishes; empty when it cannot be resolved.
     pub icon: String,
+    pub pid: u32,
 }
 
 impl Window {
@@ -28,10 +30,13 @@ impl Window {
         let pos = layout.get("pos_in_scrolling_layout");
         let view = layout.get("tile_pos_in_workspace_view");
         let app_id = value.get("app_id").str().unwrap_or_default().to_string();
+        let title = value.get("title").str().unwrap_or_default().to_string();
+        let pid = value.get("pid").u64().unwrap_or(0) as u32;
         Some(Window {
             id: value.get("id").u64()?,
-            title: value.get("title").str().unwrap_or_default().to_string(),
-            icon: icons.path_for(&app_id),
+            icon: icons.path_for(&app_id, &title, pid),
+            pid,
+            title,
             app_id,
             workspace_id: value.get("workspace_id").u64().unwrap_or(0),
             urgent: value.get("is_urgent").truthy(),
@@ -83,6 +88,16 @@ pub struct State {
 }
 
 impl State {
+    /// Asks again for the icons still missing: an X11 window may publish its
+    /// own after niri has announced it.
+    pub fn retry_icons(&mut self) {
+        for window in self.windows.values_mut().filter(|w| w.icon.is_empty()) {
+            window.icon = self
+                .icons
+                .path_for(&window.app_id, &window.title, window.pid);
+        }
+    }
+
     /// Applies one event, returning false for events that cannot change the bar.
     pub fn apply(&mut self, event: &Json) -> bool {
         let Some((name, body)) = event.fields().first() else {

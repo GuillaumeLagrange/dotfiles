@@ -1,9 +1,9 @@
 # niri-state
 
-One niri IPC tap feeding the left side of a status bar: workspaces, the focused
-window title per output, the focused output itself, and the strip - a scale
-model of the active workspace's scrolling layout. Emits one JSON line per
-change on stdout.
+One niri IPC tap feeding the left side of a status bar: workspaces, each with
+its strip - a scale model of its scrolling layout -, the focused window title
+per output, and the focused output itself. Emits one JSON line per change on
+stdout.
 
 The quickshell bar (`modules/desktop/quickshell/`) reads it through a
 `SplitParser`. It is its own package, `pkgs.niri-state` (`package.nix`).
@@ -13,12 +13,12 @@ src/json.rs   minimal JSON reader/writer for niri's shapes
 src/model.rs  workspace/window model, updated from event deltas
 src/strip.rs  the strip geometry and its tests
 src/icons.rs  app_id -> icon file, via .desktop entries
+src/xicons.rs the icon an X11 window publishes, when no entry names it
 src/emit.rs   one snapshot line per change
 src/main.rs   socket, coalescing, dedupe
 ```
 
-No dependencies, so the lock file is trivial and nothing is vendored. `cargo
-test` runs in the check phase, so a broken invariant fails the rebuild.
+`cargo test` runs in the check phase, so a broken invariant fails the rebuild.
 
 ```bash
 cargo test        # geometry and model invariants
@@ -36,7 +36,9 @@ half visible rather than pushing it off.
 
 The offset is anchored to a window of the focused column, not to an absolute
 position, so columns opening, closing or resizing elsewhere do not drag the
-view.
+view. Every named workspace's view is advanced on every snapshot, not only the
+active one's, so a window opened on a workspace in the background (an
+`--assign` rule) moves its frame as niri moves its view.
 
 **Geometry is emitted in final pixels**, so the bar does no arithmetic: the
 strip is `SCREEN_PX` per screenful, grows behind a fixed frame up to `MAX_PX`
@@ -57,6 +59,22 @@ the bar looks up in its own glyph table, and the resolved icon file, which it
 falls back to (greyed) for apps the table does not know. Resolution is memoised
 per `app_id`: niri re-sends the whole window on every title change (a terminal
 spinner is ~12 a second), and an uncached lookup probes ~550 paths.
+
+**Games have ids no entry names.** A Steam game's window is `steam_app_<id>`,
+which Steam's desktop shortcut only mentions in `Exec=steam://rungameid/<id>`,
+so that is read too. A game Proton runs outside Steam (Lutris, umu) is
+`steam_app_default` whatever the game, so that one id is resolved by window
+title against the entries' `Name=`, and memoised per title.
+
+**An X11 window no entry resolves brings its own icon** (`xicons.rs`). niri
+reports xwayland-satellite's pid for every X11 window, which is how they are
+told apart; for those, the top-level of the same `WM_CLASS` and `_NET_WM_NAME`
+on `DISPLAY` is looked up and its largest `_NET_WM_ICON` written as a PNG under
+`~/.cache/niri-state/icons/`, named by a hash of its pixels. That is how a Wine
+game launched from inside another program (World of Warcraft from Battle.net)
+gets the icon of its `.exe`, the way GNOME shows it. A window may set the
+property after it maps, so a miss is retried before each snapshot, at most every
+2s per class and title.
 
 **The scale is the output's logical width, and niri has no output event.**
 `SCREEN_PX / view_w` is what makes a block proportional, so the width has to be
