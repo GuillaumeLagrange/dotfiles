@@ -1,7 +1,7 @@
-// Scale model of the active workspace's scrolling layout: one block per column,
-// widths proportional to the real column widths, a frame marking the screenful
-// that is on screen, and a scrim over what is scrolled off it. All geometry
-// arrives in final pixels from niri-state.
+// Scale model of one workspace's scrolling layout: one block per column, widths
+// proportional to the real column widths, a frame marking the screenful that
+// is (or, for an inactive workspace, would be) on screen, and a scrim over what
+// is scrolled off it. All geometry arrives in final pixels from niri-state.
 import QtQuick
 import QtQuick.Effects
 import Quickshell
@@ -12,15 +12,17 @@ import qs.services
 Item {
     id: root
 
-    required property string monitor
+    // An entry of Niri.workspaces.
+    required property var workspace
 
-    readonly property var s: Niri.strip(monitor)
+    readonly property var s: Niri.strip(workspace.name)
     readonly property int count: s ? s.count : 0
     // Pixels of a column that are off screen are shaded rather than cut away, so
     // a half-scrolled window stays one block. Only the gap between columns breaks
     // the strip.
     readonly property color scrim: Theme.alpha("#000000", 0.55)
-    readonly property int bandHeight: 18
+    // 2px between the band and each rail.
+    readonly property int bandHeight: height - 4
     // One physical pixel. The blocks' rounded corners are antialiased at
     // fractional scales, so the rails are too: a crisp rail snaps to the pixel
     // grid and ends half a pixel off the block beneath it.
@@ -30,12 +32,6 @@ Item {
     visible: count > 0
     implicitWidth: (s ? s.w : 0) + 10
     implicitHeight: Theme.pillHeight
-
-    Rectangle {
-        anchors.fill: parent
-        radius: Theme.pillRadius
-        color: Theme.alpha("#000000", 0.25)
-    }
 
     Item {
         id: inner
@@ -103,7 +99,7 @@ Item {
                     Item {
                         id: block
 
-                        readonly property int iconPx: column.modelData.icon_px
+                        readonly property int iconPx: Math.min(column.modelData.icon_px, root.bandHeight - 2)
                         readonly property string mark: Config.appGlyph[column.modelData.app_id] ?? ""
 
                         width: column.modelData.w
@@ -137,7 +133,8 @@ Item {
                                             const state = column.modelData.state;
                                             if (state === "urgent")
                                                 return Theme.red;
-                                            const tint = state === "focused" ? Theme.orange : Theme.blue;
+                                            // Orange marks where keyboard focus is, so only on the focused workspace.
+                                            const tint = state === "focused" && root.workspace.is_focused ? Theme.orange : Theme.blue;
                                             return modelData.active ? tint : Theme.alpha(tint, 0.4);
                                         }
                                     }
@@ -200,9 +197,15 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                         }
 
+                        // focus-column acts on the focused workspace only.
                         TapHandler {
                             acceptedButtons: Qt.LeftButton
-                            onSingleTapped: Niri.focusColumn(column.modelData.idx)
+                            onSingleTapped: {
+                                if (root.workspace.is_focused)
+                                    Niri.focusColumn(column.modelData.idx);
+                                else
+                                    Niri.focusWindow(column.modelData.window);
+                            }
                         }
 
                         TapHandler {

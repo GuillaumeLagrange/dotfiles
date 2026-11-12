@@ -47,11 +47,6 @@ PanelWindow {
                 monitor: bar.monitor
             }
 
-            Strip {
-                Layout.alignment: Qt.AlignVCenter
-                monitor: bar.monitor
-            }
-
             WindowTitle {
                 id: title
 

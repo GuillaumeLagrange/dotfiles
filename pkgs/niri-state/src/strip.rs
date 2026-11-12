@@ -1,5 +1,5 @@
-//! Geometry of the strip: the active workspace's scrolling layout scaled down
-//! to pixels for the bar to draw.
+//! Geometry of the strip: a workspace's scrolling layout scaled down to pixels
+//! for the bar to draw.
 
 use std::collections::BTreeMap;
 
@@ -44,6 +44,9 @@ pub struct Column {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub idx: u32,
+    /// Window a click focuses: the workspace's active one if the column holds it,
+    /// else its top tile.
+    pub window: u64,
     pub x: i64,
     pub w: i64,
     pub pad: i64,
@@ -191,6 +194,10 @@ pub fn build_strip(
         .enumerate()
         .map(|(i, column)| Block {
             idx: column.idx,
+            window: active
+                .filter(|id| column.tiles.contains(id))
+                .or(column.tiles.first().copied())
+                .unwrap_or(0),
             x: to_px(positions[i]),
             w: ((column.width * scale).round() as i64).max(MIN_COL_PX),
             pad: 0,

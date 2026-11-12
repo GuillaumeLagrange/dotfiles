@@ -381,6 +381,17 @@ whole subtree, so "trigger or panel is hovered" is the only input it needs -
 eww needed two runtime flag files and an mtime comparison for the same thing,
 because GTK fires hover-lost on every child widget the pointer crosses.
 
+**Every workspace cell carries its own strip** (`bar/Workspaces.qml`), to its
+right, hidden while the workspace is empty, so what sits on an inactive
+workspace shows without switching to it. The two are one pill, outlined in the
+number's colour (orange focused, blue shown, a faint white otherwise), with the
+number filled in it, so at a glance each strip belongs to its number; the strip
+has no background of its own. Clicking a block of the focused
+workspace runs `focus-column`; on any other it runs `focus-window --id` on the
+block's `window`, since `focus-column` only acts on the focused workspace.
+`Niri` keeps the strips apart from `workspaces`, keyed by name: they change
+with every window, and the cells must not be rebuilt for it.
+
 **The strip is drawn as siblings, not overlays.** The off-screen part of a
 column is a scrim `Rectangle` with per-corner radii over the tile, rather than
 eww's per-column CSS gradient; the rails are two hairline rectangles.

@@ -253,3 +253,38 @@ fn clicking_a_cell_goes_to_that_number() {
     click_cell(&s, "3");
     s.wait_until("3 to take focus", || focused(&s).as_deref() == Some("3"));
 }
+
+#[test]
+fn every_workspace_shows_its_strip_and_a_click_on_it_goes_there() {
+    let Some(mut s) = Session::start(&reviews()) else {
+        return;
+    };
+    fill(&mut s, "5");
+    fill(&mut s, "3");
+    s.run("niri-workspaces", &["focus", "7"]);
+    s.wait_until("the bar's cells", || cell_names(&s) == ["3", "5", "7"]);
+
+    let mut cells = Value::Null;
+    s.wait_until("the strips of 3 and 5", || {
+        cells = placed_cells(&s);
+        cells[0]["strip"].is_object() && cells[1]["strip"].is_object()
+    });
+    assert!(cells[2]["strip"].is_null(), "7 is empty: {cells}");
+    for cell in cells.as_array().unwrap() {
+        let f = |k: &str| cell[k].as_f64().unwrap();
+        if let Some(strip) = cell["strip"].as_object() {
+            assert!(
+                strip["x"].as_f64().unwrap() >= f("x") + f("w"),
+                "the strip sits right of its cell: {cells}"
+            );
+        }
+    }
+
+    // The window is half a screen wide, so its block is the left half of the
+    // frame, which starts past the strip's 5px of padding.
+    let strip = &cells[1]["strip"];
+    let f = |k: &str| strip[k].as_f64().unwrap();
+    s.point_at(f("x") + 10.0, f("y") + f("h") / 2.0);
+    s.click();
+    s.wait_until("5 to take focus", || focused(&s).as_deref() == Some("5"));
+}

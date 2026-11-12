@@ -1,8 +1,10 @@
 //! Serialisation of one bar snapshot: the line the bar's `SplitParser` reads.
 
+use std::collections::BTreeMap;
+
 use crate::json::push_str_escaped;
 use crate::model::{State, Workspace};
-use crate::strip::{build_strip, columns_of, Strip, FALLBACK_VIEW_W};
+use crate::strip::{build_strip, columns_of, Strip, View, FALLBACK_VIEW_W};
 
 pub fn snapshot(state: &mut State) -> String {
     // Taken out so the view of each workspace can be advanced while the rest of
@@ -26,11 +28,13 @@ pub fn snapshot(state: &mut State) -> String {
         out.push_str(",\"output\":");
         push_str_escaped(&mut out, ws.output.as_deref().unwrap_or(""));
         out.push_str(&format!(
-            ",\"is_active\":{},\"is_focused\":{},\"is_urgent\":{}}}",
+            ",\"is_active\":{},\"is_focused\":{},\"is_urgent\":{},\"strip\":",
             ws.active, ws.focused, ws.urgent
         ));
+        push_strip(&mut out, &strip_of(state, ws, &mut views));
+        out.push('}');
     }
-    out.push_str("],\"by_output\":{");
+    out.push_str("],\"titles\":{");
 
     let mut first = true;
     for ws in state.workspaces.values().filter(|ws| ws.active) {
@@ -41,37 +45,13 @@ pub fn snapshot(state: &mut State) -> String {
             out.push(',');
         }
         first = false;
-
-        let view_w = state
-            .outputs
-            .get(output)
-            .copied()
-            .unwrap_or(FALLBACK_VIEW_W);
-        let columns = columns_of(state, ws.id);
-        let floats: Vec<(f64, f64)> = state
-            .windows
-            .values()
-            .filter(|w| w.workspace_id == ws.id && w.scroll_pos.is_none())
-            .filter_map(|w| w.view_x.map(|x| (x, w.tile_w)))
-            .collect();
-        let strip = build_strip(
-            &columns,
-            &floats,
-            view_w,
-            ws.active_window,
-            views.entry(ws.id).or_default(),
-        );
         let title = ws
             .active_window
             .and_then(|id| state.windows.get(&id))
             .map_or("", |w| w.title.as_str());
-
         push_str_escaped(&mut out, output);
-        out.push_str(":{\"title\":");
+        out.push(':');
         push_str_escaped(&mut out, title);
-        out.push_str(",\"strip\":");
-        push_strip(&mut out, &strip);
-        out.push('}');
     }
     out.push_str("},\"focused_output\":");
     // Focus is exclusive across outputs, and unnamed workspaces hold it too, so
@@ -86,6 +66,28 @@ pub fn snapshot(state: &mut State) -> String {
     out.push('}');
     state.views = views;
     out
+}
+
+fn strip_of(state: &State, ws: &Workspace, views: &mut BTreeMap<u64, View>) -> Strip {
+    let view_w = ws
+        .output
+        .as_deref()
+        .and_then(|output| state.outputs.get(output))
+        .copied()
+        .unwrap_or(FALLBACK_VIEW_W);
+    let floats: Vec<(f64, f64)> = state
+        .windows
+        .values()
+        .filter(|w| w.workspace_id == ws.id && w.scroll_pos.is_none())
+        .filter_map(|w| w.view_x.map(|x| (x, w.tile_w)))
+        .collect();
+    build_strip(
+        &columns_of(state, ws.id),
+        &floats,
+        view_w,
+        ws.active_window,
+        views.entry(ws.id).or_default(),
+    )
 }
 
 pub fn push_strip(out: &mut String, strip: &Strip) {
@@ -103,8 +105,8 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
             out.push(',');
         }
         out.push_str(&format!(
-            "{{\"idx\":{},\"pad\":{},\"w\":{},\"state\":\"{}\",\"tiles\":[",
-            block.idx, block.pad, block.w, block.state
+            "{{\"idx\":{},\"window\":{},\"pad\":{},\"w\":{},\"state\":\"{}\",\"tiles\":[",
+            block.idx, block.window, block.pad, block.w, block.state
         ));
         for (j, active) in block.tiles.iter().enumerate() {
             if j > 0 {

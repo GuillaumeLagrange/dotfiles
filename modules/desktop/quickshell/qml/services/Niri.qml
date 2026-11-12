@@ -10,7 +10,10 @@ import qs
 Singleton {
     id: root
 
+    // Named workspaces, without their strips: those change with every window
+    // title, and the workspace cells must not be rebuilt for it.
     property var workspaces: []
+    // Workspace name -> strip.
     property var strips: ({})
     property var titles: ({})
 
@@ -34,12 +37,17 @@ Singleton {
         Quickshell.execDetached([Config.niri, "msg", "action", "focus-column", String(idx)]);
     }
 
+    // Also brings its workspace and output into focus, which focus-column cannot.
+    function focusWindow(id: int): void {
+        Quickshell.execDetached([Config.niri, "msg", "action", "focus-window", "--id", String(id)]);
+    }
+
     function toggleOverview(): void {
         Quickshell.execDetached([Config.niri, "msg", "action", "toggle-overview"]);
     }
 
-    function strip(output: string): var {
-        return root.strips[output] ?? null;
+    function strip(workspace: string): var {
+        return root.strips[workspace] ?? null;
     }
 
     function title(output: string): string {
@@ -54,10 +62,10 @@ Singleton {
         stdout: SplitParser {
             onRead: line => {
                 const snapshot = JSON.parse(line);
-                const strips = {}, titles = {};
-                for (const output in snapshot.by_output) {
-                    strips[output] = snapshot.by_output[output].strip;
-                    titles[output] = snapshot.by_output[output].title;
+                const strips = {};
+                for (const ws of snapshot.workspaces) {
+                    strips[ws.name] = ws.strip;
+                    delete ws.strip;
                 }
                 const workspacesKey = JSON.stringify(snapshot.workspaces);
                 if (workspacesKey !== root._workspacesKey) {
@@ -69,7 +77,7 @@ Singleton {
                     root._stripsKey = stripsKey;
                     root.strips = strips;
                 }
-                root.titles = titles;
+                root.titles = snapshot.titles;
                 root.focusedOutput = snapshot.focused_output;
             }
         }

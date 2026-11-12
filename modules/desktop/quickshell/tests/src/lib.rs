@@ -312,8 +312,8 @@ impl Session {
         .unwrap();
         splice(
             &shell.join("bar/Workspaces.qml"),
-            "    spacing: 2\n",
-            "    spacing: 2\n\n    WorkspacesProbe {\n        row: root\n    }\n",
+            "    spacing: Theme.gap\n",
+            "    spacing: Theme.gap\n\n    WorkspacesProbe {\n        row: root\n    }\n",
         );
         std::fs::copy(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("WorkspacesProbe.qml"),
