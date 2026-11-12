@@ -108,48 +108,71 @@ ClickPanel {
             }
         }
 
-        // The other devices of this side, folded away until asked for.
-        Repeater {
-            model: root.picking === device.side ? device.others : []
+        // The other devices of this side, folded away until asked for. Kept
+        // while folding, so they slide away rather than vanish.
+        Item {
+            id: drawer
 
-            delegate: Rectangle {
-                id: choice
+            Layout.fillWidth: true
+            implicitHeight: picker.open ? choices.implicitHeight : 0
+            visible: drawer.height > 0
+            clip: true
 
-                required property var modelData
-                readonly property bool current: choice.modelData === device.node
-
-                Layout.fillWidth: true
-                Layout.leftMargin: 24
-                implicitHeight: 22
-                radius: Theme.rowRadius
-                color: choice.current ? root.accent : (hover.hovered ? Theme.hoverFill : "transparent")
-
-                Text {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: 6
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: (choice.current ? Config.glyph.check + " " : "") + Audio.label(choice.modelData)
-                    elide: Text.ElideRight
-                    color: choice.current ? Theme.ink : Theme.fg
-                    font.weight: choice.current ? Font.DemiBold : Font.Normal
-                    font.family: Theme.ui
-                    font.pixelSize: 11
+            Behavior on implicitHeight {
+                NumberAnimation {
+                    duration: 140
+                    easing.type: Easing.OutCubic
                 }
+            }
 
-                HoverHandler {
-                    id: hover
+            ColumnLayout {
+                id: choices
 
-                    cursorShape: Qt.PointingHandCursor
-                }
+                anchors.left: parent.left
+                anchors.right: parent.right
+                spacing: 4
 
-                TapHandler {
-                    onSingleTapped: {
-                        if (device.side === "output")
-                            Audio.setSink(choice.modelData);
-                        else
-                            Audio.setSource(choice.modelData);
-                        root.picking = "";
+                Repeater {
+                    model: device.others.filter(node => node !== device.node)
+
+                    delegate: Rectangle {
+                        id: choice
+
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 24
+                        implicitHeight: 22
+                        radius: Theme.rowRadius
+                        color: hover.hovered ? Theme.hoverFill : "transparent"
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Audio.label(choice.modelData)
+                            elide: Text.ElideRight
+                            color: Theme.fg
+                            font.family: Theme.ui
+                            font.pixelSize: 11
+                        }
+
+                        HoverHandler {
+                            id: hover
+
+                            cursorShape: Qt.PointingHandCursor
+                        }
+
+                        TapHandler {
+                            onSingleTapped: {
+                                if (device.side === "output")
+                                    Audio.setSink(choice.modelData);
+                                else
+                                    Audio.setSource(choice.modelData);
+                                root.picking = "";
+                            }
+                        }
                     }
                 }
             }

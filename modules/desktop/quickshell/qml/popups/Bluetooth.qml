@@ -107,10 +107,15 @@ ClickPanel {
         readonly property bool connected: row.dev?.connected ?? false
         readonly property bool pairing: Bt.pairingDevice !== null && Bt.pairingDevice === row.dev
 
+        // Created rows take their height at once; only opening or closing one unfolds it.
+        property bool settled: false
+
+        Component.onCompleted: row.settled = true
         width: ListView.view.width
-        implicitHeight: lines.implicitHeight + 8
+        implicitHeight: lines.implicitHeight + (row.open ? 14 : 8)
         height: implicitHeight
         radius: Theme.rowRadius
+        clip: true
         color: row.open || row.connected ? Theme.well : (hover.hovered || row.current ? Theme.hoverFill : "transparent")
         border.width: row.current ? 1 : 0
         border.color: Theme.alpha(root.accent, 0.6)
@@ -176,49 +181,15 @@ ClickPanel {
                 }
             }
 
-            RowLayout {
+            Text {
                 Layout.fillWidth: true
                 visible: row.open
-                spacing: 6
-
-                Btn {
-                    visible: row.known && !row.connected
-                    label: "Connect"
-                    kind: "accent"
-                    onActivated: row.dev.connect()
-                }
-
-                Btn {
-                    visible: row.connected
-                    label: "Disconnect"
-                    onActivated: row.dev.disconnect()
-                }
-
-                Btn {
-                    visible: !row.known && !row.pairing && Bt.pairingDevice === null
-                    label: "Pair"
-                    kind: "accent"
-                    onActivated: Bt.pair(row.dev)
-                }
-
-                Btn {
-                    visible: row.pairing
-                    label: "Cancel"
-                    onActivated: Bt.cancelPair()
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Btn {
-                    visible: row.known
-                    label: "Forget"
-                    kind: "danger"
-                    onActivated: {
-                        row.dev.forget();
-                        root.selected = null;
-                    }
+                text: row.dev?.address ?? ""
+                color: Theme.faint
+                font.family: Theme.ui
+                font.pixelSize: 10
+                font.features: {
+                    "tnum": 1
                 }
             }
 
@@ -282,16 +253,61 @@ ClickPanel {
                 }
             }
 
-            Text {
+            // Last: the panel grows upwards from the bar, so the bottom of the
+            // opened row is where its header was clicked.
+            RowLayout {
                 Layout.fillWidth: true
                 visible: row.open
-                text: row.dev?.address ?? ""
-                color: Theme.faint
-                font.family: Theme.ui
-                font.pixelSize: 10
-                font.features: {
-                    "tnum": 1
+                spacing: 6
+
+                Btn {
+                    visible: row.known && !row.connected
+                    label: "Connect"
+                    kind: "accent"
+                    onActivated: row.dev.connect()
                 }
+
+                Btn {
+                    visible: row.connected
+                    label: "Disconnect"
+                    onActivated: row.dev.disconnect()
+                }
+
+                Btn {
+                    visible: !row.known && !row.pairing && Bt.pairingDevice === null
+                    label: "Pair"
+                    kind: "accent"
+                    onActivated: Bt.pair(row.dev)
+                }
+
+                Btn {
+                    visible: row.pairing
+                    label: "Cancel"
+                    onActivated: Bt.cancelPair()
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Btn {
+                    visible: row.known
+                    label: "Forget"
+                    kind: "danger"
+                    onActivated: {
+                        row.dev.forget();
+                        root.selected = null;
+                    }
+                }
+            }
+        }
+
+        Behavior on height {
+            enabled: row.settled
+
+            NumberAnimation {
+                duration: 140
+                easing.type: Easing.OutCubic
             }
         }
 
