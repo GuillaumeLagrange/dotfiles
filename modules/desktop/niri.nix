@@ -141,6 +141,7 @@ in
 
           Mod+Return { spawn ${quoteArgs commands.terminal}; }
           Mod+D { spawn "vicinae" "toggle"; }
+          Mod+S { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
           Mod+Shift+D { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
           Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
           Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
