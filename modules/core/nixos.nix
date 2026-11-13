@@ -8,6 +8,7 @@
   _class = "nixos";
 
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.timeout = 2;
   networking.networkmanager.enable = true;
 
   nix.settings = {
