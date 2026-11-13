@@ -1,0 +1,24 @@
+diff --git a/src/input/mod.rs b/src/input/mod.rs
+index b847649..02d797b 100644
+--- a/src/input/mod.rs
++++ b/src/input/mod.rs
+@@ -2848,6 +2848,19 @@ impl State {
+                 }
+             }
+ 
++            // In the overview, a plain middle click closes the window under the pointer.
++            if is_overview_open
++                && !pointer.is_grabbed()
++                && button == Some(MouseButton::Middle)
++                && modifiers.is_empty()
++            {
++                if let Some(mapped) = self.niri.window_under_cursor() {
++                    mapped.toplevel().send_close();
++                    self.niri.suppressed_buttons.insert(button_code);
++                    return;
++                }
++            }
++
+             if button == Some(MouseButton::Middle) && !pointer.is_grabbed() {
+                 let mod_down = modifiers_from_state(mods).contains(mod_key.to_modifiers());
+                 if mod_down {

@@ -236,7 +236,7 @@ leftwards never moves a pin.
 150ms there, like niri's top-left corner for the overview. niri's hot corners
 can only toggle the overview, so this one is the bar's; niri still holds the
 pointer at it on an output whose left edge borders another (`barrier-corners`
-in `../niri.nix`, patched in by `pkgs/niri/mouse.patch`), or the pointer
+in `../niri.nix`, patched in by `pkgs/niri/hot-corner-barrier.patch`), or the pointer
 slides past it onto the neighbour. It is a `ClickPanel`, for
 the keyboard, with `closeOnLeave`: it closes 300ms after the pointer leaves the
 menu and the strip of bar below it (a click elsewhere or Escape also close it). Pinned apps in a grid, then every

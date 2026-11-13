@@ -372,7 +372,7 @@ in
       gestures {
         hot-corners {
           top-left
-          // delay-ms, barrier and barrier-corners come from pkgs/niri/mouse.patch.
+          // delay-ms, barrier and barrier-corners come from pkgs/niri/hot-corner-{delay,barrier}.patch.
           delay-ms 150
           barrier 50
           barrier-corners {

@@ -242,7 +242,8 @@ upstream behaviour live.
 ### Programs (`pkgs/`)
 
 One directory each, with its `package.nix`; `pkgs/default.nix` is the overlay that makes each `pkgs.<name>`,
-and exposes them as `.#<name>`. It also patches niri (`niri/mouse.patch`) and adds `pkgs.unstable`, whose
+and exposes them as `.#<name>`. It also patches niri, one patch per feature in `niri/` (hot-corner delay and barrier,
+middle click closing a window in the overview; a new feature gets its own file) and adds `pkgs.unstable`, whose
 quickshell (the bar's) is patched to take virtual sinks and sources, such as EasyEffects' source, for
 devices (`quickshell/virtual-devices.patch`).
 

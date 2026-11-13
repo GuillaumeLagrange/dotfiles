@@ -1,0 +1,145 @@
+diff --git a/niri-config/src/gestures.rs b/niri-config/src/gestures.rs
+index dcf296a..eb883b8 100644
+--- a/niri-config/src/gestures.rs
++++ b/niri-config/src/gestures.rs
+@@ -109,4 +109,7 @@ pub struct HotCorners {
+     pub bottom_left: bool,
+     #[knuffel(child)]
+     pub bottom_right: bool,
++    /// How long the pointer has to stay in the corner before the overview opens.
++    #[knuffel(child, unwrap(argument), default)]
++    pub delay_ms: u16,
+ }
+diff --git a/niri-config/src/lib.rs b/niri-config/src/lib.rs
+index 329b766..c65aa3c 100644
+--- a/niri-config/src/lib.rs
++++ b/niri-config/src/lib.rs
+@@ -752,6 +752,7 @@ mod tests {
+                     top-right
+                     bottom-left
+                     bottom-right
++                    delay-ms 150
+                 }
+             }
+ 
+@@ -1193,6 +1194,7 @@ mod tests {
+                                 top_right: true,
+                                 bottom_left: true,
+                                 bottom_right: true,
++                                delay_ms: 150,
+                             },
+                         ),
+                         layout: None,
+@@ -1660,6 +1662,7 @@ mod tests {
+                     top_right: false,
+                     bottom_left: false,
+                     bottom_right: false,
++                    delay_ms: 0,
+                 },
+             },
+             overview: Overview {
+diff --git a/src/input/mod.rs b/src/input/mod.rs
+index f1ad493..93c1ccb 100644
+--- a/src/input/mod.rs
++++ b/src/input/mod.rs
+@@ -2611,7 +2611,10 @@ impl State {
+                     .with_grab(|_, grab| grab_allows_hot_corner(grab))
+                     .unwrap_or(true)
+             {
+-                self.niri.layout.toggle_overview();
++                if let Some((output, _)) = self.niri.output_under(new_pos) {
++                    let output = output.clone();
++                    self.niri.enter_hot_corner(&output);
++                }
+             }
+             self.niri.pointer_inside_hot_corner = true;
+         }
+@@ -2704,7 +2707,10 @@ impl State {
+                     .with_grab(|_, grab| grab_allows_hot_corner(grab))
+                     .unwrap_or(true)
+             {
+-                self.niri.layout.toggle_overview();
++                if let Some((output, _)) = self.niri.output_under(pos) {
++                    let output = output.clone();
++                    self.niri.enter_hot_corner(&output);
++                }
+             }
+             self.niri.pointer_inside_hot_corner = true;
+         }
+diff --git a/src/niri.rs b/src/niri.rs
+index ec40e01..e5e709a 100644
+--- a/src/niri.rs
++++ b/src/niri.rs
+@@ -14,6 +14,7 @@ use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as
+ use anyhow::{bail, ensure, Context};
+ use calloop::futures::Scheduler;
+ use niri_config::debug::PreviewRender;
++use niri_config::gestures::HotCorners;
+ use niri_config::{
+     Config, FloatOrInt, Key, Modifiers, OutputName, TrackLayout, WarpMouseToFocusMode,
+     WorkspaceReference, Xkb,
+@@ -368,6 +369,7 @@ pub struct Niri {
+     /// resolution mice.
+     pub notified_activity_this_iteration: bool,
+     pub pointer_inside_hot_corner: bool,
++    pub hot_corner_timer: Option<RegistrationToken>,
+     pub tablet_cursor_location: Option<Point<f64, Logical>>,
+     pub gesture_swipe_3f_cumulative: Option<(f64, f64)>,
+     pub overview_scroll_swipe_gesture: ScrollSwipeGesture,
+@@ -2579,6 +2581,7 @@ impl Niri {
+             pointer_inactivity_timer_got_reset: false,
+             notified_activity_this_iteration: false,
+             pointer_inside_hot_corner: false,
++            hot_corner_timer: None,
+             tablet_cursor_location: None,
+             gesture_swipe_3f_cumulative: None,
+             overview_scroll_swipe_gesture: ScrollSwipeGesture::new(),
+@@ -3054,14 +3057,45 @@ impl Niri {
+         Some((output, pos_within_output))
+     }
+ 
+-    fn is_inside_hot_corner(&self, output: &Output, pos: Point<f64, Logical>) -> bool {
++    fn hot_corners(&self, output: &Output) -> HotCorners {
+         let config = self.config.borrow();
+-        let hot_corners = output
++        output
+             .user_data()
+             .get::<OutputName>()
+             .and_then(|name| config.outputs.find(name))
+             .and_then(|c| c.hot_corners)
+-            .unwrap_or(config.gestures.hot_corners);
++            .unwrap_or(config.gestures.hot_corners)
++    }
++
++    /// Toggles the overview once the pointer has stayed `delay-ms` in the hot corner.
++    pub fn enter_hot_corner(&mut self, output: &Output) {
++        if let Some(token) = self.hot_corner_timer.take() {
++            self.event_loop.remove(token);
++        }
++
++        let delay_ms = self.hot_corners(output).delay_ms;
++        if delay_ms == 0 {
++            self.layout.toggle_overview();
++            return;
++        }
++
++        let timer = Timer::from_duration(Duration::from_millis(u64::from(delay_ms)));
++        let token = self
++            .event_loop
++            .insert_source(timer, |_, _, state| {
++                state.niri.hot_corner_timer = None;
++                if state.niri.pointer_inside_hot_corner {
++                    state.niri.layout.toggle_overview();
++                    state.niri.queue_redraw_all();
++                }
++                TimeoutAction::Drop
++            })
++            .unwrap();
++        self.hot_corner_timer = Some(token);
++    }
++
++    fn is_inside_hot_corner(&self, output: &Output, pos: Point<f64, Logical>) -> bool {
++        let hot_corners = self.hot_corners(output);
+ 
+         if hot_corners.off {
+             return false;

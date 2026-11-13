@@ -30,9 +30,13 @@
       ];
     };
 
-    # Hot-corner delay and barrier, middle click closes in the overview: see mouse.patch.
+    # One patch per feature, in the order they apply.
     niri = prev.niri.overrideAttrs (old: {
-      patches = (old.patches or [ ]) ++ [ ./niri/mouse.patch ];
+      patches = (old.patches or [ ]) ++ [
+        ./niri/hot-corner-delay.patch # hot-corners { delay-ms }
+        ./niri/hot-corner-barrier.patch # hot-corners { barrier; barrier-corners }
+        ./niri/overview-middle-click-close.patch # middle click closes a window in the overview
+      ];
     });
 
     # Rust CLIs nixpkgs lacks. `just bump` moves them to their latest release.
