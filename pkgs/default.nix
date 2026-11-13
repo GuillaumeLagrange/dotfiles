@@ -37,6 +37,7 @@
         ./niri/hot-corner-barrier.patch # hot-corners { barrier; barrier-corners }
         ./niri/overview-middle-click-close.patch # middle click closes a window in the overview
         ./niri/window-preview.patch # `WindowPreview` IPC request, for the bar's workspace map
+        ./niri/overview-labels.patch # app icon and title on each tile in the overview
       ];
     });
 

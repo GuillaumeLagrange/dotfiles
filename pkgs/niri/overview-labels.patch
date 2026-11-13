@@ -1,0 +1,479 @@
+diff --git a/src/layout/monitor.rs b/src/layout/monitor.rs
+index 53c0606..b4d2f4a 100644
+--- a/src/layout/monitor.rs
++++ b/src/layout/monitor.rs
+@@ -1391,6 +1391,11 @@ impl<W: LayoutElement> Monitor<W> {
+         }
+     }
+ 
++    /// How far the overview is open, 0 to 1; None while closed.
++    pub fn overview_progress_clamped(&self) -> Option<f64> {
++        self.overview_progress.as_ref().map(|p| p.clamped_value())
++    }
++
+     #[cfg(test)]
+     pub(super) fn overview_progress_value(&self) -> Option<f64> {
+         self.overview_progress.as_ref().map(|p| p.value())
+diff --git a/src/niri.rs b/src/niri.rs
+index 8aaa437..4c0986f 100644
+--- a/src/niri.rs
++++ b/src/niri.rs
+@@ -170,6 +170,7 @@ use crate::ui::config_error_notification::ConfigErrorNotification;
+ use crate::ui::exit_confirm_dialog::{ExitConfirmDialog, ExitConfirmDialogRenderElement};
+ use crate::ui::hotkey_overlay::HotkeyOverlay;
+ use crate::ui::mru::{MruCloseRequest, WindowMruUi, WindowMruUiRenderElement};
++use crate::ui::overview_labels::OverviewLabels;
+ use crate::ui::screen_transition::{self, ScreenTransition};
+ use crate::ui::screenshot_ui::{OutputScreenshot, ScreenshotUi, ScreenshotUiRenderElement};
+ use crate::utils::scale::{closest_representable_scale, guess_monitor_scale};
+@@ -392,6 +393,7 @@ pub struct Niri {
+     pub exit_confirm_dialog: ExitConfirmDialog,
+ 
+     pub window_mru_ui: WindowMruUi,
++    pub overview_labels: OverviewLabels,
+     pub pending_mru_commit: Option<PendingMruCommit>,
+ 
+     pub pick_window: Option<async_channel::Sender<Option<MappedId>>>,
+@@ -2623,6 +2625,7 @@ impl Niri {
+             exit_confirm_dialog,
+ 
+             window_mru_ui,
++            overview_labels: OverviewLabels::default(),
+             pending_mru_commit: None,
+ 
+             pick_window: None,
+@@ -4525,6 +4528,10 @@ impl Niri {
+                 push_popups_from_layer!(Layer::Background, ns, xray_pos, process!(geo));
+             }
+ 
++            let target_zoom = self.config.borrow().overview.zoom.clamp(0.0001, 0.75);
++            self.overview_labels
++                .render(ctx.r(), mon, target_zoom, &mut |elem| push(elem.into()));
++
+             mon.render_workspaces(ctx.r(), focus_ring, &mut |elem| push(elem.into()));
+ 
+             for (ws, geo) in mon.workspaces_with_render_geo() {
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index c194a24..56064e4 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -2,5 +2,6 @@ pub mod config_error_notification;
+ pub mod exit_confirm_dialog;
+ pub mod hotkey_overlay;
+ pub mod mru;
++pub mod overview_labels;
+ pub mod screen_transition;
+ pub mod screenshot_ui;
+diff --git a/src/ui/overview_labels.rs b/src/ui/overview_labels.rs
+new file mode 100644
+index 0000000..f1d5300
+--- /dev/null
++++ b/src/ui/overview_labels.rs
+@@ -0,0 +1,407 @@
++//! The app icon and window title drawn at the bottom of each tile in the overview.
++//!
++//! The icon is found the way a launcher finds it: the app's desktop entry, matched on its file
++//! name or its `StartupWMClass`, names an icon, looked up in the hicolor theme and in `pixmaps`.
++//! Only PNG icons are drawn: niri has no SVG renderer.
++
++use std::cell::RefCell;
++use std::collections::HashMap;
++use std::env;
++use std::fs::{self, File};
++use std::io::BufReader;
++use std::path::{Path, PathBuf};
++use std::time::{Duration, Instant};
++
++use anyhow::{ensure, Context as _};
++use pango::{EllipsizeMode, FontDescription};
++use pangocairo::cairo::{self, ImageSurface};
++use smithay::backend::allocator::Fourcc;
++use smithay::backend::renderer::element::Kind;
++use smithay::backend::renderer::gles::{GlesRenderer, GlesTexture};
++use smithay::utils::{Point, Rectangle, Transform};
++
++use crate::layout::monitor::Monitor;
++use crate::layout::LayoutElement as _;
++use crate::render_helpers::primary_gpu_texture::PrimaryGpuTextureRenderElement;
++use crate::render_helpers::renderer::NiriRenderer;
++use crate::render_helpers::texture::{TextureBuffer, TextureRenderElement};
++use crate::render_helpers::RenderCtx;
++use crate::utils::{to_physical_precise_round, with_toplevel_role};
++use crate::window::mapped::MappedId;
++use crate::window::Mapped;
++
++const FONT: &str = "sans 13px";
++/// Logical pixels between the label and the bottom and sides of its tile.
++const MARGIN: f64 = 8.;
++const PAD_X: f64 = 8.;
++const PAD_Y: f64 = 5.;
++const ICON_SIZE: f64 = 18.;
++const ICON_GAP: f64 = 6.;
++/// Tiles narrower than this on screen get no label.
++const MIN_TILE_WIDTH: f64 = 64.;
++/// Labels of windows not drawn for this long are dropped.
++const EVICT_AFTER: Duration = Duration::from_secs(5);
++/// Theme sizes tried in order: the closest to `ICON_SIZE` at common scales first.
++const ICON_SIZES: [&str; 8] = [
++    "48x48", "32x32", "64x64", "128x128", "256x256", "24x24", "512x512", "16x16",
++];
++
++type LabelTexture = TextureBuffer<GlesTexture>;
++
++#[derive(Default)]
++pub struct OverviewLabels {
++    labels: RefCell<HashMap<MappedId, Label>>,
++    icons: RefCell<Icons>,
++}
++
++struct Label {
++    title: String,
++    app_id: String,
++    scale: f64,
++    max_width: i32,
++    texture: Option<LabelTexture>,
++    last_used: Instant,
++}
++
++impl OverviewLabels {
++    /// Pushes a label for every visible tile of `mon`, fading in with the overview.
++    ///
++    /// `target_zoom` is the overview's zoom once fully open: labels are sized against it, so the
++    /// open animation does not render them again on every frame.
++    pub fn render<R: NiriRenderer>(
++        &self,
++        mut ctx: RenderCtx<R>,
++        mon: &Monitor<Mapped>,
++        target_zoom: f64,
++        push: &mut dyn FnMut(PrimaryGpuTextureRenderElement),
++    ) {
++        let Some(progress) = mon.overview_progress_clamped() else {
++            return;
++        };
++        let alpha = progress.clamp(0., 1.) as f32;
++        if alpha <= 0. {
++            return;
++        }
++
++        let _span = tracy_client::span!("OverviewLabels::render");
++
++        let now = Instant::now();
++        let mut labels = self.labels.borrow_mut();
++        labels.retain(|_, label| now.duration_since(label.last_used) < EVICT_AFTER);
++
++        let scale = mon.scale().fractional_scale();
++        let zoom = mon.overview_zoom();
++
++        for (ws, geo) in mon.workspaces_with_render_geo() {
++            for (tile, pos, visible) in ws.tiles_with_render_positions() {
++                if !visible {
++                    continue;
++                }
++                let mapped = tile.window();
++                if ctx.target.should_block_out(mapped.rules().block_out_from) {
++                    continue;
++                }
++
++                let tile_size = tile.animated_tile_size();
++                if tile_size.w * zoom < MIN_TILE_WIDTH {
++                    continue;
++                }
++                let max_width = (tile_size.w * target_zoom.min(zoom) - 2. * MARGIN).floor() as i32;
++
++                let (title, app_id) = with_toplevel_role(mapped.toplevel(), |role| {
++                    (
++                        role.title.clone().unwrap_or_default(),
++                        role.app_id.clone().unwrap_or_default(),
++                    )
++                });
++
++                let label = labels.entry(mapped.id()).or_insert_with(|| Label {
++                    title: String::new(),
++                    app_id: String::new(),
++                    scale: 0.,
++                    max_width: 0,
++                    texture: None,
++                    last_used: now,
++                });
++                label.last_used = now;
++                if label.title != title
++                    || label.app_id != app_id
++                    || label.scale != scale
++                    || label.max_width != max_width
++                {
++                    let renderer = ctx.as_gles().renderer;
++                    let icon = self.icons.borrow_mut().get(&app_id);
++                    label.texture =
++                        render_label(renderer, &title, icon.as_ref(), scale, max_width).ok();
++                    (label.title, label.app_id) = (title, app_id);
++                    (label.scale, label.max_width) = (scale, max_width);
++                }
++                let Some(texture) = label.texture.clone() else {
++                    continue;
++                };
++
++                let size = texture.logical_size();
++                let tile_loc = geo.loc + pos.upscale(zoom);
++                let tile_size = tile_size.upscale(zoom);
++                let loc = tile_loc
++                    + Point::new((tile_size.w - size.w) / 2., tile_size.h - size.h - MARGIN);
++                let loc = loc.to_physical_precise_round(scale).to_logical(scale);
++
++                let elem = TextureRenderElement::from_texture_buffer(
++                    texture,
++                    loc,
++                    alpha,
++                    Some(Rectangle::from_size(size)),
++                    None,
++                    Kind::Unspecified,
++                );
++                push(PrimaryGpuTextureRenderElement(elem));
++            }
++        }
++    }
++}
++
++fn render_label(
++    renderer: &mut GlesRenderer,
++    title: &str,
++    icon: Option<&ImageSurface>,
++    scale: f64,
++    max_width: i32,
++) -> anyhow::Result<LabelTexture> {
++    let _span = tracy_client::span!("overview_labels::render_label");
++
++    let px = |logical: f64| (logical * scale).round() as i32;
++    let (pad_x, pad_y) = (px(PAD_X), px(PAD_Y));
++    let (icon_px, icon_gap) = match icon {
++        Some(_) => (px(ICON_SIZE), px(ICON_GAP)),
++        None => (0, 0),
++    };
++    let max_width = px(f64::from(max_width));
++
++    let mut font = FontDescription::from_string(FONT);
++    font.set_absolute_size(to_physical_precise_round(scale, font.size()));
++
++    let surface = ImageSurface::create(cairo::Format::ARgb32, 0, 0)?;
++    let cr = cairo::Context::new(&surface)?;
++    let layout = pangocairo::functions::create_layout(&cr);
++    layout.context().set_round_glyph_positions(false);
++    layout.set_single_paragraph_mode(true);
++    layout.set_font_description(Some(&font));
++    layout.set_ellipsize(EllipsizeMode::End);
++    let text_room = max_width - 2 * pad_x - icon_px - icon_gap;
++    ensure!(text_room > 0 || (title.is_empty() && icon.is_some()));
++    layout.set_width(text_room.max(1) * pango::SCALE);
++    layout.set_text(title);
++
++    let (text_w, text_h) = if title.is_empty() {
++        (0, 0)
++    } else {
++        layout.pixel_size()
++    };
++    let icon_gap = if text_w > 0 { icon_gap } else { 0 };
++    let width = 2 * pad_x + icon_px + icon_gap + text_w;
++    let height = 2 * pad_y + text_h.max(icon_px);
++    ensure!(text_w > 0 || icon_px > 0);
++
++    let surface = ImageSurface::create(cairo::Format::ARgb32, width, height)?;
++    let cr = cairo::Context::new(&surface)?;
++
++    let (w, h) = (f64::from(width), f64::from(height));
++    let r = f64::from(px(6.)).min(h / 2.);
++    cr.new_sub_path();
++    cr.arc(w - r, r, r, -90f64.to_radians(), 0.);
++    cr.arc(w - r, h - r, r, 0., 90f64.to_radians());
++    cr.arc(r, h - r, r, 90f64.to_radians(), 180f64.to_radians());
++    cr.arc(r, r, r, 180f64.to_radians(), 270f64.to_radians());
++    cr.close_path();
++    cr.set_source_rgba(0., 0., 0., 0.75);
++    cr.fill()?;
++
++    if let Some(icon) = icon {
++        cr.save()?;
++        cr.translate(f64::from(pad_x), f64::from((height - icon_px) / 2));
++        cr.scale(
++            f64::from(icon_px) / f64::from(icon.width()),
++            f64::from(icon_px) / f64::from(icon.height()),
++        );
++        cr.set_source_surface(icon, 0., 0.)?;
++        cr.source().set_filter(cairo::Filter::Good);
++        cr.paint()?;
++        cr.restore()?;
++    }
++
++    if text_w > 0 {
++        cr.move_to(
++            f64::from(pad_x + icon_px + icon_gap),
++            f64::from((height - text_h) / 2),
++        );
++        cr.set_source_rgb(1., 1., 1.);
++        pangocairo::functions::show_layout(&cr, &layout);
++    }
++
++    drop(cr);
++    let data = surface.take_data().unwrap();
++    let buffer = TextureBuffer::from_memory(
++        renderer,
++        &data,
++        Fourcc::Argb8888,
++        (width, height),
++        false,
++        scale,
++        Transform::Normal,
++        Vec::new(),
++    )?;
++    Ok(buffer)
++}
++
++#[derive(Default)]
++struct Icons {
++    /// Desktop entry file stem and `StartupWMClass`, lowercased, to the entry's `Icon=`. Read
++    /// once: a newly installed app gets its icon after niri restarts.
++    entries: Option<HashMap<String, String>>,
++    decoded: HashMap<String, Option<ImageSurface>>,
++}
++
++impl Icons {
++    fn get(&mut self, app_id: &str) -> Option<ImageSurface> {
++        if app_id.is_empty() {
++            return None;
++        }
++        if let Some(icon) = self.decoded.get(app_id) {
++            return icon.clone();
++        }
++
++        let dirs = data_dirs();
++        let entries = self.entries.get_or_insert_with(|| read_entries(&dirs));
++        let name = entries
++            .get(&app_id.to_lowercase())
++            .map_or(app_id, String::as_str);
++        let icon = find_icon(&dirs, name)
++            .or_else(|| find_icon(&dirs, &app_id.to_lowercase()))
++            .and_then(|path| match load_png(&path) {
++                Ok(surface) => Some(surface),
++                Err(err) => {
++                    debug!("error loading icon {path:?}: {err:?}");
++                    None
++                }
++            });
++        self.decoded.insert(app_id.to_owned(), icon.clone());
++        icon
++    }
++}
++
++fn data_dirs() -> Vec<PathBuf> {
++    let mut dirs = Vec::new();
++    match env::var_os("XDG_DATA_HOME").filter(|d| !d.is_empty()) {
++        Some(dir) => dirs.push(PathBuf::from(dir)),
++        None => {
++            if let Some(home) = env::var_os("HOME") {
++                dirs.push(Path::new(&home).join(".local/share"));
++            }
++        }
++    }
++    let system = env::var("XDG_DATA_DIRS")
++        .ok()
++        .filter(|d| !d.is_empty())
++        .unwrap_or_else(|| String::from("/usr/local/share:/usr/share"));
++    dirs.extend(system.split(':').filter(|d| !d.is_empty()).map(PathBuf::from));
++    dirs
++}
++
++fn read_entries(dirs: &[PathBuf]) -> HashMap<String, String> {
++    let mut by_stem = HashMap::new();
++    let mut by_class = HashMap::new();
++    // Earlier directories take precedence, so they are inserted last.
++    for dir in dirs.iter().rev() {
++        let Ok(files) = fs::read_dir(dir.join("applications")) else {
++            continue;
++        };
++        for path in files.flatten().map(|f| f.path()) {
++            if path.extension().is_none_or(|ext| ext != "desktop") {
++                continue;
++            }
++            let Ok(text) = fs::read_to_string(&path) else {
++                continue;
++            };
++            let (mut icon, mut class) = (None, None);
++            let mut in_entry = false;
++            for line in text.lines() {
++                if line.starts_with('[') {
++                    in_entry = line == "[Desktop Entry]";
++                } else if in_entry {
++                    if let Some(value) = line.strip_prefix("Icon=") {
++                        icon = Some(value.trim().to_owned());
++                    } else if let Some(value) = line.strip_prefix("StartupWMClass=") {
++                        class = Some(value.trim().to_lowercase());
++                    }
++                }
++            }
++            let Some(icon) = icon else {
++                continue;
++            };
++            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
++                by_stem.insert(stem.to_lowercase(), icon.clone());
++            }
++            if let Some(class) = class {
++                by_class.insert(class, icon);
++            }
++        }
++    }
++    // The class is what the window announces, so it wins over the file name.
++    by_stem.extend(by_class);
++    by_stem
++}
++
++fn find_icon(dirs: &[PathBuf], name: &str) -> Option<PathBuf> {
++    if name.starts_with('/') {
++        let path = PathBuf::from(name);
++        return (path.extension().is_some_and(|ext| ext == "png") && path.is_file())
++            .then_some(path);
++    }
++    let file = format!("{name}.png");
++    for dir in dirs {
++        for size in ICON_SIZES {
++            let path = dir.join("icons/hicolor").join(size).join("apps").join(&file);
++            if path.is_file() {
++                return Some(path);
++            }
++        }
++    }
++    dirs.iter()
++        .map(|dir| dir.join("pixmaps").join(&file))
++        .find(|path| path.is_file())
++}
++
++fn load_png(path: &Path) -> anyhow::Result<ImageSurface> {
++    let mut decoder = png::Decoder::new(BufReader::new(File::open(path)?));
++    decoder.set_transformations(png::Transformations::normalize_to_color8());
++    let mut reader = decoder.read_info()?;
++    let mut buf = vec![0; reader.output_buffer_size().context("image too large")?];
++    let info = reader.next_frame(&mut buf)?;
++    let (w, h) = (info.width as usize, info.height as usize);
++    let channels = info.color_type.samples();
++
++    let mut surface = ImageSurface::create(cairo::Format::ARgb32, w as i32, h as i32)?;
++    let stride = surface.stride() as usize;
++    {
++        let mut data = surface.data()?;
++        for y in 0..h {
++            let row = &buf[y * info.line_size..];
++            for x in 0..w {
++                let p = &row[x * channels..x * channels + channels];
++                let (r, g, b, a) = match channels {
++                    1 => (p[0], p[0], p[0], 255),
++                    2 => (p[0], p[0], p[0], p[1]),
++                    3 => (p[0], p[1], p[2], 255),
++                    _ => (p[0], p[1], p[2], p[3]),
++                };
++                let premultiply = |c: u8| ((u16::from(c) * u16::from(a) + 127) / 255) as u8;
++                // Cairo's ARGB32 is native-endian: B, G, R, A in memory here.
++                let out = &mut data[y * stride + x * 4..y * stride + x * 4 + 4];
++                out.copy_from_slice(&[premultiply(b), premultiply(g), premultiply(r), a]);
++            }
++        }
++    }
++    surface.mark_dirty();
++    Ok(surface)
++}
