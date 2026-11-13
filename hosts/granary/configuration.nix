@@ -31,7 +31,9 @@
 
   environment.systemPackages = with pkgs; [
     libimobiledevice
+    lutris
   ];
+
   services.usbmuxd.enable = true;
 
   virtualisation.virtualbox.host.enable = true;
