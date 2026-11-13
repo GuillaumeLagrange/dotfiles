@@ -2,12 +2,13 @@
 or is on screen, is unique across outputs, and is created where you go to it.
 
   niri-workspaces focus N   go to N, creating it on the focused output
-  niri-workspaces move N    send the focused column to N, creating it there
+  niri-workspaces move N    send the focused column to N, creating it there, and follow it
   niri-workspaces sort      put each output's named workspaces in order
   niri-workspaces watch [--assign APP_ID_REGEX=N]...
       keep it so: drop the name of an empty workspace left behind, give the
       lowest free number to an unnamed one that gets a window or is shown,
-      send new matching windows to N
+      send new matching windows to N; numbering waits for the overview to
+      close, so workspaces do not move under the pointer while scrolling it
 
 Talks to niri's socket rather than `niri msg`, which reads "1" as an index.
 """
@@ -113,13 +114,44 @@ def focus(name):
     action("FocusWorkspace", reference=ref(target))
 
 
+def emptied(windows, moved):
+    """Whether moving the focused column, or floating window, empties its workspace."""
+    column = (
+        None if moved["is_floating"] else moved["layout"]["pos_in_scrolling_layout"]
+    )
+    return all(
+        w["id"] == moved["id"]
+        or (
+            column is not None
+            and not w["is_floating"]
+            and w["layout"]["pos_in_scrolling_layout"][0] == column[0]
+        )
+        for w in windows
+        if w["workspace_id"] == moved["workspace_id"]
+    )
+
+
 def move(name):
-    target, new = find(workspaces(), name)
+    wss = workspaces()
+    target, new = find(wss, name)
+    source = next(ws for ws in wss if ws["is_focused"])
+    if source["active_window_id"] is None or target["id"] == source["id"]:
+        return
+    # Not the focused window: the overview takes keyboard focus away from it.
+    windows = request("Windows")["Windows"]
+    moved = next(w for w in windows if w["id"] == source["active_window_id"])
+    # As in focus: named and in place before the switch, so it slides.
     if new:
         action("SetWorkspaceName", name=name, workspace=ref(target))
-    action("MoveColumnToWorkspace", reference=ref(target), focus=False)
-    if new:
         sort()
+    # Unnamed before it is left, niri removes it on the switch.
+    if (
+        source["name"] is not None
+        and source["output"] == target["output"]
+        and emptied(windows, moved)
+    ):
+        action("UnsetWorkspaceName", reference=ref(source))
+    action("MoveColumnToWorkspace", reference=ref(target), focus=True)
 
 
 def tidy(assign, seen):
@@ -144,6 +176,8 @@ def tidy(assign, seen):
                 break
     seen.intersection_update(w["id"] for w in windows)
 
+    if request("OverviewState")["OverviewState"]["is_open"]:
+        return
     wss = sorted(workspaces(), key=lambda ws: (ws["output"] or "", ws["idx"]))
     for ws in wss:
         if ws["name"] is not None and empty(ws) and not ws["is_active"]:
