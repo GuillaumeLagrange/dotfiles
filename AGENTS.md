@@ -202,6 +202,15 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   number, sorts each output's numbers, and sends Signal/Spotify to 5 (`--assign`). It talks to niri's socket by
   id: `niri msg` reads a name like "1" as an index. Tests: `modules/desktop/quickshell/tests/tests/workspaces.rs`.
 - quickshell status bar (`modules/desktop/quickshell/`) — see `modules/desktop/quickshell/AGENTS.md`.
+- Passwords (`pkgs/passwords/passwords.py`, `passwords.nix`): Mod+Ctrl+P, or "Passwords" in the launcher, runs
+  `passwords pick`: the logins of Proton Pass (`pass-cli`, key in gnome-keyring through
+  `PROTON_PASS_LINUX_KEYRING=dbus`) and of 1Password when `op` is installed (the `work` NixOS group), in one
+  `vicinae dmenu` list, then the field to copy (password, username, email, one-time code), copied with
+  `wl-copy --sensitive` and cleared after 45 s. Each provider is unlocked first: Proton's web login opens in the
+  browser, its extra password and session lock code are asked through the picker and typed into `pass-cli` on a
+  pty; 1Password goes through the desktop app's CLI integration (Settings > Developer), starting the app if
+  needed. The picker is the `Vicinae` class (`choose`, `secret`); `passwords list` (JSON lines) and
+  `passwords copy PROVIDER ID FIELD` serve another picker.
 - `commands.nix`: the commands the desktop's parts share (lock, screenshot and screen recording, the terminal,
   calls into the bar). Not a module: parts `import` it.
 

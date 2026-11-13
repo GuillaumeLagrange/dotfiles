@@ -157,6 +157,7 @@ in
           Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
           Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
           Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
+          Mod+Ctrl+P hotkey-overlay-title="Passwords" { spawn "${pkgs.passwords}/bin/passwords" "pick"; }
           Super+Alt+L { spawn "${commands.lock}"; }
           Mod+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "zsm"; }
           ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "review"; }''}

@@ -29,6 +29,7 @@
       ./firefox.nix
       ./lock.nix
       ./niri.nix
+      ./passwords.nix
       ./quickshell
       ./vicinae
     ];

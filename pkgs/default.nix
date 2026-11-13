@@ -43,6 +43,9 @@
     niri-state = final.callPackage ./niri-state/package.nix { };
     niri-workspaces = final.callPackage ./niri-workspaces/package.nix { };
     omp-panel = final.callPackage ./omp-panel/package.nix { zellij = final.unstable.zellij; };
+    passwords = final.callPackage ./passwords/package.nix {
+      inherit (final.unstable) proton-pass-cli vicinae;
+    };
     review = final.callPackage ./reviews/review.nix { zellij = final.unstable.zellij; };
     reviews = final.callPackage ./reviews/package.nix { };
     wt = final.callPackage ./wt/package.nix { zellij = final.unstable.zellij; };
@@ -65,6 +68,7 @@
           niri-state
           niri-workspaces
           omp-panel
+          passwords
           review
           reviews
           wt
