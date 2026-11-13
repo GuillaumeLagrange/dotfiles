@@ -1,6 +1,7 @@
 # Attach to a zellij session by name, creating it if needed. With --focus, focus the
-# window already showing it, or open one. A session wt knows starts with its
-# WORKSPACE_ROOT.
+# window already showing it, or open one. Run from a floating picker window (zsm,
+# review), it opens the session in a window of its own. A session wt knows starts
+# with its WORKSPACE_ROOT.
 {
   writeShellScriptBin,
   jq,
@@ -15,13 +16,20 @@ writeShellScriptBin "zellij-attach" ''
   fi
   session="$1"
 
-  if [[ -n "$focus" ]] && command -v niri > /dev/null; then
-    window=$(niri msg -j windows 2>/dev/null | ${jq}/bin/jq -r --arg s "$session" \
-      'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
-    if [[ -n "$window" ]]; then
-      exec niri msg action focus-window --id "$window"
+  if command -v niri > /dev/null; then
+    if [[ -n "$focus" ]]; then
+      window=$(niri msg -j windows 2>/dev/null | ${jq}/bin/jq -r --arg s "$session" \
+        'first(.[] | select(.title == $s or (.title | startswith($s + " | "))) | .id) // empty')
+      if [[ -n "$window" ]]; then
+        exec niri msg action focus-window --id "$window"
+      fi
     fi
-    if [[ ! -t 0 ]]; then
+    picker=""
+    if [[ -n "''${KITTY_PID:-}" ]]; then
+      picker=$(niri msg -j windows 2>/dev/null | ${jq}/bin/jq -r --argjson pid "$KITTY_PID" \
+        'first(.[] | select(.pid == $pid and .app_id == "zellij-picker") | .id) // empty')
+    fi
+    if [[ -n "$picker" ]] || [[ -n "$focus" && ! -t 0 ]]; then
       exec niri msg action spawn -- xdg-terminal-exec --app-id=zellij-session "$0" "$session"
     fi
   fi

@@ -297,7 +297,9 @@ devices (`quickshell/virtual-devices.patch`).
 - `niri-state/`: the niri IPC tap the bar reads its layout model from (see its AGENTS.md)
 - `niri-workspaces/`, `niri-displays/`: see the desktop group above
 - `zellij-attach/`, `mux-name/`: attach to a zellij session by name, and name a tab after a directory; shared
-  by the shell and work groups and by `review`, `wt` and `omp-panel`
+  by the shell and work groups and by `review`, `wt` and `omp-panel`. niri's Mod+\ (`zsm`) and Mod+Shift+\
+  (`review`) run in a floating kitty window, app-id `zellij-picker`; `zellij-attach` run from it (found by
+  `KITTY_PID`) opens the session in a new tiled `zellij-session` window instead of in place, and the picker closes
 - `cargo-tools/`: Rust CLIs nixpkgs lacks, which would otherwise be `cargo install`ed: one `<name>.nix` each
   (today only `linear`, schpet's linear-cli), listed in the overlay as `pkgs.cargoTools.<name>` and exposed as
   `.#<name>`. `just bump [NAME [VERSION]]` runs nix-update on them: latest release (crates.io or GitHub) and

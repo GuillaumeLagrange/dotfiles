@@ -45,7 +45,7 @@ in
 
   # The kitty windows the binds below open under their own app id: hidden
   # entries, there only so the bar's strip finds kitty's icon for them.
-  xdg.desktopEntries = lib.genAttrs [ "zellij-session" "omp-panel" ] (class: {
+  xdg.desktopEntries = lib.genAttrs [ "zellij-session" "zellij-picker" "omp-panel" ] (class: {
     name = class;
     icon = "kitty";
     exec = "${commands.terminal} --class ${class}";
@@ -158,8 +158,8 @@ in
           Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
           Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
           Super+Alt+L { spawn "${commands.lock}"; }
-          Mod+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "zsm"; }
-          ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-session" "-e" "zsh" "-i" "-c" "review"; }''}
+          Mod+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-picker" "-e" "zsh" "-i" "-c" "zsm"; }
+          ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-picker" "-e" "zsh" "-i" "-c" "review"; }''}
           Mod+A { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
           Mod+BackSpace { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
 
@@ -324,6 +324,7 @@ in
 
       window-rule {
           match app-id="^omp-panel$"
+          match app-id="^zellij-picker$"
 
           open-floating true
           default-column-width { proportion 0.8; }

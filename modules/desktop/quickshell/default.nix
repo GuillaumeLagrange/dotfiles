@@ -203,7 +203,7 @@ let
             ++ lib.splitString " " commands.terminal
             ++ [
               "--class"
-              "zellij-session"
+              "zellij-picker"
               "-e"
               "zsh"
               "-i"
