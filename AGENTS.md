@@ -127,7 +127,9 @@ Rules:
 - `badlands`: work laptop
 - `granary`: Framework laptop (Core Ultra series 3), work. Its own parts: `caffeine.nix` (closing the lid
   locks and blanks instead of suspending, driven from the bar's control centre), `keylightd.nix` (keyboard
-  backlight), `ttm-reclaim.nix` (see stall tracing below), `easyeffects.nix` (Framework's Dolby speaker tuning)
+  backlight), `ttm-reclaim.nix` (see stall tracing below), `easyeffects.nix` (Framework's Dolby speaker tuning).
+  Mod+W and Mod+Shift+W open the Work and Perso firefox profiles (`firefox.mainProfile`/`altProfile`, see
+  `modules/desktop/firefox.nix`); elsewhere the last used profile and a new instance
 - `snakewater`: personal gaming/dev desktop: Ryzen 7800X3D, RTX 4080 (proprietary driver, open kernel module,
   LTS kernel so the out-of-tree module builds, both from nixos-unstable for a current driver), Sunshine server (KMS capture, NVENC). Same disk layout as
   granary (`encrypted-disk`): LUKS2 partition unlocked by the TPM alone (PCR 7, secure boot through

@@ -21,6 +21,10 @@
         home-manager.users.guillaume.imports = [
           self.modules.homeManager.work-laptop
           ./easyeffects.nix
+          {
+            firefox.mainProfile = "Work";
+            firefox.altProfile = "Perso";
+          }
         ];
       }
     ];

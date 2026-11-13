@@ -163,8 +163,22 @@ in
           Mod+A { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
           Mod+BackSpace { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
 
-          Mod+W { spawn "${firefox}"; }
-          Mod+Shift+W { spawn ${quoteArgs "${firefox} --new-instance"}; }
+          Mod+W { spawn ${
+            quoteArgs (
+              if config.firefox.mainProfile == null then
+                firefox
+              else
+                "${firefox} -P ${config.firefox.mainProfile}"
+            )
+          }; }
+          Mod+Shift+W { spawn ${
+            quoteArgs (
+              if config.firefox.altProfile == null then
+                "${firefox} --new-instance"
+              else
+                "${firefox} -P ${config.firefox.altProfile}"
+            )
+          }; }
           Mod+Ctrl+W { spawn "${config.programs.chromium.package}/bin/chromium"; }
 
           Mod+N { spawn ${quoteArgs "${commands.quickshellIpc} notifs center"}; }
