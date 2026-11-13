@@ -6,6 +6,12 @@ This is a comprehensive NixOS/Home Manager configuration repository for Guillaum
 
 - Do not proactively run the Home Manager / NixOS config switch (e.g. `home-manager switch`, `sudo nixos-rebuild switch`). After making edits, just tell the user to rebuild. Only run the switch yourself if the user explicitly asks you to.
 
+## IMPORTANT: Patching third-party software
+
+- Ask before patching the source of software I did not write (niri, quickshell, any nixpkgs package or flake
+  input), and say what the patch would be for. Prefer a solution through the program's existing interfaces,
+  even a less clean one; I decide whether a patch is worth carrying.
+
 ## IMPORTANT: Testing scripts that run under systemd / a daemon
 
 Many things here (the quickshell bar, services) launch scripts from a **systemd unit** or a
