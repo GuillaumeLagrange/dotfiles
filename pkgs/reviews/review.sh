@@ -181,7 +181,10 @@ open_review_tab() {
     # Another PR of the repo shares its worktree: its tab is closed once the new one exists, so the
     # session never runs out of tabs, which would end it.
     stale=$(act list-tabs --json | jq -r --arg repo "$repo#" '.[] | select(.name | startswith($repo)) | .tab_id')
-    act new-tab --name "$tab" "${cmd[@]}" >/dev/null
+    tab_id=$(act new-tab --name "$tab" "${cmd[@]}")
+    # Named after the tab, the pane titles the window "reviews | <tab>", as the other panes do.
+    pane=$(act list-panes --json | jq -er --argjson t "$tab_id" 'first(.[] | select(.tab_id == $t and .is_plugin == false)) | .id')
+    act rename-pane --pane-id "terminal_$pane" "$tab" >/dev/null
     for id in $stale; do
       act close-tab-by-id "$id" >/dev/null
     done
