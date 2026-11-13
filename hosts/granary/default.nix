@@ -14,6 +14,7 @@
       ./hardware.nix
       ./configuration.nix
       ./caffeine.nix
+      ./fingerprint-led.nix
       ./keylightd.nix
       ./ttm-reclaim.nix
       {
