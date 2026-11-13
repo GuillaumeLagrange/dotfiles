@@ -1,0 +1,209 @@
+diff --git a/niri-ipc/src/lib.rs b/niri-ipc/src/lib.rs
+index 0aa3cb4..ff31bd1 100644
+--- a/niri-ipc/src/lib.rs
++++ b/niri-ipc/src/lib.rs
+@@ -119,6 +119,16 @@ pub enum Request {
+     OverviewState,
+     /// Request information about screencasts.
+     Casts,
++    /// Render a window into a PNG no larger than `max_size` on either side, sent back
++    /// base64-encoded in [`Response::WindowPreview`].
++    ///
++    /// Unlike the screenshot actions, this leaves the clipboard and disk alone.
++    WindowPreview {
++        /// Id of the window.
++        id: u64,
++        /// Longest side of the image, in physical pixels.
++        max_size: u32,
++    },
+ }
+ 
+ /// Reply from niri to client.
+@@ -165,6 +175,8 @@ pub enum Response {
+     OverviewState(Overview),
+     /// Information about screencasts.
+     Casts(Vec<Cast>),
++    /// A window preview: a base64-encoded PNG.
++    WindowPreview(String),
+ }
+ 
+ /// Overview information.
+diff --git a/src/ipc/server.rs b/src/ipc/server.rs
+index db71da6..8fac313 100644
+--- a/src/ipc/server.rs
++++ b/src/ipc/server.rs
+@@ -34,7 +34,7 @@ use crate::backend::IpcOutputMap;
+ use crate::input::pick_window_grab::PickWindowGrab;
+ use crate::layout::workspace::WorkspaceId;
+ use crate::niri::State;
+-use crate::utils::{version, with_toplevel_role};
++use crate::utils::{version, window_preview_png, with_toplevel_role};
+ use crate::window::Mapped;
+ 
+ // If an event stream client fails to read events fast enough that we accumulate more than this
+@@ -455,6 +455,29 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
+             let casts = state.casts.casts.values().cloned().collect();
+             Response::Casts(casts)
+         }
++        Request::WindowPreview { id, max_size } => {
++            if max_size == 0 {
++                return Err(String::from("max_size must be positive"));
++            }
++
++            let (tx, rx) = async_channel::bounded(1);
++            ctx.event_loop.insert_idle(move |state| {
++                let _ = tx.send_blocking(state.render_window_preview(id));
++            });
++            let result = rx.recv().await;
++            let result = result.map_err(|_| String::from("error rendering window preview"))?;
++            let (size, pixels) = result.map_err(|err| format!("{err:?}"))?;
++
++            // Scaling and encoding are slow, and this future runs on the compositor's thread.
++            let (tx, rx) = async_channel::bounded(1);
++            std::thread::spawn(move || {
++                let (w, h) = (size.w as u32, size.h as u32);
++                let _ = tx.send_blocking(window_preview_png(w, h, &pixels, max_size));
++            });
++            let result = rx.recv().await;
++            let result = result.map_err(|_| String::from("error encoding window preview"))?;
++            Response::WindowPreview(result.map_err(|err| format!("{err:?}"))?)
++        }
+     };
+ 
+     Ok(response)
+diff --git a/src/niri.rs b/src/niri.rs
+index befcff7..8aaa437 100644
+--- a/src/niri.rs
++++ b/src/niri.rs
+@@ -2017,6 +2017,25 @@ impl State {
+         self.niri.queue_redraw_all();
+     }
+ 
++    pub fn render_window_preview(
++        &mut self,
++        id: u64,
++    ) -> anyhow::Result<(Size<i32, Physical>, Vec<u8>)> {
++        let mut windows = self.niri.layout.windows();
++        let Some((monitor, mapped)) = windows.find(|(_, m)| m.id().get() == id) else {
++            bail!("no window with id {id}");
++        };
++        let Some(monitor) = monitor else {
++            bail!("window {id} is on no output");
++        };
++        let output = monitor.output();
++        self.backend
++            .with_primary_renderer(|renderer| {
++                self.niri.render_window_preview(renderer, output, mapped)
++            })
++            .context("no renderer")?
++    }
++
+     pub fn confirm_screenshot(&mut self, write_to_disk: bool) {
+         let ScreenshotUi::Open { path, .. } = &mut self.niri.screenshot_ui else {
+             return;
+@@ -5741,6 +5760,45 @@ impl Niri {
+             .context("error saving screenshot")
+     }
+ 
++    pub fn render_window_preview(
++        &self,
++        renderer: &mut GlesRenderer,
++        output: &Output,
++        mapped: &Mapped,
++    ) -> anyhow::Result<(Size<i32, Physical>, Vec<u8>)> {
++        let scale = Scale::from(output.current_scale().fractional_scale());
++
++        let mut elements: Vec<WindowScreenshotRenderElement<GlesRenderer>> = Vec::new();
++        let ctx = RenderCtx {
++            renderer,
++            target: RenderTarget::ScreenCapture,
++            xray: None,
++        };
++        mapped.render(
++            ctx,
++            mapped.window.geometry().loc.to_f64(),
++            scale,
++            1.,
++            XrayPos::default(),
++            &mut |elem| elements.push(elem.into()),
++        );
++
++        let geo = encompassing_geo(scale, elements.iter());
++        ensure!(!geo.is_empty(), "window has nothing to render");
++        let elements = elements.iter().rev().map(|elem| {
++            RelocateRenderElement::from_element(elem, geo.loc.upscale(-1), Relocate::Relative)
++        });
++        let pixels = render_to_vec(
++            renderer,
++            geo.size,
++            scale,
++            Transform::Normal,
++            Fourcc::Abgr8888,
++            elements,
++        )?;
++        Ok((geo.size, pixels))
++    }
++
+     pub fn save_screenshot(
+         &self,
+         size: Size<i32, Physical>,
+diff --git a/src/utils/mod.rs b/src/utils/mod.rs
+index bbeac5b..b492d3f 100644
+--- a/src/utils/mod.rs
++++ b/src/utils/mod.rs
+@@ -319,6 +319,55 @@ pub fn write_png_rgba8(
+     writer.write_image_data(pixels)
+ }
+ 
++/// Box-filters an RGBA8 image down to fit in `max_size`, then encodes it as a base64 PNG.
++pub fn window_preview_png(
++    width: u32,
++    height: u32,
++    pixels: &[u8],
++    max_size: u32,
++) -> anyhow::Result<String> {
++    let k = max(width, height).div_ceil(max_size);
++    let (w, h) = (max(width / k, 1), max(height / k, 1));
++    let mut small = Vec::with_capacity((w * h * 4) as usize);
++    for y in 0..h {
++        let ys = y * k..min((y + 1) * k, height);
++        for x in 0..w {
++            let xs = x * k..min((x + 1) * k, width);
++            let mut sum = [0u32; 4];
++            for sy in ys.clone() {
++                let row = (sy * width) as usize * 4;
++                for sx in xs.clone() {
++                    let i = row + sx as usize * 4;
++                    for c in 0..4 {
++                        sum[c] += u32::from(pixels[i + c]);
++                    }
++                }
++            }
++            let n = ys.len() as u32 * xs.len() as u32;
++            small.extend(sum.map(|s| (s / n) as u8));
++        }
++    }
++
++    let mut png = Vec::new();
++    write_png_rgba8(&mut png, w, h, &small).context("error encoding PNG")?;
++
++    const ALPHABET: &[u8; 64] =
++        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++    let mut out = String::with_capacity(png.len().div_ceil(3) * 4);
++    for chunk in png.chunks(3) {
++        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
++        let n = u32::from(b[0]) << 16 | u32::from(b[1]) << 8 | u32::from(b[2]);
++        for i in 0..4 {
++            if i <= chunk.len() {
++                out.push(ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char);
++            } else {
++                out.push('=');
++            }
++        }
++    }
++    Ok(out)
++}
++
+ pub fn output_matches_name(output: &Output, target: &str) -> bool {
+     let name = output.user_data().get::<OutputName>().unwrap();
+     name.matches(target)

@@ -34,9 +34,38 @@ pub struct Column {
     /// Window ids, top to bottom.
     pub tiles: Vec<u64>,
     pub urgent: bool,
-    pub apps: String,
     /// Icon file of the app owning the column; empty when it cannot be resolved.
     pub icon: String,
+    /// The tiles again, with what the bar's workspace map draws of each.
+    pub map_tiles: Vec<MapTile>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MapTile {
+    pub id: u64,
+    /// Logical height.
+    pub h: f64,
+    pub app: String,
+    pub icon: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MapColumn {
+    /// Logical x from the workspace's left edge, and width.
+    pub x: f64,
+    pub w: f64,
+    pub tiles: Vec<MapTile>,
+}
+
+/// The whole workspace in logical pixels, never cropped: the strip expanded.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Map {
+    /// The screenful on view, as in the strip's frame.
+    pub view_x: f64,
+    pub view_w: f64,
+    pub columns: Vec<MapColumn>,
+    /// The workspace's active window.
+    pub active: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,7 +87,6 @@ pub struct Block {
     /// Ends cut by the crop rather than by the column's own edge; drawn square.
     pub cut_left: bool,
     pub cut_right: bool,
-    pub tooltip: String,
     pub icon: String,
     /// Side of the square the icon is drawn at; 0 when the drawn block, cropped
     /// or not, is too narrow to carry one.
@@ -83,6 +111,7 @@ pub struct Strip {
     pub thumb: Option<(i64, i64)>,
     pub columns: Vec<Block>,
     pub floating: Vec<Float>,
+    pub map: Map,
 }
 
 /// Reconstructed scroll position of a workspace's view, carried between
@@ -220,7 +249,6 @@ pub fn build_strip(
             dim_right: 0,
             cut_left: false,
             cut_right: false,
-            tooltip: column.apps.clone(),
             icon: column.icon.clone(),
             icon_px: 0,
         })
@@ -322,6 +350,21 @@ pub fn build_strip(
         true
     });
 
+    let map = Map {
+        view_x: start,
+        view_w,
+        active,
+        columns: columns
+            .iter()
+            .zip(&positions)
+            .map(|(column, &x)| MapColumn {
+                x,
+                w: column.width,
+                tiles: column.map_tiles.clone(),
+            })
+            .collect(),
+    };
+
     Strip {
         count,
         w: strip_w,
@@ -330,6 +373,7 @@ pub fn build_strip(
         thumb,
         columns: blocks,
         floating: drawn_floats,
+        map,
     }
 }
 
@@ -352,14 +396,18 @@ pub fn columns_of(state: &State, workspace_id: u64) -> Vec<Column> {
                 idx,
                 width: tiles.iter().map(|w| w.tile_w).fold(0.0, f64::max),
                 urgent: tiles.iter().any(|w| w.urgent),
-                apps: tiles
-                    .iter()
-                    .map(|w| w.app_id.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
                 // A stack takes the app of its topmost tile.
                 icon: tiles[0].icon.clone(),
                 tiles: tiles.iter().map(|w| w.id).collect(),
+                map_tiles: tiles
+                    .iter()
+                    .map(|w| MapTile {
+                        id: w.id,
+                        h: w.tile_h,
+                        app: w.app_id.clone(),
+                        icon: w.icon.clone(),
+                    })
+                    .collect(),
             }
         })
         .collect()
@@ -379,8 +427,8 @@ mod tests {
             width,
             tiles: tiles.to_vec(),
             urgent: false,
-            apps: "kitty".into(),
             icon: "/icons/kitty.png".into(),
+            map_tiles: Vec::new(),
         }
     }
 

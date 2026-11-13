@@ -53,6 +53,17 @@ pub fn snapshot(state: &mut State) -> String {
         out.push(':');
         push_str_escaped(&mut out, title);
     }
+    // Every window's title, for the bar's workspace map. Apart from the strips,
+    // which the bar rebuilds only when they change: a title changes far more
+    // often than a layout.
+    out.push_str("},\"window_titles\":{");
+    for (i, window) in state.windows.values().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!("\"{}\":", window.id));
+        push_str_escaped(&mut out, &window.title);
+    }
     out.push_str("},\"focused_output\":");
     // Focus is exclusive across outputs, and unnamed workspaces hold it too, so
     // this cannot be read off the named workspaces the bar draws.
@@ -115,11 +126,9 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
             out.push_str(&format!("{{\"active\":{active}}}"));
         }
         out.push_str(&format!(
-            "],\"dim\":{{\"left\":{},\"right\":{}}},\"cut\":{{\"left\":{},\"right\":{}}},\"tooltip\":",
-            block.dim_left, block.dim_right, block.cut_left, block.cut_right
+            "],\"dim\":{{\"left\":{},\"right\":{}}},\"cut\":{{\"left\":{},\"right\":{}}},\"icon_px\":{},\"icon\":",
+            block.dim_left, block.dim_right, block.cut_left, block.cut_right, block.icon_px
         ));
-        push_str_escaped(out, &block.tooltip);
-        out.push_str(&format!(",\"icon_px\":{},\"icon\":", block.icon_px));
         push_str_escaped(out, &block.icon);
         out.push('}');
     }
@@ -130,5 +139,31 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
         }
         out.push_str(&format!("{{\"pad\":{},\"w\":{}}}", float.pad, float.w));
     }
-    out.push_str("]}");
+    out.push_str(&format!(
+        "],\"map\":{{\"view_x\":{},\"view_w\":{},\"active\":{},\"columns\":[",
+        strip.map.view_x,
+        strip.map.view_w,
+        strip.map.active.map_or("null".into(), |id| id.to_string())
+    ));
+    for (i, column) in strip.map.columns.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{{\"x\":{},\"w\":{},\"tiles\":[",
+            column.x, column.w
+        ));
+        for (j, tile) in column.tiles.iter().enumerate() {
+            if j > 0 {
+                out.push(',');
+            }
+            out.push_str(&format!("{{\"id\":{},\"h\":{},\"app\":", tile.id, tile.h));
+            push_str_escaped(out, &tile.app);
+            out.push_str(",\"icon\":");
+            push_str_escaped(out, &tile.icon);
+            out.push('}');
+        }
+        out.push_str("]}");
+    }
+    out.push_str("]}}");
 }

@@ -87,9 +87,17 @@ otherwise throttled to `OUTPUT_REFRESH`, because asking is the only way to
 notice a resolution or scale change. Idle costs nothing: the query only happens
 when a snapshot is being emitted anyway.
 
-**Only widths are modelled.** A column's tiles split the band equally; no tile
-height and no output height is carried, so the strip says nothing about how a
-column is split vertically.
+**The strip models widths only.** A column's tiles split the band equally, so
+the strip says nothing about how a column is split vertically.
+
+**The `map` is the strip expanded**, for the bar's workspace map: every column
+in logical pixels (`x` from the workspace's left edge, `w`), each tile's window
+id, height (`tile_size`), app and icon, the view as `view_x`/`view_w`, and the
+`active` window. Never cropped and never carved: the bar scales it as a whole.
+Window titles travel apart, in `window_titles` (id -> title): a title changes
+far more often than a layout, and the bar rebuilds the strips only when they
+change. A title change of a window not on screen prints no snapshot, so its
+title reaches the bar with the next one.
 
 **One process, blocked on a socket read.** The model is kept in memory and
 updated from event deltas, snapshots are printed only when they differ, and a

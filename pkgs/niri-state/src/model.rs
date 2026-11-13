@@ -16,6 +16,7 @@ pub struct Window {
     /// (column, tile) in the scrolling layout, 1-based. None for floating.
     pub scroll_pos: Option<(u32, u32)>,
     pub tile_w: f64,
+    pub tile_h: f64,
     /// Position in the view; niri reports it for floating tiles only.
     pub view_x: Option<f64>,
     /// Icon file for `app_id` (and title, for Proton's shared one), or the one an
@@ -45,6 +46,7 @@ impl Window {
                 _ => None,
             },
             tile_w: layout.get("tile_size").at(0).num().unwrap_or(0.0),
+            tile_h: layout.get("tile_size").at(1).num().unwrap_or(0.0),
             view_x: view.at(0).num(),
         })
     }
@@ -209,6 +211,7 @@ impl State {
                         _ => None,
                     };
                     window.tile_w = layout.get("tile_size").at(0).num().unwrap_or(window.tile_w);
+                    window.tile_h = layout.get("tile_size").at(1).num().unwrap_or(window.tile_h);
                     window.view_x = layout.get("tile_pos_in_workspace_view").at(0).num();
                 }
             }

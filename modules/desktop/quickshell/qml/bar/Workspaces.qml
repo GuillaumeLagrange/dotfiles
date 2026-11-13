@@ -1,6 +1,7 @@
 import QtQuick
 import qs
 import qs.services
+import qs.popups
 
 Row {
     id: root
@@ -79,6 +80,12 @@ Row {
                     height: parent.height - 8
                     workspace: entry.modelData
                 }
+            }
+
+            WorkspaceMap {
+                target: layout
+                workspace: entry.modelData
+                triggerHovered: layout.hovered
             }
 
             // Drawn over the content so the number's fill does not cover it.

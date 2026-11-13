@@ -31,7 +31,8 @@ qml/
   bar/          Bar.qml plus one file per widget; StartCorner is the start
                 menu's hot corner.
   popups/       NowPlaying, Calendar, ControlCenter (with DisplaySetups),
-                NotifPopups, Networks, Bluetooth, Volume, ReviewRequests, StartMenu.
+                NotifPopups, Networks, Bluetooth, Volume, ReviewRequests, StartMenu,
+                WorkspaceMap.
 tests/          The bar driven headless (below): a Rust crate, TestProbe.qml,
                 WorkspacesProbe.qml, StartProbe.qml, and the niri patch that
                 makes it possible.
@@ -398,6 +399,23 @@ eww's per-column CSS gradient; the rails are two hairline rectangles.
 
 **Strip marks are the apps' own icons**, in colour, from the file niri-state
 resolves; an app with no icon file gets a bare block.
+
+**Hovering a strip opens the workspace map** (`popups/WorkspaceMap.qml`), a
+hover panel: the strip expanded from niri-state's `map`, every column at
+200px per screen height, each tile showing its window with its icon and title
+along the bottom (`Niri.windowTitles`), the screenful on view outlined, the
+active window in the accent. Clicking a tile focuses its window
+(`focus-window --id`, so on any workspace) and closes the map. A workspace
+wider than the screen scrolls sideways, wheel included, and opens centred on
+the view. The tiles' images come from niri itself: wlr-screencopy, the only
+capture protocol niri has, sees outputs and not a window on a hidden workspace,
+and `screenshot-window` puts every capture on the clipboard. So niri carries
+our own IPC request (`pkgs/niri/window-preview.patch`):
+`{"WindowPreview":{"id":N,"max_size":PX}}` renders the window's current
+buffers, box-filters them to fit `PX` physical pixels, and replies with a
+base64 PNG. `Niri.windowPreview` sends it on one held socket, one request per
+tile at the size it is drawn, each time the map opens; the images live in
+`data:` URLs and are dropped when it closes.
 
 **Rails are one physical pixel and antialiased.** At a fractional scale the
 blocks' rounded, antialiased edges land on half pixels; a crisp rail snaps to

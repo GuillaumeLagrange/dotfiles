@@ -27,10 +27,16 @@ Item {
     // grid and ends half a pixel off the block beneath it.
     readonly property real hairline: 1 / (QsWindow.window ? QsWindow.window.devicePixelRatio : 1)
     readonly property color railColor: Theme.alpha(Theme.fg, 0.85)
+    // Opens the workspace map (popups/WorkspaceMap.qml).
+    readonly property bool hovered: stripHover.hovered
 
     visible: count > 0
     implicitWidth: (s ? s.w : 0) + 10
     implicitHeight: Theme.pillHeight
+
+    HoverHandler {
+        id: stripHover
+    }
 
     Item {
         id: inner
@@ -191,36 +197,6 @@ Item {
                         TapHandler {
                             acceptedButtons: Qt.RightButton
                             onSingleTapped: Niri.toggleOverview()
-                        }
-
-                        Timer {
-                            id: dwell
-                            interval: 400
-                            onTriggered: tip.active = true
-                        }
-
-                        Connections {
-                            target: blockHover
-
-                            function onHoveredChanged() {
-                                if (blockHover.hovered) {
-                                    dwell.restart();
-                                } else {
-                                    dwell.stop();
-                                    tip.active = false;
-                                }
-                            }
-                        }
-
-                        LazyLoader {
-                            id: tip
-
-                            component: Component {
-                                Tip {
-                                    target: block
-                                    text: column.modelData.tooltip
-                                }
-                            }
                         }
                     }
                 }

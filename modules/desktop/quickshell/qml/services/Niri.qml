@@ -16,6 +16,8 @@ Singleton {
     // Workspace name -> strip.
     property var strips: ({})
     property var titles: ({})
+    // Window id -> title.
+    property var windowTitles: ({})
 
     // Serialised copies of the last assigned values. A snapshot is mostly a
     // title change (a terminal spinner sends ~12 a second), and reassigning an
@@ -54,6 +56,76 @@ Singleton {
         return root.titles[output] ?? "";
     }
 
+    // `cb` gets a base64 PNG of the window no larger than maxSize physical
+    // pixels on a side, or "" on failure. `WindowPreview` is our own niri
+    // request (pkgs/niri/window-preview.patch): niri's screenshot actions all
+    // take the clipboard.
+    function windowPreview(id: int, maxSize: int, cb: var): void {
+        ipc.pending.push(cb);
+        ipc.outbox.push(JSON.stringify({
+            WindowPreview: {
+                id: id,
+                max_size: maxSize
+            }
+        }));
+        if (ipc.connected)
+            ipc.send();
+        else
+            ipc.connected = true;
+    }
+
+    // niri answers requests on one connection in order, so callbacks are a
+    // queue.
+    Socket {
+        id: ipc
+
+        property var pending: []
+        property var outbox: []
+
+        function send(): void {
+            for (const line of outbox)
+                write(line + "\n");
+            outbox = [];
+            flush();
+        }
+
+        function answer(b64: string): void {
+            try {
+                pending.shift()(b64);
+            } catch (e) {
+                // The asking item was destroyed while waiting.
+            }
+        }
+
+        function fail(): void {
+            outbox = [];
+            while (pending.length > 0)
+                answer("");
+        }
+
+        path: Quickshell.env("NIRI_SOCKET")
+        onConnectedChanged: {
+            if (connected)
+                send();
+            else
+                fail();
+        }
+        onError: {
+            connected = false;
+            fail();
+        }
+
+        parser: SplitParser {
+            onRead: line => {
+                let b64 = "";
+                try {
+                    b64 = JSON.parse(line).Ok?.WindowPreview ?? "";
+                } catch (e) {}
+                ipc.answer(b64);
+            }
+        }
+    }
+
     Process {
         id: tap
         command: [Config.niriState]
@@ -78,6 +150,7 @@ Singleton {
                     root.strips = strips;
                 }
                 root.titles = snapshot.titles;
+                root.windowTitles = snapshot.window_titles;
                 root.focusedOutput = snapshot.focused_output;
             }
         }
