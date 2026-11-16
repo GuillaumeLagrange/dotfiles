@@ -83,11 +83,26 @@ impl Fixture {
     /// `lib` has a remote whose tip its local branch lacks, so where a worktree
     /// forks from is observable.
     pub fn new() -> Self {
+        // Servers of fixtures already gone: a test nextest killed never dropped
+        // its own, and an orphan of zellij's race can outlive the sweep below.
+        // Gone means without its marker: such a server makes its directories again.
+        let tmp = std::env::temp_dir();
+        kill_servers(|socket| {
+            socket
+                .strip_prefix(&tmp)
+                .ok()
+                .and_then(|rest| rest.iter().next())
+                .is_some_and(|dir| {
+                    dir.to_string_lossy().starts_with("wt-test")
+                        && !tmp.join(dir).join(MARKER).exists()
+                })
+        });
         let dir = tempfile::Builder::new()
             .prefix("wt-test")
             .tempdir()
             .expect("temp dir");
         let root = dir.path().to_path_buf();
+        std::fs::write(root.join(MARKER), "").unwrap();
         let workspace = root.join("ws");
 
         let mut env = HashMap::new();
@@ -318,6 +333,39 @@ impl Fixture {
 
     pub fn env_var(&self, name: &str) -> &str {
         &self.env[name]
+    }
+}
+
+impl Drop for Fixture {
+    /// Kills the zellij servers under the fixture. One whose name zellij gave to
+    /// another server (an `attach --create` that took it for gone, see `run` in
+    /// `zellij.rs`) has no socket left for a test to delete it by.
+    fn drop(&mut self) {
+        kill_servers(|socket| socket.starts_with(&self.root));
+    }
+}
+
+/// Written in a fixture's directory while it lives.
+const MARKER: &str = ".fixture";
+
+/// SIGKILLs the zellij servers whose socket `matches` (zellij catches SIGTERM).
+fn kill_servers(matches: impl Fn(&Path) -> bool) {
+    for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
+        let Ok(cmdline) = std::fs::read(entry.path().join("cmdline")) else {
+            continue;
+        };
+        let argv: Vec<String> = cmdline
+            .split(|&b| b == 0)
+            .map(|a| String::from_utf8_lossy(a).into_owned())
+            .collect();
+        if argv.get(1).is_some_and(|a| a == "--server")
+            && argv.get(2).is_some_and(|s| matches(Path::new(s)))
+        {
+            let _ = Command::new("kill")
+                .arg("-KILL")
+                .arg(entry.file_name())
+                .status();
+        }
     }
 }
 

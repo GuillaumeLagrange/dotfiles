@@ -42,11 +42,26 @@ impl Fixture {
         if !have("zellij") || !have("script") {
             return None;
         }
+        // Servers of fixtures already gone: a test nextest killed never dropped
+        // its own, and an orphan of zellij's race can outlive the sweep in `drop`.
+        // Gone means without its marker: such a server makes its directories again.
+        let tmp = std::env::temp_dir();
+        kill_servers(|socket| {
+            socket
+                .strip_prefix(&tmp)
+                .ok()
+                .and_then(|rest| rest.iter().next())
+                .is_some_and(|dir| {
+                    dir.to_string_lossy().starts_with("omp-panel")
+                        && !tmp.join(dir).join(MARKER).exists()
+                })
+        });
         let dir = tempfile::Builder::new()
             .prefix("omp-panel")
             .tempdir()
             .unwrap();
         let root = dir.path();
+        std::fs::write(root.join(MARKER), "").unwrap();
         let mut env = HashMap::new();
         for (var, rel) in [
             ("HOME", "home"),
@@ -82,7 +97,17 @@ impl Fixture {
         // fake niri can run it under `script`.
         env.insert("OMP_PANEL_TERM_EXEC", "[]".into());
         let attach = bin.join("attach");
-        write_script(&attach, "exec zellij attach \"$1\"\n");
+        // As zellij-attach does: an attach that finds no session is tried again,
+        // zellij's check that it is up failing now and then on a live one.
+        write_script(
+            &attach,
+            r#"for _ in 1 2 3 4 5; do
+  err=$( { zellij attach "$1" 2>&1 1>&3; } 3>&1 ) && exit 0
+  case "$err" in *"No session with the name"*) ;; *) exit 1 ;; esac
+done
+exit 1
+"#,
+        );
         env.insert("OMP_PANEL_ATTACH", attach.display().to_string());
 
         Some(Self {
@@ -102,8 +127,60 @@ impl Fixture {
         cmd
     }
 
+    /// A zellij command, run again while zellij says the session is not there:
+    /// its check that the session is up fails now and then on a live one, before
+    /// anything was sent (see `run` in `src/zellij.rs`). With other sessions up,
+    /// it says so on stderr and lists them, exiting 0: still a failure here.
     fn zellij(&self, args: &[&str]) -> Output {
-        self.command("zellij").args(args).output().unwrap()
+        let unsent = |out: &Output| {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            stderr.contains("There is no active session!")
+                || stderr.contains("not found. The following sessions are active")
+        };
+        let mut out = self.command("zellij").args(args).output().unwrap();
+        for _ in 0..4 {
+            if !unsent(&out) {
+                return out;
+            }
+            out = self.command("zellij").args(args).output().unwrap();
+        }
+        if unsent(&out) {
+            use std::os::unix::process::ExitStatusExt;
+            out.status = std::process::ExitStatus::from_raw(1 << 8);
+            out.stdout.clear();
+        }
+        out
+    }
+
+    /// A query action's answer, parsed; None when the action fails. zellij can
+    /// hand a CLI client an unblock or an answer meant for the client before it
+    /// (see `zellij::query`), so an answer that does not parse is asked again.
+    fn query<T>(
+        &self,
+        session: &str,
+        action: &[&str],
+        parse: impl Fn(&str) -> Option<T>,
+    ) -> Option<T> {
+        let mut args = vec!["-s", session, "action"];
+        args.extend(action);
+        for _ in 0..20 {
+            let out = self.zellij(&args);
+            if !out.status.success() {
+                return None;
+            }
+            if let Some(answer) = parse(&String::from_utf8_lossy(&out.stdout)) {
+                return Some(answer);
+            }
+        }
+        panic!("`zellij {}` never gave a usable answer", args.join(" "));
+    }
+
+    /// `list-panes --json`, with `extra` flags.
+    fn list_panes(&self, session: &str, extra: &[&str]) -> Vec<serde_json::Value> {
+        let mut action = vec!["list-panes", "--json"];
+        action.extend(extra);
+        self.query(session, &action, |out| serde_json::from_str(out).ok())
+            .unwrap_or_default()
     }
 
     fn panel(&self, args: &[&str], extra: &[(&str, &str)]) -> Output {
@@ -122,13 +199,10 @@ impl Fixture {
             String::from_utf8_lossy(&out.stderr)
         );
         // The server answers before its layout has made the first pane.
-        assert!(wait_for(|| {
-            let out = self.zellij(&["-s", session, "action", "list-panes", "--json"]);
-            serde_json::from_slice::<serde_json::Value>(&out.stdout).is_ok_and(|v| {
-                v.as_array()
-                    .is_some_and(|a| a.iter().any(|p| p["is_plugin"] == false))
-            })
-        }));
+        assert!(wait_for(|| self
+            .list_panes(session, &[])
+            .iter()
+            .any(|p| p["is_plugin"] == false)));
         // And the client that created it can still be listed for a moment, which
         // `attach` would take for its own.
         assert!(wait_for(|| self.client_panes(session).is_empty()));
@@ -173,28 +247,27 @@ impl Fixture {
         if let Some(id) = id.trim().strip_prefix("terminal_") {
             return id.parse().unwrap();
         }
-        // Zellij sometimes opens the pane and prints nothing: it is the one that
-        // was not there before.
+        // Zellij sometimes opens the pane and prints nothing (see `query`): it is
+        // the one that was not there before.
         let mut new = None;
+        let found = wait_for(|| {
+            new = self
+                .terminal_panes(session)
+                .into_iter()
+                .find(|id| !before.contains(id));
+            new.is_some()
+        });
         assert!(
-            wait_for(|| {
-                new = self
-                    .terminal_panes(session)
-                    .into_iter()
-                    .find(|id| !before.contains(id));
-                new.is_some()
-            }),
-            "no new pane in `{session}`"
+            found,
+            "no new pane in `{session}`: new-pane said {out:?}, panes were {before:?}, now {:?}; sessions: {:?}",
+            self.zellij(&["-s", session, "action", "list-panes", "--json"]),
+            self.zellij(&["list-sessions", "--no-formatting"]),
         );
         new.unwrap()
     }
 
     fn terminal_panes(&self, session: &str) -> Vec<u32> {
-        let out = self.zellij(&["-s", session, "action", "list-panes", "--json"]);
-        serde_json::from_slice::<serde_json::Value>(&out.stdout)
-            .ok()
-            .and_then(|v| v.as_array().cloned())
-            .unwrap_or_default()
+        self.list_panes(session, &[])
             .iter()
             .filter(|p| p["is_plugin"] == false)
             .filter_map(|p| p["id"].as_u64())
@@ -203,12 +276,15 @@ impl Fixture {
     }
 
     fn client_panes(&self, session: &str) -> Vec<String> {
-        let out = self.zellij(&["-s", session, "action", "list-clients"]);
-        String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .skip(1)
-            .filter_map(|l| l.split_whitespace().nth(1).map(str::to_owned))
-            .collect()
+        self.query(session, &["list-clients"], |out| {
+            let mut lines = out.lines();
+            lines.next()?.starts_with("CLIENT_ID").then(|| {
+                lines
+                    .filter_map(|l| l.split_whitespace().nth(1).map(str::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
     }
 
     fn state_dir(&self) -> PathBuf {
@@ -261,6 +337,33 @@ impl Drop for Fixture {
         for child in &mut self.clients {
             let _ = child.kill();
             let _ = child.wait();
+        }
+        // A server whose name zellij gave to another (see the switch test) has no
+        // socket left for kill-all-sessions to reach.
+        kill_servers(|socket| socket.starts_with(self.root()));
+    }
+}
+
+/// Written in a fixture's directory while it lives.
+const MARKER: &str = ".fixture";
+
+/// SIGKILLs the zellij servers whose socket `matches` (zellij catches SIGTERM).
+fn kill_servers(matches: impl Fn(&Path) -> bool) {
+    for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
+        let Ok(cmdline) = std::fs::read(entry.path().join("cmdline")) else {
+            continue;
+        };
+        let argv: Vec<String> = cmdline
+            .split(|&b| b == 0)
+            .map(|a| String::from_utf8_lossy(a).into_owned())
+            .collect();
+        if argv.get(1).is_some_and(|a| a == "--server")
+            && argv.get(2).is_some_and(|s| matches(Path::new(s)))
+        {
+            let _ = Command::new("kill")
+                .arg("-KILL")
+                .arg(entry.file_name())
+                .status();
         }
     }
 }
@@ -335,24 +438,29 @@ fn panes_lists_what_runs_in_each_pane() {
         "cd /tmp && sleep 4242\n",
     ]);
 
-    let row = |pane: u32| {
-        let rows = json(&f.panel(&["panes", "list", "--json"], &[]));
-        rows.as_array()
+    let rows = || {
+        json(&f.panel(&["panes", "list", "--json"], &[]))
+            .as_array()
             .unwrap()
             .iter()
-            .find(|r| r["session"] == "panes-test" && r["pane_id"] == pane)
-            .cloned()
+            .filter(|r| r["session"] == "panes-test")
+            .map(|r| (r["pane_id"].as_u64().unwrap() as u32, r.clone()))
+            .collect::<HashMap<_, _>>()
     };
+    let mut seen = HashMap::new();
     assert!(
-        wait_for(|| row(busy).is_some_and(|r| r["command"] == "sleep 4242")),
-        "{:?}",
-        row(busy)
+        wait_for(|| {
+            seen = rows();
+            seen.contains_key(&0)
+                && seen
+                    .get(&busy)
+                    .is_some_and(|r| r["command"] == "sleep 4242")
+        }),
+        "{seen:?}"
     );
-    let busy_row = row(busy).unwrap();
-    assert_eq!(busy_row["idle"], false);
-    assert_eq!(busy_row["cwd"], "/tmp", "the foreground process's cwd");
-    let shell = row(0).unwrap();
-    assert_eq!(shell["idle"], true, "{shell:?}");
+    assert_eq!(seen[&busy]["idle"], false);
+    assert_eq!(seen[&busy]["cwd"], "/tmp", "the foreground process's cwd");
+    assert_eq!(seen[&0]["idle"], true, "{:?}", seen[&0]);
 }
 
 #[test]
@@ -398,10 +506,8 @@ fn jump_opens_a_window_for_a_session_nobody_shows() {
     let other = f.new_pane("beta");
     let log = f.fake_niri(r#"[{"id":3,"title":"alpha | x"}]"#);
     // Whichever pane the new client lands on, jump to the other one.
-    let listed = json(&f.zellij(&["-s", "beta", "action", "list-panes", "--json", "--state"]));
-    let focused = listed
-        .as_array()
-        .unwrap()
+    let focused = f
+        .list_panes("beta", &["--state"])
         .iter()
         .find(|p| p["is_plugin"] == false && p["is_focused"] == true)
         .and_then(|p| p["id"].as_u64())
@@ -431,31 +537,69 @@ fn jump_opens_a_window_for_a_session_nobody_shows() {
 
 #[test]
 fn jump_without_niri_moves_this_client_to_the_other_session() {
-    let Some(mut f) = Fixture::new() else { return };
-    f.start("alpha");
-    f.start("beta");
-    let target = f.new_pane("beta");
-    f.zellij(&["-s", "beta", "action", "focus-pane-id", "terminal_0"]);
-    f.attach("alpha");
-    assert!(f.client_panes("beta").is_empty());
+    // zellij's own switch reconnects with `attach --create`, which now and then
+    // takes a live session for gone and starts a new one under its name, and the
+    // race behind it can lose the switch altogether (see AGENTS.md). A run where
+    // either happened says nothing of the panel, and is run again.
+    for _ in 0..3 {
+        let Some(mut f) = Fixture::new() else { return };
+        f.start("alpha");
+        f.start("beta");
+        let target = f.new_pane("beta");
+        f.zellij(&["-s", "beta", "action", "focus-pane-id", "terminal_0"]);
+        f.attach("alpha");
+        assert!(f.client_panes("beta").is_empty());
 
-    // From a pane of alpha, the way the floating picker runs.
-    let bin = env!("CARGO_BIN_EXE_omp-panel");
-    let pane = target.to_string();
-    let out = f.zellij(&[
-        "-s", "alpha", "action", "new-pane", "--", bin, "jump", "beta", &pane,
-    ]);
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+        // From a pane of alpha, the way the floating picker runs, keeping what
+        // `jump` said and how it exited.
+        let bin = env!("CARGO_BIN_EXE_omp-panel");
+        let pane = target.to_string();
+        let status = f.root().join("jump.status");
+        let stderr = f.root().join("jump.stderr");
+        let script = format!(
+            "'{bin}' jump beta {pane} 2>'{}'; echo $? >'{}'",
+            stderr.display(),
+            status.display()
+        );
+        let out = f.zellij(&[
+            "-s", "alpha", "action", "new-pane", "--", "sh", "-c", &script,
+        ]);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
 
-    let expected = format!("terminal_{target}");
-    assert!(
-        wait_for(|| f.client_panes("beta") == [expected.as_str()]),
-        "{:?}",
-        f.client_panes("beta")
-    );
-    assert!(f.client_panes("alpha").is_empty(), "the client left alpha");
+        let expected = format!("terminal_{target}");
+        let replaced = || !f.terminal_panes("beta").contains(&target);
+        // Short enough that three tries fit in nextest's timeout.
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        let mut on_beta = f.client_panes("beta");
+        while on_beta != [expected.as_str()] && !replaced() {
+            if std::time::Instant::now() > deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+            on_beta = f.client_panes("beta");
+        }
+        if on_beta == [expected.as_str()] {
+            assert!(
+                wait_for(|| f.client_panes("alpha").is_empty()),
+                "the client left alpha"
+            );
+            return;
+        }
+        let exited = std::fs::read_to_string(&status).ok();
+        let said = std::fs::read_to_string(&stderr).unwrap_or_default();
+        // `jump` ran and zellij took the switch, or never started the pane: the
+        // client went nowhere through no fault of the panel.
+        if replaced() || exited.as_deref().is_none_or(|s| s.trim() == "0") {
+            continue;
+        }
+        panic!(
+            "jump exited {exited:?}: {said}; the client is on {on_beta:?} of beta and {:?} of alpha",
+            f.client_panes("alpha")
+        );
+    }
+    panic!("zellij replaced `beta` or lost the switch on every try");
 }

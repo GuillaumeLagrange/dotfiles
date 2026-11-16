@@ -90,8 +90,21 @@ impl Fixture {
     /// also has `feature` there, the branch of PR 7.
     fn new() -> Self {
         static N: AtomicUsize = AtomicUsize::new(0);
+        // Servers of fixtures already gone: a test nextest killed never dropped
+        // its own, and an orphan of zellij's race can outlive the sweep in `drop`.
+        // Gone means without its marker: such a server makes its directories again.
+        let tmp = std::env::temp_dir();
+        kill_servers(|socket| {
+            socket
+                .strip_prefix(&tmp)
+                .ok()
+                .and_then(|rest| rest.iter().next())
+                .is_some_and(|dir| {
+                    dir.to_string_lossy().starts_with("rv") && !tmp.join(dir).join(MARKER).exists()
+                })
+        });
         // Short: zellij's socket path has to fit in a sockaddr_un.
-        let root = std::env::temp_dir().join(format!(
+        let root = tmp.join(format!(
             "rv{}-{}",
             std::process::id(),
             N.fetch_add(1, Ordering::Relaxed)
@@ -112,6 +125,7 @@ impl Fixture {
             std::fs::create_dir_all(&path).unwrap();
             env.push((var.to_owned(), path.display().to_string()));
         }
+        std::fs::write(root.join(MARKER), "").unwrap();
 
         let bin = root.join("bin");
         let log = root.join("log");
@@ -337,30 +351,46 @@ impl Fixture {
         }
     }
 
+    /// A zellij action's stdout, run again while zellij says the session is not
+    /// there: that check fails now and then on a live one, before anything is
+    /// sent (see `run` in wt's `zellij.rs`). With other sessions up, it says so on
+    /// stderr and lists them, exiting 0.
     fn zellij(&self, session: &str, args: &[&str]) -> String {
-        let out = self
-            .command("zellij")
-            .args(["-s", session, "action"])
-            .args(args)
-            .output()
-            .unwrap();
-        String::from_utf8_lossy(&out.stdout).into_owned()
+        for _ in 0..5 {
+            let out = self
+                .command("zellij")
+                .args(["-s", session, "action"])
+                .args(args)
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            if !(stderr.contains("There is no active session!")
+                || stderr.contains("not found. The following sessions are active"))
+            {
+                return String::from_utf8_lossy(&out.stdout).into_owned();
+            }
+        }
+        String::new()
     }
 
-    fn tabs(&self, session: &str) -> Vec<Tab> {
-        // zellij answers with nothing until a just-attached client's screen is up.
+    /// A JSON list action's answer. One that is not a list is asked again:
+    /// zellij answers with nothing until a just-attached client's screen is up,
+    /// and can print nothing or another command's answer (see `query` in wt's
+    /// `zellij.rs`).
+    fn list(&self, session: &str, args: &[&str]) -> Vec<serde_json::Value> {
         let mut out = String::new();
         for _ in 0..40 {
-            out = self.zellij(session, &["list-tabs", "--json"]);
-            if !out.trim().is_empty() {
-                break;
+            out = self.zellij(session, args);
+            if let Ok(list) = serde_json::from_str(&out) {
+                return list;
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-        let json: serde_json::Value = serde_json::from_str(&out)
-            .unwrap_or_else(|e| panic!("tabs of {session}: {e}: {out:?}"));
-        json.as_array()
-            .unwrap()
+        panic!("{args:?} of {session}: {out:?}");
+    }
+
+    fn tabs(&self, session: &str) -> Vec<Tab> {
+        self.list(session, &["list-tabs", "--json"])
             .iter()
             .map(|t| Tab {
                 name: t["name"].as_str().unwrap().to_owned(),
@@ -416,10 +446,7 @@ impl Fixture {
 
     /// Working directories of a tab's terminal panes.
     fn cwds(&self, session: &str, tab: u64) -> Vec<String> {
-        let json: serde_json::Value =
-            serde_json::from_str(&self.zellij(session, &["list-panes", "--json"])).unwrap();
-        json.as_array()
-            .unwrap()
+        self.list(session, &["list-panes", "--json"])
             .iter()
             .filter(|p| p["is_plugin"] == false && p["tab_id"] == tab)
             .filter_map(|p| p["pane_cwd"].as_str().map(str::to_owned))
@@ -445,7 +472,35 @@ impl Drop for Fixture {
             .command("zellij")
             .args(["delete-all-sessions", "--yes", "--force"])
             .output();
+        kill_servers(|socket| socket.starts_with(&self.root));
         let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+/// Written in a fixture's directory while it lives.
+const MARKER: &str = ".fixture";
+
+/// SIGKILLs the zellij servers whose socket `matches` (zellij catches SIGTERM).
+/// One whose name zellij gave to another server (an `attach --create` that took
+/// it for gone, see wt's `zellij.rs`) has no socket left for kill-all-sessions
+/// to reach.
+fn kill_servers(matches: impl Fn(&Path) -> bool) {
+    for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
+        let Ok(cmdline) = std::fs::read(entry.path().join("cmdline")) else {
+            continue;
+        };
+        let argv: Vec<String> = cmdline
+            .split(|&b| b == 0)
+            .map(|a| String::from_utf8_lossy(a).into_owned())
+            .collect();
+        if argv.get(1).is_some_and(|a| a == "--server")
+            && argv.get(2).is_some_and(|s| matches(Path::new(s)))
+        {
+            let _ = Command::new("kill")
+                .arg("-KILL")
+                .arg(entry.file_name())
+                .status();
+        }
     }
 }
 
@@ -493,10 +548,16 @@ fn mine_opens_the_repo_tab_a_wt_session_lacks() {
     let worktree = f.ws().join("sessions/feat/app");
     f.git(&worktree, &["switch", "-q", "feature"]);
     assert_ok(&f.review(&["--mine", URL, "feature"]));
-    // Closed from a window, as a user would.
+    // Closed from a window, as a user would. zellij can report the action done
+    // before it is, so the tab is waited out.
     f.attached("feat", |tabs| {
         let app = tabs.iter().find(|t| t.is_for("app")).unwrap();
         f.zellij("feat", &["close-tab-by-id", &app.id.to_string()]);
+        let gone = (0..100).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            !f.tabs("feat").iter().any(|t| t.id == app.id)
+        });
+        assert!(gone, "the app tab stayed open");
     });
 
     assert_ok(&f.review(&["--mine", URL, "feature"]));

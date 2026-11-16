@@ -31,9 +31,11 @@ if [[ ! -t 2 ]]; then
   errors=$(mktemp)
   exec 2>"$errors"
 fi
+act_err=$(mktemp)
 finish() {
   local status=$?
   kill "${client:-}" 2>/dev/null || true
+  rm -f -- "$act_err"
   if [[ -n "$errors" ]]; then
     if ((status != 0)); then
       notify-send -a review "review failed" "$(tail -n 5 -- "$errors")"
@@ -72,33 +74,111 @@ case "${1:-}" in
     ;;
 esac
 
+# zellij's CLI races with itself (see `run` in pkgs/wt/crates/core/src/zellij.rs): a command whose
+# check that the session is up failed on a live one was never sent, and is run again. With other
+# sessions up, zellij says so on stderr and lists them, exiting 0.
 act() {
-  zellij -s "$session" action "$@"
+  local out status
+  for _ in 1 2 3 4 5; do
+    status=0
+    out=$(zellij -s "$session" action "$@" 2>"$act_err") || status=$?
+    if ! grep -qE 'There is no active session!|not found\. The following sessions are active' "$act_err"; then
+      break
+    fi
+    out=""
+    ((status != 0)) || status=1
+  done
+  cat -- "$act_err" >&2
+  [[ -z "$out" ]] || printf '%s\n' "$out"
+  return "$status"
 }
 
-# Without the session, list-clients prints the sessions that do exist instead: only rows under its
-# own header are clients.
+# A query's answer: one CHECK rejects on its stdin is asked again, a failed action is not.
+ask() {
+  local check=$1 out
+  shift
+  for _ in $(seq 40); do
+    out=$(act "$@") || return 1
+    if "$check" <<<"$out"; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    sleep 0.05
+  done
+  echo "review: zellij never answered $* in $session" >&2
+  return 1
+}
+
+json_list() {
+  jq -e 'type == "array"' >/dev/null 2>&1
+}
+
+clients_table() {
+  local header
+  IFS= read -r header && [[ "$header" == CLIENT_ID* ]]
+}
+
+tabs() {
+  ask json_list list-tabs --json
+}
+
+panes() {
+  ask json_list list-panes --json
+}
+
+# Without the session, list-clients fails.
 has_client() {
-  act list-clients 2>/dev/null | awk 'NR == 1 && $1 != "CLIENT_ID" { exit } NR > 1 { n++ } END { exit !n }'
+  ask clients_table list-clients 2>/dev/null | awk 'NR > 1 { n++ } END { exit !n }'
+}
+
+# Whether the session is listed, as a running server when LIVE is 1 rather than one zellij only
+# keeps to resurrect. A listing can leave a live session out (see `act`), so it only counts as
+# missing once a few agree.
+listed() {
+  for _ in 1 2 3 4 5; do
+    if zellij list-sessions --no-formatting 2>/dev/null |
+      awk -v s="$session" -v live="$1" '$1 == s && !(live && /EXITED/) { f = 1 } END { exit !f }'; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 exists() {
-  zellij list-sessions --no-formatting 2>/dev/null | awk -v s="$session" '$1 == s { f = 1 } END { exit !f }'
+  listed 0
 }
 
-# A running server, not one zellij only keeps to resurrect.
 live() {
-  zellij list-sessions --no-formatting 2>/dev/null | awk -v s="$session" '$1 == s && !/EXITED/ { f = 1 } END { exit !f }'
+  listed 1
 }
 
 shell_pane() {
-  act list-panes --json 2>/dev/null | jq -er 'first(.[] | select(.is_plugin == false)) | "\(.id) \(.tab_id)"'
+  panes 2>/dev/null | jq -er 'first(.[] | select(.is_plugin == false)) | "\(.id) \(.tab_id)"'
+}
+
+# Opens a tab named NAME with the new-tab options that follow, and prints its id once it is listed.
+# The id new-tab prints can be missing or another tab's, and the tab not opened yet when it returns
+# (see `act`), so a tab closed right after could leave the session without any, which ends it.
+new_tab() {
+  local name=$1 before
+  shift
+  before=$(tabs | jq -c '[.[].tab_id]')
+  act new-tab --name "$name" "$@" >/dev/null
+  for _ in $(seq 200); do
+    if tabs | jq -er --arg name "$name" --argjson before "$before" \
+      'first(.[] | select(.name == $name and (.tab_id as $id | $before | index([$id]) | not))) | .tab_id'; then
+      return 0
+    fi
+    sleep 0.05
+  done
+  echo "review: the $name tab never opened in $session" >&2
+  return 1
 }
 
 # The tab of a repo, by the last word of its name as wt matches it (mux-name puts an icon before
 # it), or a review tab of the repo (<repo>#<number>) in the reviews session.
 repo_tab() {
-  act list-tabs --json 2>/dev/null |
+  tabs 2>/dev/null |
     jq -er --arg repo "$repo" 'first(.[] | select(.name | [splits("\\s+")] | map(select(. != "")) | (last // "") | . == $repo or startswith($repo + "#")) | .tab_id)'
 }
 
@@ -175,15 +255,15 @@ open_review_tab() {
     read -r pane tab_id <<<"$startup"
     act rename-tab-by-id "$tab_id" "$tab" >/dev/null
     act new-pane --in-place --close-replaced-pane --pane-id "terminal_$pane" --name "$tab" "${cmd[@]}" >/dev/null
-  elif act query-tab-names | grep -qxF -- "$tab"; then
+  elif tabs | jq -e --arg tab "$tab" 'any(.[]; .name == $tab)' >/dev/null; then
     act go-to-tab-name "$tab" >/dev/null
   else
     # Another PR of the repo shares its worktree: its tab is closed once the new one exists, so the
     # session never runs out of tabs, which would end it.
-    stale=$(act list-tabs --json | jq -r --arg repo "$repo#" '.[] | select(.name | startswith($repo)) | .tab_id')
-    tab_id=$(act new-tab --name "$tab" "${cmd[@]}")
+    stale=$(tabs | jq -r --arg repo "$repo#" '.[] | select(.name | startswith($repo)) | .tab_id')
+    tab_id=$(new_tab "$tab" "${cmd[@]}")
     # Named after the tab, the pane titles the window "reviews | <tab>", as the other panes do.
-    pane=$(act list-panes --json | jq -er --argjson t "$tab_id" 'first(.[] | select(.tab_id == $t and .is_plugin == false)) | .id')
+    pane=$(panes | jq -er --argjson t "$tab_id" 'first(.[] | select(.tab_id == $t and .is_plugin == false)) | .id')
     act rename-pane --pane-id "terminal_$pane" "$tab" >/dev/null
     for id in $stale; do
       act close-tab-by-id "$id" >/dev/null
@@ -200,7 +280,7 @@ open_repo_tab() {
   if id=$(repo_tab); then
     act go-to-tab-by-id "$id" >/dev/null
   else
-    act new-tab --cwd "$dir" --name "$(mux-name "$dir")" >/dev/null
+    new_tab "$(mux-name "$dir")" --cwd "$dir" >/dev/null
     # A fresh session's lone shell tab goes once the repo's exists, so the session never empties.
     if [[ -n "$lone" ]]; then
       act close-tab-by-id "$lone" >/dev/null

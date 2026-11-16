@@ -42,10 +42,33 @@ writeShellScriptBin "zellij-attach" ''
   if command -v wt > /dev/null; then
     root=$(wt path --exact "$session" 2>/dev/null) || root=""
   fi
-
   if [[ -n "$root" ]]; then
-    WORKSPACE_ROOT="$root" exec ${zellij}/bin/zellij attach --create "$session"
-  else
-    exec ${zellij}/bin/zellij attach --create "$session"
+    export WORKSPACE_ROOT="$root"
   fi
+
+  # zellij's check that a session is up can fail on a live one now and then (it
+  # races with the session's other connections), and `attach --create` would then
+  # start a second server that takes the name over. So --create is only passed for
+  # a session no listing shows, and an attach that finds no session is tried again.
+  listed() {
+    local _
+    for _ in 1 2 3 4 5; do
+      if [[ $'\n'"$(${zellij}/bin/zellij list-sessions --short 2>/dev/null)"$'\n' == *$'\n'"$session"$'\n'* ]]; then
+        return 0
+      fi
+    done
+    return 1
+  }
+  create=()
+  listed || create=(--create)
+  for _ in 1 2 3 4 5; do
+    # stderr is read to tell that case apart; the terminal keeps stdout.
+    err=$({ ${zellij}/bin/zellij attach "''${create[@]}" "$session" 2>&1 1>&3; } 3>&1)
+    status=$?
+    if ((status == 0)) || [[ "$err" != *"No session with the name"* ]]; then
+      break
+    fi
+  done
+  [[ -z "$err" ]] || printf '%s\n' "$err" >&2
+  exit "$status"
 ''

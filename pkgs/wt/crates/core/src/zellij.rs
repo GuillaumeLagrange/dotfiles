@@ -54,13 +54,22 @@ pub fn current() -> Option<String> {
 
 /// Whether a session has a running server. One that zellij lists as resurrectable
 /// has none, and cannot be asked anything until it is revived.
+///
+/// A listing can leave a live session out (see `run`), so it only counts as down
+/// once a few listings agree.
 pub fn is_live(name: &str) -> Result<bool> {
-    let out = run(&["list-sessions", "--no-formatting"], None)?;
-    // No sessions at all is a non-zero exit, not a failure to answer.
-    Ok(out
-        .stdout
-        .lines()
-        .any(|line| line.split_whitespace().next() == Some(name) && !line.contains("(EXITED")))
+    for _ in 0..5 {
+        let out = run(&["list-sessions", "--no-formatting"], None)?;
+        // No sessions at all is a non-zero exit, not a failure to answer.
+        if out
+            .stdout
+            .lines()
+            .any(|line| line.split_whitespace().next() == Some(name) && !line.contains("(EXITED"))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether a client is attached to a session.
@@ -72,19 +81,14 @@ pub fn is_live(name: &str) -> Result<bool> {
 /// client landing later does not repair it, and attaching to such a tab drops the
 /// client straight back out.
 pub fn has_client(name: &str) -> Result<bool> {
-    let out = run(&["--session", name, "action", "list-clients"], None)?;
-    if !out.ok() {
-        return Err(anyhow!(
-            "could not list the clients of `{name}`: {}",
-            out.stderr.trim()
-        ));
-    }
     // A header line is always printed; a client is a line after it.
-    Ok(out
-        .stdout
-        .lines()
-        .skip(1)
-        .any(|line| !line.trim().is_empty()))
+    query(name, "clients", &["list-clients"], |out| {
+        let mut lines = out.lines();
+        lines
+            .next()?
+            .starts_with("CLIENT_ID")
+            .then(|| lines.any(|line| !line.trim().is_empty()))
+    })
 }
 
 /// Wait for the client handed the terminal to reach a session, so its tabs can be
@@ -98,6 +102,8 @@ pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<b
         match has_client(name) {
             Ok(true) => return Ok(true),
             Ok(false) => {}
+            // A server still setting up can fail to answer.
+            Err(_) if is_live(name)? => {}
             Err(_) => return Ok(false),
         }
         if !coming() {
@@ -151,23 +157,11 @@ pub fn delete(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// A session's tabs. Just after a client attaches, zellij answers with nothing
-/// at all until its screen is up, so an empty reply is asked again.
+/// A session's tabs.
 pub fn tabs(name: &str) -> Result<Vec<Tab>> {
-    for _ in 0..40 {
-        let out = run(&["--session", name, "action", "list-tabs", "--json"], None)?;
-        if !out.ok() {
-            return Err(anyhow!(
-                "could not list the tabs of `{name}`: {}",
-                out.stderr.trim()
-            ));
-        }
-        if !out.stdout.trim().is_empty() {
-            return serde_json::from_str(&out.stdout).context("could not read zellij's tab list");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    Err(anyhow!("zellij never listed the tabs of `{name}`"))
+    query(name, "tabs", &["list-tabs", "--json"], |out| {
+        serde_json::from_str(out).ok()
+    })
 }
 
 /// Opens a tab and returns its id.
@@ -193,17 +187,26 @@ pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
             out.stderr.trim()
         ));
     }
-    if let Ok(id) = out.stdout.trim().parse() {
-        return Ok(id);
+    // The id printed can be missing or another tab's, and the tab not opened yet
+    // (see `query`), while a second `new-tab` would make two: the id is the
+    // listed tab of that name that was not there before.
+    let printed: Option<u32> = out.stdout.trim().parse().ok();
+    // A loaded machine can take seconds to open it.
+    for _ in 0..200 {
+        let new: Vec<u32> = tabs(name)?
+            .into_iter()
+            .filter(|t| t.name == tab && !before.contains(&t.tab_id))
+            .map(|t| t.tab_id)
+            .collect();
+        if let Some(id) = printed
+            .filter(|id| new.contains(id))
+            .or(new.first().copied())
+        {
+            return Ok(id);
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
-    // Zellij sometimes opens the tab and prints nothing, so a second `new-tab`
-    // would make two: the id is looked up instead, as the tab of that name that
-    // was not there before.
-    tabs(name)?
-        .into_iter()
-        .find(|t| t.name == tab && !before.contains(&t.tab_id))
-        .map(|t| t.tab_id)
-        .ok_or_else(|| anyhow!("zellij gave no id for the new `{tab}` tab, and it is not listed"))
+    Err(anyhow!("the new `{tab}` tab of `{name}` never showed up"))
 }
 
 fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
@@ -392,20 +395,71 @@ pub fn untabbed(session: &Session) -> Result<Vec<String>> {
         .collect())
 }
 
-fn run(args: &[&str], root: Option<&Path>) -> Result<util::Output> {
-    let mut cmd = Command::new(BIN);
-    cmd.args(args).stdin(Stdio::null());
-    if let Some(root) = root {
-        cmd.env(ROOT_VAR, root);
+/// A query action's answer, parsed. An answer that does not parse is asked for
+/// again: zellij answers with nothing just after a client attaches, until its
+/// screen is up, and can hand any answer to the wrong command (see `run`).
+fn query<T>(
+    name: &str,
+    what: &str,
+    action: &[&str],
+    parse: impl Fn(&str) -> Option<T>,
+) -> Result<T> {
+    let mut args = vec!["--session", name, "action"];
+    args.extend(action);
+    for _ in 0..40 {
+        let out = run(&args, None)?;
+        if !out.ok() {
+            return Err(anyhow!(
+                "could not list the {what} of `{name}`: {}",
+                out.stderr.trim()
+            ));
+        }
+        if let Some(answer) = parse(&out.stdout) {
+            return Ok(answer);
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
-    let out = cmd
-        .output()
-        .with_context(|| format!("failed to spawn `{BIN} {}`", args.join(" ")))?;
-    Ok(util::Output {
-        status: out.status.code().unwrap_or(-1),
-        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
-    })
+    Err(anyhow!("zellij never listed the {what} of `{name}`"))
+}
+
+/// zellij's CLI, through a race of its own: the server gives each connection the
+/// lowest free client id, and tears the previous holder of an id down after it
+/// may already be handed out again, so a connection can lose its own messages or
+/// get the late ones of the connection before it. Every command connects twice:
+/// first to check that the session is up, and that check then fails on a live one
+/// ("There is no active session!", "Session '…' not found"), before anything was
+/// sent, so the command is run again; then for the action itself, which can exit
+/// having printed nothing or someone else's answer (see `query`), and before it
+/// took effect.
+fn run(args: &[&str], root: Option<&Path>) -> Result<util::Output> {
+    let mut tries = 0;
+    loop {
+        let mut cmd = Command::new(BIN);
+        cmd.args(args).stdin(Stdio::null());
+        if let Some(root) = root {
+            cmd.env(ROOT_VAR, root);
+        }
+        let out = cmd
+            .output()
+            .with_context(|| format!("failed to spawn `{BIN} {}`", args.join(" ")))?;
+        let out = util::Output {
+            status: out.status.code().unwrap_or(-1),
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        };
+        tries += 1;
+        // With other sessions up, zellij says so on stderr and lists them, exiting 0.
+        let unsent = out.stderr.contains("There is no active session!")
+            || out
+                .stderr
+                .contains("not found. The following sessions are active");
+        if !unsent {
+            return Ok(out);
+        }
+        if tries == 5 {
+            return Ok(util::Output { status: 1, ..out });
+        }
+    }
 }
 
 #[cfg(test)]

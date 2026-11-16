@@ -36,6 +36,7 @@ fn with_env<T>(f: &Fixture, body: impl FnOnce() -> T) -> T {
         "XDG_CACHE_HOME",
         "XDG_DATA_HOME",
         "XDG_RUNTIME_DIR",
+        "TMPDIR",
     ] {
         std::env::set_var(var, f.env_var(var));
     }
@@ -356,8 +357,13 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
     with_env(&f, || {
         let _live = Live("proj-fresh".into());
         let mut supervisor = Supervised::on("proj-fresh");
+        // A client dropped as it arrives ends its `wt` before the tabs, and a user
+        // would attach again.
         assert!(
-            wait_for(|| tab_repos("proj-fresh") == ["app"]),
+            wait_for(|| {
+                supervisor.revive();
+                tab_repos("proj-fresh") == ["app"]
+            }),
             "the member never got its tab: {:?}",
             tab_repos("proj-fresh")
         );
@@ -387,7 +393,10 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
             "nobody was handed the terminal back"
         );
         assert!(
-            wait_for(|| tab_repos("proj-fresh") == ["app"]),
+            wait_for(|| {
+                supervisor.revive();
+                tab_repos("proj-fresh") == ["app"]
+            }),
             "the old session came back instead of a new one: {:?}",
             tab_repos("proj-fresh")
         );
