@@ -1,5 +1,5 @@
 # The tools the Justfile and the pre-commit hooks call, entered by .envrc. Rust comes
-# from rustup, which every home installs.
+# from rustup, which every home installs, at the version rust-toolchain.toml pins.
 {
   perSystem =
     { pkgs, ... }:

@@ -88,6 +88,7 @@ actually launches it:
 - **README.md**: the machines, how to rebuild, how the repo is laid out, for humans
 - **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter
 - **devshell.nix**: `devShells.default`, the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update); Rust itself comes from rustup. Entered by `.envrc` (`use flake`), force-added like the hooks' config
+- **rust-toolchain.toml**: the Rust version every crate builds with under rustup (installed on first use); raise it when a dependency needs a newer rustc. The Nix packages build with nixpkgs' Rust instead
 - **.pre-commit-config.yaml**: pre-commit hooks run by prek (`just hooks` installs them): each language's formatter on the staged files, then `cargo fmt` and clippy for each crate the commit touches. A hook that rewrites a file fails the commit; stage the result. Force-added: the global gitignore excludes the file name
 
 ### How the Nix code is organised
