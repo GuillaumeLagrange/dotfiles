@@ -131,22 +131,21 @@ fn numbers_are_kept_in_order() {
 }
 
 #[test]
-fn moving_a_column_creates_the_number_without_following_it() {
+fn moving_a_column_creates_the_number_and_follows_it() {
     let Some(mut s) = Session::start(&reviews()) else {
         return;
     };
-    s.spawn("niri-workspaces", &["watch"]);
+    fill(&mut s, "1");
     s.open_window();
-    s.wait_until("the watcher to number the window's workspace", || {
-        numbers(&s) == ["1"]
-    });
 
     s.run("niri-workspaces", &["move", "3"]);
-    assert_eq!(numbers(&s), ["1", "3"]);
-    assert_eq!(focused(&s).as_deref(), Some("1"), "focus stays");
+    assert_eq!(numbers(&s), ["1", "3"], "1 still has a column");
+    assert_eq!(focused(&s).as_deref(), Some("3"));
 
-    s.run("niri-workspaces", &["focus", "3"]);
-    assert_eq!(numbers(&s), ["3"], "1 was left empty");
+    s.run("niri-workspaces", &["focus", "1"]);
+    s.run("niri-workspaces", &["move", "3"]);
+    assert_eq!(numbers(&s), ["3"], "1 was emptied");
+    assert_eq!(focused(&s).as_deref(), Some("3"));
 }
 
 #[test]
