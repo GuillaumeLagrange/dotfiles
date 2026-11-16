@@ -70,17 +70,35 @@ fn placed_cells(s: &Session) -> Value {
     cells
 }
 
+/// Clicks `name`'s cell until niri focuses that workspace: a strip that shows
+/// or grows as a window maps moves the cells after it, so a click aimed before
+/// can land beside the cell. Clicking the focused number again does nothing.
 fn click_cell(s: &Session, name: &str) {
-    let cells = placed_cells(s);
-    let cell = cells
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|c| c["name"] == name)
-        .unwrap_or_else(|| panic!("no cell {name} in {cells}"));
-    let f = |k: &str| cell[k].as_f64().unwrap();
-    s.point_at(f("x") + f("w") / 2.0, f("y") + f("h") / 2.0);
-    s.click();
+    s.wait_until(&format!("{name} to take focus"), || {
+        let cells = placed_cells(s);
+        let cell = cells
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap_or_else(|| panic!("no cell {name} in {cells}"));
+        let f = |k: &str| cell[k].as_f64().unwrap();
+        s.point_at(f("x") + f("w") / 2.0, f("y") + f("h") / 2.0);
+        s.click();
+        focused_within(s, name)
+    });
+}
+
+/// Whether `name` takes focus within a second.
+fn focused_within(s: &Session, name: &str) -> bool {
+    let start = std::time::Instant::now();
+    while start.elapsed() < std::time::Duration::from_secs(1) {
+        if focused(s).as_deref() == Some(name) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    false
 }
 
 /// Goes to `n`, as Mod+n does, and opens a window there.
@@ -248,9 +266,7 @@ fn clicking_a_cell_goes_to_that_number() {
     s.wait_until("the bar's cells", || cell_names(&s) == ["3", "5"]);
 
     click_cell(&s, "5");
-    s.wait_until("5 to take focus", || focused(&s).as_deref() == Some("5"));
     click_cell(&s, "3");
-    s.wait_until("3 to take focus", || focused(&s).as_deref() == Some("3"));
 }
 
 #[test]
@@ -280,10 +296,13 @@ fn every_workspace_shows_its_strip_and_a_click_on_it_goes_there() {
     }
 
     // The window is half a screen wide, so its block is the left half of the
-    // frame, which starts past the strip's 5px of padding.
-    let strip = &cells[1]["strip"];
-    let f = |k: &str| strip[k].as_f64().unwrap();
-    s.point_at(f("x") + 10.0, f("y") + f("h") / 2.0);
-    s.click();
-    s.wait_until("5 to take focus", || focused(&s).as_deref() == Some("5"));
+    // frame, which starts past the strip's 5px of padding. Aimed again until it
+    // lands, as in `click_cell`.
+    s.wait_until("5 to take focus", || {
+        let strip = &placed_cells(&s)[1]["strip"];
+        let f = |k: &str| strip[k].as_f64().unwrap();
+        s.point_at(f("x") + 10.0, f("y") + f("h") / 2.0);
+        s.click();
+        focused_within(&s, "5")
+    });
 }

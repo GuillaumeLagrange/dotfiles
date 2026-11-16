@@ -89,12 +89,19 @@ typed keys land in whatever has focus.
   splices that wire them in fail loudly when the source they match moves.
   `StartProbe.qml` (`qs ipc call start state`) reads the start menu: open,
   query, cursor, the pinned ids, and the tiles and rows with their centres.
+  Both report `focused`: niri gives a panel keyboard focus a moment after it
+  shows, so a test waits for it before sending keys.
   `Session::start_with_apps` installs desktop entries in the fixture's
   `XDG_DATA_DIRS`; their `Exec` runs the `app` stub.
+- `Session::point_at` moves the pointer in one step from where it last put it
+  (one output only): a detour through the corner leaves a panel that closes
+  300 ms after the pointer does, and a loaded machine can take that long
+  between two `wlrctl` calls.
 - `tests/workspaces.rs` drives `niri-workspaces` (`focus`, `move`, `watch`) and
   the bar's workspace cells; `Session::open_window` opens a tiled window (a
   second `qs` with a `FloatingWindow`, app id `org.quickshell`) so a workspace
-  has something on it.
+  has something on it. A strip that shows or grows as a window maps moves the
+  cells after it, so a click is aimed again until niri focuses its workspace.
 - `tests/displays.rs` drives `niri-displays` (`save`, `apply`, `rename`, `order`,
   `next`/`prev`, `watch`) on two headless outputs, moved with `niri msg output`.
 - What would leave the fixture is a stub on niri's `PATH` that records its

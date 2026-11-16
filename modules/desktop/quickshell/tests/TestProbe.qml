@@ -39,6 +39,8 @@ Item {
             return JSON.stringify({
                 hovered: pill.hovered,
                 open: panel.visible,
+                // Keys reach the panel: niri gives its window keyboard focus a moment after it shows.
+                focused: panel.contentItem.Window.active,
                 tab: panel.tab,
                 query: panel.probeQuery,
                 cursor: panel.cursor,

@@ -38,6 +38,8 @@ Item {
                 }, probe.place(t)));
             return JSON.stringify({
                 open: menu.visible,
+                // Keys reach the menu: niri gives its window keyboard focus a moment after it shows.
+                focused: list.Window.active && list.activeFocus,
                 query: menu.probeQuery,
                 cursor: menu.cursor,
                 pins: StartPins.ids,

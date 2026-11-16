@@ -57,10 +57,14 @@ fn reviews() -> Value {
     })
 }
 
+/// Opens the panel, and waits for its keyboard focus too: keys sent before it
+/// arrives go nowhere.
 fn open(s: &Session) {
     s.point_at_pill();
     s.click();
-    s.wait_for("the panel to open", |st| st["open"] == true);
+    s.wait_for("the panel to open", |st| {
+        st["open"] == true && st["focused"] == true
+    });
 }
 
 /// As a keyboard sends it: xkb's second level of Tab is ISO_Left_Tab. wtype
@@ -107,8 +111,10 @@ fn the_ipc_call_of_mod_quote_toggles_the_panel() {
         "panel",
     ];
     s.run("qs", &call);
-    s.wait_for("the panel to open", |st| st["open"] == true);
     // Focused as it maps, so the keys work without a click.
+    s.wait_for("the panel to open", |st| {
+        st["open"] == true && st["focused"] == true
+    });
     s.key("Down");
     s.wait_for("the first PR", |st| st["cursor"] == url("app", 101));
 

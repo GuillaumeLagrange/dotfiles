@@ -59,6 +59,8 @@ pub struct Session {
     root: PathBuf,
     env: Vec<(String, String)>,
     children: Vec<Child>,
+    /// Where `point_at` left the pointer, on a session with one output.
+    pointer: std::cell::Cell<Option<(i64, i64)>>,
 }
 
 fn write_exe(path: &Path, body: &str) {
@@ -211,6 +213,7 @@ impl Session {
             root,
             env,
             children: Vec::new(),
+            pointer: std::cell::Cell::new(None),
         };
 
         let dbus = session
@@ -538,15 +541,30 @@ impl Session {
         assert!(status.success(), "wlrctl pointer {args:?}");
     }
 
-    /// Puts the pointer at output coordinates: into the top-left corner,
-    /// where niri clamps it, then the rest of the way.
+    /// Puts the pointer at output coordinates. From where it last put it on a
+    /// single output, that is one move: a panel that closes once the pointer
+    /// leaves it would see a detour through the corner. Otherwise into the
+    /// top-left corner first, where niri clamps it, then the rest of the way.
     pub fn point_at(&self, x: f64, y: f64) {
-        self.wlrctl(&["move", "-5000", "-5000"]);
-        self.wlrctl(&[
-            "move",
-            &(x.round() as i64).to_string(),
-            &(y.round() as i64).to_string(),
-        ]);
+        let (x, y) = (x.round() as i64, y.round() as i64);
+        let outputs = self.niri(&["outputs"]);
+        let size = outputs
+            .as_object()
+            .filter(|o| o.len() == 1)
+            .and_then(|o| o.values().next())
+            .and_then(|o| {
+                let l = &o["logical"];
+                Some((l["width"].as_i64()?, l["height"].as_i64()?))
+            });
+        match self.pointer.get().filter(|_| size.is_some()) {
+            Some((px, py)) => self.wlrctl(&["move", &(x - px).to_string(), &(y - py).to_string()]),
+            None => {
+                self.wlrctl(&["move", "-5000", "-5000"]);
+                self.wlrctl(&["move", &x.to_string(), &y.to_string()]);
+            }
+        }
+        self.pointer
+            .set(size.map(|(w, h)| (x.clamp(0, w - 1), y.clamp(0, h - 1))));
     }
 
     pub fn click(&self) {

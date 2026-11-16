@@ -50,9 +50,13 @@ fn point_at_corner(s: &Session) {
     s.point_at(0.0, 5000.0);
 }
 
+/// Opens the menu, and waits for its keyboard focus too: keys sent before it
+/// arrives go nowhere.
 fn open(s: &Session) -> Value {
     point_at_corner(s);
-    s.wait_for_start("the menu to open", |st| st["open"] == true)
+    s.wait_for_start("the menu to open", |st| {
+        st["open"] == true && st["focused"] == true
+    })
 }
 
 fn point_at_named(s: &Session, list: &str, name: &str) {
