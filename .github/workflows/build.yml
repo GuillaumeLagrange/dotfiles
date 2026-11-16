@@ -15,6 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Before the builds, which a failing test skips. The bar's tests skip themselves on a host
+      # without the bar, so they get granary's test environment.
+      - name: Test
+        run: |
+          QUICKSHELL_TEST_ENV=$(nix build --no-link --print-out-paths \
+            .#nixosConfigurations.granary.config.home-manager.users.guillaume.quickshellTestEnv)
+          export QUICKSHELL_TEST_ENV
+          nix develop .#ci --command just test
+
       - name: Build hosts and homes
         run: |
           # main and the pending flake update keep their builds from the GC: they are what the cache must serve.

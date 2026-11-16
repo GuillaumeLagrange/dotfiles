@@ -10,8 +10,12 @@
   };
   users.groups.github-runner = { };
 
-  # Outside the runner's state directory, which the module wipes on every re-registration.
-  systemd.tmpfiles.rules = [ "d /var/lib/ci-roots 0755 github-runner github-runner -" ];
+  # Outside the runner's state directory, which the module wipes on every re-registration. The cache holds
+  # what the tests download and build (rustup's toolchain, cargo's registry and targets): HOME is under /run.
+  systemd.tmpfiles.rules = [
+    "d /var/lib/ci-roots 0755 github-runner github-runner -"
+    "d /var/lib/ci-cache 0755 github-runner github-runner -"
+  ];
 
   # nh clean deletes GC roots older than --keep-since; main's roots only move when main does.
   programs.nh.clean.extraArgs = lib.mkForce "--keep-since 7d --keep 3 --no-gcroots";
@@ -23,7 +27,20 @@
     extraLabels = [ "gullywash" ];
     replace = true;
     user = "github-runner";
-    extraEnvironment.CI_ROOTS = "/var/lib/ci-roots";
-    serviceOverrides.ReadWritePaths = [ "/var/lib/ci-roots" ];
+    extraEnvironment = {
+      CI_ROOTS = "/var/lib/ci-roots";
+      RUSTUP_HOME = "/var/lib/ci-cache/rustup";
+      CARGO_HOME = "/var/lib/ci-cache/cargo";
+      CARGO_TARGET_DIR = "/var/lib/ci-cache/target";
+    };
+    serviceOverrides = {
+      ReadWritePaths = [
+        "/var/lib/ci-roots"
+        "/var/lib/ci-cache"
+      ];
+      # The tests open ptys (zellij's panes, `script`), which fail with ENOENT inside the user namespace the
+      # module sets up by default; the private /dev keeps its pseudo-TTYs without one.
+      PrivateUsers = false;
+    };
   };
 }

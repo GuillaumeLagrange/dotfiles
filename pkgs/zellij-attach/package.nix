@@ -61,9 +61,10 @@ writeShellScriptBin "zellij-attach" ''
   }
   create=()
   listed || create=(--create)
+  exec 3>&1
   for _ in 1 2 3 4 5; do
-    # stderr is read to tell that case apart; the terminal keeps stdout.
-    err=$({ ${zellij}/bin/zellij attach "''${create[@]}" "$session" 2>&1 1>&3; } 3>&1)
+    # stderr is read to tell that case apart; the terminal keeps stdout through fd 3.
+    err=$(${zellij}/bin/zellij attach "''${create[@]}" "$session" 2>&1 1>&3)
     status=$?
     if ((status == 0)) || [[ "$err" != *"No session with the name"* ]]; then
       break
