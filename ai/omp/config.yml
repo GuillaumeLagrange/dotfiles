@@ -32,3 +32,5 @@ disabledProviders:
   - claude-plugins
 power:
   sleepPrevention: "off"
+session:
+  worktreeScope: directory
