@@ -49,7 +49,7 @@
         add-zsh-hook preexec _osc133_preexec
 
         # A line above the prompt with the last command's exit code when it failed and its
-        # wall time when it took 1s or more. Replaces the theme's right prompt.
+        # wall time when it took 5s or more. Replaces the theme's right prompt.
         zmodload zsh/datetime
         _cmd_info_preexec() { _cmd_start=$EPOCHSECONDS }
         _cmd_info_precmd() {
@@ -61,7 +61,7 @@
           (( st )) && _cmd_info+="%F{red}✘ $st%f "
           if (( s >= 3600 )); then _cmd_info+="%F{yellow}⏱ $((s / 3600))h$((s % 3600 / 60))m%f"
           elif (( s >= 60 )); then _cmd_info+="%F{yellow}⏱ $((s / 60))m$((s % 60))s%f"
-          elif (( s >= 1 )); then _cmd_info+="%F{yellow}⏱ ''${s}s%f"
+          elif (( s >= 5 )); then _cmd_info+="%F{yellow}⏱ ''${s}s%f"
           fi
           [[ -n "$_cmd_info" ]] && _cmd_info+=$'\n'
           return 0
