@@ -69,7 +69,7 @@ Step 2 again, then `docker compose up -d --no-deps traefik`, then rewrite every 
 granary's test environment), then, if they pass, the builds of the hosts and homes. The builds of `main` stay
 rooted in `/var/lib/ci-roots/main/`, those of Dependabot's nightly flake update PR (`.github/dependabot.yml`, one
 PR for every input, refreshed until merged) in `/var/lib/ci-roots/flake-update/`, so the cache keeps serving them.
-Rustup's toolchain and cargo's registry and target directory persist in `/var/lib/ci-cache/`.
+Cargo's registry and target directory persist in `/var/lib/ci-cache/`.
 
 ### Recreating it
 

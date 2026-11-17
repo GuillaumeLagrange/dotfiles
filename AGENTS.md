@@ -87,8 +87,7 @@ actually launches it:
 - **flake.nix**: inputs, and the list of every file that defines something (see below)
 - **README.md**: the machines, how to rebuild, how the repo is laid out, for humans
 - **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter
-- **devshell.nix**: `devShells.default`, the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update); Rust itself comes from rustup. Entered by `.envrc` (`use flake`), force-added like the hooks' config. `devShells.ci` adds what `just test` needs on gullywash's runner, which has no home: rustup and a C toolchain, zellij, `script`, jq, direnv, node. A test skips itself without its program, so a missing one goes unnoticed
-- **rust-toolchain.toml**: the Rust version every crate builds with under rustup (installed on first use); raise it when a dependency needs a newer rustc. The Nix packages build with nixpkgs' Rust instead
+- **devshell.nix**: `devShells.default`, the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update) and Rust: cargo, rustc, clippy, rustfmt and rust-analyzer of nixpkgs-unstable, the same `unstable.rustPlatform` the crates of `pkgs/` build with (`rust` in `pkgs/default.nix`), so tests, clippy and packages share one rustc that moves with the unstable input. Entered by `.envrc` (`use flake`), force-added like the hooks' config. `devShells.ci` adds what `just test` needs on gullywash's runner, which has no home: zellij, `script`, jq, direnv, node. A test skips itself without its program, so a missing one goes unnoticed
 - **.pre-commit-config.yaml**: pre-commit hooks run by prek (`just hooks` installs them): each language's formatter on the staged files, then `cargo fmt` and clippy for each crate the commit touches. A hook that rewrites a file fails the commit; stage the result. Force-added: the global gitignore excludes the file name
 
 ### How the Nix code is organised
@@ -150,7 +149,7 @@ Rules:
   HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
   (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that runs
   `just test` and then builds the hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`,
-  roots in `/var/lib/ci-roots`, rustup's toolchain and cargo's registry and targets in `/var/lib/ci-cache`),
+  roots in `/var/lib/ci-roots`, cargo's registry and targets in `/var/lib/ci-cache`),
   Dependabot's nightly flake update PR included (`.github/dependabot.yml`).
   `hosts/gullywash/README.md` has the steps no config holds (signing key, password, runner token); keep it
   current when either changes
