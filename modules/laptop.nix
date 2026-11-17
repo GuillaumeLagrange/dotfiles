@@ -13,7 +13,9 @@
         HandleLidSwitch = "suspend-then-hibernate";
         HandlePowerKey = "suspend-then-hibernate";
       };
-      systemd.sleep.settings.Sleep.HibernateDelaySec = "24h";
+      systemd.sleep.settings.Sleep.HibernateDelaySec = "15m";
+      # Faster resume. LZ4 decompresses faster than the default LZO; the image records its compressor.
+      boot.kernelParams = [ "hibernate.compressor=lz4" ];
 
       services.fprintd.enable = true;
       systemd.services.fprintd = {
