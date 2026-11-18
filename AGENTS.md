@@ -136,8 +136,9 @@ Rules:
   backlight), `fingerprint-led.nix` (the power button's LED blinks while fprintd waits for a finger:
   alejandroqh/framework-fingerprint-led-blink, sandboxed, writing the LED through a udev-granted group),
   `ttm-reclaim.nix` (see stall tracing below), `easyeffects.nix` (Framework's Dolby speaker tuning),
-  `bluetooth-sleep.nix` (unloads `btintel_pcie` around hibernation, a systemd-sleep hook: it sometimes
-  refuses to power off, aborting hibernation, and the rollback freezes xe's USB-C display).
+  `btintel-pcie.nix` (btintel_pcie.ko built out of tree with Intel's PM fixes from 7.4: 7.3's `.thaw`
+  re-probes the controller, its firmware reload races `.poweroff` and aborts hibernation; drop it once
+  the kernel has them).
   Mod+W and Mod+Shift+W open the Work and Perso firefox profiles (`firefox.mainProfile`/`altProfile`, see
   `modules/desktop/firefox.nix`); elsewhere the last used profile and a new instance
 - `snakewater`: personal gaming/dev desktop: Ryzen 7800X3D, RTX 4080 (proprietary driver, open kernel module,

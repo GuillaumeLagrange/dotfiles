@@ -13,7 +13,7 @@
       inputs.intel-lpmd.nixosModules.default
       ./hardware.nix
       ./configuration.nix
-      ./bluetooth-sleep.nix
+      ./btintel-pcie.nix
       ./caffeine.nix
       ./fingerprint-led.nix
       ./keylightd.nix
