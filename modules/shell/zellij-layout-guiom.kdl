@@ -1,7 +1,8 @@
 // The `guiom` layout, loaded on startup via `default_layout` in zellij.kdl. The
-// base layout is upstream's `default`; the swap layouts are reduced to the two
-// cycled with `Alt [` / `Alt ]`, in that order: vertical, main. Zellij applies
-// the first one by default.
+// base layout is upstream's `default`; the swap layouts are cycled with
+// `Alt [` / `Alt ]`: tiled main, halves; floating enlarged, staggered, spread.
+// Zellij applies the first one of each kind by default.
+// Every extra pane goes to the right column, split evenly.
 layout {
     pane size=1 borderless=true {
         plugin location="tab-bar"
@@ -21,42 +22,22 @@ layout {
         }
     }
 
-    swap_tiled_layout name="vertical" {
-        ui max_panes=6 {
-            pane split_direction="vertical" {
-                pane
-                pane { children; }
-            }
-        }
-        ui {
-            pane split_direction="vertical" {
-                pane
-                pane stacked=true { children; }
-            }
-        }
-    }
-
-    // Like `vertical`, but 75/25 instead of even: the first pane keeps the wide
-    // left column, every extra pane goes to the narrow right column, which
-    // stacks once it holds 4 panes. `max_panes` also counts the tab-bar and
-    // status-bar plugin panes, hence 6 for 4 terminals.
     swap_tiled_layout name="main" {
-        ui max_panes=6 {
+        ui {
             pane split_direction="vertical" {
                 pane size="70%"
                 pane size="30%" { children; }
             }
         }
-        ui {
-            pane split_direction="vertical" {
-                pane size="70%"
-                pane size="30%" stacked=true { children; }
-            }
-        }
     }
 
-    swap_floating_layout name="staggered" {
-        floating_panes
+    swap_tiled_layout name="halves" {
+        ui {
+            pane split_direction="vertical" {
+                pane
+                pane { children; }
+            }
+        }
     }
 
     swap_floating_layout name="enlarged" {
@@ -72,6 +53,10 @@ layout {
             pane { x "5%"; y 9; width "90%"; height "90%"; }
             pane { x 10; y 10; width "90%"; height "90%"; }
         }
+    }
+
+    swap_floating_layout name="staggered" {
+        floating_panes
     }
 
     swap_floating_layout name="spread" {
