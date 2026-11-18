@@ -338,6 +338,21 @@ impl Session {
             shell.join("bar/StartProbe.qml"),
         )
         .unwrap();
+        splice(
+            &shell.join("popups/ControlCenter.qml"),
+            "    onShown: Displays.refresh()\n",
+            "    onShown: Displays.refresh()\n    property alias probeDisplays: displays\n",
+        );
+        splice(
+            &shell.join("bar/ControlPill.qml"),
+            "    ControlCenter {\n        id: panel\n",
+            "    ControlCenterProbe {\n        pill: root\n        panel: panel\n    }\n\n    ControlCenter {\n        id: panel\n",
+        );
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("ControlCenterProbe.qml"),
+            shell.join("bar/ControlCenterProbe.qml"),
+        )
+        .unwrap();
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
@@ -419,6 +434,40 @@ impl Session {
             .unwrap();
         serde_json::from_slice(&out.stdout)
             .unwrap_or_else(|_| panic!("the workspaces probe did not answer\n{}", self.logs()))
+    }
+
+    /// The focused output's control centre: see ControlCenterProbe.qml.
+    pub fn control_centre(&self) -> Value {
+        let shell = self.path("shell");
+        let out = self.run(
+            "qs",
+            &[
+                "-p",
+                shell.to_str().unwrap(),
+                "ipc",
+                "call",
+                "controlcenter",
+                "state",
+            ],
+        );
+        serde_json::from_str(&out)
+            .unwrap_or_else(|_| panic!("the control centre probe did not answer\n{}", self.logs()))
+    }
+
+    /// Calls a function of the bar's IPC handlers.
+    pub fn ipc(&self, target: &str, function: &str) {
+        let shell = self.path("shell");
+        self.run(
+            "qs",
+            &[
+                "-p",
+                shell.to_str().unwrap(),
+                "ipc",
+                "call",
+                target,
+                function,
+            ],
+        );
     }
 
     /// `niri msg --json` with these arguments, parsed.

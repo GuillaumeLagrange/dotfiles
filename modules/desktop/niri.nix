@@ -305,8 +305,8 @@ in
           Mod+Shift+E { quit; }
           Ctrl+Alt+Delete { quit; }
           Mod+Shift+P { power-off-monitors; }
-          Mod+M hotkey-overlay-title="Next Display Setup" { spawn "${displays}/bin/niri-displays" "next"; }
-          Mod+Shift+M hotkey-overlay-title="Previous Display Setup" { spawn "${displays}/bin/niri-displays" "prev"; }
+          Mod+M hotkey-overlay-title="Next Display Setup" { spawn ${quoteArgs "${commands.quickshellIpc} displays next"}; }
+          Mod+Shift+M hotkey-overlay-title="Previous Display Setup" { spawn ${quoteArgs "${commands.quickshellIpc} displays prev"}; }
       }
 
       window-rule {

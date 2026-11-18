@@ -1,9 +1,9 @@
 """Saved display setups for niri, picked at runtime instead of declared in its config.
 
-A setup is what every connected monitor does: on or off, mode, scale,
-transform, position and VRR. It is saved from whatever niri shows (arranged
-with wdisplays or `niri msg output`), and applies only where exactly the same
-monitors are connected, like a kanshi profile.
+A setup is the monitors it turns on, with their mode, scale, transform,
+position and VRR. It is saved from whatever niri shows (arranged with wdisplays
+or `niri msg output`), fits wherever those monitors are connected, and turns
+off any other.
 
   niri-displays list          the setups and the connected monitors, as JSON
   niri-displays save NAME     save the current layout as NAME, replacing one so named
@@ -11,8 +11,7 @@ monitors are connected, like a kanshi profile.
   niri-displays delete NAME
   niri-displays rename OLD NEW
   niri-displays order NAME...  put the setups in this order, any left out after them
-  niri-displays next|prev     cycle the setups of the connected monitors, with a notification
-  niri-displays watch         when the connected monitors change, apply their last used setup
+  niri-displays watch         when the connected monitors change, apply the setup last used with them
 
 Monitors are known by "make model serial", the name niri's config matches,
 so a setup follows a monitor from one port to another.
@@ -27,7 +26,6 @@ import sys
 import time
 
 NIRI = "@niri@"
-NOTIFY_SEND = "@notifySend@"
 
 STATE = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
@@ -111,12 +109,23 @@ def snapshot(current):
     return [record(key, out) for key, out in sorted(current.items())]
 
 
+def plugged(ids):
+    """The key a setup's use is recorded under: the monitors connected then."""
+    return " + ".join(sorted(ids))
+
+
 def load():
     try:
         with open(SETUPS) as f:
-            return json.load(f)["setups"]
+            setups = json.load(f)["setups"]
     except FileNotFoundError:
         return []
+    for s in setups:
+        # Setups saved when they recorded the monitors they turned off, and one time of use.
+        if not isinstance(s.get("used", {}), dict):
+            s["used"] = {plugged(o["id"] for o in s["outputs"]): s["used"]}
+        s["outputs"] = [o for o in s["outputs"] if o["on"]]
+    return setups
 
 
 def store(setups):
@@ -128,7 +137,7 @@ def store(setups):
 
 
 def fits(setup, current):
-    return sorted(o["id"] for o in setup["outputs"]) == sorted(current)
+    return all(o["id"] in current for o in setup["outputs"])
 
 
 def same(rec, now):
@@ -146,7 +155,10 @@ def active(setup, current):
     if not fits(setup, current):
         return False
     now = {r["id"]: r for r in snapshot(current)}
-    return all(same(o, now[o["id"]]) for o in setup["outputs"])
+    ids = {o["id"] for o in setup["outputs"]}
+    return all(same(o, now[o["id"]]) for o in setup["outputs"]) and not any(
+        r["on"] for key, r in now.items() if key not in ids
+    )
 
 
 def output(name, *args):
@@ -158,12 +170,10 @@ def apply(setup, login=False):
     if not fits(setup, current):
         raise SystemExit(f"{setup['name']!r} is for other monitors")
     now = {r["id"]: r for r in snapshot(current)}
-    changed = not all(same(o, now[o["id"]]) for o in setup["outputs"])
+    changed = not active(setup, current)
     focused = request("FocusedOutput")["FocusedOutput"]
     # Monitors are turned on before others are turned off, so the session is never left without one.
     for rec in setup["outputs"]:
-        if not rec["on"]:
-            continue
         name, was = current[rec["id"]]["name"], now[rec["id"]]
         if not was["on"]:
             output(name, "on")
@@ -179,14 +189,15 @@ def apply(setup, login=False):
         output(name, "position", "set", "--", str(rec["x"]), str(rec["y"]))
         if "vrr" in rec and was.get("vrr") != rec["vrr"]:
             output(name, "vrr", "on" if rec["vrr"] else "off")
-    for rec in setup["outputs"]:
-        if not rec["on"] and now[rec["id"]]["on"]:
-            output(current[rec["id"]]["name"], "off")
+    ids = {o["id"] for o in setup["outputs"]}
+    for key, was in now.items():
+        if key not in ids and was["on"]:
+            output(current[key]["name"], "off")
     if changed:
         # niri leaves the cursor where it was, now maybe on another output than
         # the focused one: focusing again puts it back. At login, niri focused
         # the first output by name; the top-left one is taken instead.
-        on = {current[r["id"]]["name"]: r for r in setup["outputs"] if r["on"]}
+        on = {current[r["id"]]["name"]: r for r in setup["outputs"]}
         if login or focused is None or focused["name"] not in on:
             target = min(on, key=lambda name: (on[name]["y"], on[name]["x"]))
         else:
@@ -195,7 +206,7 @@ def apply(setup, login=False):
     setups = load()
     for s in setups:
         if s["name"] == setup["name"]:
-            s["used"] = time.time()
+            s["used"][plugged(current)] = time.time()
     store(setups)
 
 
@@ -208,7 +219,9 @@ def find(name):
 
 def save(name):
     setups = load()
-    setup = {"name": name, "outputs": snapshot(connected()), "used": time.time()}
+    current = connected()
+    outputs = [r for r in snapshot(current) if r["on"]]
+    setup = {"name": name, "outputs": outputs, "used": {plugged(current): time.time()}}
     at = next((i for i, s in enumerate(setups) if s["name"] == name), None)
     if at is None:
         setups.append(setup)
@@ -253,44 +266,10 @@ def listing():
     return {"connected": snapshot(current), "setups": setups}
 
 
-def notify(body):
-    # One notification, replaced on each press, rather than a stack of them.
-    try:
-        with open(runtime("notification")) as f:
-            replace = ["-r", f.read().strip()]
-    except (FileNotFoundError, OSError):
-        replace = []
-    out = subprocess.run(
-        [NOTIFY_SEND, "-p", "-t", "2500", "-a", "Displays", *replace, "Displays", body],
-        capture_output=True,
-        text=True,
-    )
-    if out.returncode == 0 and out.stdout.strip():
-        with open(runtime("notification"), "w") as f:
-            f.write(out.stdout.strip())
-
-
-def cycle(step):
-    setups = load()
-    current = connected()
-    fitting = [s for s in setups if fits(s, current)]
-    if not fitting:
-        notify(
-            "No saved setups yet" if not setups else "No saved setup for these monitors"
-        )
-        return
-    at = next((i for i, s in enumerate(fitting) if active(s, current)), None)
-    if at is None:
-        setup = fitting[0 if step > 0 else -1]
-    else:
-        setup = fitting[(at + step) % len(fitting)]
-    apply(setup)
-    notify(f"{setup['name']}  ({fitting.index(setup) + 1}/{len(fitting)})")
-
-
 def settle():
-    """Applies the last used setup of the connected monitors once they differ
-    from those seen last in this niri session."""
+    """Once the connected monitors differ from those seen last in this niri
+    session, applies the setup last used with exactly them, else the one
+    turning the most of them on, the last used first."""
     current = connected()
     seen = {"socket": os.environ["NIRI_SOCKET"], "ids": sorted(current)}
     login = True
@@ -306,7 +285,15 @@ def settle():
     if not fitting:
         print(f"no setup for {seen['ids']}", flush=True)
     else:
-        setup = max(fitting, key=lambda s: s.get("used", 0))
+        key = plugged(current)
+        setup = max(
+            fitting,
+            key=lambda s: (
+                key in s["used"],
+                s["used"].get(key) or len(s["outputs"]),
+                max(s["used"].values(), default=0),
+            ),
+        )
         if not active(setup, current):
             print(f"applying {setup['name']!r}", flush=True)
             apply(setup, login)
@@ -351,10 +338,6 @@ def main(args):
             rename(old, new.strip())
         case ["order", *names]:
             order(names)
-        case ["next"]:
-            cycle(1)
-        case ["prev"]:
-            cycle(-1)
         case ["watch"]:
             return watch()
         case _:

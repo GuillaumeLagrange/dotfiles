@@ -2,6 +2,8 @@ pragma Singleton
 // Saved display setups (pkgs/niri-displays): the control centre lists them,
 // applies one, saves the current layout under a name and deletes. Read when the
 // panel opens and after each change; nothing else here needs them live.
+// Mod+M / Mod+Shift+M (`ipc call displays next|prev`) open the control centre
+// and step its keyboard preselection, once the list is read again.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -18,6 +20,11 @@ Singleton {
     property bool showOther: false
     property string error: ""
     property bool _again: false
+    // Steps asked for since the list was last read.
+    property int _steps: 0
+
+    signal panelRequested
+    signal stepped(int step)
 
     function refresh(): void {
         if (list.running)
@@ -50,6 +57,12 @@ Singleton {
 
     function has(name: string): bool {
         return root.setups.some(s => s.name === name.trim());
+    }
+
+    function _cycle(step: int): void {
+        root._steps += step;
+        root.panelRequested();
+        root.refresh();
     }
 
     function _run(args: var): void {
@@ -89,11 +102,28 @@ Singleton {
                 } catch (e) {
                     root.setups = [];
                 }
+                if (!root._again && root._steps !== 0) {
+                    const step = root._steps;
+                    root._steps = 0;
+                    root.stepped(step);
+                }
             }
         }
         onExited: if (root._again) {
             root._again = false;
             list.running = true;
+        }
+    }
+
+    IpcHandler {
+        target: "displays"
+
+        function next(): void {
+            root._cycle(1);
+        }
+
+        function prev(): void {
+            root._cycle(-1);
         }
     }
 }

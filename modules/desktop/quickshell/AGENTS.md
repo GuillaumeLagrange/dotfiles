@@ -104,7 +104,10 @@ typed keys land in whatever has focus.
   has something on it. A strip that shows or grows as a window maps moves the
   cells after it, so a click is aimed again until niri focuses its workspace.
 - `tests/displays.rs` drives `niri-displays` (`save`, `apply`, `rename`, `order`,
-  `next`/`prev`, `watch`) on two headless outputs, moved with `niri msg output`.
+  `watch`) on two headless outputs, moved with `niri msg output` (the headless
+  backend cannot turn one off), and Mod+M's preselection through
+  `ControlCenterProbe.qml` (`qs ipc call controlcenter state`: open, focused,
+  cursor, answered by the focused output's bar).
 - What would leave the fixture is a stub on niri's `PATH` that records its
   arguments: `reviews` (Config.reviews is pointed at it; `--json` prints the
   test's fixture) and `review`, which the panel spawns through `niri msg action

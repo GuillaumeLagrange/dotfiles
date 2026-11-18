@@ -25,7 +25,14 @@ ClickPanel {
     accent: Quick.gearColor
 
     onShown: Displays.refresh()
-    onHidden: displays.naming = false
+    onHidden: {
+        displays.naming = false;
+        displays.cursor = "";
+    }
+
+    function stepDisplays(step: int): void {
+        displays.step(step);
+    }
 
     readonly property var battery: UPower.displayDevice
     readonly property bool hasBattery: !!battery && battery.isLaptopBattery && battery.isPresent
@@ -452,6 +459,7 @@ ClickPanel {
             id: displays
 
             accent: root.accent
+            onPicked: root.close()
         }
 
         RowLayout {

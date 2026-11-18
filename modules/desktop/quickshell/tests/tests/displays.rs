@@ -88,13 +88,22 @@ fn saved_setups_apply_and_cycle() {
     assert_eq!(layout(&s), side);
     assert_eq!(active(&s), ["side"]);
 
-    // In saved order, wrapping around.
-    displays(&s, &["next"]);
-    assert_eq!(active(&s), ["left"]);
-    displays(&s, &["next"]);
+    // Mod+M opens the control centre on the setup after the one on screen, in
+    // saved order and wrapping around; Enter applies it and closes the panel.
+    s.ipc("displays", "next");
+    control_centre(&s, "the next setup", |c| {
+        c["open"] == true && c["cursor"] == "left"
+    });
+    s.ipc("displays", "next");
+    control_centre(&s, "wrapping around", |c| c["cursor"] == "side");
+    s.ipc("displays", "prev");
+    control_centre(&s, "the setup before", |c| {
+        c["cursor"] == "left" && c["focused"] == true
+    });
     assert_eq!(active(&s), ["side"]);
-    displays(&s, &["prev"]);
-    assert_eq!(layout(&s), left);
+    s.key("Return");
+    control_centre(&s, "the panel to close", |c| c["open"] == false);
+    s.wait_until("the setup to apply", || layout(&s) == left);
 
     // Saving under an existing name replaces it, in place.
     place(&s, "HEADLESS-2", 0, 1080);
@@ -132,15 +141,38 @@ fn setups_are_renamed_and_reordered() {
     // Setups left out of the order keep theirs, after the others.
     displays(&s, &["order", "c", "a"]);
     assert_eq!(names(&s), ["c", "a", "middle"]);
-
-    // Mod+M cycles in that order.
-    displays(&s, &["next"]);
-    assert_eq!(active(&s), ["a"]);
-    displays(&s, &["next"]);
-    assert_eq!(active(&s), ["middle"]);
 }
 
-/// A setup saved for other monitors neither shows as fitting nor cycles.
+/// Waits for the focused output's control centre to reach a state.
+fn control_centre(s: &Session, what: &str, pred: impl Fn(&Value) -> bool) {
+    s.wait_until(what, || pred(&s.control_centre()));
+}
+
+/// A setup fits wherever the monitors it turns on are connected, whatever the
+/// others: one saved while a monitor was connected and off fits without it,
+/// and one turning a single monitor on is not on screen while another is on.
+/// (niri's headless backend cannot turn an output off, so the files are written.)
+#[test]
+fn setups_fit_whatever_other_monitors() {
+    let Some(s) = session() else { return };
+    let connected = list(&s)["connected"].clone();
+    let mut office = connected[0].clone();
+    office["id"] = json!("Dell Inc. DELL P2423D FN44W14");
+    office["on"] = json!(false);
+    let dir = s.path("state/niri-displays");
+    std::fs::create_dir_all(&dir).unwrap();
+    let setups = json!({ "setups": [{
+        "name": "laptop", "used": 0, "outputs": [connected[0], office],
+    }]});
+    std::fs::write(dir.join("setups.json"), setups.to_string()).unwrap();
+
+    let laptop = &list(&s)["setups"][0];
+    assert_eq!(laptop["fits"], true);
+    assert_eq!(laptop["outputs"].as_array().unwrap().len(), 1);
+    assert_eq!(active(&s), Vec::<String>::new());
+}
+
+/// A setup saved for other monitors neither fits nor applies.
 #[test]
 fn setups_for_other_monitors_do_not_apply() {
     let Some(s) = session() else { return };
@@ -156,7 +188,7 @@ fn setups_for_other_monitors_do_not_apply() {
     let before = layout(&s);
 
     assert_eq!(list(&s)["setups"][0]["fits"], false);
-    displays(&s, &["next"]);
+    assert!(!s.succeeds("niri-displays", &["apply", "office"]));
     assert_eq!(layout(&s), before);
 }
 

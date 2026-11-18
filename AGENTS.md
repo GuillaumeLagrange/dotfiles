@@ -196,11 +196,13 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
 - Display setups (`pkgs/niri-displays/displays.py`, `niri-displays`): no monitor's mode, scale or position is in
   the config. Arrange them with anything (wdisplays, `niri msg output`), then save the layout under a name from
   the control centre's Displays section (+); its cards draw each setup's monitors to scale, a click applies one,
-  the × on hover deletes it. A setup records every connected monitor ("make model serial", on or off) and fits
-  only where exactly those are connected, like a kanshi profile; the section hides the setups that do not fit
-  behind a "Show N for other screens" toggle (kept across opens). Mod+M / Mod+Shift+M cycle the setups that fit,
-  with a notification. The `niri-displays` user service (`watch`) applies the last used fitting setup at login
-  and whenever a monitor is plugged or unplugged, and leaves a layout changed by hand alone otherwise. Applying a
+  the × on hover deletes it. A setup records the monitors it turns on ("make model serial") and fits wherever
+  those are connected, whatever else is: applying it turns the others off. The section hides the setups that do
+  not fit behind a "Show N for other screens" toggle (kept across opens). Mod+M / Mod+Shift+M open the control
+  centre and move a keyboard preselection over the setups that fit (from the one on screen, arrows and Tab too),
+  Enter applies it. The `niri-displays` user service (`watch`) applies, at login and whenever a monitor is plugged
+  or unplugged, the setup last used with exactly the connected monitors, else the one turning the most of them on;
+  it leaves a layout changed by hand alone otherwise. Applying a
   setup focuses the focused output again, so the cursor follows outputs that moved; at login the top-left one
   instead of niri's first by name. Saved in `~/.local/state/niri-displays/setups.json`. What the IPC cannot set
   (the KTC's side struts) stays an `output` block in the niri config. Tests:

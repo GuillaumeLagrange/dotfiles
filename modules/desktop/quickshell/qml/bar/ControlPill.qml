@@ -3,8 +3,8 @@
 // there - idle inhibit, caffeine and do-not-disturb are added next to them,
 // never in their place. Notifications leave no trace on it.
 //
-// Mod+N reaches every bar through the notifs IPC handler, so the pill answers
-// only on the focused output.
+// Mod+N reaches every bar through the notifs IPC handler, and Mod+M through
+// the displays one, so the pill answers only on the focused output.
 import QtQuick
 import qs
 import qs.components
@@ -45,6 +45,20 @@ Pill {
         function onCenterToggleRequested(): void {
             if (root.monitor === Niri.focusedOutput)
                 panel.toggle();
+        }
+    }
+
+    Connections {
+        target: Displays
+
+        function onPanelRequested(): void {
+            if (root.monitor === Niri.focusedOutput && !panel.visible)
+                panel.open();
+        }
+
+        function onStepped(step: int): void {
+            if (root.monitor === Niri.focusedOutput && panel.visible)
+                panel.stepDisplays(step);
         }
     }
 }

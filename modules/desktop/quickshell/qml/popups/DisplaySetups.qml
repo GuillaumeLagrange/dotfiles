@@ -1,9 +1,11 @@
 // The control centre's display setups (services/Displays.qml): one card per
 // saved setup, drawn as its monitors to scale, the connected monitors' first.
-// A click applies one, a right click renames it, dragging moves it (the order
-// Mod+M cycles in), + names the current layout, Arrange opens wdisplays to make
-// one. Setups for other monitors are hidden until asked for, then listed
-// dimmed, so they can be deleted.
+// A setup fits wherever the monitors it turns on are connected, and turns the
+// others off. A click applies one, a right click renames it, dragging moves it
+// (the order Mod+M cycles in), + names the current layout, Arrange opens
+// wdisplays to make one. Mod+M / Mod+Shift+M (and the arrows) move a keyboard
+// preselection over the fitting setups, Enter applies it. Setups for other
+// monitors are hidden until asked for, then listed dimmed, so they can be deleted.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -21,6 +23,34 @@ ColumnLayout {
     // The card being dragged, and the order the others make room for meanwhile.
     property string dragName: ""
     property var dragOrder: []
+    // The setup Enter applies, preselected by Mod+M; empty when not stepping.
+    property string cursor: ""
+
+    signal picked
+
+    // From the preselection, else the setup on screen, else the ends.
+    function step(delta: int): void {
+        const fitting = Displays.ordered.filter(s => s.fits);
+        if (fitting.length === 0) {
+            root.cursor = "";
+            return;
+        }
+        let at = fitting.findIndex(s => s.name === root.cursor);
+        if (at < 0)
+            at = fitting.findIndex(s => s.active);
+        const n = fitting.length;
+        root.cursor = at < 0 ? fitting[delta > 0 ? 0 : n - 1].name : fitting[((at + delta) % n + n) % n].name;
+        grid.forceActiveFocus();
+    }
+
+    function pick(): void {
+        const setup = Displays.setups.find(s => s.name === root.cursor);
+        if (!setup)
+            return;
+        if (!setup.active)
+            Displays.apply(setup.name);
+        root.picked();
+    }
 
     function startNaming(): void {
         root.renaming = "";
@@ -218,6 +248,13 @@ ColumnLayout {
         visible: grid.shown > 0
         implicitHeight: Math.ceil(grid.shown / grid.columns) * grid.cellHeight - grid.gap
 
+        Keys.onReturnPressed: root.pick()
+        Keys.onEnterPressed: root.pick()
+        Keys.onLeftPressed: root.step(-1)
+        Keys.onRightPressed: root.step(1)
+        Keys.onBacktabPressed: root.step(-1)
+        Keys.onTabPressed: root.step(1)
+
         Repeater {
             model: Displays.ordered
 
@@ -226,10 +263,10 @@ ColumnLayout {
 
                 required property var modelData
                 required property int index
-                readonly property var on: card.modelData.outputs.filter(o => o.on)
-                readonly property var off: card.modelData.outputs.filter(o => !o.on)
+                readonly property var on: card.modelData.outputs
                 readonly property bool fits: card.modelData.fits
                 readonly property bool active: card.modelData.active
+                readonly property bool preselected: root.cursor === card.modelData.name
                 readonly property bool held: root.dragName === card.modelData.name
                 readonly property int slot: root.dragName !== "" ? root.dragOrder.indexOf(card.modelData.name) : card.index
                 property real grabX: 0
@@ -241,9 +278,9 @@ ColumnLayout {
                 y: card.held ? card.grabY + drag.activeTranslation.y : Math.floor(card.slot / grid.columns) * grid.cellHeight
                 z: card.held ? 1 : 0
                 radius: Theme.rowRadius
-                color: card.active ? Theme.alpha(root.accent, 0.12) : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.05) : Theme.well)
-                border.width: 1
-                border.color: card.active ? root.accent : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.18) : "transparent")
+                color: card.active ? Theme.alpha(root.accent, 0.12) : (cardHover.hovered || card.held || card.preselected ? Theme.alpha(Theme.fg, 0.05) : Theme.well)
+                border.width: card.preselected ? 2 : 1
+                border.color: card.active || card.preselected ? root.accent : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.18) : "transparent")
                 visible: card.fits || Displays.showOther
                 opacity: card.fits ? 1 : 0.45
 
@@ -375,8 +412,6 @@ ColumnLayout {
                         text: {
                             if (!card.fits)
                                 return "Other screens";
-                            if (card.off.length)
-                                return card.off.map(o => o.label).join(", ") + " off";
                             return card.on.length === 1 ? "1 screen" : card.on.length + " screens";
                         }
                         elide: Text.ElideRight
