@@ -92,7 +92,12 @@
   '';
 
   programs.steam = {
-    extest.enable = true;
+    # FIXME(26.11): drop `package` and uncomment `extest.enable`; 26.05's module preloads the
+    # i686 extest, which the 64-bit client ignores (fixed by NixOS/nixpkgs#587752, not backported).
+    # extest.enable = true;
+    package = pkgs.steam.override {
+      extraEnv.LD_PRELOAD = "${pkgs.extest}/lib/libextest.so";
+    };
     extraPackages = [ pkgs.libsecret ];
   };
 
