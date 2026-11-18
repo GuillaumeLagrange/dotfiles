@@ -147,7 +147,11 @@ Rules:
   lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`. No work tooling: it imports neither the
   `work` NixOS group (1Password, Oneleet) nor the home-manager ones, so no codspeed tools, `wt`, `cdr`, omp MCP
   servers of `ai/omp/mcp.json`, `review` with its refresh timer and bar pill, 1Password autostart or Slack.
-  Its own part: `easyeffects.nix` (Arctis Nova Pro Wireless: headphone EQ; mic RNNoise, gate and EQ)
+  Its own part: `easyeffects.nix` (Arctis Nova Pro Wireless: headphone EQ; mic RNNoise, gate and EQ).
+  niri starts Steam and Discord, through the desktop
+  group's `niri.spawnAtStartup` (argument lists, appended to niri's `spawn-at-startup` lines). Steam waits a
+  second first, or it exits silently when niri spawns it (niri-wm/niri#2463). Steam and Battle.net (Proton's
+  `steam_app_default`, which every non-Steam shortcut gets) go to workspace 3, Discord to 5
 - `gullywash`: home server: ZFS (`zfs.nix`: ARC limit, scrubs, mail notifications), Docker, firewall for
   HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
   (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that runs
@@ -213,7 +217,8 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   unnames an empty one left behind so niri removes it. The `niri-workspaces` user service (`watch`) keeps them so
   for what niri's own actions do (Mod+J/K, opening a window on an unnamed workspace, hotplug), gives an output
   showing an unnamed workspace (at niri's start, or once its last one moved to another output) the lowest free
-  number, sorts each output's numbers, and sends Signal/Spotify to 5 (`--assign`). It talks to niri's socket by
+  number, sorts each output's numbers, and sends windows to the workspace `niri.assignWorkspace` gives their app
+  id (`--assign`; Signal/Spotify to 5 everywhere, hosts add theirs). It talks to niri's socket by
   id: `niri msg` reads a name like "1" as an index. Tests: `modules/desktop/quickshell/tests/tests/workspaces.rs`.
 - quickshell status bar (`modules/desktop/quickshell/`) — see `modules/desktop/quickshell/AGENTS.md`.
 - zellij session colours (`zellij-sessions.nix`, `pkgs/zellij-sessions/`): each session gets a colour of the

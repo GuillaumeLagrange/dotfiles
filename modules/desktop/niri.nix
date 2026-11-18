@@ -35,6 +35,11 @@ in
 {
   _class = "homeManager";
 
+  niri.assignWorkspace = {
+    signal = 5;
+    "^spotify$" = 5;
+  };
+
   home.packages = with pkgs; [
     niri
     xwayland-satellite
@@ -60,7 +65,13 @@ in
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${workspaces}/bin/niri-workspaces watch --assign=signal=5 '--assign=^spotify$=5'";
+      ExecStart = lib.escapeShellArgs (
+        [
+          "${workspaces}/bin/niri-workspaces"
+          "watch"
+        ]
+        ++ lib.mapAttrsToList (app: n: "--assign=${app}=${toString n}") config.niri.assignWorkspace
+      );
       Environment = [ "PYTHONUNBUFFERED=1" ];
       Restart = "on-failure";
       RestartSec = 2;
@@ -118,6 +129,9 @@ in
 
       ${lib.optionalString config.work.enable ''spawn-at-startup "${pkgs._1password-gui}/bin/1password" "--silent"''}
       spawn-at-startup "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent"
+      ${lib.concatMapStringsSep "\n" (
+        argv: "spawn-at-startup ${lib.concatMapStringsSep " " builtins.toJSON argv}"
+      ) config.niri.spawnAtStartup}
 
       switch-events {
           lid-close { spawn "${lidClose}"; }

@@ -101,6 +101,22 @@
     extraPackages = [ pkgs.libsecret ];
   };
 
+  home-manager.users.guillaume.niri.spawnAtStartup = [
+    # Steam exits silently when niri spawns it without a delay: niri-wm/niri#2463.
+    [
+      "${pkgs.bash}/bin/sh"
+      "-c"
+      "${pkgs.coreutils}/bin/sleep 1 && exec ${config.programs.steam.package}/bin/steam"
+    ]
+    [ "${pkgs.discord}/bin/discord" ]
+  ];
+  # Battle.net runs as a non-Steam shortcut under Proton, whose windows all get `steam_app_default`.
+  home-manager.users.guillaume.niri.assignWorkspace = {
+    "^steam$" = 3;
+    "^steam_app_default$" = 3;
+    "^discord$" = 5;
+  };
+
   environment.systemPackages = with pkgs; [
     lutris
   ];

@@ -37,5 +37,15 @@
     # Set by `work-desktop`. niri's and the bar's configs are generated text, so
     # their work bits are switched on from here rather than added from outside.
     options.work.enable = lib.mkEnableOption "the work bits of niri and the bar";
+    options.niri.spawnAtStartup = lib.mkOption {
+      type = lib.types.listOf (lib.types.listOf lib.types.str);
+      default = [ ];
+      description = "Extra commands niri runs at startup, as argument lists.";
+    };
+    options.niri.assignWorkspace = lib.mkOption {
+      type = lib.types.attrsOf lib.types.ints.positive;
+      default = { };
+      description = "Numbered workspace that new windows go to, by app id regex (`niri-workspaces watch --assign`).";
+    };
   };
 }
