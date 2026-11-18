@@ -41,12 +41,12 @@ in
       gnumake
       jq
       just
+      pkgs.unstable.kache
       nh
       pkgs.unstable.prek
       python3
       ripgrep
       rustup
-      sccache
       tig
       tree
       unzip
@@ -349,8 +349,8 @@ in
   ];
 
   home.sessionVariables = {
-    RUSTC_WRAPPER = "sccache";
-    SCCACHE_CACHE_SIZE = "100G";
+    RUSTC_WRAPPER = "kache";
+    KACHE_MAX_SIZE = "100GiB";
     CMAKE_EXPORT_COMPILE_COMMANDS = "ON";
   };
 }
