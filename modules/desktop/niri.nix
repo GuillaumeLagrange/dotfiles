@@ -97,6 +97,8 @@ in
 
       input {
           focus-follows-mouse max-scroll-amount="10%"
+          // logind's HandlePowerKey (suspend-then-hibernate) instead of niri's plain suspend
+          disable-power-key-handling
 
           keyboard {
               xkb {
