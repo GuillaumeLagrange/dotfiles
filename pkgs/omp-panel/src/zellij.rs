@@ -176,16 +176,14 @@ pub fn focus_pane(session: &str, pane: u32) -> Result<()> {
     .map(drop)
 }
 
-/// Move the client this process runs under to another session's pane.
-pub fn switch_session(session: &str, pane: u32) -> Result<()> {
-    run(&[
-        "action",
-        "switch-session",
-        session,
-        "--pane-id",
-        &format!("terminal_{pane}"),
-    ])
-    .map(drop)
+/// Move the client this process runs under to another session, on `pane` when given.
+pub fn switch_session(session: &str, pane: Option<u32>) -> Result<()> {
+    let pane = pane.map(|pane| format!("terminal_{pane}"));
+    let mut args = vec!["action", "switch-session", session];
+    if let Some(pane) = &pane {
+        args.extend(["--pane-id", pane.as_str()]);
+    }
+    run(&args).map(drop)
 }
 
 /// Only the sessions asked about: one with no omp in it costs two processes a

@@ -105,6 +105,14 @@ Item {
                         id: block
 
                         readonly property int iconPx: Math.min(column.modelData.icon_px, root.bandHeight - 2)
+                        readonly property bool hasIcon: iconPx > 0 && column.modelData.icon !== ""
+                        readonly property string tint: Sessions.windowColor(column.modelData.window)
+                        readonly property int dotPx: 12
+                        // The icon shrinks to make room for the dot, down to 8px; past
+                        // that the dot goes and the icon keeps its size.
+                        readonly property int iconBesideDot: width - 4 - dotPx - 3
+                        readonly property bool showDot: tint !== "" && (hasIcon ? iconBesideDot >= 8 : width >= dotPx + 4)
+                        readonly property int iconSize: showDot && hasIcon ? Math.min(iconPx, iconBesideDot) : iconPx
 
                         width: column.modelData.w
                         height: root.bandHeight
@@ -165,17 +173,40 @@ Item {
                             }
                         }
 
-                        // The app's own icon, in its own colours. An image rather than a
-                        // glyph centres exactly when scaled.
-                        Image {
+                        // The app's own icon, in its own colours (an image rather than a
+                        // glyph centres exactly when scaled), then a dot in the colour of
+                        // the zellij session the column's terminal shows; centred as a pair.
+                        Row {
                             anchors.centerIn: parent
-                            visible: block.iconPx > 0 && source != ""
-                            source: column.modelData.icon !== "" ? "file://" + column.modelData.icon : ""
-                            sourceSize.width: block.iconPx
-                            sourceSize.height: block.iconPx
-                            width: block.iconPx
-                            height: block.iconPx
-                            fillMode: Image.PreserveAspectFit
+                            spacing: 3
+
+                            Image {
+                                id: icon
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: block.hasIcon
+                                source: column.modelData.icon !== "" ? "file://" + column.modelData.icon : ""
+                                sourceSize.width: block.iconSize
+                                sourceSize.height: block.iconSize
+                                width: block.iconSize
+                                height: block.iconSize
+                                fillMode: Image.PreserveAspectFit
+                            }
+
+                            Rectangle {
+                                // Sized on the pixel grid: a ring in logical pixels lands
+                                // between physical ones and blurs into the colour.
+                                readonly property int physical: Math.round(block.dotPx / root.hairline)
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: block.showDot
+                                width: physical * root.hairline
+                                height: width
+                                radius: width / 2
+                                color: block.tint || "transparent"
+                                // Dark enough to set it off the block's own blue or orange.
+                                border.width: Math.max(1, Math.floor(physical / 8)) * root.hairline
+                                border.color: Theme.alpha("#000000", 0.85)
+                            }
                         }
 
                         HoverHandler {

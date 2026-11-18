@@ -214,6 +214,18 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   number, sorts each output's numbers, and sends Signal/Spotify to 5 (`--assign`). It talks to niri's socket by
   id: `niri msg` reads a name like "1" as an index. Tests: `modules/desktop/quickshell/tests/tests/workspaces.rs`.
 - quickshell status bar (`modules/desktop/quickshell/`) — see `modules/desktop/quickshell/AGENTS.md`.
+- zellij session colours (`zellij-sessions.nix`, `pkgs/zellij-sessions/`): each session gets a colour of the
+  palette there (stylix's red, yellow, green, blue and purple: its orange and aqua are too close to their
+  neighbours to tell apart as a dot), set and changed from omp-panel's side pane, never declared. It
+  shows as the session's zellij accent (a `session-<colour>` theme: stylix's with `zellijAccent`'s three
+  slots recoloured), as a border on its terminal windows (window rules in `~/.local/state/zellij-sessions/niri.kdl`,
+  an optional `include` at the end of niri's config), and as a dot on the bar's strip blocks and workspace map.
+  The registry (`~/.local/state/zellij-sessions/sessions.json`: name, colour, folded, in display order) is the
+  only state; the rest is derived from it on every change. zellij only takes a theme when its server starts,
+  so a session is started on a config of its own (`zellij-sessions config NAME`: zellij's config plus its
+  `theme`), which `zellij-attach`, wt and `review` pass with `--config`; zellij live-reloads that file, so a
+  recolour reaches a running session. Sessions started before have no such config: they get theirs once
+  restarted, and their windows' border and dot meanwhile.
 - `commands.nix`: the commands the desktop's parts share (lock, screenshot and screen recording, the terminal,
   calls into the bar). Not a module: parts `import` it.
 
@@ -257,11 +269,16 @@ devices (`quickshell/virtual-devices.patch`).
 - `wt/`: feature-scoped multi-repo workspaces (see its README). Installed by the `work` group.
 - `omp-panel/`: the floating picker (zellij normal-mode `a`, or niri `Mod+A`/`Mod+BackSpace` in its own
   floating kitty window, app-id `omp-panel`) over every omp in every zellij session, fed by
-  `ai/omp/extensions/omp-panel.ts`. Per omp: state and time in it, title, the running tool while working, git
-  branch/ahead/behind/dirty, model, context %, whether a client shows it. Below the list, the selected omp's
-  conversation, read from the tail of its session file along the current branch (tool runs folded into one line),
-  opened on the last question; `^u`/`^d` scroll back. `s` switches between by-session and
-  by-priority order (kept in `~/.local/state/omp-panel/sort`), Tab goes to the next blocked/done one (layout
+  `ai/omp/extensions/omp-panel.ts`. On the left, one tree: every live session (its colour dot, the rollup of
+  its omps), its omps under it. `J`/`K` reorder the selected row's session, space folds it (its omps leave the
+  list, Tab skips them; `h`/`l` fold, unfold and move between a session and its omps), `c`/`C` cycle its
+  colour (`zellij-sessions`' registry, shared with niri and the bar). Enter on an omp jumps to it, on a
+  session opens it. Per omp: state and time in it, title, tab, the running tool while working, else the start
+  of its last reply. On the right, framed in the session's colour, the selected omp's conversation (on a
+  session, its first omp's), read from the tail of its session file along the current branch (tool runs
+  folded into one line), opened on the last question, with cwd and git branch/ahead/behind/dirty above, model,
+  context % and whether a client shows it below; `^u`/`^d` scroll back. `s` switches between the tree and one
+  list by priority (kept in `~/.local/state/omp-panel/sort`), Tab goes to the next blocked/done one (layout
   borrowed from herdr's sidebar). `omp-panel panes` (normal-mode `z`) lists every
   pane of every session with the command in its foreground, read from /proc (the pane's process carries
   `ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`, its terminal's foreground group is what runs), filtered as you type

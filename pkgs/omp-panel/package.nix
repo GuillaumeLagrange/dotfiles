@@ -14,15 +14,20 @@ in
 rustPlatform.buildRustPackage {
   pname = "omp-panel";
   version = "0.1.0";
+  # With pkgs/zellij-sessions, a path dependency.
   src = lib.fileset.toSource {
-    root = ./.;
+    root = ../.;
     fileset = lib.fileset.unions [
       ./src
       ./tests
       ./Cargo.toml
       ./Cargo.lock
+      ../zellij-sessions/src
+      ../zellij-sessions/Cargo.toml
     ];
   };
+  cargoRoot = "omp-panel";
+  buildAndTestSubdir = "omp-panel";
   cargoLock.lockFile = ./Cargo.lock;
 
   nativeBuildInputs = [ makeWrapper ];

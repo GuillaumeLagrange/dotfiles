@@ -74,7 +74,9 @@ fn session_window(session: &str) -> Result<Option<u64>> {
         .map(|w| w.id))
 }
 
-pub fn jump(session: &str, pane: u32, launcher: &Launcher) -> Result<()> {
+/// Show `session`, on `pane` when given.
+pub fn jump(session: &str, pane: Option<u32>, launcher: &Launcher) -> Result<()> {
+    let focus = || pane.map_or(Ok(()), |pane| zellij::focus_pane(session, pane));
     // niri needs its socket, which only processes under a niri session inherit.
     if std::env::var_os("NIRI_SOCKET").is_some() {
         match session_window(session)? {
@@ -86,20 +88,20 @@ pub fn jump(session: &str, pane: u32, launcher: &Launcher) -> Result<()> {
                 args.extend(launcher.term_exec.iter().map(String::as_str));
                 args.extend([launcher.attach.as_str(), session]);
                 niri(&args)?;
-                if !zellij::wait_for_client(session, Duration::from_secs(10)) {
+                if pane.is_some() && !zellij::wait_for_client(session, Duration::from_secs(10)) {
                     bail!("no window attached to `{session}`");
                 }
             }
         }
-        return zellij::focus_pane(session, pane);
+        return focus();
     }
 
     match std::env::var("ZELLIJ_SESSION_NAME") {
-        Ok(current) if current == session => zellij::focus_pane(session, pane),
+        Ok(current) if current == session => focus(),
         Ok(_) => zellij::switch_session(session, pane),
         // A bare terminal, over ssh say: become the session's client.
         Err(_) => {
-            zellij::focus_pane(session, pane)?;
+            focus()?;
             Err(Command::new(&launcher.attach).arg(session).exec()).context("attaching")
         }
     }

@@ -385,5 +385,8 @@ in
       debug {
         honor-xdg-activation-with-invalid-serial
       }
+
+      // Each zellij session's terminals bordered in its colour, written by zellij-sessions.
+      include optional=true "${config.xdg.stateHome}/zellij-sessions/niri.kdl"
     '';
 }

@@ -9,6 +9,7 @@
   git,
   zellij,
   mux-name,
+  zellij-sessions,
 }:
 
 let
@@ -20,6 +21,7 @@ let
     git
     zellij
     mux-name
+    zellij-sessions
   ];
 in
 rustPlatform.buildRustPackage {

@@ -63,3 +63,8 @@ repos:
         name: reviews (cargo fmt, clippy)
         entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/reviews
         files: ^pkgs/reviews/
+      - <<: *rust
+        id: rust-zellij-sessions
+        name: zellij-sessions (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/zellij-sessions
+        files: ^pkgs/zellij-sessions/

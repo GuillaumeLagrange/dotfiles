@@ -13,6 +13,7 @@
   coreutils,
   util-linux,
   libnotify,
+  zellij-sessions,
 }:
 
 writeShellApplication {
@@ -30,6 +31,7 @@ writeShellApplication {
     coreutils
     util-linux
     libnotify
+    zellij-sessions
   ];
   text = builtins.readFile ./review.sh;
 }

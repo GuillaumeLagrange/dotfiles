@@ -1,11 +1,12 @@
 # Attach to a zellij session by name, creating it if needed. With --focus, focus the
 # window already showing it, or open one. Run from a floating picker window (zsm,
 # review), it opens the session in a window of its own. A session wt knows starts
-# with its WORKSPACE_ROOT.
+# with its WORKSPACE_ROOT, and every session on its colour's config (zellij-sessions).
 {
   writeShellScriptBin,
   jq,
   zellij,
+  zellij-sessions,
 }:
 
 writeShellScriptBin "zellij-attach" ''
@@ -61,10 +62,15 @@ writeShellScriptBin "zellij-attach" ''
   }
   create=()
   listed || create=(--create)
+  # A live session keeps the config it was started on; this one is for starting or
+  # resurrecting it.
+  config=()
+  cfg=$(${zellij-sessions}/bin/zellij-sessions config "$session" 2>/dev/null) || cfg=""
+  [[ -z "$cfg" ]] || config=(--config "$cfg")
   exec 3>&1
   for _ in 1 2 3 4 5; do
     # stderr is read to tell that case apart; the terminal keeps stdout through fd 3.
-    err=$(${zellij}/bin/zellij attach "''${create[@]}" "$session" 2>&1 1>&3)
+    err=$(${zellij}/bin/zellij "''${config[@]}" attach "''${create[@]}" "$session" 2>&1 1>&3)
     status=$?
     if ((status == 0)) || [[ "$err" != *"No session with the name"* ]]; then
       break

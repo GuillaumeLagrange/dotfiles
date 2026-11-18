@@ -115,9 +115,23 @@ pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<b
 }
 
 /// Start a session's server without attaching to it, which is what puts the root
-/// in its environment. Creates the session, or resurrects it if zellij kept it.
+/// in its environment. Creates the session, or resurrects it if zellij kept it,
+/// on the config of its colour when `zellij-sessions` gives one.
 pub fn start_detached(name: &str, root: &Path) -> Result<()> {
-    let out = run(&["attach", "--create-background", name], Some(root))?;
+    let config = Command::new("zellij-sessions")
+        .args(["config", name])
+        .stdin(Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+        .filter(|path| !path.is_empty());
+    let mut args = Vec::new();
+    if let Some(config) = &config {
+        args.extend(["--config", config.as_str()]);
+    }
+    args.extend(["attach", "--create-background", name]);
+    let out = run(&args, Some(root))?;
     if !out.ok() {
         return Err(anyhow!("could not start `{name}`: {}", out.stderr.trim()));
     }

@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-crates := "pkgs/wt pkgs/niri-state pkgs/omp-panel pkgs/reviews modules/desktop/quickshell/tests"
+crates := "pkgs/wt pkgs/niri-state pkgs/omp-panel pkgs/reviews pkgs/zellij-sessions modules/desktop/quickshell/tests"
 
 # Lint and test everything
 check: lint test

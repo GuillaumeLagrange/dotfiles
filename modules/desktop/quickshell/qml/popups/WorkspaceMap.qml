@@ -150,8 +150,13 @@ PopupPanel {
                                 height: 32
                             }
 
-                            // The window's icon and title, along the bottom.
+                            // The window's icon and title, along the bottom, under a
+                            // line in the colour of the zellij session it shows.
                             Rectangle {
+                                id: caption
+
+                                readonly property string tint: Sessions.windowColor(tile.modelData.id)
+
                                 anchors.left: face.left
                                 anchors.right: face.right
                                 anchors.bottom: face.bottom
@@ -160,11 +165,29 @@ PopupPanel {
                                 bottomRightRadius: face.radius
                                 color: Theme.alpha("#000000", 0.7)
 
+                                Rectangle {
+                                    visible: caption.tint !== ""
+                                    width: parent.width
+                                    height: 2
+                                    color: caption.tint || "transparent"
+                                }
+
                                 Row {
                                     anchors.fill: parent
                                     anchors.leftMargin: 5
                                     anchors.rightMargin: 5
                                     spacing: 5
+
+                                    Rectangle {
+                                        id: captionDot
+
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        visible: caption.tint !== ""
+                                        width: 8
+                                        height: 8
+                                        radius: 4
+                                        color: caption.tint || "transparent"
+                                    }
 
                                     Image {
                                         id: captionIcon
@@ -180,7 +203,7 @@ PopupPanel {
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - (captionIcon.visible ? captionIcon.width + parent.spacing : 0)
+                                        width: parent.width - (captionIcon.visible ? captionIcon.width + parent.spacing : 0) - (captionDot.visible ? captionDot.width + parent.spacing : 0)
                                         text: Niri.windowTitles[tile.modelData.id] || tile.modelData.app
                                         elide: Text.ElideRight
                                         color: Theme.fg

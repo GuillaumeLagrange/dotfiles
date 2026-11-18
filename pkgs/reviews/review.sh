@@ -310,9 +310,13 @@ if ! has_client; then
   fi
   # The server is started on its own first, as wt does: forked by the temporary client, it could
   # die with that client when it is killed. It starts in the session's root with it in its
-  # environment, as zellij-attach does. Panes inherit the server's TERM, unset when run from the bar.
+  # environment and on its colour's config, as zellij-attach does. Panes inherit the server's TERM,
+  # unset when run from the bar.
   if ! live; then
-    (cd -- "$root" && WORKSPACE_ROOT="$root" TERM=xterm-256color zellij attach --create-background "$session") >/dev/null || {
+    config=()
+    cfg=$(zellij-sessions config "$session" 2>/dev/null) || cfg=""
+    [[ -z "$cfg" ]] || config=(--config "$cfg")
+    (cd -- "$root" && WORKSPACE_ROOT="$root" TERM=xterm-256color zellij "${config[@]}" attach --create-background "$session") >/dev/null || {
       echo "review: could not start zellij session $session" >&2
       exit 1
     }

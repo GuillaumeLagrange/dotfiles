@@ -23,7 +23,7 @@ use anyhow::{bail, Context, Result};
 use state::{now_ms, Status, Store};
 
 fn go(session: &str, pane: u32) -> Result<()> {
-    jump::jump(session, pane, &jump::Launcher::from_env()?)?;
+    jump::jump(session, Some(pane), &jump::Launcher::from_env()?)?;
     Store::from_env()
         .mark_viewed(session, pane, now_ms())
         .context("recording the pane as viewed")
@@ -87,18 +87,19 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     match args.as_slice() {
-        [] => {
-            if let Some((session, pane)) = tui::pick()? {
-                go(&session, pane)?;
+        [] => match tui::pick()? {
+            Some(tui::Pick::Pane(session, pane)) => go(&session, pane),
+            Some(tui::Pick::Session(session)) => {
+                jump::jump(&session, None, &jump::Launcher::from_env()?)
             }
-            Ok(())
-        }
+            None => Ok(()),
+        },
         ["list"] => list(false),
         ["list", "--json"] => list(true),
         ["jump", session, pane] => go(session, pane.parse().context("pane must be a number")?),
         ["panes"] => {
             if let Some((session, pane)) = pane_picker::pick()? {
-                jump::jump(&session, pane, &jump::Launcher::from_env()?)?;
+                jump::jump(&session, Some(pane), &jump::Launcher::from_env()?)?;
             }
             Ok(())
         }

@@ -27,7 +27,8 @@ qml/
                 tabs of PRs and their stacks, from `reviews --json`), TrayOrder
                 (the tray's drawer and pinned icons, in order), StartPins (the
                 start menu's pins), Displays (saved display setups, through
-                `niri-displays`).
+                `niri-displays`), Sessions (each zellij session's colour, from
+                zellij-sessions' files, for the strip's and the map's dots).
   bar/          Bar.qml plus one file per widget; StartCorner is the start
                 menu's hot corner.
   popups/       NowPlaying, Calendar, ControlCenter (with DisplaySetups),

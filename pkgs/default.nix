@@ -59,6 +59,9 @@
       reviews = final.callPackage ./reviews/package.nix rust;
       wt = final.callPackage ./wt/package.nix (rust // { zellij = final.unstable.zellij; });
       zellij-attach = final.callPackage ./zellij-attach/package.nix { zellij = final.unstable.zellij; };
+      zellij-sessions = final.callPackage ./zellij-sessions/package.nix (
+        rust // { zellij = final.unstable.zellij; }
+      );
     };
 
   perSystem =
@@ -81,6 +84,7 @@
           reviews
           wt
           zellij-attach
+          zellij-sessions
           ;
         inherit (pkgs.cargoTools) linear;
       };

@@ -1,8 +1,10 @@
-//! The floating picker: sessions and their omp panes, the selected pane's
-//! conversation below, Enter to jump.
+//! The floating picker: on the left, every zellij session in its colour, order
+//! and folding (zellij-sessions) with its omp panes under it; on the right, the
+//! selected pane's conversation. Enter jumps to the pane, or opens the session.
 
 use std::cell::{Cell, RefCell};
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc;
@@ -10,7 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Padding, Paragraph};
@@ -21,6 +23,7 @@ use crate::markdown;
 use crate::state::{now_ms, Group, Row, Status, Store};
 use crate::transcript::{self, Entry};
 use crate::zellij;
+use zellij_sessions::{Registry, Swatch};
 
 const REFRESH: Duration = Duration::from_secs(1);
 const GIT_TTL: Duration = Duration::from_secs(5);
@@ -91,15 +94,11 @@ fn git_spans(git: &git::Git) -> Vec<Span<'static>> {
     spans
 }
 
-/// Branch, model, context use, and whether a client shows the pane: after the
-/// title, each part only when known.
+/// Model, context use, and whether a client shows the pane, each only when known.
 fn meta(row: &Row) -> Vec<Span<'static>> {
     let mut parts = Vec::new();
-    if let Some(git) = &row.git {
-        parts.push(git_spans(git));
-    }
     if let Some(model) = &row.model {
-        parts.push(vec![Span::styled(model.clone(), DIM)]);
+        parts.push(Span::styled(model.clone(), DIM));
     }
     if let Some(percent) = row.context_percent {
         let style = match percent {
@@ -107,16 +106,22 @@ fn meta(row: &Row) -> Vec<Span<'static>> {
             p if p >= 60.0 => Style::new().fg(Color::Yellow),
             _ => DIM,
         };
-        parts.push(vec![Span::styled(format!("{percent:.0}% ctx"), style)]);
+        parts.push(Span::styled(format!("{percent:.0}% ctx"), style));
     }
     if row.focused {
-        parts.push(vec![Span::styled("on screen", DIM)]);
+        parts.push(Span::styled("on screen", DIM));
     }
-    let mut spans = Vec::new();
+    if parts.is_empty() {
+        return Vec::new();
+    }
+    let mut spans = vec![Span::raw(" ")];
     for (i, part) in parts.into_iter().enumerate() {
-        spans.push(Span::styled(if i == 0 { "  " } else { " · " }, DIM));
-        spans.extend(part);
+        if i > 0 {
+            spans.push(Span::styled(" · ", DIM));
+        }
+        spans.push(part);
     }
+    spans.push(Span::raw(" "));
     spans
 }
 
@@ -216,27 +221,44 @@ fn render_conversation(entries: &[Entry], width: u16) -> (Vec<Line<'static>>, u1
     (lines, anchor as u16)
 }
 
-/// Selectable panes in display order, as (group, row) indexes.
-fn order(groups: &[Group], sort: Sort) -> Vec<(usize, usize)> {
-    let mut panes: Vec<(usize, usize)> = groups
-        .iter()
-        .enumerate()
-        .flat_map(|(g, group)| (0..group.panes.len()).map(move |r| (g, r)))
-        .collect();
-    if sort == Sort::Priority {
-        panes.sort_by_key(|&(g, r)| {
-            let row = &groups[g].panes[r];
-            (Reverse(row.status), Reverse(row.state_since))
-        });
+/// What the picker hands back: a pane to jump to, or a whole session to open.
+pub enum Pick {
+    Pane(String, u32),
+    Session(String),
+}
+
+/// A row of the list: a session's header, or one of its omp panes.
+#[derive(Clone, PartialEq, Eq, Debug)]
+enum Item {
+    Session(String),
+    Pane(String, u32),
+}
+
+impl Item {
+    fn session(&self) -> &str {
+        match self {
+            Item::Session(s) | Item::Pane(s, _) => s,
+        }
     }
-    panes
+}
+
+/// One refresh: the omp panes, and every live session, with or without one.
+#[derive(Clone)]
+struct Snapshot {
+    groups: Vec<Group>,
+    sessions: Vec<String>,
 }
 
 struct App {
     groups: Vec<Group>,
+    /// Live sessions, in the registry's order.
+    sessions: Vec<String>,
+    looks: zellij_sessions::Store,
+    registry: Registry,
+    palette: Vec<Swatch>,
     sort: Sort,
-    /// Kept by identity so a refresh that adds or drops panes does not move it.
-    selected: Option<(String, u32)>,
+    /// Kept by identity so a refresh that adds or drops rows does not move it.
+    selected: Option<Item>,
     /// The selected conversation as last rendered: drawing runs several times a
     /// second and the session file changes far less often.
     detail: RefCell<Option<Detail>>,
@@ -245,78 +267,242 @@ struct App {
     top: Cell<u16>,
     page: Cell<u16>,
     pinned: Cell<Option<u16>>,
+    error: Option<String>,
 }
 
 impl App {
-    fn update(&mut self, groups: Vec<Group>) {
-        let keep = self.selected.as_ref().is_some_and(|(s, p)| {
-            groups
-                .iter()
-                .any(|g| &g.session == s && g.panes.iter().any(|r| r.pane_id == *p))
-        });
-        self.groups = groups;
-        if !keep {
-            // Start on what most needs attention.
-            let panes = order(&self.groups, self.sort);
-            let start = [Status::Blocked, Status::Done]
-                .iter()
-                .find_map(|want| {
-                    panes
-                        .iter()
-                        .find(|&&(g, r)| self.groups[g].panes[r].status == *want)
-                })
-                .or(panes.first())
-                .copied();
-            self.selected = start.map(|(g, r)| self.id(g, r));
+    fn new(sort: Sort) -> Self {
+        let looks = zellij_sessions::Store::from_env();
+        Self {
+            groups: Vec::new(),
+            sessions: Vec::new(),
+            registry: looks.load(),
+            palette: looks.palette(),
+            looks,
+            sort,
+            selected: None,
+            detail: RefCell::new(None),
+            top: Cell::new(0),
+            page: Cell::new(0),
+            pinned: Cell::new(None),
+            error: None,
         }
     }
 
-    fn id(&self, g: usize, r: usize) -> (String, u32) {
-        (
-            self.groups[g].session.clone(),
-            self.groups[g].panes[r].pane_id,
-        )
+    fn update(&mut self, snapshot: Snapshot) {
+        self.registry = self.looks.load();
+        self.groups = snapshot.groups;
+        self.sessions = snapshot.sessions;
+        self.arrange();
     }
 
-    fn select(&mut self, g: usize, r: usize) {
-        let next = Some(self.id(g, r));
-        if next != self.selected {
+    /// Sessions and their groups in the registry's order, then a selection that
+    /// is still on screen.
+    fn arrange(&mut self) {
+        for group in &self.groups {
+            if !self.sessions.contains(&group.session) {
+                self.sessions.push(group.session.clone());
+            }
+        }
+        self.registry.sort(&mut self.sessions);
+        let place: HashMap<&str, usize> = self
+            .sessions
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.as_str(), i))
+            .collect();
+        self.groups
+            .sort_by_key(|g| place.get(g.session.as_str()).copied());
+
+        let rows = self.rows();
+        if self.selected.as_ref().is_some_and(|s| rows.contains(s)) {
+            return;
+        }
+        // A pane that went or was folded away leaves the selection on its session.
+        let header = self
+            .selected
+            .as_ref()
+            .map(|s| Item::Session(s.session().to_owned()))
+            .filter(|h| rows.contains(h));
+        // Otherwise start on what most needs attention.
+        let urgent = || {
+            [Status::Blocked, Status::Done].iter().find_map(|want| {
+                rows.iter()
+                    .find(|item| self.status(item) == Some(*want))
+                    .cloned()
+            })
+        };
+        let next = header.or_else(urgent).or_else(|| rows.first().cloned());
+        self.select(next);
+    }
+
+    fn collapsed(&self, session: &str) -> bool {
+        self.registry.collapsed(session)
+    }
+
+    fn color(&self, session: &str) -> Option<Color> {
+        let (r, g, b) = self.registry.swatch(session, &self.palette)?.rgb()?;
+        Some(Color::Rgb(r, g, b))
+    }
+
+    /// The session's mark: a dot in its colour.
+    fn dot(&self, session: &str) -> Span<'static> {
+        match self.color(session) {
+            Some(color) => Span::styled("● ", Style::new().fg(color)),
+            None => Span::styled("○ ", DIM),
+        }
+    }
+
+    fn group(&self, session: &str) -> Option<&Group> {
+        self.groups.iter().find(|g| g.session == session)
+    }
+
+    fn pane(&self, session: &str, pane: u32) -> Option<(&Group, &Row)> {
+        let group = self.group(session)?;
+        Some((group, group.panes.iter().find(|r| r.pane_id == pane)?))
+    }
+
+    /// A pane's status; None for a session header.
+    fn status(&self, item: &Item) -> Option<Status> {
+        match item {
+            Item::Pane(s, p) => self.pane(s, *p).map(|(_, row)| row.status),
+            Item::Session(_) => None,
+        }
+    }
+
+    /// The list in display order. By session: each session, then its panes unless
+    /// folded. By priority: the panes alone, folded sessions' left out.
+    fn rows(&self) -> Vec<Item> {
+        match self.sort {
+            Sort::Sessions => {
+                let mut rows = Vec::new();
+                for session in &self.sessions {
+                    rows.push(Item::Session(session.clone()));
+                    if self.collapsed(session) {
+                        continue;
+                    }
+                    if let Some(group) = self.group(session) {
+                        rows.extend(
+                            group
+                                .panes
+                                .iter()
+                                .map(|r| Item::Pane(session.clone(), r.pane_id)),
+                        );
+                    }
+                }
+                rows
+            }
+            Sort::Priority => {
+                let mut panes: Vec<&Row> = Vec::new();
+                let mut items = Vec::new();
+                for group in self.groups.iter().filter(|g| !self.collapsed(&g.session)) {
+                    for row in &group.panes {
+                        panes.push(row);
+                        items.push(Item::Pane(group.session.clone(), row.pane_id));
+                    }
+                }
+                let mut order: Vec<usize> = (0..items.len()).collect();
+                order.sort_by_key(|&i| (Reverse(panes[i].status), Reverse(panes[i].state_since)));
+                order.into_iter().map(|i| items[i].clone()).collect()
+            }
+        }
+    }
+
+    fn select(&mut self, item: Option<Item>) {
+        if item != self.selected {
             self.pinned.set(None);
         }
-        self.selected = next;
-    }
-
-    fn position(&self, panes: &[(usize, usize)]) -> Option<usize> {
-        let (session, pane) = self.selected.as_ref()?;
-        panes.iter().position(|&(g, r)| {
-            &self.groups[g].session == session && self.groups[g].panes[r].pane_id == *pane
-        })
+        self.selected = item;
     }
 
     fn step(&mut self, delta: isize) {
-        let panes = order(&self.groups, self.sort);
-        if panes.is_empty() {
+        let rows = self.rows();
+        if rows.is_empty() {
             return;
         }
-        let at = self.position(&panes).unwrap_or(0) as isize;
-        let (g, r) = panes[(at + delta).clamp(0, panes.len() as isize - 1) as usize];
-        self.select(g, r);
+        let at = self
+            .selected
+            .as_ref()
+            .and_then(|s| rows.iter().position(|r| r == s))
+            .unwrap_or(0) as isize;
+        let to = (at + delta).clamp(0, rows.len() as isize - 1) as usize;
+        self.select(Some(rows[to].clone()));
     }
 
     /// The next blocked or done pane after the selection, wrapping around.
     fn next_needing_you(&mut self) {
-        let panes = order(&self.groups, self.sort);
-        let start = self.position(&panes).map_or(0, |at| at + 1);
-        let next = (0..panes.len())
-            .map(|i| panes[(start + i) % panes.len()])
-            .find(|&(g, r)| {
-                matches!(
-                    self.groups[g].panes[r].status,
-                    Status::Blocked | Status::Done
-                )
-            });
-        if let Some((g, r)) = next {
-            self.select(g, r);
+        let rows = self.rows();
+        let start = self
+            .selected
+            .as_ref()
+            .and_then(|s| rows.iter().position(|r| r == s))
+            .map_or(0, |at| at + 1);
+        let next = (0..rows.len())
+            .map(|i| &rows[(start + i) % rows.len()])
+            .find(|item| matches!(self.status(item), Some(Status::Blocked | Status::Done)))
+            .cloned();
+        if next.is_some() {
+            self.select(next);
+        }
+    }
+
+    /// Left: from a pane to its session, from an open session to folding it.
+    fn left(&mut self) {
+        match self.selected.clone() {
+            Some(Item::Pane(session, _)) if self.sort == Sort::Sessions => {
+                self.select(Some(Item::Session(session)))
+            }
+            Some(Item::Session(session)) if !self.collapsed(&session) => self.toggle_collapsed(),
+            _ => {}
+        }
+    }
+
+    /// Right: unfold a folded session, or go into an open one's first pane.
+    fn right(&mut self) {
+        let Some(Item::Session(session)) = self.selected.clone() else {
+            return;
+        };
+        if self.collapsed(&session) {
+            self.toggle_collapsed();
+        } else if let Some(row) = self.group(&session).and_then(|g| g.panes.first()) {
+            let pane = Item::Pane(session, row.pane_id);
+            self.select(Some(pane));
+        }
+    }
+
+    /// Change the registry, then lay everything out again by it.
+    fn change(&mut self, change: impl FnOnce(&mut Registry, &[Swatch], &[String])) {
+        let sessions = self.sessions.clone();
+        match self
+            .looks
+            .update(|registry, palette| change(registry, palette, &sessions))
+        {
+            Ok(()) => self.error = None,
+            Err(e) => self.error = Some(format!("saving the sessions: {e}")),
+        }
+        self.registry = self.looks.load();
+        self.arrange();
+    }
+
+    fn current_session(&self) -> Option<String> {
+        self.selected.as_ref().map(|s| s.session().to_owned())
+    }
+
+    fn move_session(&mut self, delta: isize) {
+        if let Some(name) = self.current_session() {
+            self.change(|r, _, shown| r.move_among(&name, delta, shown));
+        }
+    }
+
+    fn toggle_collapsed(&mut self) {
+        if let Some(name) = self.current_session() {
+            self.change(|r, _, _| r.toggle_collapsed(&name));
+        }
+    }
+
+    fn cycle_color(&mut self, step: isize) {
+        if let Some(name) = self.current_session() {
+            self.change(|r, palette, _| r.cycle_color(&name, palette, step));
         }
     }
 
@@ -326,6 +512,7 @@ impl App {
             Sort::Priority => Sort::Sessions,
         };
         self.sort.save();
+        self.arrange();
     }
 
     /// Scroll the conversation by half pages; drawing clamps it to the end.
@@ -335,60 +522,17 @@ impl App {
         self.pinned.set(Some(next as u16));
     }
 
-    fn selected_row(&self) -> Option<(&Group, &Row)> {
-        let (session, pane) = self.selected.as_ref()?;
-        let group = self.groups.iter().find(|g| &g.session == session)?;
-        Some((group, group.panes.iter().find(|r| r.pane_id == *pane)?))
-    }
-
-    /// Where a pane is: its tab, prefixed by its session when no header says it.
-    fn label(&self, group: &Group, row: &Row) -> String {
-        match self.sort {
-            Sort::Sessions => row.tab.clone(),
-            Sort::Priority => format!("{} › {}", group.session, row.tab),
-        }
-    }
-
-    fn pane_item(
-        &self,
-        group: &Group,
-        row: &Row,
-        label_width: usize,
-        selected: bool,
-        now: u64,
-    ) -> ListItem<'static> {
-        // A bar down both lines rather than reversed video, which turns every
-        // coloured span of a two-line entry into a block.
-        let bar = || match selected {
-            true => Span::styled("▌ ", Style::new().fg(ACCENT)),
-            false => Span::raw("  "),
-        };
-        let (icon, st) = style(row.status);
-        let title = match row.title.as_deref() {
-            Some(title) => {
-                let mut style = Style::new().add_modifier(Modifier::BOLD);
-                if selected {
-                    style = style.fg(ACCENT);
-                }
-                Span::styled(title.to_owned(), style)
+    /// The pane whose conversation is shown: the selected one, or on a session
+    /// header, that session's first.
+    fn shown_pane(&self) -> Option<(&Group, &Row)> {
+        match self.selected.as_ref()? {
+            Item::Pane(s, p) => self.pane(s, *p),
+            Item::Session(s) if !self.collapsed(s) => {
+                let group = self.group(s)?;
+                Some((group, group.panes.first()?))
             }
-            None => Span::styled("untitled", DIM.add_modifier(Modifier::ITALIC)),
-        };
-        let label = self.label(group, row);
-        let pad = label_width.saturating_sub(label.chars().count());
-        let mut head = vec![
-            bar(),
-            Span::styled(format!("{icon} "), st),
-            Span::raw(format!("{label}{}  ", " ".repeat(pad))),
-            // How long it has been in its state.
-            Span::styled(format!("{:>3}  ", age(row.state_since, now)), DIM),
-            title,
-        ];
-        head.extend(meta(row));
-        let indent = 2 + label_width + 2 + 3 + 2;
-        let mut body = vec![bar(), Span::raw(" ".repeat(indent))];
-        body.extend(summary(row));
-        ListItem::new(vec![Line::from(head), Line::from(body)])
+            Item::Session(_) => None,
+        }
     }
 
     /// Panes by state, as herdr rolls them up: what needs you first.
@@ -415,211 +559,341 @@ impl App {
             }
         }
         if spans.len() == 1 {
-            spans.push(Span::raw("agents"));
+            spans.push(Span::raw("sessions"));
         }
         spans.push(Span::raw(" "));
         Line::from(spans)
     }
 
-    fn draw(&self, frame: &mut ratatui::Frame) {
-        let now = now_ms();
-        let panes = order(&self.groups, self.sort);
-        // The list only as tall as its rows, up to half: the reply below is what
-        // there is to read. A session header is one row, a pane two.
-        let headers = match self.sort {
-            Sort::Sessions => self.groups.len(),
-            Sort::Priority => 0,
+    /// A session header: fold mark, dot, name, and the rollup of its omps.
+    fn session_item(&self, session: &str, selected: bool, width: usize) -> ListItem<'static> {
+        let collapsed = self.collapsed(session);
+        let bar = match selected {
+            true => Span::styled("▌", Style::new().fg(ACCENT)),
+            false => Span::raw(" "),
         };
-        let rows = headers + 2 * panes.len();
-        let list_height = (rows.max(1) as u16 + 2).min(frame.area().height / 2);
-        let [list_area, detail_area, help_area] = Layout::vertical([
-            Constraint::Length(list_height),
-            Constraint::Min(4),
-            Constraint::Length(1),
-        ])
-        .areas(frame.area());
-        let boxed = |title: Line<'static>| {
-            Block::bordered()
-                .border_type(BorderType::Rounded)
-                .border_style(DIM)
-                // Otherwise the title takes the border's grey.
-                .title_style(Style::new().fg(Color::Reset))
-                .title(title)
+        let group = self.group(session);
+        let fold = match (group.is_some(), collapsed) {
+            (_, true) => "▸ ",
+            (true, false) => "▾ ",
+            (false, false) => "  ",
         };
-
-        let current = self
-            .selected_row()
-            .map(|(g, r)| (g.session.as_str(), r.pane_id));
-        let is_selected =
-            |group: &Group, row: &Row| current == Some((group.session.as_str(), row.pane_id));
-        let mut items = Vec::new();
-        let mut highlight = None;
-        match self.sort {
-            Sort::Sessions => {
-                for group in &self.groups {
-                    let (icon, st) = style(group.status);
-                    items.push(ListItem::new(Line::from(vec![
-                        Span::styled(format!("{icon} "), st),
-                        Span::styled(
-                            group.session.clone(),
-                            Style::new().add_modifier(Modifier::BOLD),
-                        ),
-                    ])));
-                    let width = group
-                        .panes
-                        .iter()
-                        .map(|r| self.label(group, r).chars().count())
-                        .max()
-                        .unwrap_or(0);
-                    for row in &group.panes {
-                        let selected = is_selected(group, row);
-                        if selected {
-                            highlight = Some(items.len());
-                        }
-                        items.push(self.pane_item(group, row, width, selected, now));
-                    }
-                }
-            }
-            Sort::Priority => {
-                let width = panes
-                    .iter()
-                    .map(|&(g, r)| {
-                        let group = &self.groups[g];
-                        self.label(group, &group.panes[r]).chars().count()
-                    })
-                    .max()
-                    .unwrap_or(0);
-                for &(g, r) in &panes {
-                    let (group, row) = (&self.groups[g], &self.groups[g].panes[r]);
-                    let selected = is_selected(group, row);
-                    if selected {
-                        highlight = Some(items.len());
-                    }
-                    items.push(self.pane_item(group, row, width, selected, now));
-                }
-            }
+        let mut name = Style::new().add_modifier(Modifier::BOLD);
+        if collapsed {
+            name = name.patch(DIM);
+        } else if selected {
+            name = name.fg(ACCENT);
         }
+        let rollup = group.map(|g| {
+            let (icon, st) = style(g.status);
+            let n = g.panes.len();
+            Span::styled(
+                if n > 1 {
+                    format!("{icon}{n}")
+                } else {
+                    icon.to_owned()
+                },
+                st,
+            )
+        });
+        // Bar, fold mark, dot, and a space before the rollup.
+        let used = 1 + 2 + 2 + rollup.as_ref().map_or(0, |s| s.width() + 1);
+        let room = width.saturating_sub(used);
+        let mut shown: String = session.chars().take(room).collect();
+        if session.chars().count() > room && room > 0 {
+            shown.pop();
+            shown.push('…');
+        }
+        let pad = room.saturating_sub(shown.chars().count());
+        let mut spans = vec![
+            bar,
+            Span::styled(fold, DIM),
+            self.dot(session),
+            Span::styled(shown, name),
+            Span::raw(" ".repeat(pad + 1)),
+        ];
+        spans.extend(rollup);
+        ListItem::new(Line::from(spans))
+    }
+
+    /// An omp pane, on two lines: status, age and title; then where it is and
+    /// what it last said. Under its session's header, or with its dot when
+    /// there is none.
+    fn pane_item(&self, group: &Group, row: &Row, selected: bool, now: u64) -> ListItem<'static> {
+        // A bar down both lines rather than reversed video, which turns every
+        // coloured span of a two-line entry into a block.
+        let bar = || match selected {
+            true => Span::styled("▌", Style::new().fg(ACCENT)),
+            false => Span::raw(" "),
+        };
+        let lead = || match self.sort {
+            Sort::Sessions => Span::raw("    "),
+            Sort::Priority => Span::raw(" "),
+        };
+        let (icon, st) = style(row.status);
+        let title = match row.title.as_deref() {
+            Some(title) => {
+                let mut style = Style::new();
+                if selected {
+                    style = style.fg(ACCENT).add_modifier(Modifier::BOLD);
+                }
+                Span::styled(title.to_owned(), style)
+            }
+            None => Span::styled("untitled", DIM.add_modifier(Modifier::ITALIC)),
+        };
+        let mut head = vec![bar(), lead()];
+        if self.sort == Sort::Priority {
+            head.push(self.dot(&group.session));
+        }
+        head.extend([
+            Span::styled(format!("{icon} "), st),
+            // How long it has been in its state.
+            Span::styled(format!("{:>3} ", age(row.state_since, now)), DIM),
+            title,
+        ]);
+        let place = match self.sort {
+            Sort::Sessions => row.tab.clone(),
+            Sort::Priority => format!("{} › {}", group.session, row.tab),
+        };
+        let mut body = vec![
+            bar(),
+            lead(),
+            Span::raw(if self.sort == Sort::Priority {
+                "    "
+            } else {
+                "  "
+            }),
+            Span::styled(format!("{place} · "), DIM),
+        ];
+        body.extend(summary(row));
+        ListItem::new(vec![Line::from(head), Line::from(body)])
+    }
+
+    fn draw(&self, frame: &mut ratatui::Frame) {
+        let [body, help_area] =
+            Layout::vertical([Constraint::Min(4), Constraint::Length(1)]).areas(frame.area());
+        let list_width = (body.width * 2 / 5).clamp(32.min(body.width), 64);
+        let [list_area, detail_area] =
+            Layout::horizontal([Constraint::Length(list_width), Constraint::Min(20)]).areas(body);
+        self.draw_list(frame, list_area);
+        self.draw_detail(frame, detail_area);
+
+        let help = match &self.error {
+            Some(error) => Line::styled(error.clone(), style(Status::Blocked).1),
+            None => Line::styled(
+                "enter jump · tab next needing you · space/h/l fold · J/K reorder · c/C colour · s sort · ^d/^u scroll · q quit",
+                DIM,
+            ),
+        };
+        frame.render_widget(Paragraph::new(help), help_area);
+    }
+
+    fn draw_list(&self, frame: &mut ratatui::Frame, area: Rect) {
+        let now = now_ms();
         let sort_name = match self.sort {
             Sort::Sessions => " by session ",
             Sort::Priority => " by priority ",
         };
-        let list_block = boxed(self.counts()).title(Line::styled(sort_name, DIM).right_aligned());
+        let block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(DIM)
+            .title_style(Style::new().fg(Color::Reset))
+            .title(self.counts())
+            .title_bottom(Line::styled(sort_name, DIM).right_aligned());
+        let width = block.inner(area).width as usize;
+        let rows = self.rows();
+        let highlight = self
+            .selected
+            .as_ref()
+            .and_then(|s| rows.iter().position(|r| r == s));
+        let items: Vec<ListItem> = rows
+            .iter()
+            .map(|item| {
+                let selected = self.selected.as_ref() == Some(item);
+                match item {
+                    Item::Session(s) => self.session_item(s, selected, width),
+                    Item::Pane(s, p) => match self.pane(s, *p) {
+                        Some((group, row)) => self.pane_item(group, row, selected, now),
+                        None => ListItem::new(""),
+                    },
+                }
+            })
+            .collect();
         if items.is_empty() {
             frame.render_widget(
-                Paragraph::new("No omp running in any zellij session.")
-                    .style(DIM)
-                    .block(list_block),
-                list_area,
+                Paragraph::new("No zellij session.").style(DIM).block(block),
+                area,
             );
-        } else {
-            // Selection only drives scrolling; it is drawn by the bar.
-            let list = List::new(items).block(list_block);
-            let mut state = ListState::default().with_selected(highlight);
-            frame.render_stateful_widget(list, list_area, &mut state);
+            return;
         }
+        // Selection only drives scrolling; it is drawn by the bar.
+        let list = List::new(items).block(block);
+        let mut state = ListState::default().with_selected(highlight);
+        frame.render_stateful_widget(list, area, &mut state);
+    }
 
-        if let Some((group, row)) = self.selected_row() {
-            let bold = Style::new().add_modifier(Modifier::BOLD);
-            let mut title = vec![Span::styled(
+    /// The shown pane's conversation, framed in its session's colour.
+    fn draw_detail(&self, frame: &mut ratatui::Frame, area: Rect) {
+        let framed = |title: Line<'static>, session: &str| {
+            let border = self.color(session).map_or(DIM, |c| Style::new().fg(c));
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(border)
+                .title_style(Style::new().fg(Color::Reset))
+                .title(title)
+                .padding(Padding::horizontal(1))
+        };
+        let Some((group, row)) = self.shown_pane() else {
+            if let Some(session) = self.current_session() {
+                let title = Line::from(vec![
+                    Span::raw(" "),
+                    self.dot(&session),
+                    Span::styled(
+                        format!("{session} "),
+                        Style::new().add_modifier(Modifier::BOLD),
+                    ),
+                ]);
+                let what = if self.collapsed(&session) {
+                    "Folded: space or l shows its omps. Enter opens the session."
+                } else {
+                    "No omp in this session. Enter opens it."
+                };
+                frame.render_widget(
+                    Paragraph::new(what)
+                        .style(DIM)
+                        .block(framed(title, &session)),
+                    area,
+                );
+            }
+            return;
+        };
+        let bold = Style::new().add_modifier(Modifier::BOLD);
+        let mut title = vec![
+            Span::raw(" "),
+            self.dot(&group.session),
+            Span::styled(
                 format!(
-                    " {} › {} · {} ",
+                    "{} › {} · {} ",
                     group.session,
                     row.tab,
                     home_relative(&row.cwd)
                 ),
                 bold,
-            )];
-            if let Some(git) = &row.git {
-                title.extend(git_spans(git));
-                title.push(Span::raw(" "));
-            }
-            let mut block = boxed(Line::from(title)).padding(Padding::horizontal(1));
-            let inner = block.inner(detail_area);
-            let width = inner.width;
-            let key = DetailKey {
-                session_file: row.session_file.as_ref().and_then(|path| {
-                    let meta = fs::metadata(path).ok()?;
-                    Some((path.clone(), meta.len(), meta.modified().ok()))
-                }),
-                last_message: row.last_message.clone(),
-                width,
-            };
-            let mut cache = self.detail.borrow_mut();
-            if !cache.as_ref().is_some_and(|d| d.key == key) {
-                let entries = key
-                    .session_file
-                    .as_ref()
-                    .and_then(|(path, ..)| transcript::read(path))
-                    .filter(|entries| !entries.is_empty())
-                    .unwrap_or_else(|| {
-                        row.last_message
-                            .iter()
-                            .cloned()
-                            .map(Entry::Assistant)
-                            .collect()
-                    });
-                let (lines, anchor) = render_conversation(&entries, width);
-                *cache = Some(Detail { key, lines, anchor });
-            }
-            let detail = cache.as_ref().expect("filled above");
-            let mut lines = detail.lines.clone();
-            // What it waits on comes last, after what led to it, and is shown first.
-            let blocked = row
-                .blocked_reason
-                .as_deref()
-                .filter(|_| row.status == Status::Blocked);
-            if let Some(reason) = blocked {
-                if !lines.is_empty() {
-                    lines.push(Line::raw(""));
-                }
-                for line in reason.lines() {
-                    lines.push(Line::styled(line.to_owned(), style(Status::Blocked).1));
-                }
-            }
-            let page = inner.height;
-            let total = lines.len() as u16;
-            let follow = if blocked.is_some() {
-                total
-            } else {
-                detail.anchor
-            };
-            let top = self
-                .pinned
-                .get()
-                .unwrap_or(follow)
-                .min(total.saturating_sub(page));
-            if self.pinned.get().is_some() {
-                self.pinned.set(Some(top));
-            }
-            self.top.set(top);
-            self.page.set(page);
-            if total > page {
-                let shown = format!(" {}-{}/{total} ", top + 1, (top + page).min(total));
-                block = block.title(Line::styled(shown, DIM).right_aligned());
-            }
-            frame.render_widget(
-                Paragraph::new(lines).block(block).scroll((top, 0)),
-                detail_area,
-            );
+            ),
+        ];
+        if let Some(git) = &row.git {
+            title.extend(git_spans(git));
+            title.push(Span::raw(" "));
         }
-
-        frame.render_widget(
-            Paragraph::new(
-                "enter jump · tab next needing you · s sort · j/k move · ^d/^u scroll · r refresh · q quit",
-            )
-            .style(DIM),
-            help_area,
-        );
+        let mut block = framed(Line::from(title), &group.session)
+            .title_bottom(Line::from(meta(row)).right_aligned());
+        let inner = block.inner(area);
+        let width = inner.width;
+        let key = DetailKey {
+            session_file: row.session_file.as_ref().and_then(|path| {
+                let meta = fs::metadata(path).ok()?;
+                Some((path.clone(), meta.len(), meta.modified().ok()))
+            }),
+            last_message: row.last_message.clone(),
+            width,
+        };
+        let mut cache = self.detail.borrow_mut();
+        if !cache.as_ref().is_some_and(|d| d.key == key) {
+            let entries = key
+                .session_file
+                .as_ref()
+                .and_then(|(path, ..)| transcript::read(path))
+                .filter(|entries| !entries.is_empty())
+                .unwrap_or_else(|| {
+                    row.last_message
+                        .iter()
+                        .cloned()
+                        .map(Entry::Assistant)
+                        .collect()
+                });
+            let (lines, anchor) = render_conversation(&entries, width);
+            *cache = Some(Detail { key, lines, anchor });
+        }
+        let detail = cache.as_ref().expect("filled above");
+        let mut lines = detail.lines.clone();
+        // What it waits on comes last, after what led to it, and is shown first.
+        let blocked = row
+            .blocked_reason
+            .as_deref()
+            .filter(|_| row.status == Status::Blocked);
+        if let Some(reason) = blocked {
+            if !lines.is_empty() {
+                lines.push(Line::raw(""));
+            }
+            for line in reason.lines() {
+                lines.push(Line::styled(line.to_owned(), style(Status::Blocked).1));
+            }
+        }
+        let page = inner.height;
+        let total = lines.len() as u16;
+        let follow = if blocked.is_some() {
+            total
+        } else {
+            detail.anchor
+        };
+        let top = self
+            .pinned
+            .get()
+            .unwrap_or(follow)
+            .min(total.saturating_sub(page));
+        if self.pinned.get().is_some() {
+            self.pinned.set(Some(top));
+        }
+        self.top.set(top);
+        self.page.set(page);
+        if total > page {
+            let shown = format!(" {}-{}/{total} ", top + 1, (top + page).min(total));
+            block = block.title(Line::styled(shown, DIM).right_aligned());
+        }
+        frame.render_widget(Paragraph::new(lines).block(block).scroll((top, 0)), area);
     }
 }
 
-fn collect() -> Vec<Group> {
-    let store = Store::from_env();
-    store.collect(&zellij::live(&store.sessions()), now_ms())
+/// Live sessions from listings that can leave one out now and then (see
+/// `zellij::run`): one is only dropped once it misses a few in a row.
+#[derive(Default)]
+struct Seen(HashMap<String, u8>);
+
+impl Seen {
+    fn observe(&mut self, listed: impl IntoIterator<Item = String>) -> Vec<String> {
+        for misses in self.0.values_mut() {
+            *misses += 1;
+        }
+        for name in listed {
+            self.0.insert(name, 0);
+        }
+        self.0.retain(|_, misses| *misses < 3);
+        // By name: the registry appends sessions it lacks in this order.
+        let mut names: Vec<String> = self.0.keys().cloned().collect();
+        names.sort();
+        names
+    }
 }
 
-/// Run the picker; the chosen pane, if any, once the terminal is restored.
-pub fn pick() -> Result<Option<(String, u32)>> {
+fn collect(seen: &mut Seen) -> Snapshot {
+    let store = Store::from_env();
+    let groups = store.collect(&zellij::live(&store.sessions()), now_ms());
+    let sessions = seen.observe(
+        zellij::live_sessions()
+            .into_iter()
+            .chain(groups.iter().map(|g| g.session.clone())),
+    );
+    // A session gets its colour as soon as it is seen: niri borders its windows
+    // and the bar marks them from the registry.
+    let _ = zellij_sessions::Store::from_env().update(|registry, palette| {
+        let names: Vec<&str> = sessions.iter().map(String::as_str).collect();
+        registry.ensure(&names, palette, &sessions)
+    });
+    Snapshot { groups, sessions }
+}
+
+/// Run the picker; what was picked, if anything, once the terminal is restored.
+pub fn pick() -> Result<Option<Pick>> {
     // Refreshing shells out to zellij once or twice per session, so it stays off
     // the input loop.
     let (tx, rx) = mpsc::channel();
@@ -627,35 +901,28 @@ pub fn pick() -> Result<Option<(String, u32)>> {
     std::thread::spawn(markdown::warm);
     std::thread::spawn(move || {
         let mut git = git::Cache::new(GIT_TTL);
+        let mut seen = Seen::default();
         // The first rows go out before git status, which takes a while on a stale index.
-        let mut groups = collect();
-        if tx.send(groups.clone()).is_err() {
+        let mut snapshot = collect(&mut seen);
+        if tx.send(snapshot.clone()).is_err() {
             return;
         }
         loop {
-            git.annotate(&mut groups);
-            if tx.send(groups).is_err() {
+            git.annotate(&mut snapshot.groups);
+            if tx.send(snapshot).is_err() {
                 return;
             }
             if let Err(mpsc::RecvTimeoutError::Disconnected) = poke_rx.recv_timeout(REFRESH) {
                 return;
             }
-            groups = collect();
+            snapshot = collect(&mut seen);
         }
     });
 
-    let mut app = App {
-        groups: Vec::new(),
-        sort: Sort::load(),
-        selected: None,
-        detail: RefCell::new(None),
-        top: Cell::new(0),
-        page: Cell::new(0),
-        pinned: Cell::new(None),
-    };
+    let mut app = App::new(Sort::load());
     // The first snapshot before drawing, so the picker does not open empty.
-    if let Ok(groups) = rx.recv() {
-        app.update(groups);
+    if let Ok(snapshot) = rx.recv() {
+        app.update(snapshot);
     }
 
     let mut terminal = ratatui::init();
@@ -667,12 +934,12 @@ pub fn pick() -> Result<Option<(String, u32)>> {
 fn event_loop(
     terminal: &mut DefaultTerminal,
     app: &mut App,
-    rx: &mpsc::Receiver<Vec<Group>>,
+    rx: &mpsc::Receiver<Snapshot>,
     poke: &mpsc::Sender<()>,
-) -> Result<Option<(String, u32)>> {
+) -> Result<Option<Pick>> {
     loop {
-        while let Ok(groups) = rx.try_recv() {
-            app.update(groups);
+        while let Ok(snapshot) = rx.try_recv() {
+            app.update(snapshot);
         }
         terminal.draw(|frame| app.draw(frame))?;
 
@@ -685,29 +952,35 @@ fn event_loop(
         if key.kind != KeyEventKind::Press {
             continue;
         }
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => return Ok(None),
-            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(None),
-            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => app.scroll_by(1),
-            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                app.scroll_by(-1)
-            }
+            KeyCode::Char('c') if ctrl => return Ok(None),
+            KeyCode::Char('d') if ctrl => app.scroll_by(1),
+            KeyCode::Char('u') if ctrl => app.scroll_by(-1),
             KeyCode::PageDown => app.scroll_by(2),
             KeyCode::PageUp => app.scroll_by(-2),
             KeyCode::Char('j') | KeyCode::Down => app.step(1),
             KeyCode::Char('k') | KeyCode::Up => app.step(-1),
             KeyCode::Char('g') | KeyCode::Home => app.step(isize::MIN / 2),
             KeyCode::Char('G') | KeyCode::End => app.step(isize::MAX / 2),
+            KeyCode::Char('h') | KeyCode::Left => app.left(),
+            KeyCode::Char('l') | KeyCode::Right => app.right(),
+            KeyCode::Char(' ' | 'x') => app.toggle_collapsed(),
+            KeyCode::Char('J') => app.move_session(1),
+            KeyCode::Char('K') => app.move_session(-1),
+            KeyCode::Char('c') => app.cycle_color(1),
+            KeyCode::Char('C') => app.cycle_color(-1),
             KeyCode::Tab => app.next_needing_you(),
             KeyCode::Char('s') => app.toggle_sort(),
             KeyCode::Char('r') => {
                 let _ = poke.send(());
             }
-            KeyCode::Enter => {
-                if let Some((group, row)) = app.selected_row() {
-                    return Ok(Some((group.session.clone(), row.pane_id)));
-                }
-            }
+            KeyCode::Enter => match app.selected.clone() {
+                Some(Item::Pane(session, pane)) => return Ok(Some(Pick::Pane(session, pane))),
+                Some(Item::Session(session)) => return Ok(Some(Pick::Session(session))),
+                None => {}
+            },
             _ => {}
         }
     }

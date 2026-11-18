@@ -31,6 +31,7 @@
       ./niri.nix
       ./quickshell
       ./vicinae
+      ./zellij-sessions.nix
     ];
 
     # Set by `work-desktop`. niri's and the bar's configs are generated text, so
