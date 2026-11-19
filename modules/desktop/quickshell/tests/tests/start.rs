@@ -113,11 +113,13 @@ fn right_clicking_an_app_pins_it_and_right_clicking_its_tile_unpins_it() {
     s.right_click();
     let st = s.wait_for_start("Beta to be pinned", |st| st["pins"] == json!(["beta"]));
     assert_eq!(names(&st["tiles"]), ["Beta"]);
-    let saved = std::fs::read_to_string(s.path("state/quickshell/start-pins.json")).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Value>(&saved).unwrap(),
-        json!(["beta"])
-    );
+    // FileView writes on its own time, after the menu shows the pin.
+    s.wait_until("the pins to be saved", || {
+        std::fs::read_to_string(s.path("state/quickshell/start-pins.json"))
+            .ok()
+            .and_then(|saved| serde_json::from_str::<Value>(&saved).ok())
+            == Some(json!(["beta"]))
+    });
 
     point_at_named(&s, "rows", "Alpha");
     s.right_click();
