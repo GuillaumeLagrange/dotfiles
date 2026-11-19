@@ -15,14 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Before the builds, which a failing test skips. The bar's tests skip themselves on a host
-      # without the bar, so they get granary's test environment.
+      # Before the builds, which a failing test skips. `just ci`, in the devshell: what a local
+      # `just ci` runs too.
       - name: Test
-        run: |
-          QUICKSHELL_TEST_ENV=$(nix build --no-link --print-out-paths \
-            .#nixosConfigurations.granary.config.home-manager.users.guillaume.quickshellTestEnv)
-          export QUICKSHELL_TEST_ENV
-          nix develop .#ci --command just test
+        run: nix develop --command just ci
 
       - name: Build hosts and homes
         run: |

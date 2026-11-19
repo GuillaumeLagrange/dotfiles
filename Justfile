@@ -1,6 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-crates := "pkgs/wt pkgs/niri-state pkgs/omp-panel pkgs/reviews pkgs/zellij-sessions modules/desktop/quickshell/tests"
+# Every Rust crate: a directory with a tracked lockfile.
+crates := `git ls-files '*Cargo.lock' | xargs -n1 dirname | tr '\n' ' '`
 
 # Lint and test everything
 check: lint test
@@ -32,14 +33,16 @@ lint-lua:
 lint-rust:
     for crate in {{ crates }}; do (cd "$crate" && cargo fmt --check && cargo clippy --quiet --all-targets -- -D warnings); done
 
-test: test-rust test-omp
-
-# Includes omp-panel's and wt's tests against real, isolated zellij servers, and the bar's against headless niri
-test-rust:
+# Local and incremental: each crate's own target/
+test: test-omp
     for crate in {{ crates }}; do (cd "$crate" && cargo nextest run); done
 
 test-omp:
     cd ai/omp && { [ -d node_modules ] || npm ci; } && npm test
+
+# The workflow's test step: every package's build with its tests, the checks, and ai/omp's npm tests
+ci: test-omp
+    nix flake check --keep-going --print-build-logs
 
 # Remove every crate's target directory
 clean:

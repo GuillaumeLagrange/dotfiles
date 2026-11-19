@@ -86,8 +86,8 @@ actually launches it:
 
 - **flake.nix**: inputs, and the list of every file that defines something (see below)
 - **README.md**: the machines, how to rebuild, how the repo is laid out, for humans
-- **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter
-- **devshell.nix**: `devShells.default`, the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update) and Rust: cargo, rustc, clippy, rustfmt and rust-analyzer of nixpkgs-unstable, the same `unstable.rustPlatform` the crates of `pkgs/` build with (`rust` in `pkgs/default.nix`), so tests, clippy and packages share one rustc that moves with the unstable input. Entered by `.envrc` (`use flake`), force-added like the hooks' config. `devShells.ci` adds what `just test` needs on gullywash's runner, which has no home: zellij, `script`, jq, direnv, node. A test skips itself without its program, so a missing one goes unnoticed
+- **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter. The crates are every directory with a tracked `Cargo.lock`. `just test` is the local loop, incremental in each crate's `target/`. `just ci` is what CI's test step runs, and runs the same anywhere: `nix flake check`, where each package of `pkgs/` runs its tests in its build, with the programs they drive as `nativeCheckInputs` (a test without its program fails, never skips), the `review` check runs `review.sh`'s and the `quickshell` check (defined by the desktop group, on granary's bar) the bar's; a check is only rebuilt, so its tests only rerun, when what it is built from changed. Plus `ai/omp`'s npm tests, the one suite that is no nix build yet, in the devshell
+- **devshell.nix**: `devShells.default`, the one shell for working here and for CI, entered by `.envrc` (`use flake`) and by the workflow, force-added like the hooks' config. It holds the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update), Rust (cargo, rustc, clippy, rustfmt and rust-analyzer of nixpkgs-unstable, the same `unstable.rustPlatform` the crates of `pkgs/` build with, `rust` in `pkgs/default.nix`, so tests, clippy and packages share one rustc that moves with the unstable input), and every program the tests drive: the locked zellij, `script`, jq, git, direnv, node, the same the packages' builds get as `nativeCheckInputs`. A program a test needs goes in both
 - **.pre-commit-config.yaml**: pre-commit hooks run by prek (`just hooks` installs them): each language's formatter on the staged files, then `cargo fmt` and clippy for each crate the commit touches. A hook that rewrites a file fails the commit; stage the result. Force-added: the global gitignore excludes the file name
 
 ### How the Nix code is organised
@@ -155,8 +155,8 @@ Rules:
 - `gullywash`: home server: ZFS (`zfs.nix`: ARC limit, scrubs, mail notifications), Docker, firewall for
   HTTP/HTTPS and WireGuard, nightly config backup, the Nix binary cache `nix-cache.gullywash.glagrange.eu`
   (`nix-cache.nix`, behind the Traefik of `~/homelab_stack`) and the self-hosted GitHub runner that runs
-  `just test` and then builds the hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`,
-  roots in `/var/lib/ci-roots`, cargo's registry and targets in `/var/lib/ci-cache`),
+  the checks and then builds the hosts on every push (`github-runner.nix`, `.github/workflows/build.yml`,
+  roots in `/var/lib/ci-roots`),
   Dependabot's nightly flake update PR included (`.github/dependabot.yml`).
   `hosts/gullywash/README.md` has the steps no config holds (signing key, password, runner token); keep it
   current when either changes
@@ -321,9 +321,9 @@ devices (`quickshell/virtual-devices.patch`).
   session (`wt main`, root `wt main --path`), checking the branch out there unless it has uncommitted changes
   (a submodule merely at another commit does not count: `git submodule update` follows the checkout). Then it
   attaches to the session, focuses the window showing it, or switches to it from inside zellij.
-  `cargo test --test review` in `pkgs/reviews/` drives `review.sh` headless against real git, wt (built from
-  `pkgs/wt/`) and zellij, in a fixture with its own `XDG_RUNTIME_DIR`, stubbing `zellij-attach`, `notify-send`
-  and `gh`.
+  `tests/review.rs` drives `review.sh` headless against real git, wt and zellij, in a fixture with its own
+  `XDG_RUNTIME_DIR`, stubbing `zellij-attach`, `notify-send` and `gh`. No package runs it: `review-tests.nix`
+  is the flake's `review` check, handing it the wt package as `WT_BIN`; locally it builds wt from `pkgs/wt/`.
 - `niri-state/`: the niri IPC tap the bar reads its layout model from (see its AGENTS.md)
 - `niri-workspaces/`, `niri-displays/`: see the desktop group above
 - `zellij-attach/`, `mux-name/`: attach to a zellij session by name, and name a tab after a directory; shared
