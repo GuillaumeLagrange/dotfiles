@@ -65,7 +65,12 @@
     };
 
   perSystem =
-    { system, pkgs, ... }:
+    {
+      system,
+      pkgs,
+      self',
+      ...
+    }:
     {
       _module.args.pkgs = import inputs.nixpkgs {
         inherit system;
@@ -87,6 +92,13 @@
           zellij-sessions
           ;
         inherit (pkgs.cargoTools) linear;
+      };
+
+      # The packages run their tests in their builds; review.sh's need a build of their own.
+      checks = self'.packages // {
+        review = pkgs.callPackage ./reviews/review-tests.nix {
+          inherit (pkgs.unstable) rustPlatform zellij;
+        };
       };
     };
 }

@@ -18,14 +18,6 @@ struct Fixture {
     clients: Vec<Child>,
 }
 
-fn have(bin: &str) -> bool {
-    Command::new("sh")
-        .args(["-c", &format!("command -v {bin}")])
-        .stdout(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
-}
-
 fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
     // Generous: every suite of the repo may be running at once.
     for _ in 0..600 {
@@ -38,10 +30,7 @@ fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
 }
 
 impl Fixture {
-    fn new() -> Option<Self> {
-        if !have("zellij") || !have("script") {
-            return None;
-        }
+    fn new() -> Self {
         // Servers of fixtures already gone: a test nextest killed never dropped
         // its own, and an orphan of zellij's race can outlive the sweep in `drop`.
         // Gone means without its marker: such a server makes its directories again.
@@ -110,11 +99,11 @@ exit 1
         );
         env.insert("OMP_PANEL_ATTACH", attach.display().to_string());
 
-        Some(Self {
+        Self {
             dir,
             env,
             clients: Vec::new(),
-        })
+        }
     }
 
     fn root(&self) -> &Path {
@@ -385,7 +374,7 @@ fn json(out: &Output) -> serde_json::Value {
 
 #[test]
 fn list_shows_live_panes_rolled_up_and_prunes_the_rest() {
-    let Some(f) = Fixture::new() else { return };
+    let f = Fixture::new();
     f.start("alpha");
     let second = f.new_pane("alpha");
     f.omp("alpha", 0, "working", None);
@@ -424,7 +413,7 @@ fn list_shows_live_panes_rolled_up_and_prunes_the_rest() {
 
 #[test]
 fn panes_lists_what_runs_in_each_pane() {
-    let Some(f) = Fixture::new() else { return };
+    let f = Fixture::new();
     f.start("panes-test");
     let busy = f.new_pane("panes-test");
     let target = format!("terminal_{busy}");
@@ -465,7 +454,7 @@ fn panes_lists_what_runs_in_each_pane() {
 
 #[test]
 fn jump_focuses_the_window_showing_the_session_then_the_pane() {
-    let Some(mut f) = Fixture::new() else { return };
+    let mut f = Fixture::new();
     f.start("alpha");
     f.attach("alpha");
     let out = f.zellij(&["-s", "alpha", "action", "new-tab"]);
@@ -501,7 +490,7 @@ fn jump_focuses_the_window_showing_the_session_then_the_pane() {
 
 #[test]
 fn jump_opens_a_window_for_a_session_nobody_shows() {
-    let Some(mut f) = Fixture::new() else { return };
+    let mut f = Fixture::new();
     f.start("beta");
     let other = f.new_pane("beta");
     let log = f.fake_niri(r#"[{"id":3,"title":"alpha | x"}]"#);
@@ -542,7 +531,7 @@ fn jump_without_niri_moves_this_client_to_the_other_session() {
     // race behind it can lose the switch altogether (see AGENTS.md). A run where
     // either happened says nothing of the panel, and is run again.
     for _ in 0..3 {
-        let Some(mut f) = Fixture::new() else { return };
+        let mut f = Fixture::new();
         f.start("alpha");
         f.start("beta");
         let target = f.new_pane("beta");

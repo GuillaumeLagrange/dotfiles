@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{have, Fixture};
+use common::Fixture;
 
 #[test]
 fn the_mirror_reproduces_the_whole_workspace() {
@@ -142,9 +142,6 @@ fn sibling_paths_resolve_as_they_do_in_the_workspace() {
 
 #[test]
 fn direnv_still_loads_the_workspace_environment() {
-    if !have("direnv") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-1", "--repo", "app"]).ok();
     let s = f.session("proj-1");

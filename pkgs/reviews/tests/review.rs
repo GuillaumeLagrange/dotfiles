@@ -4,8 +4,6 @@
 //! never meet the user's. What would reach the desktop is stubbed and recorded:
 //! `zellij-attach` (focusing or opening a window), `notify-send`, and `gh`, whose
 //! `pr checkout` switches to the branch the fixture registered for that PR.
-//!
-//! Skipped when zellij, wt, jq or script are missing, as in the nix build.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -41,27 +39,14 @@ impl Tab {
     }
 }
 
-fn have(tool: &str) -> bool {
-    let found = Command::new("sh")
-        .args(["-c", &format!("command -v {tool}")])
-        .output()
-        .is_ok_and(|o| o.status.success());
-    if !found {
-        eprintln!("skipped: `{tool}` is not on PATH");
-    }
-    found
-}
-
-fn tools() -> bool {
-    ["zellij", "jq", "script", "git", "cargo"]
-        .iter()
-        .all(|t| have(t))
-}
-
-/// The dotfiles' own wt, built once per run: review relies on commands the
-/// installed one may predate. Into a target dir of its own, since wt's suite runs
-/// its binary from wt's while this one may be building.
+/// The dotfiles' own wt: review relies on commands the installed one may predate.
+/// The nix check hands over the package built from the same tree; otherwise it is
+/// built here once per run, into a target dir of its own, since wt's suite runs its
+/// binary from wt's while this one may be building.
 static WT: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
+    if let Some(wt) = std::env::var_os("WT_BIN") {
+        return wt.into();
+    }
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../wt/Cargo.toml");
     let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/wt");
     let out = Command::new("cargo")
@@ -515,9 +500,6 @@ fn assert_ok(run: &Run) {
 
 #[test]
 fn mine_goes_to_the_wt_session_holding_the_branch() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "feat", "--repo", "app", "--repo", "lib"]);
     let worktree = f.ws().join("sessions/feat/app");
@@ -540,9 +522,6 @@ fn mine_goes_to_the_wt_session_holding_the_branch() {
 
 #[test]
 fn mine_opens_the_repo_tab_a_wt_session_lacks() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "feat", "--repo", "app", "--repo", "lib"]);
     let worktree = f.ws().join("sessions/feat/app");
@@ -577,9 +556,6 @@ fn mine_opens_the_repo_tab_a_wt_session_lacks() {
 
 #[test]
 fn mine_checks_the_branch_out_in_the_main_session() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
 
     assert_ok(&f.review(&["--mine", URL, "feature"]));
@@ -600,9 +576,6 @@ fn mine_checks_the_branch_out_in_the_main_session() {
 
 #[test]
 fn mine_reuses_the_main_session_tab() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     assert_ok(&f.review(&["--mine", URL, "feature"]));
     assert_ok(&f.review(&["--mine", "https://github.com/acme/lib/pull/8", "fix"]));
@@ -621,9 +594,6 @@ fn mine_reuses_the_main_session_tab() {
 
 #[test]
 fn mine_leaves_a_dirty_checkout_alone() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     f.write("ws/app/README.md", "# edited\n");
 
@@ -649,9 +619,6 @@ fn mine_leaves_a_dirty_checkout_alone() {
 
 #[test]
 fn pr_opens_its_tab_in_the_reviews_session() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "reviews", "--repo", "app"]);
 
@@ -669,9 +636,6 @@ fn pr_opens_its_tab_in_the_reviews_session() {
 
 #[test]
 fn mine_fails_when_zellij_cannot_start_the_session() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     // A name zellij refuses to start a session under.
     let ws = f.ws().display().to_string();
@@ -697,9 +661,6 @@ fn mine_fails_when_zellij_cannot_start_the_session() {
 
 #[test]
 fn mine_checks_out_over_a_submodule_at_another_commit() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     let [one, two] = f.add_submodule();
     let sub = f.ws().join("app/sub");
@@ -719,9 +680,6 @@ fn mine_checks_out_over_a_submodule_at_another_commit() {
 
 #[test]
 fn mine_leaves_edits_inside_a_submodule_alone() {
-    if !tools() {
-        return;
-    }
     let f = Fixture::new();
     f.add_submodule();
     f.write("ws/app/sub/one", "edited");

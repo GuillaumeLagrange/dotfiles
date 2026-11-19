@@ -18,10 +18,10 @@ src/emit.rs   one snapshot line per change
 src/main.rs   socket, coalescing, dedupe
 ```
 
-`cargo test` runs in the check phase, so a broken invariant fails the rebuild.
+The package's build runs the tests, so a broken invariant fails the rebuild.
 
 ```bash
-cargo test        # geometry and model invariants
+cargo nextest run   # geometry and model invariants
 ```
 
 ## Design

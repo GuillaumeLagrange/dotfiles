@@ -5,6 +5,7 @@
   zellij,
   git,
   zellij-attach,
+  util-linux,
 }:
 
 let
@@ -22,6 +23,7 @@ rustPlatform.buildRustPackage {
       ./tests
       ./Cargo.toml
       ./Cargo.lock
+      ./.config
       ../zellij-sessions/src
       ../zellij-sessions/Cargo.toml
     ];
@@ -31,6 +33,12 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ./Cargo.lock;
 
   nativeBuildInputs = [ makeWrapper ];
+  # What the tests drive, which fail rather than skip without it.
+  useNextest = true;
+  nativeCheckInputs = [
+    zellij
+    util-linux
+  ];
   postInstall = ''
     wrapProgram $out/bin/omp-panel \
       --prefix PATH : ${

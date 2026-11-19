@@ -368,17 +368,3 @@ fn kill_servers(matches: impl Fn(&Path) -> bool) {
         }
     }
 }
-
-/// Skip a test that needs a tool the machine may not have, saying so rather than
-/// passing quietly.
-pub fn have(tool: &str) -> bool {
-    let found = Command::new("sh")
-        .args(["-c", &format!("command -v {tool}")])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    if !found {
-        eprintln!("skipped: `{tool}` is not on PATH");
-    }
-    found
-}

@@ -10,6 +10,7 @@
   zellij,
   mux-name,
   zellij-sessions,
+  util-linux,
 }:
 
 let
@@ -34,6 +35,7 @@ rustPlatform.buildRustPackage {
       ./crates
       ./Cargo.toml
       ./Cargo.lock
+      ./.config
     ];
   };
   cargoLock.lockFile = ./Cargo.lock;
@@ -43,7 +45,15 @@ rustPlatform.buildRustPackage {
     makeWrapper
   ];
 
-  nativeCheckInputs = [ git ];
+  # Everything the tests drive, which fail rather than skip without it. `script`
+  # gives zellij the terminal it insists on.
+  useNextest = true;
+  nativeCheckInputs = [
+    git
+    zellij
+    direnv
+    util-linux
+  ];
   postInstall = ''
     wrapProgram $out/bin/wt --prefix PATH : ${lib.makeBinPath runtimeInputs}
     installShellCompletion --cmd wt --zsh <(COMPLETE=zsh $out/bin/wt)

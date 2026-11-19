@@ -9,7 +9,7 @@
 
 mod common;
 
-use common::{have, Fixture};
+use common::Fixture;
 
 use wt_core::config::Config;
 use wt_core::registry::Registry;
@@ -101,9 +101,6 @@ impl Drop for Attached {
 
 #[test]
 fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-tabs", "--repo", "app", "--repo", "lib"])
         .ok();
@@ -150,9 +147,6 @@ fn a_session_gets_one_tab_per_member_and_keeps_the_root() {
 
 #[test]
 fn tabs_are_only_added_for_members_that_have_none() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.configure(&["app", "docs", "lib"], None);
     f.wt(&["new", "proj-idem", "--repo", "app"]).ok();
@@ -201,9 +195,6 @@ fn tabs_are_only_added_for_members_that_have_none() {
 /// Members' tabs follow the configured `repos`, wherever a member joins from.
 #[test]
 fn tabs_follow_the_configured_order() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.configure(&["lib", "docs", "app"], None);
     f.wt(&["new", "proj-order", "--repo", "app", "--repo", "lib"])
@@ -233,9 +224,6 @@ fn tabs_follow_the_configured_order() {
 /// session — `sync` included.
 #[test]
 fn tabs_wait_for_a_client() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-wait", "--repo", "app"]).ok();
 
@@ -260,9 +248,6 @@ fn tabs_wait_for_a_client() {
 
 #[test]
 fn a_session_with_no_members_keeps_the_tab_zellij_made() {
-    if !have("zellij") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-empty", "--empty"]).ok();
 
@@ -286,9 +271,6 @@ fn a_session_with_no_members_keeps_the_tab_zellij_made() {
 /// knows it by the old name, neither of which a rename can reach.
 #[test]
 fn mv_refuses_a_running_session() {
-    if !have("zellij") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-mv", "--empty"]).ok();
 
@@ -312,9 +294,6 @@ fn mv_refuses_a_running_session() {
 /// an exit has to survive on disk.
 #[test]
 fn recreate_from_inside_deletes_the_session_and_leaves_the_request_behind() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-inside", "--repo", "app"]).ok();
 
@@ -348,9 +327,6 @@ fn recreate_from_inside_deletes_the_session_and_leaves_the_request_behind() {
 /// resurrected session would still carry it.
 #[test]
 fn recreate_hands_the_terminal_back_to_a_new_session() {
-    if !have("zellij") || !have("script") {
-        return;
-    }
     let f = Fixture::new();
     f.wt(&["new", "proj-fresh", "--repo", "app"]).ok();
 

@@ -43,8 +43,9 @@ The suite in `crates/cli/tests/` drives the built binary against a throwaway
 workspace: real git repos, real worktrees, its own `HOME` and XDG directories, so a
 test can neither read nor damage the machine's own sessions. `common::Fixture` builds
 one per test, and drops it on the way out. The zellij tests start real servers —
-isolated by the fixture's `XDG_RUNTIME_DIR` and `XDG_CACHE_HOME` — and skip with a
-note when zellij is not installed; the same goes for the direnv test.
+isolated by the fixture's `XDG_RUNTIME_DIR` and `XDG_CACHE_HOME`. The package's build
+runs the whole suite, so zellij, `script`, git and direnv are its check inputs; a
+test without its program fails rather than skips.
 
 ## Configuration
 

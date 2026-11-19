@@ -10,7 +10,9 @@ rustPlatform.buildRustPackage {
       ./src
       ./Cargo.toml
       ./Cargo.lock
+      ./.config
     ];
   };
   cargoLock.lockFile = ./Cargo.lock;
+  useNextest = true;
 }
