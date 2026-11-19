@@ -554,22 +554,29 @@ fn rename_tab(session: &str, id: u32, name: &str) {
 /// A variable as the session's server process holds it, which is what its panes
 /// inherit.
 fn server_env(session: &str, var: &str) -> Option<String> {
-    // Matched on the fixture's socket directory, not just the name: another run of
-    // this suite has servers for sessions of the same names.
-    let server = format!(
-        "zellij --server {}/zellij/.*/{session}$",
-        std::env::var("XDG_RUNTIME_DIR").unwrap()
-    );
-    let out = std::process::Command::new("pgrep")
-        .args(["-f", &server])
-        .output()
-        .ok()?;
+    // The socket's name is a hash of the session's since zellij 0.46, so the server
+    // is told by the session name it holds. Only the fixture's sockets count:
+    // another run of this suite has servers for sessions of the same names.
+    let sockets = format!("{}/zellij/", std::env::var("XDG_RUNTIME_DIR").unwrap());
+    let name = format!("ZELLIJ_SESSION_NAME={session}");
     let prefix = format!("{var}=");
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .filter_map(|pid| std::fs::read(format!("/proc/{pid}/environ")).ok())
+    std::fs::read_dir("/proc")
+        .ok()?
+        .flatten()
+        .filter(|proc| {
+            std::fs::read(proc.path().join("cmdline")).is_ok_and(|cmdline| {
+                let mut argv = cmdline.split(|&b| b == 0);
+                argv.nth(1) == Some(b"--server")
+                    && argv
+                        .next()
+                        .is_some_and(|s| s.starts_with(sockets.as_bytes()))
+            })
+        })
+        .filter_map(|proc| std::fs::read(proc.path().join("environ")).ok())
+        .map(|environ| String::from_utf8_lossy(&environ).into_owned())
+        .filter(|environ| environ.split('\0').any(|entry| entry == name))
         .find_map(|environ| {
-            String::from_utf8_lossy(&environ)
+            environ
                 .split('\0')
                 .find_map(|entry| entry.strip_prefix(&prefix).map(str::to_string))
         })
