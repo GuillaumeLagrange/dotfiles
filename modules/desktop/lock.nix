@@ -47,7 +47,7 @@ in
         )
         (
           {
-            text = ''cmd[update:60000] date +"%A %-d %B"'';
+            text = ''cmd[update:60000] ${pkgs.coreutils}/bin/date +"%A %-d %B"'';
             font_family = "Inter";
             font_size = 20;
             color = fg;

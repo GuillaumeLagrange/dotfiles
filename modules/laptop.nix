@@ -15,7 +15,14 @@
       };
       systemd.sleep.settings.Sleep.HibernateDelaySec = "15m";
       # Faster resume. LZ4 decompresses faster than the default LZO; the image records its compressor.
-      boot.kernelParams = [ "hibernate.compressor=lz4" ];
+      # The restoring kernel decompresses with 3 threads by default.
+      boot.kernelParams = [
+        "hibernate.compressor=lz4"
+        "hibernate_compression_threads=8"
+      ];
+      # Smallest image the kernel can make (default: 2/5 of RAM, ~13 GB here): less to read back
+      # on resume, for a longer hibernation entry and memory paged back in from swap after it.
+      systemd.tmpfiles.rules = [ "w /sys/power/image_size - - - - 0" ];
 
       services.fprintd.enable = true;
       systemd.services.fprintd = {
