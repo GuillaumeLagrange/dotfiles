@@ -75,14 +75,17 @@ typed keys land in whatever has focus.
   outputs (`Session::start_with_outputs`). Without a renderer there is no
   dmabuf, so `qs` runs with `QT_QUICK_BACKEND=software`.
 - `quickshellTestEnv` (a read-only home-manager option) carries that niri, qs,
-  wtype, wlrctl, dbus, `niri-workspaces` (`pkgs/niri-workspaces/`)
-  and the built shell with its generated Config.qml. The
-  tests build it from the checkout for the current host (a new file has to be
-  `git add`ed for the flake to see it), or take a path from
-  `QUICKSHELL_TEST_ENV`. Under `cargo nextest run`, `tests/test-env.sh` (a
-  setup script in `tests/.config/nextest.toml`) builds it once for the run and
-  sets that variable; otherwise each test process would build it. On a host
-  without the bar they skip.
+  wtype, wlrctl, dbus, coreutils, `niri-workspaces` (`pkgs/niri-workspaces/`)
+  and the built shell with its generated Config.qml. The session's `PATH` is
+  that and the stubs, never the host's, and dbus runs on the environment's
+  `session.conf`, so the suite also runs in a nix build: the flake's
+  `quickshell` check (`tests/check.nix`, defined by the desktop group, on
+  granary's bar). Locally the tests build it from the checkout for the current
+  host (a new file has to be `git add`ed for the flake to see it), or take a
+  path from `QUICKSHELL_TEST_ENV`. Under `cargo nextest run`, `tests/test-env.sh`
+  (a setup script in `tests/.config/nextest.toml`) builds it once for the run
+  and sets that variable; otherwise each test process would build it. On a
+  host without the bar they skip.
 - The copy gains `TestProbe.qml`, an `IpcHandler` that `qs ipc call test state`
   reads: the reviews pill's place on the output and the panel's state, as JSON;
   and `WorkspacesProbe.qml`, read by `qs ipc call workspaces cells`: each

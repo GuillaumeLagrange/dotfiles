@@ -1,6 +1,21 @@
 # desktop: a machine with a screen.
-{ inputs, lib, ... }:
 {
+  inputs,
+  self,
+  lib,
+  ...
+}:
+{
+  # The bar's tests, on granary's bar (see quickshell/AGENTS.md).
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks.quickshell = pkgs.callPackage ./quickshell/tests/check.nix {
+        inherit (pkgs.unstable) rustPlatform;
+        testEnv = self.nixosConfigurations.granary.config.home-manager.users.guillaume.quickshellTestEnv;
+      };
+    };
+
   # The graphical session: the greeter, niri, pipewire, bluetooth, printing, locale
   # and keyboard layout, plus what every such machine runs (steam, distrobox, zram),
   # and gullywash's binary cache.

@@ -269,6 +269,8 @@ let
       pkgs.wtype
       pkgs.wlrctl
       pkgs.dbus
+      # The stubs' cat and printf: tests see no PATH but this one.
+      pkgs.coreutils
       niriWorkspaces
       niriDisplays
     ];

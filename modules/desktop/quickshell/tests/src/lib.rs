@@ -194,13 +194,10 @@ impl Session {
             ("XDG_CACHE_HOME".into(), p("cache")),
             ("XDG_STATE_HOME".into(), p("state")),
             ("XDG_DATA_DIRS".into(), p("share")),
+            // The environment's programs only, never the host's.
             (
                 "PATH".into(),
-                format!(
-                    "{}:{}:/run/current-system/sw/bin",
-                    p("bin"),
-                    env_dir.join("bin").display()
-                ),
+                format!("{}:{}", p("bin"), env_dir.join("bin").display()),
             ),
             (
                 "DBUS_SESSION_BUS_ADDRESS".into(),
@@ -216,9 +213,16 @@ impl Session {
             pointer: std::cell::Cell::new(None),
         };
 
+        // On the environment's own config: `--session` reads /etc's, which a nix
+        // build has none of.
         let dbus = session
             .command("dbus-daemon")
-            .args(["--session", "--nofork", "--nopidfile"])
+            .arg("--nofork")
+            .arg("--nopidfile")
+            .arg(format!(
+                "--config-file={}",
+                env_dir.join("share/dbus-1/session.conf").display()
+            ))
             .arg(format!(
                 "--address=unix:path={}",
                 session.path("run/bus").display()
