@@ -77,6 +77,10 @@ esac
 # zellij's CLI races with itself (see `run` in pkgs/wt/crates/core/src/zellij.rs): a command whose
 # check that the session is up failed on a live one was never sent, and is run again. With other
 # sessions up, zellij says so on stderr and lists them, exiting 0.
+#
+# zellij gives up waiting for an action after 1s and says its outcome is unknown (see
+# `outcome_unknown` there): the action still runs, in order with the others, so it counts as sent.
+unknown='its outcome is unknown|Timeout listing (tabs|panes)'
 act() {
   local out status
   for _ in 1 2 3 4 5; do
@@ -88,25 +92,27 @@ act() {
     out=""
     ((status != 0)) || status=1
   done
+  if ((status != 0)) && grep -qE "$unknown" "$act_err"; then
+    return 0
+  fi
   cat -- "$act_err" >&2
   [[ -z "$out" ]] || printf '%s\n' "$out"
   return "$status"
 }
 
-# A query's answer: one CHECK rejects on its stdin is asked again, a failed action is not.
+# A query's answer: one CHECK rejects on its stdin is asked again, and so is one zellij stopped
+# waiting for, however often: both pass once the server catches up. A failed action is not.
 ask() {
   local check=$1 out
   shift
-  for _ in $(seq 40); do
+  while :; do
     out=$(act "$@") || return 1
     if "$check" <<<"$out"; then
       printf '%s\n' "$out"
       return 0
     fi
-    sleep 0.05
+    grep -qE "$unknown" "$act_err" || sleep 0.05
   done
-  echo "review: zellij never answered $* in $session" >&2
-  return 1
 }
 
 json_list() {
@@ -131,6 +137,10 @@ has_client() {
   ask clients_table list-clients 2>/dev/null | awk 'NR > 1 { n++ } END { exit !n }'
 }
 
+client_ids() {
+  ask clients_table list-clients 2>/dev/null | awk 'NR > 1 { print $1 }'
+}
+
 # Whether the session is listed, as a running server when LIVE is 1 rather than one zellij only
 # keeps to resurrect. A listing can leave a live session out (see `act`), so it only counts as
 # missing once a few agree.
@@ -152,27 +162,33 @@ live() {
   listed 1
 }
 
+# The first shell pane, as "PANE TAB", once the session has one; fails if the session is gone.
 shell_pane() {
-  panes 2>/dev/null | jq -er 'first(.[] | select(.is_plugin == false)) | "\(.id) \(.tab_id)"'
+  local listed
+  while :; do
+    listed=$(panes) || return 1
+    jq -er 'first(.[] | select(.is_plugin == false)) | "\(.id) \(.tab_id)"' <<<"$listed" && return 0
+    sleep 0.05
+  done
 }
 
 # Opens a tab named NAME with the new-tab options that follow, and prints its id once it is listed.
 # The id new-tab prints can be missing or another tab's, and the tab not opened yet when it returns
 # (see `act`), so a tab closed right after could leave the session without any, which ends it.
+# zellij took the action, so the tab comes, however long it takes; a session that dies fails.
 new_tab() {
-  local name=$1 before
+  local name=$1 before listed
   shift
   before=$(tabs | jq -c '[.[].tab_id]')
   act new-tab --name "$name" "$@" >/dev/null
-  for _ in $(seq 200); do
-    if tabs | jq -er --arg name "$name" --argjson before "$before" \
-      'first(.[] | select(.name == $name and (.tab_id as $id | $before | index([$id]) | not))) | .tab_id'; then
+  while :; do
+    listed=$(tabs) || return 1
+    if jq -er --arg name "$name" --argjson before "$before" \
+      'first(.[] | select(.name == $name and (.tab_id as $id | $before | index([$id]) | not))) | .tab_id' <<<"$listed"; then
       return 0
     fi
     sleep 0.05
   done
-  echo "review: the $name tab never opened in $session" >&2
-  return 1
 }
 
 # The tab of a repo, by the last word of its name as wt matches it (mux-name puts an icon before
@@ -291,17 +307,20 @@ open_repo_tab() {
 # A tab takes its size from a client: with none attached its layout fails. A temporary client
 # sizes it, and the size stays until a real client shows the tab. Started again whenever it has
 # exited: zellij lists a fresh server before it takes clients, and a first client can drop out.
+# However long it takes, for as long as the session is up.
 temporary_client() {
-  for _ in $(seq 100); do
+  while :; do
     if ! kill -0 "${client:-}" 2>/dev/null; then
+      if ! live; then
+        echo "review: zellij session $session went away" >&2
+        exit 1
+      fi
       (TERM=xterm-256color exec script -q -c "stty rows 50 cols 160; exec zellij attach $(printf %q "$session")" /dev/null </dev/null >/dev/null 2>&1) &
       client=$!
     fi
     has_client && return 0
     sleep 0.1
   done
-  echo "review: no zellij client came up on $session" >&2
-  exit 1
 }
 
 if ! has_client; then
@@ -320,25 +339,22 @@ if ! has_client; then
       echo "review: could not start zellij session $session" >&2
       exit 1
     }
-    for _ in $(seq 100); do
-      live && break
+    # It returns once the server is forked, before it is listening.
+    until live; do
       sleep 0.1
     done
-    # The client that created it can still be listed for a moment, which temporary_client would
-    # take for one that sizes the tabs.
-    for _ in $(seq 50); do
-      has_client || break
+    # The client that created it, which has exited, can still be listed for a moment, which
+    # temporary_client would take for one that sizes the tabs. Only the clients listed now are
+    # waited out, so one attaching meanwhile is not.
+    creators=$(client_ids) || creators=""
+    while [[ -n "$creators" ]] && client_ids | grep -qxF -f <(printf '%s\n' "$creators"); do
       sleep 0.1
     done
   fi
   temporary_client
   # The startup tab's shell, which a fresh session's first tab replaces. Kept from here: zellij can
   # answer a later query with nothing.
-  startup=""
-  for _ in $(seq 100); do
-    startup=$(shell_pane) && break
-    sleep 0.1
-  done
+  startup=$(shell_pane)
   # The members' tabs, as attaching with wt lays them out; done before a tab is picked.
   if [[ -n "${members:-}" ]]; then
     # The client can still drop out between being listed and wt asking for it; the last try's
@@ -360,12 +376,18 @@ if [[ "$kind" == mine ]]; then
 else
   open_review_tab
 fi
-# What follows execs, which skips the EXIT trap.
+# Cleaned up here: what follows execs, which skips the EXIT trap.
 trap - EXIT
 finish
 
+# zellij can give up waiting for the switch, which still happens (see `act`).
 if [[ ${#pane_env[@]} -gt 0 ]]; then
-  exec env "${pane_env[@]}" zellij action switch-session "$session"
+  if ! said=$(env "${pane_env[@]}" zellij action switch-session "$session" 2>&1) &&
+    ! grep -qE "$unknown" <<<"$said"; then
+    printf '%s\n' "$said" >&2
+    exit 1
+  fi
+  exit 0
 fi
 
 # A window already showing the session is focused rather than attached to a second time, and run

@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
@@ -16,7 +16,11 @@ use crate::state::{Live, LiveSession, PaneInfo};
 /// there: its check that a session is up can fail on a live one, before the
 /// action is sent (see `run` in pkgs/wt/crates/core/src/zellij.rs). With other
 /// sessions up, it says so on stderr and lists them, exiting 0.
-fn run(args: &[&str]) -> Result<String> {
+///
+/// None when zellij stopped waiting for the action and says its outcome is
+/// unknown: the action still runs, after those before it and before those after
+/// it (see `outcome_unknown` in wt's `zellij.rs`), only its answer is lost.
+fn run(args: &[&str]) -> Result<Option<String>> {
     let mut tries = 0;
     loop {
         let out = Command::new("zellij")
@@ -27,7 +31,13 @@ fn run(args: &[&str]) -> Result<String> {
         let unsent = stderr.contains("There is no active session!")
             || stderr.contains("not found. The following sessions are active");
         if out.status.success() && !unsent {
-            return Ok(String::from_utf8_lossy(&out.stdout).into_owned());
+            return Ok(Some(String::from_utf8_lossy(&out.stdout).into_owned()));
+        }
+        if stderr.contains("its outcome is unknown")
+            || stderr.contains("Timeout listing tabs")
+            || stderr.contains("Timeout listing panes")
+        {
+            return Ok(None);
         }
         tries += 1;
         if !unsent || tries == 5 {
@@ -37,16 +47,17 @@ fn run(args: &[&str]) -> Result<String> {
 }
 
 /// A query action's answer, parsed: one that does not parse (nothing, or another
-/// command's answer) is asked for again.
+/// command's answer) is asked for again, and so is one zellij stopped waiting for,
+/// however often: both pass once the server catches up. A session that is gone
+/// fails `run`.
 fn query<T>(session: &str, action: &[&str], parse: impl Fn(&str) -> Option<T>) -> Result<T> {
     let mut args = vec!["-s", session, "action"];
     args.extend(action);
-    for _ in 0..20 {
-        if let Some(answer) = parse(&run(&args)?) {
+    loop {
+        if let Some(answer) = run(&args)?.as_deref().and_then(&parse) {
             return Ok(answer);
         }
     }
-    bail!("`zellij {}` never gave a usable answer", args.join(" "))
 }
 
 /// Sessions with a running server. Exited ones are only resurrectable, and have
@@ -54,6 +65,8 @@ fn query<T>(session: &str, action: &[&str], parse: impl Fn(&str) -> Option<T>) -
 pub fn live_sessions() -> Vec<String> {
     // No session at all is an error exit, which means the same as an empty list.
     run(&["list-sessions", "--no-formatting"])
+        .ok()
+        .flatten()
         .unwrap_or_default()
         .lines()
         .filter(|line| !line.contains("(EXITED"))
@@ -145,20 +158,17 @@ pub fn client_panes(session: &str) -> Result<Vec<u32>> {
         .collect())
 }
 
-pub fn has_client(session: &str) -> bool {
-    clients(session).is_ok_and(|rows| !rows.is_empty())
-}
-
 /// Poll until someone is attached: a new window's client takes a moment to reach
-/// the server, and focusing before then is lost.
-pub fn wait_for_client(session: &str, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
+/// the server, and focusing before then is lost. However long it takes, for as
+/// long as the session is up: false once it is gone.
+pub fn wait_for_client(session: &str) -> bool {
+    let wanted = [session.to_owned()];
     loop {
-        if has_client(session) {
-            return true;
-        }
-        if Instant::now() >= deadline {
-            return false;
+        match clients(session) {
+            Ok(rows) if !rows.is_empty() => return true,
+            Ok(_) => {}
+            Err(_) if live_among(&wanted).is_empty() => return false,
+            Err(_) => {}
         }
         std::thread::sleep(Duration::from_millis(50));
     }

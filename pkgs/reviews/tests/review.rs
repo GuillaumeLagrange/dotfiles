@@ -339,8 +339,10 @@ impl Fixture {
     /// A zellij action's stdout, run again while zellij says the session is not
     /// there: that check fails now and then on a live one, before anything is
     /// sent (see `run` in wt's `zellij.rs`). With other sessions up, it says so on
-    /// stderr and lists them, exiting 0.
-    fn zellij(&self, session: &str, args: &[&str]) -> String {
+    /// stderr and lists them, exiting 0. Said five times over, the session is gone.
+    /// None when zellij stopped waiting for the action, which still runs (see
+    /// `outcome_unknown` there).
+    fn zellij(&self, session: &str, args: &[&str]) -> Option<String> {
         for _ in 0..5 {
             let out = self
                 .command("zellij")
@@ -349,29 +351,35 @@ impl Fixture {
                 .output()
                 .unwrap();
             let stderr = String::from_utf8_lossy(&out.stderr);
+            if stderr.contains("its outcome is unknown")
+                || stderr.contains("Timeout listing tabs")
+                || stderr.contains("Timeout listing panes")
+            {
+                return None;
+            }
             if !(stderr.contains("There is no active session!")
                 || stderr.contains("not found. The following sessions are active"))
             {
-                return String::from_utf8_lossy(&out.stdout).into_owned();
+                return Some(String::from_utf8_lossy(&out.stdout).into_owned());
             }
         }
-        String::new()
+        panic!("`{session}` is not running, for {args:?}");
     }
 
     /// A JSON list action's answer. One that is not a list is asked again:
     /// zellij answers with nothing until a just-attached client's screen is up,
     /// and can print nothing or another command's answer (see `query` in wt's
-    /// `zellij.rs`).
+    /// `zellij.rs`). So is one zellij stopped waiting for, however often.
     fn list(&self, session: &str, args: &[&str]) -> Vec<serde_json::Value> {
-        let mut out = String::new();
-        for _ in 0..40 {
-            out = self.zellij(session, args);
-            if let Ok(list) = serde_json::from_str(&out) {
+        loop {
+            if let Some(Ok(list)) = self
+                .zellij(session, args)
+                .map(|out| serde_json::from_str(&out))
+            {
                 return list;
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-        panic!("{args:?} of {session}: {out:?}");
     }
 
     fn tabs(&self, session: &str) -> Vec<Tab> {
@@ -403,20 +411,18 @@ impl Fixture {
                 .unwrap()
         };
         let mut client = spawn();
-        let mut tabs = Vec::new();
-        for _ in 0..50 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+        let tabs = loop {
             // A server still loading its plugins can drop a client the moment it
             // arrives ("lost connection"), and a user would attach again.
             if matches!(client.try_wait(), Ok(Some(_))) {
                 client = spawn();
-                continue;
             }
-            tabs = self.tabs(session);
+            let tabs = self.tabs(session);
             if tabs.iter().any(|t| t.active) {
-                break;
+                break tabs;
             }
-        }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
         let out = body(&tabs);
         let _ = client.kill();
         let _ = client.wait();
@@ -528,15 +534,13 @@ fn mine_opens_the_repo_tab_a_wt_session_lacks() {
     f.git(&worktree, &["switch", "-q", "feature"]);
     assert_ok(&f.review(&["--mine", URL, "feature"]));
     // Closed from a window, as a user would. zellij can report the action done
-    // before it is, so the tab is waited out.
+    // before it is, so the tab is waited out, however long it takes.
     f.attached("feat", |tabs| {
         let app = tabs.iter().find(|t| t.is_for("app")).unwrap();
         f.zellij("feat", &["close-tab-by-id", &app.id.to_string()]);
-        let gone = (0..100).any(|_| {
+        while f.tabs("feat").iter().any(|t| t.id == app.id) {
             std::thread::sleep(std::time::Duration::from_millis(50));
-            !f.tabs("feat").iter().any(|t| t.id == app.id)
-        });
-        assert!(gone, "the app tab stayed open");
+        }
     });
 
     assert_ok(&f.review(&["--mine", URL, "feature"]));

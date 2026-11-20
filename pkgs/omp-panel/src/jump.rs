@@ -3,7 +3,6 @@
 
 use std::os::unix::process::CommandExt;
 use std::process::Command;
-use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
@@ -88,8 +87,8 @@ pub fn jump(session: &str, pane: Option<u32>, launcher: &Launcher) -> Result<()>
                 args.extend(launcher.term_exec.iter().map(String::as_str));
                 args.extend([launcher.attach.as_str(), session]);
                 niri(&args)?;
-                if pane.is_some() && !zellij::wait_for_client(session, Duration::from_secs(10)) {
-                    bail!("no window attached to `{session}`");
+                if pane.is_some() && !zellij::wait_for_client(session) {
+                    bail!("`{session}` went away before a window attached to it");
                 }
             }
         }

@@ -79,15 +79,12 @@ impl Attached {
         let mut attached = Self(spawn());
         // A server still loading its plugins can drop a client the moment it
         // arrives ("lost connection"), and a user would attach again.
-        assert!(
-            wait_for(|| {
-                if matches!(attached.0.try_wait(), Ok(Some(_))) {
-                    attached.0 = spawn();
-                }
-                zellij::has_client(session).unwrap_or(false)
-            }),
-            "no client reached `{session}`"
-        );
+        wait_for(&format!("a client on `{session}`"), || {
+            if matches!(attached.0.try_wait(), Ok(Some(_))) {
+                attached.0 = spawn();
+            }
+            zellij::has_client(session).unwrap_or(false)
+        });
         attached
     }
 }
@@ -311,9 +308,9 @@ fn recreate_from_inside_deletes_the_session_and_leaves_the_request_behind() {
         )
         .ok();
 
-        assert!(
-            wait_for(|| !zellij::is_live("proj-inside").unwrap_or(true)),
-            "the client was left sitting on the session it asked to replace"
+        wait_for(
+            "the client to leave the session it asked to replace",
+            || !zellij::is_live("proj-inside").unwrap_or(true),
         );
         assert!(
             session.path.join(wt_core::session::RECREATE).is_file(),
@@ -335,14 +332,10 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
         let mut supervisor = Supervised::on("proj-fresh");
         // A client dropped as it arrives ends its `wt` before the tabs, and a user
         // would attach again.
-        assert!(
-            wait_for(|| {
-                supervisor.revive();
-                tab_repos("proj-fresh") == ["app"]
-            }),
-            "the member never got its tab: {:?}",
-            tab_repos("proj-fresh")
-        );
+        wait_for("the member's tab", || {
+            supervisor.revive();
+            tab_repos("proj-fresh") == ["app"]
+        });
 
         zellij::new_tab("proj-fresh", &f.workspace, "scratch").unwrap();
         assert!(tab_repos("proj-fresh").contains(&"scratch".to_string()));
@@ -354,28 +347,24 @@ fn recreate_hands_the_terminal_back_to_a_new_session() {
         )
         .ok();
 
-        assert!(
-            wait_for(|| {
-                supervisor.revive();
-                supervisor.client().is_some_and(|pid| pid != first)
-            }),
-            "the supervisor never attached a new client"
-        );
-        assert!(
-            wait_for(|| {
-                supervisor.revive();
-                zellij::has_client("proj-fresh").unwrap_or(false)
-            }),
-            "nobody was handed the terminal back"
-        );
-        assert!(
-            wait_for(|| {
-                supervisor.revive();
-                tab_repos("proj-fresh") == ["app"]
-            }),
-            "the old session came back instead of a new one: {:?}",
-            tab_repos("proj-fresh")
-        );
+        wait_for("the supervisor's new client", || {
+            supervisor.revive();
+            supervisor.client().is_some_and(|pid| pid != first)
+        });
+        wait_for("the terminal handed back", || {
+            supervisor.revive();
+            zellij::has_client("proj-fresh").unwrap_or(false)
+        });
+        // The old session, resurrected, would list its `scratch` tab from the start.
+        wait_for("the new session's tabs", || {
+            supervisor.revive();
+            let repos = tab_repos("proj-fresh");
+            assert!(
+                !repos.contains(&"scratch".to_string()),
+                "the old session came back instead of a new one: {repos:?}"
+            );
+            repos == ["app"]
+        });
         // Consumed, not merely acted on: a request left behind would throw the
         // session away again the next time anyone attaches.
         assert!(
@@ -394,20 +383,14 @@ struct Supervised(std::process::Child, String);
 impl Supervised {
     fn on(session: &str) -> Self {
         let mut supervised = Self(Self::spawn(session), session.to_string());
-        assert!(
-            wait_for(|| {
-                supervised.revive();
-                supervised.client().is_some()
-            }),
-            "`wt` never attached to `{session}`"
-        );
-        assert!(
-            wait_for(|| {
-                supervised.revive();
-                zellij::has_client(session).unwrap_or(false)
-            }),
-            "no client reached `{session}`"
-        );
+        wait_for(&format!("`wt` to attach to `{session}`"), || {
+            supervised.revive();
+            supervised.client().is_some()
+        });
+        wait_for(&format!("a client on `{session}`"), || {
+            supervised.revive();
+            zellij::has_client(session).unwrap_or(false)
+        });
         supervised
     }
 
@@ -493,21 +476,19 @@ fn tab_for(session: &str, repo: &str) -> zellij::Tab {
         .unwrap_or_else(|| panic!("no `{repo}` tab"))
 }
 
-/// Poll a state the multiplexer reaches on its own time. False once it has had
-/// long enough that waiting longer would only hide a failure — generous, since
-/// every suite of the repo may be running at once.
-fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
-    for _ in 0..600 {
-        if cond() {
-            return true;
-        }
+/// Poll a state the multiplexer reaches on its own time, for as long as that
+/// takes: a state that never comes is a test nextest's timeout fails, and what it
+/// was waiting for is the last line of its output.
+fn wait_for(what: &str, mut cond: impl FnMut() -> bool) {
+    eprintln!("waiting for {what}");
+    while !cond() {
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    false
 }
 
 /// Stand in for renaming a tab by hand. wt has no reason to rename one, so this
-/// is a test-only reach for `zellij action`.
+/// is a test-only reach for `zellij action`. An outcome zellij stopped waiting
+/// for is still a rename on its way (see `act` in wt's `zellij.rs`).
 fn rename_tab(session: &str, id: u32, name: &str) {
     let out = std::process::Command::new("zellij")
         .args([
@@ -520,10 +501,10 @@ fn rename_tab(session: &str, id: u32, name: &str) {
         ])
         .output()
         .expect("zellij should run");
+    let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
-        out.status.success(),
-        "could not rename tab {id}: {}",
-        String::from_utf8_lossy(&out.stderr)
+        out.status.success() || stderr.contains("its outcome is unknown"),
+        "could not rename tab {id}: {stderr}"
     );
 }
 

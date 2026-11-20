@@ -330,18 +330,25 @@ devices (`quickshell/virtual-devices.patch`).
   by the shell and work groups and by `review`, `wt` and `omp-panel`. niri's Mod+\ (`zsm`) and Mod+Shift+\
   (`review`) run in a floating kitty window, app-id `zellij-picker`; `zellij-attach` run from it (found by
   `KITTY_PID`) opens the session in a new tiled `zellij-session` window instead of in place, and the picker closes
-- zellij's CLI (0.45) races with itself: the server gives each connection the lowest free client id and tears
+- zellij's CLI (0.46) races with itself: the server gives each connection the lowest free client id and tears
   the previous holder of an id down after it may already be handed out again, so a connection can lose its
   own messages or get the late ones of the one before it. Every `zellij action` first probes the session's
   socket, and that check can fail on a live session (`There is no active session!` / `Session '…' not found`,
   nothing sent); `list-sessions` can leave a live session out; a query can print nothing or another command's
-  answer; a mutation can return before it took effect. Anything scripting zellij retries a not-found action,
-  retries a query until its answer parses, confirms an absence over several listings, and waits for a
-  mutation's effect (`run`/`query` in `pkgs/wt/crates/core/src/zellij.rs`, `pkgs/omp-panel/src/zellij.rs`,
-  `act`/`ask` in `review.sh`). `zellij attach --create` on a session it wrongly thinks gone starts a second
-  server that takes the name over, so `zellij-attach` only passes `--create` for a session no listing shows;
-  `switch-session` reconnects that way inside zellij, out of reach: omp-panel's switch test runs again when
-  `beta` was replaced or the switch lost. Every fixture SIGKILLs (zellij catches SIGTERM) the servers under
+  answer; a mutation can return before it took effect. And the server waits a hard-coded 1s for an action,
+  then exits 2 with `Action … did not complete within 1s, its outcome is unknown` (`Timeout listing tabs|panes`
+  for those two): the action is not cancelled, so on a loaded machine (CI) any action can say so. Anything
+  scripting zellij retries a not-found action, retries a query until its answer parses or for as long as it
+  times out, takes a timed-out mutation as sent (never resends it), confirms an absence over several
+  listings, and waits for a mutation's effect (`run`/`query`/`act` in `pkgs/wt/crates/core/src/zellij.rs`,
+  `pkgs/omp-panel/src/zellij.rs`, `act`/`ask` in `review.sh`, and the tests' own helpers). No wait has a
+  fixed deadline: it ends on an outcome (the state reached, the session or the client process gone), and
+  in tests a state that never comes is nextest's `terminate-after`, with `waiting for …` as the last line of
+  output. Counted retries are only for zellij's races, never for time. `zellij attach --create` on a
+  session it wrongly thinks gone starts a second server that takes the name over, so `zellij-attach` only
+  passes `--create` for a session no listing shows; `switch-session` reconnects that way inside zellij, out
+  of reach: omp-panel's switch test runs again when `beta` was replaced or the client dropped. Every fixture
+  SIGKILLs (zellij catches SIGTERM) the servers under
   its directory when dropped, and on creation those of fixtures whose `.fixture` marker is gone: an orphaned
   server re-creates its directories, and a test nextest killed never dropped its fixture
 - `cargo-tools/`: Rust CLIs nixpkgs lacks, which would otherwise be `cargo install`ed: one `<name>.nix` each

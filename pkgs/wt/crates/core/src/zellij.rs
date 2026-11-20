@@ -81,24 +81,27 @@ pub fn is_live(name: &str) -> Result<bool> {
 /// client landing later does not repair it, and attaching to such a tab drops the
 /// client straight back out.
 pub fn has_client(name: &str) -> Result<bool> {
+    Ok(!clients(name)?.is_empty())
+}
+
+/// The ids of the clients attached to a session.
+fn clients(name: &str) -> Result<Vec<String>> {
     // A header line is always printed; a client is a line after it.
     query(name, "clients", &["list-clients"], |out| {
         let mut lines = out.lines();
-        lines
-            .next()?
-            .starts_with("CLIENT_ID")
-            .then(|| lines.any(|line| !line.trim().is_empty()))
+        lines.next()?.starts_with("CLIENT_ID").then(|| {
+            lines
+                .filter_map(|line| line.split_whitespace().next().map(str::to_owned))
+                .collect()
+        })
     })
 }
 
 /// Wait for the client handed the terminal to reach a session, so its tabs can be
-/// laid out. False if none turned up, or if the session went away first — a user
-/// who quits immediately is not an error.
-///
-/// Waits for as long as `coming` says the client is still on its way, up to a
-/// limit: a loaded machine can take seconds to let it in.
+/// laid out. False if the session went away first, or if `coming` says the client
+/// is no longer on its way — a user who quits immediately is not an error.
 pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<bool> {
-    for _ in 0..600 {
+    loop {
         match has_client(name) {
             Ok(true) => return Ok(true),
             Ok(false) => {}
@@ -111,7 +114,6 @@ pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<b
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    Ok(false)
 }
 
 /// Start a session's server without attaching to it, which is what puts the root
@@ -135,23 +137,19 @@ pub fn start_detached(name: &str, root: &Path) -> Result<()> {
     if !out.ok() {
         return Err(anyhow!("could not start `{name}`: {}", out.stderr.trim()));
     }
-    // The command returns before the server is listening.
-    for _ in 0..100 {
-        if is_live(name)? {
-            // And the client that created it in the background can still be
-            // listed for a moment, which a caller waiting for a client to lay
-            // tabs out against would take for one.
-            for _ in 0..100 {
-                if !has_client(name).unwrap_or(false) {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            return Ok(());
-        }
+    // The command returns once the server is forked, before it is listening.
+    while !is_live(name)? {
         std::thread::sleep(Duration::from_millis(50));
     }
-    Err(anyhow!("`{name}` did not come up"))
+    // And the client that created it in the background, which has exited, can still
+    // be listed for a moment, which a caller waiting for a client to lay tabs out
+    // against would take for one. Only the clients listed now are waited out, so
+    // one attaching meanwhile is not.
+    let creators = clients(name).unwrap_or_default();
+    while clients(name).is_ok_and(|ids| ids.iter().any(|id| creators.contains(id))) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Ok(())
 }
 
 /// Kill a session's server and delete its saved state (`delete-session --force`).
@@ -182,31 +180,18 @@ pub fn tabs(name: &str) -> Result<Vec<Tab>> {
 pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
     let before: Vec<u32> = tabs(name)?.into_iter().map(|t| t.tab_id).collect();
     let cwd = cwd.to_string_lossy();
-    let out = run(
-        &[
-            "--session",
-            name,
-            "action",
-            "new-tab",
-            "--cwd",
-            &cwd,
-            "--name",
-            tab,
-        ],
-        None,
+    let out = act(
+        name,
+        &["new-tab", "--cwd", &cwd, "--name", tab],
+        &format!("add a `{tab}` tab to"),
     )?;
-    if !out.ok() {
-        return Err(anyhow!(
-            "could not add a `{tab}` tab to `{name}`: {}",
-            out.stderr.trim()
-        ));
-    }
     // The id printed can be missing or another tab's, and the tab not opened yet
     // (see `query`), while a second `new-tab` would make two: the id is the
     // listed tab of that name that was not there before.
     let printed: Option<u32> = out.stdout.trim().parse().ok();
-    // A loaded machine can take seconds to open it.
-    for _ in 0..200 {
+    // zellij accepted the action, so the tab comes, however long the machine takes;
+    // a session that dies first fails the listing.
+    loop {
         let new: Vec<u32> = tabs(name)?
             .into_iter()
             .filter(|t| t.name == tab && !before.contains(&t.tab_id))
@@ -220,50 +205,34 @@ pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    Err(anyhow!("the new `{tab}` tab of `{name}` never showed up"))
 }
 
 fn move_tab(name: &str, id: u32, direction: &str, times: usize) -> Result<()> {
     let id = id.to_string();
     for _ in 0..times {
-        let out = run(
-            &[
-                "--session",
-                name,
-                "action",
-                "move-tab",
-                "--tab-id",
-                &id,
-                direction,
-            ],
-            None,
+        act(
+            name,
+            &["move-tab", "--tab-id", &id, direction],
+            &format!("move tab {id} of"),
         )?;
-        if !out.ok() {
-            return Err(anyhow!(
-                "could not move tab {id} of `{name}`: {}",
-                out.stderr.trim()
-            ));
-        }
     }
     Ok(())
 }
 
 pub fn close_tab(name: &str, id: u32) -> Result<()> {
     let id = id.to_string();
-    let out = run(&["--session", name, "action", "close-tab-by-id", &id], None)?;
-    if !out.ok() {
-        return Err(anyhow!(
-            "could not close tab {id} of `{name}`: {}",
-            out.stderr.trim()
-        ));
-    }
+    act(
+        name,
+        &["close-tab-by-id", &id],
+        &format!("close tab {id} of"),
+    )?;
     Ok(())
 }
 
 /// Move an attached client to another session, from inside the one it is in.
 pub fn switch_to(name: &str) -> Result<()> {
     let out = run(&["action", "switch-session", name], None)?;
-    if !out.ok() {
+    if !out.ok() && !outcome_unknown(&out.stderr) {
         return Err(anyhow!(
             "could not switch to `{name}`: {}",
             out.stderr.trim()
@@ -411,7 +380,9 @@ pub fn untabbed(session: &Session) -> Result<Vec<String>> {
 
 /// A query action's answer, parsed. An answer that does not parse is asked for
 /// again: zellij answers with nothing just after a client attaches, until its
-/// screen is up, and can hand any answer to the wrong command (see `run`).
+/// screen is up, and can hand any answer to the wrong command (see `run`). So is
+/// one zellij gave up waiting for (see `outcome_unknown`). Both pass once the
+/// server catches up, however long that takes; a session that is gone fails.
 fn query<T>(
     name: &str,
     what: &str,
@@ -420,9 +391,12 @@ fn query<T>(
 ) -> Result<T> {
     let mut args = vec!["--session", name, "action"];
     args.extend(action);
-    for _ in 0..40 {
+    loop {
         let out = run(&args, None)?;
         if !out.ok() {
+            if outcome_unknown(&out.stderr) {
+                continue;
+            }
             return Err(anyhow!(
                 "could not list the {what} of `{name}`: {}",
                 out.stderr.trim()
@@ -433,7 +407,29 @@ fn query<T>(
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    Err(anyhow!("zellij never listed the {what} of `{name}`"))
+}
+
+/// A mutating action. One zellij gave up waiting for still runs: it is queued on
+/// the server's screen thread, which handles actions in order, so the actions sent
+/// after it run after it. Sending it again would do it twice.
+fn act(name: &str, action: &[&str], what: &str) -> Result<util::Output> {
+    let mut args = vec!["--session", name, "action"];
+    args.extend(action);
+    let out = run(&args, None)?;
+    if !out.ok() && !outcome_unknown(&out.stderr) {
+        return Err(anyhow!("could not {what} `{name}`: {}", out.stderr.trim()));
+    }
+    Ok(out)
+}
+
+/// zellij 0.46 waits 1s for an action to complete, then answers that its outcome
+/// is unknown and exits 2; list-tabs and list-panes say "Timeout listing …". The
+/// action is not cancelled, only no longer waited for, so on a loaded machine
+/// this is a busy server, not a failure.
+fn outcome_unknown(stderr: &str) -> bool {
+    stderr.contains("its outcome is unknown")
+        || stderr.contains("Timeout listing tabs")
+        || stderr.contains("Timeout listing panes")
 }
 
 /// zellij's CLI, through a race of its own: the server gives each connection the

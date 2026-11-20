@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant};
-
 use anyhow::{Context, Result};
 
 use wt_core::config::Config;
@@ -72,9 +70,9 @@ pub fn run(cfg: &Config, id: Option<&str>) -> Result<()> {
         }
         Some(_) => {
             zellij::switch_to(&id)?;
-            // The client is already up, only moving: it is there in moments or not at all.
-            let until = Instant::now() + Duration::from_secs(5);
-            tabs_behind_the_client(&session, &cfg.repos, || Instant::now() < until);
+            // The client is already up, only moving, and nothing tells it apart from
+            // one zellij lost on the way: wait for as long as the session lives.
+            tabs_behind_the_client(&session, &cfg.repos, || true);
             Ok(())
         }
         // This process owns the terminal, so it is the one that can rebuild the

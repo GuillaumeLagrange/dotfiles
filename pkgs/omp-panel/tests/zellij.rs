@@ -18,15 +18,23 @@ struct Fixture {
     clients: Vec<Child>,
 }
 
-fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
-    // Generous: every suite of the repo may be running at once.
-    for _ in 0..600 {
-        if cond() {
-            return true;
-        }
+/// Poll a state zellij reaches on its own time, for as long as that takes: a
+/// state that never comes is a test nextest's timeout fails, and what it was
+/// waiting for is the last line of its output.
+fn wait_for(what: &str, mut cond: impl FnMut() -> bool) {
+    eprintln!("waiting for {what}");
+    while !cond() {
         std::thread::sleep(Duration::from_millis(50));
     }
-    false
+}
+
+/// zellij stopped waiting for the action, which still runs (see `run` in
+/// `src/zellij.rs`).
+fn outcome_unknown(out: &Output) -> bool {
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    stderr.contains("its outcome is unknown")
+        || stderr.contains("Timeout listing tabs")
+        || stderr.contains("Timeout listing panes")
 }
 
 impl Fixture {
@@ -143,7 +151,8 @@ exit 1
 
     /// A query action's answer, parsed; None when the action fails. zellij can
     /// hand a CLI client an unblock or an answer meant for the client before it
-    /// (see `zellij::query`), so an answer that does not parse is asked again.
+    /// (see `zellij::query`), so an answer that does not parse is asked again,
+    /// and so is one zellij stopped waiting for, however often.
     fn query<T>(
         &self,
         session: &str,
@@ -152,8 +161,11 @@ exit 1
     ) -> Option<T> {
         let mut args = vec!["-s", session, "action"];
         args.extend(action);
-        for _ in 0..20 {
+        loop {
             let out = self.zellij(&args);
+            if outcome_unknown(&out) {
+                continue;
+            }
             if !out.status.success() {
                 return None;
             }
@@ -161,7 +173,6 @@ exit 1
                 return Some(answer);
             }
         }
-        panic!("`zellij {}` never gave a usable answer", args.join(" "));
     }
 
     /// `list-panes --json`, with `extra` flags.
@@ -188,13 +199,16 @@ exit 1
             String::from_utf8_lossy(&out.stderr)
         );
         // The server answers before its layout has made the first pane.
-        assert!(wait_for(|| self
-            .list_panes(session, &[])
-            .iter()
-            .any(|p| p["is_plugin"] == false)));
+        wait_for(&format!("the first pane of `{session}`"), || {
+            self.list_panes(session, &[])
+                .iter()
+                .any(|p| p["is_plugin"] == false)
+        });
         // And the client that created it can still be listed for a moment, which
         // `attach` would take for its own.
-        assert!(wait_for(|| self.client_panes(session).is_empty()));
+        wait_for(&format!("the creating client to leave `{session}`"), || {
+            self.client_panes(session).is_empty()
+        });
     }
 
     /// A real client on a session, the way a user's terminal is one.
@@ -219,14 +233,13 @@ exit 1
         let mut child = spawn(self);
         // A server still loading its plugins can drop a client the moment it
         // arrives ("lost connection"), and a user would attach again.
-        let reached = wait_for(|| {
+        wait_for(&format!("a client on `{session}`"), || {
             if matches!(child.try_wait(), Ok(Some(_))) {
                 child = spawn(self);
             }
             !self.client_panes(session).is_empty()
         });
         self.clients.push(child);
-        assert!(reached, "no client reached `{session}`");
     }
 
     fn new_pane(&self, session: &str) -> u32 {
@@ -239,19 +252,13 @@ exit 1
         // Zellij sometimes opens the pane and prints nothing (see `query`): it is
         // the one that was not there before.
         let mut new = None;
-        let found = wait_for(|| {
+        wait_for(&format!("the new pane of `{session}`"), || {
             new = self
                 .terminal_panes(session)
                 .into_iter()
                 .find(|id| !before.contains(id));
             new.is_some()
         });
-        assert!(
-            found,
-            "no new pane in `{session}`: new-pane said {out:?}, panes were {before:?}, now {:?}; sessions: {:?}",
-            self.zellij(&["-s", session, "action", "list-panes", "--json"]),
-            self.zellij(&["list-sessions", "--no-formatting"]),
-        );
         new.unwrap()
     }
 
@@ -437,16 +444,13 @@ fn panes_lists_what_runs_in_each_pane() {
             .collect::<HashMap<_, _>>()
     };
     let mut seen = HashMap::new();
-    assert!(
-        wait_for(|| {
-            seen = rows();
-            seen.contains_key(&0)
-                && seen
-                    .get(&busy)
-                    .is_some_and(|r| r["command"] == "sleep 4242")
-        }),
-        "{seen:?}"
-    );
+    wait_for("both panes listed, the busy one running sleep", || {
+        seen = rows();
+        seen.contains_key(&0)
+            && seen
+                .get(&busy)
+                .is_some_and(|r| r["command"] == "sleep 4242")
+    });
     assert_eq!(seen[&busy]["idle"], false);
     assert_eq!(seen[&busy]["cwd"], "/tmp", "the foreground process's cwd");
     assert_eq!(seen[&0]["idle"], true, "{:?}", seen[&0]);
@@ -458,10 +462,12 @@ fn jump_focuses_the_window_showing_the_session_then_the_pane() {
     f.start("alpha");
     f.attach("alpha");
     let out = f.zellij(&["-s", "alpha", "action", "new-tab"]);
-    assert!(out.status.success());
+    assert!(out.status.success() || outcome_unknown(&out));
     let target = f.new_pane("alpha");
     f.zellij(&["-s", "alpha", "action", "focus-pane-id", "terminal_0"]);
-    assert!(wait_for(|| f.client_panes("alpha") == ["terminal_0"]));
+    wait_for("the client on terminal_0", || {
+        f.client_panes("alpha") == ["terminal_0"]
+    });
     f.omp("alpha", target, "idle", Some(5));
     let log = f.fake_niri(r#"[{"id":3,"title":"other | x"},{"id":7,"title":"alpha | Pane #1"}]"#);
 
@@ -476,11 +482,9 @@ fn jump_focuses_the_window_showing_the_session_then_the_pane() {
     assert!(calls.contains("msg action focus-window --id 7"), "{calls}");
     assert!(!calls.contains("spawn"), "{calls}");
     let expected = format!("terminal_{target}");
-    assert!(
-        wait_for(|| f.client_panes("alpha") == [expected.as_str()]),
-        "{:?}",
-        f.client_panes("alpha")
-    );
+    wait_for(&format!("the client on {expected}"), || {
+        f.client_panes("alpha") == [expected.as_str()]
+    });
     let groups = json(&f.panel(&["list", "--json"], &[]));
     assert_eq!(
         groups[0]["panes"][0]["status"], "idle",
@@ -517,19 +521,17 @@ fn jump_opens_a_window_for_a_session_nobody_shows() {
         "{calls}"
     );
     let expected = format!("terminal_{target}");
-    assert!(
-        wait_for(|| f.client_panes("beta") == [expected.as_str()]),
-        "{:?}",
-        f.client_panes("beta")
-    );
+    wait_for(&format!("the new window's client on {expected}"), || {
+        f.client_panes("beta") == [expected.as_str()]
+    });
 }
 
 #[test]
 fn jump_without_niri_moves_this_client_to_the_other_session() {
     // zellij's own switch reconnects with `attach --create`, which now and then
-    // takes a live session for gone and starts a new one under its name, and the
-    // race behind it can lose the switch altogether (see AGENTS.md). A run where
-    // either happened says nothing of the panel, and is run again.
+    // takes a live session for gone and starts a new one under its name, or drops
+    // the client (see AGENTS.md). A run where either happened says nothing of the
+    // panel, and is run again.
     for _ in 0..3 {
         let mut f = Fixture::new();
         f.start("alpha");
@@ -554,41 +556,41 @@ fn jump_without_niri_moves_this_client_to_the_other_session() {
             "-s", "alpha", "action", "new-pane", "--", "sh", "-c", &script,
         ]);
         assert!(
-            out.status.success(),
+            out.status.success() || outcome_unknown(&out),
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
 
+        // The switch lands whenever the machine lets it: only an outcome ends the wait.
         let expected = format!("terminal_{target}");
-        let replaced = || !f.terminal_panes("beta").contains(&target);
-        // Short enough that three tries fit in nextest's timeout.
-        let deadline = std::time::Instant::now() + Duration::from_secs(15);
-        let mut on_beta = f.client_panes("beta");
-        while on_beta != [expected.as_str()] && !replaced() {
-            if std::time::Instant::now() > deadline {
-                break;
+        eprintln!("waiting for the client on {expected} of beta");
+        let moved = loop {
+            if f.client_panes("beta") == [expected.as_str()] {
+                break true;
+            }
+            let dropped = f
+                .clients
+                .last_mut()
+                .is_some_and(|client| matches!(client.try_wait(), Ok(Some(_))));
+            if dropped || !f.terminal_panes("beta").contains(&target) {
+                break false;
+            }
+            let exited = std::fs::read_to_string(&status).ok();
+            if exited.as_deref().is_some_and(|s| s.trim() != "0") {
+                panic!(
+                    "jump exited {exited:?}: {}; the client is on {:?} of alpha",
+                    std::fs::read_to_string(&stderr).unwrap_or_default(),
+                    f.client_panes("alpha")
+                );
             }
             std::thread::sleep(Duration::from_millis(50));
-            on_beta = f.client_panes("beta");
-        }
-        if on_beta == [expected.as_str()] {
-            assert!(
-                wait_for(|| f.client_panes("alpha").is_empty()),
-                "the client left alpha"
-            );
+        };
+        if moved {
+            wait_for("the client to leave alpha", || {
+                f.client_panes("alpha").is_empty()
+            });
             return;
         }
-        let exited = std::fs::read_to_string(&status).ok();
-        let said = std::fs::read_to_string(&stderr).unwrap_or_default();
-        // `jump` ran and zellij took the switch, or never started the pane: the
-        // client went nowhere through no fault of the panel.
-        if replaced() || exited.as_deref().is_none_or(|s| s.trim() == "0") {
-            continue;
-        }
-        panic!(
-            "jump exited {exited:?}: {said}; the client is on {on_beta:?} of beta and {:?} of alpha",
-            f.client_panes("alpha")
-        );
     }
-    panic!("zellij replaced `beta` or lost the switch on every try");
+    panic!("zellij replaced `beta` or dropped the client on every try");
 }
