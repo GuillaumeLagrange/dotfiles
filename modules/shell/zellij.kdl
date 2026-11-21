@@ -5,26 +5,14 @@ keybinds clear-defaults=true {
     normal {
         bind "c" {
             NewTab
-            Run "zellij-rename-current" {
-                floating true
-                close_on_exit true
-                width 24
-                height 3
-                name "rename"
-            }
+            Run "zellij-rename-current" { background true; }
             SwitchToMode "locked"
         }
         bind "{" { MovePaneBackwards; SwitchToMode "locked"; }
         bind "}" { MovePane; SwitchToMode "locked"; }
         bind "f" { ToggleFocusFullscreen; SwitchToMode "locked"; }
         bind "n" {
-            Run "zellij-rename-current" {
-                floating true
-                close_on_exit true
-                width 24
-                height 3
-                name "rename"
-            }
+            Run "zellij-rename-current" { background true; }
             SwitchToMode "locked"
         }
         bind "u" {
@@ -81,13 +69,7 @@ keybinds clear-defaults=true {
         bind "l" { MoveFocus "right"; }
         bind "n" { NewPane; SwitchToMode "locked"; }
         bind "o" {
-            Run "zellij-close-other-panes" {
-                floating true
-                close_on_exit true
-                width 1
-                height 1
-                name "close other panes"
-            }
+            Run "zellij-close-other-panes" { background true; }
             SwitchToMode "locked"
         }
         bind "p" { SwitchToMode "normal"; }
@@ -120,24 +102,12 @@ keybinds clear-defaults=true {
         bind "k" { GoToPreviousTab; }
         bind "l" { GoToNextTab; }
         bind "o" {
-            Run "zellij-close-other-tabs" {
-                floating true
-                close_on_exit true
-                width 1
-                height 1
-                name "close other tabs"
-            }
+            Run "zellij-close-other-tabs" { background true; }
             SwitchToMode "locked"
         }
         bind "n" {
             NewTab
-            Run "zellij-rename-current" {
-                floating true
-                close_on_exit true
-                width 24
-                height 3
-                name "rename"
-            }
+            Run "zellij-rename-current" { background true; }
             SwitchToMode "locked"
         }
         bind "r" { SwitchToMode "renametab"; TabNameInput 0; }

@@ -1,6 +1,7 @@
 set -euo pipefail
 
-# Close every tab but the one this pane (run from a keybind) is in.
+# Close every tab but the one holding the pane the keybind ran from (a background Run sets
+# ZELLIJ_PANE_ID to that pane).
 
 keep=$(zellij action list-panes --json | jq -er --argjson id "$ZELLIJ_PANE_ID" \
   'first(.[] | select(.is_plugin == false and .id == $id)) | .tab_id')
