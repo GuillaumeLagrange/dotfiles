@@ -76,10 +76,7 @@ pub fn is_live(name: &str) -> Result<bool> {
 ///
 /// Tabs are only ever added to a session someone is looking at: zellij lays a new
 /// tab out against the attached client's size, and a server with no client has
-/// none — since 0.45 it reports a zero-sized viewport, so `new-tab` fails with
-/// "Not enough room for panes" and leaves a tab with no pane in it at all. A
-/// client landing later does not repair it, and attaching to such a tab drops the
-/// client straight back out.
+/// none. There `new-tab` exits 0 and prints an id, but no tab comes (0.46).
 pub fn has_client(name: &str) -> Result<bool> {
     Ok(!clients(name)?.is_empty())
 }
@@ -380,8 +377,8 @@ pub fn untabbed(session: &Session) -> Result<Vec<String>> {
 
 /// A query action's answer, parsed. An answer that does not parse is asked for
 /// again: zellij answers with nothing just after a client attaches, until its
-/// screen is up, and can hand any answer to the wrong command (see `run`). So is
-/// one zellij gave up waiting for (see `outcome_unknown`). Both pass once the
+/// screen is up, and whenever a pane or tab closes while it waits (see `run`). So
+/// is one zellij gave up waiting for (see `outcome_unknown`). Both pass once the
 /// server catches up, however long that takes; a session that is gone fails.
 fn query<T>(
     name: &str,
@@ -432,15 +429,13 @@ fn outcome_unknown(stderr: &str) -> bool {
         || stderr.contains("Timeout listing panes")
 }
 
-/// zellij's CLI, through a race of its own: the server gives each connection the
-/// lowest free client id, and tears the previous holder of an id down after it
-/// may already be handed out again, so a connection can lose its own messages or
-/// get the late ones of the connection before it. Every command connects twice:
-/// first to check that the session is up, and that check then fails on a live one
-/// ("There is no active session!", "Session '…' not found"), before anything was
-/// sent, so the command is run again; then for the action itself, which can exit
-/// having printed nothing or someone else's answer (see `query`), and before it
-/// took effect.
+/// zellij's CLI, through races of its own. Every command first probes the running
+/// sessions' sockets to find its target, and that check can fail on a live one
+/// ("There is no active session!", "Session '…' not found") before anything was
+/// sent, so the command is run again. The action itself can then exit having
+/// printed nothing, and before it took effect: whenever a pane or tab closes, the
+/// server tells every connected client its action is done, and the CLI takes that
+/// for its own answer (see `query`).
 fn run(args: &[&str], root: Option<&Path>) -> Result<util::Output> {
     let mut tries = 0;
     loop {

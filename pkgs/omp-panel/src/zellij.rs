@@ -46,10 +46,10 @@ fn run(args: &[&str]) -> Result<Option<String>> {
     }
 }
 
-/// A query action's answer, parsed: one that does not parse (nothing, or another
-/// command's answer) is asked for again, and so is one zellij stopped waiting for,
-/// however often: both pass once the server catches up. A session that is gone
-/// fails `run`.
+/// A query action's answer, parsed: one that does not parse (zellij can exit
+/// having printed nothing, see `run` in wt's `zellij.rs`) is asked for again, and
+/// so is one zellij stopped waiting for, however often: both pass once the server
+/// catches up. A session that is gone fails `run`.
 fn query<T>(session: &str, action: &[&str], parse: impl Fn(&str) -> Option<T>) -> Result<T> {
     let mut args = vec!["-s", session, "action"];
     args.extend(action);
@@ -101,7 +101,8 @@ pub struct Pane {
     pub title: Option<String>,
     pub tab_name: Option<String>,
     pub tab_position: Option<u32>,
-    /// What the pane was started with, not what runs in it now.
+    /// The foreground command, which the config's `post_command_discovery_hook`
+    /// rewrites to `$SHELL` (see `panes.rs`).
     pub pane_command: Option<String>,
     pub pane_cwd: Option<String>,
     /// The command of a pane started with one, kept after it exits when held.

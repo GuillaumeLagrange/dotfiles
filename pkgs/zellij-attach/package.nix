@@ -47,10 +47,10 @@ writeShellScriptBin "zellij-attach" ''
     export WORKSPACE_ROOT="$root"
   fi
 
-  # zellij's check that a session is up can fail on a live one now and then (it
-  # races with the session's other connections), and `attach --create` would then
-  # start a second server that takes the name over. So --create is only passed for
-  # a session no listing shows, and an attach that finds no session is tried again.
+  # zellij's check that a session is up can fail on a live one now and then, and
+  # `attach --create` would then start a second server for it (0.45 let that one
+  # take the name over). So --create is only passed for a session no listing shows,
+  # and an attach that finds no session is tried again.
   listed() {
     local _
     for _ in 1 2 3 4 5; do

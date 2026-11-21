@@ -1,9 +1,11 @@
 //! Every terminal pane of every live session, with the command in its foreground.
 //!
-//! zellij only knows what a pane was started with, the shell mostly. What runs in
-//! it now comes from /proc: zellij puts `ZELLIJ_SESSION_NAME` and `ZELLIJ_PANE_ID`
-//! in the environment of the process it spawns in a pane, whose terminal's
-//! foreground process group is led by the command to show.
+//! zellij reports each pane's foreground command, but the config's
+//! `post_command_discovery_hook` rewrites it to `$SHELL`, so that resurrected
+//! panes come back as plain shells. What runs in a pane comes from /proc instead:
+//! zellij puts `ZELLIJ_SESSION_NAME` and `ZELLIJ_PANE_ID` in the environment of
+//! the process it spawns in a pane, whose terminal's foreground process group is
+//! led by the command to show.
 
 use std::collections::HashMap;
 use std::fs;
