@@ -38,4 +38,23 @@ in
     ${lib.concatMapStringsSep ",\n" mkDeviceRule bluetoothDevices}
     ]
   '';
+
+  # alsa-ucm-conf's DualSense profile exposes only a mono speaker (hw channel 1), so chiaki-ng's
+  # haptics get downmixed into the speaker. Without UCM the card is a 4.0 sink and RL/RR reach the actuators.
+  xdg.configFile."wireplumber/wireplumber.conf.d/51-dualsense-no-ucm.conf".text = ''
+    monitor.alsa.rules = [
+      {
+        matches = [
+          {
+            device.name = "~alsa_card.usb-Sony_Interactive_Entertainment_DualSense_Wireless_Controller-.*"
+          }
+        ]
+        actions = {
+          update-props = {
+            api.alsa.use-ucm = false
+          }
+        }
+      }
+    ]
+  '';
 }
