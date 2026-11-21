@@ -118,6 +118,16 @@
   };
 
   environment.systemPackages = with pkgs; [
+    # Its QML UI takes stylix's QT_STYLE_OVERRIDE=kvantum as a Quick Controls style, which does not exist.
+    (symlinkJoin {
+      name = "chiaki-ng";
+      # Unstable: 1.10.1 gets adaptive triggers from more games and starts wired haptics on hotplug.
+      paths = [ unstable.chiaki-ng ];
+      nativeBuildInputs = [ makeWrapper ];
+      postBuild = ''
+        wrapProgram $out/bin/chiaki --unset QT_STYLE_OVERRIDE
+      '';
+    })
     lutris
   ];
 
@@ -134,8 +144,10 @@
       StreamLocalBindUnlink = true;
     };
   };
+  # The PS5 answers chiaki-ng's broadcast discovery from port 9302, a reply conntrack does not match.
   networking.firewall.extraInputRules = ''
     ip saddr 192.168.1.0/24 tcp dport 22 accept
+    ip saddr 192.168.1.0/24 udp sport 9302 accept
   '';
   networking.interfaces.enp7s0.wakeOnLan.enable = true;
   users.users.guillaume.openssh.authorizedKeys.keys = [
