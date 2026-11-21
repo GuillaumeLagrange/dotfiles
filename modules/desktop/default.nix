@@ -34,7 +34,7 @@
     };
   };
 
-  # The session's config and apps: niri, the quickshell bar, vicinae, lock and idle,
+  # The session's config and apps: niri, the quickshell bar and its launcher, lock and idle,
   # browsers, terminals.
   flake.modules.homeManager.desktop = {
     imports = [
@@ -42,10 +42,10 @@
       ./audio.nix
       ./easyeffects.nix
       ./firefox.nix
+      ./launcher.nix
       ./lock.nix
       ./niri.nix
       ./quickshell
-      ./vicinae
       ./zellij-sessions.nix
     ];
 

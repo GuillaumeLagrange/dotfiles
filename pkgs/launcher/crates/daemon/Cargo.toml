@@ -1,0 +1,22 @@
+[package]
+name = "launcher"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "launcher"
+path = "src/main.rs"
+
+[dependencies]
+launcher-core.workspace = true
+launcher-clipboard.workspace = true
+launcher-desktop.workspace = true
+launcher-browser.workspace = true
+launcher-passwords.workspace = true
+launcher-dev.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

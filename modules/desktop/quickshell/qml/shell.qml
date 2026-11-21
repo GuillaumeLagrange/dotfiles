@@ -23,4 +23,9 @@ ShellRoot {
             NotifPopups {}
         }
     }
+
+    // One window, moved to the focused output each time it opens.
+    Launcher {
+        id: launcher
+    }
 }

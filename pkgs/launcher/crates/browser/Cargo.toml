@@ -1,0 +1,15 @@
+[package]
+name = "launcher-browser"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+launcher-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.35", features = ["bundled"] }
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+
+[dev-dependencies]
+tempfile.workspace = true

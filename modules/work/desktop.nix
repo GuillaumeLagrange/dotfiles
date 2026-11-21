@@ -2,7 +2,7 @@
 {
   _class = "homeManager";
 
-  # niri's review bindings and 1Password autostart, the bar's PR pill.
+  # niri's and the launcher's PR bindings, 1Password (autostart, launcher passwords), the bar's PR pill.
   work.enable = true;
 
   programs.ssh = {

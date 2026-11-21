@@ -58,14 +58,21 @@ pub fn current() -> Option<String> {
 /// A listing can leave a live session out (see `run`), so it only counts as down
 /// once a few listings agree.
 pub fn is_live(name: &str) -> Result<bool> {
+    listed(name, true)
+}
+
+/// Whether zellij lists a session at all, live or kept to resurrect.
+pub fn exists(name: &str) -> Result<bool> {
+    listed(name, false)
+}
+
+fn listed(name: &str, live: bool) -> Result<bool> {
     for _ in 0..5 {
         let out = run(&["list-sessions", "--no-formatting"], None)?;
         // No sessions at all is a non-zero exit, not a failure to answer.
-        if out
-            .stdout
-            .lines()
-            .any(|line| line.split_whitespace().next() == Some(name) && !line.contains("(EXITED"))
-        {
+        if out.stdout.lines().any(|line| {
+            line.split_whitespace().next() == Some(name) && !(live && line.contains("(EXITED"))
+        }) {
             return Ok(true);
         }
     }
@@ -82,7 +89,7 @@ pub fn has_client(name: &str) -> Result<bool> {
 }
 
 /// The ids of the clients attached to a session.
-fn clients(name: &str) -> Result<Vec<String>> {
+pub fn clients(name: &str) -> Result<Vec<String>> {
     // A header line is always printed; a client is a line after it.
     query(name, "clients", &["list-clients"], |out| {
         let mut lines = out.lines();
@@ -113,8 +120,8 @@ pub fn wait_for_client(name: &str, mut coming: impl FnMut() -> bool) -> Result<b
     }
 }
 
-/// Start a session's server without attaching to it, which is what puts the root
-/// in its environment. Creates the session, or resurrects it if zellij kept it,
+/// Start a session's server without attaching to it, in its root, which is what
+/// puts the root in its environment. Creates the session, or resurrects it if zellij kept it,
 /// on the config of its colour when `zellij-sessions` gives one.
 pub fn start_detached(name: &str, root: &Path) -> Result<()> {
     let config = Command::new("zellij-sessions")
@@ -173,15 +180,32 @@ pub fn tabs(name: &str) -> Result<Vec<Tab>> {
     })
 }
 
+/// Only the fields wt acts on.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Pane {
+    pub id: u32,
+    pub tab_id: u32,
+    pub is_plugin: bool,
+}
+
+/// A session's panes.
+pub fn panes(name: &str) -> Result<Vec<Pane>> {
+    query(name, "panes", &["list-panes", "--json"], |out| {
+        serde_json::from_str(out).ok()
+    })
+}
+
 /// Opens a tab and returns its id.
 pub fn new_tab(name: &str, cwd: &Path, tab: &str) -> Result<u32> {
+    new_tab_with(name, tab, &["--cwd", &cwd.to_string_lossy()])
+}
+
+/// Opens a tab with further `new-tab` options (`--cwd`, `-- COMMAND`) and returns its id.
+pub fn new_tab_with(name: &str, tab: &str, options: &[&str]) -> Result<u32> {
     let before: Vec<u32> = tabs(name)?.into_iter().map(|t| t.tab_id).collect();
-    let cwd = cwd.to_string_lossy();
-    let out = act(
-        name,
-        &["new-tab", "--cwd", &cwd, "--name", tab],
-        &format!("add a `{tab}` tab to"),
-    )?;
+    let mut action = vec!["new-tab", "--name", tab];
+    action.extend(options);
+    let out = act(name, &action, &format!("add a `{tab}` tab to"))?;
     // The id printed can be missing or another tab's, and the tab not opened yet
     // (see `query`), while a second `new-tab` would make two: the id is the
     // listed tab of that name that was not there before.
@@ -226,6 +250,37 @@ pub fn close_tab(name: &str, id: u32) -> Result<()> {
     Ok(())
 }
 
+pub fn go_to_tab(name: &str, id: u32) -> Result<()> {
+    let id = id.to_string();
+    act(
+        name,
+        &["go-to-tab-by-id", &id],
+        &format!("go to tab {id} of"),
+    )?;
+    Ok(())
+}
+
+pub fn rename_tab(name: &str, id: u32, to: &str) -> Result<()> {
+    let id = id.to_string();
+    act(
+        name,
+        &["rename-tab-by-id", &id, to],
+        &format!("rename tab {id} of"),
+    )?;
+    Ok(())
+}
+
+/// Renames a terminal pane.
+pub fn rename_pane(name: &str, id: u32, to: &str) -> Result<()> {
+    let id = format!("terminal_{id}");
+    act(
+        name,
+        &["rename-pane", "--pane-id", &id, to],
+        &format!("rename pane {id} of"),
+    )?;
+    Ok(())
+}
+
 /// Move an attached client to another session, from inside the one it is in.
 pub fn switch_to(name: &str) -> Result<()> {
     let out = run(&["action", "switch-session", name], None)?;
@@ -264,7 +319,7 @@ pub fn tab_is_for(tab: &str, repo: &str) -> bool {
 
 /// What the shell's rename keybind would call the tab: `mux-name`'s answer, else
 /// the bare repo where that helper is not installed.
-fn tab_name(path: &Path, repo: &str) -> String {
+pub fn tab_name(path: &Path, repo: &str) -> String {
     Command::new("mux-name")
         .arg(path)
         .stdin(Stdio::null())
@@ -380,7 +435,7 @@ pub fn untabbed(session: &Session) -> Result<Vec<String>> {
 /// screen is up, and whenever a pane or tab closes while it waits (see `run`). So
 /// is one zellij gave up waiting for (see `outcome_unknown`). Both pass once the
 /// server catches up, however long that takes; a session that is gone fails.
-fn query<T>(
+pub fn query<T>(
     name: &str,
     what: &str,
     action: &[&str],
@@ -409,7 +464,7 @@ fn query<T>(
 /// A mutating action. One zellij gave up waiting for still runs: it is queued on
 /// the server's screen thread, which handles actions in order, so the actions sent
 /// after it run after it. Sending it again would do it twice.
-fn act(name: &str, action: &[&str], what: &str) -> Result<util::Output> {
+pub fn act(name: &str, action: &[&str], what: &str) -> Result<util::Output> {
     let mut args = vec!["--session", name, "action"];
     args.extend(action);
     let out = run(&args, None)?;
@@ -423,7 +478,7 @@ fn act(name: &str, action: &[&str], what: &str) -> Result<util::Output> {
 /// is unknown and exits 2; list-tabs and list-panes say "Timeout listing …". The
 /// action is not cancelled, only no longer waited for, so on a loaded machine
 /// this is a busy server, not a failure.
-fn outcome_unknown(stderr: &str) -> bool {
+pub fn outcome_unknown(stderr: &str) -> bool {
     stderr.contains("its outcome is unknown")
         || stderr.contains("Timeout listing tabs")
         || stderr.contains("Timeout listing panes")
@@ -436,13 +491,13 @@ fn outcome_unknown(stderr: &str) -> bool {
 /// printed nothing, and before it took effect: whenever a pane or tab closes, the
 /// server tells every connected client its action is done, and the CLI takes that
 /// for its own answer (see `query`).
-fn run(args: &[&str], root: Option<&Path>) -> Result<util::Output> {
+pub fn run(args: &[&str], root: Option<&Path>) -> Result<util::Output> {
     let mut tries = 0;
     loop {
         let mut cmd = Command::new(BIN);
         cmd.args(args).stdin(Stdio::null());
         if let Some(root) = root {
-            cmd.env(ROOT_VAR, root);
+            cmd.env(ROOT_VAR, root).current_dir(root);
         }
         let out = cmd
             .output()

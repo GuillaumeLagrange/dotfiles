@@ -8,7 +8,8 @@ let
   commands = import ./commands.nix { inherit pkgs lib config; };
   workspaces = pkgs.niri-workspaces;
   displays = pkgs.niri-displays;
-  firefox = "${config.programs.firefox.package}/bin/firefox";
+  # The wrapped one: home-manager's policies (the TabCtl extension) and native hosts are on it.
+  firefox = "${config.programs.firefox.finalPackage}/bin/firefox";
 
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
   volumeNotification = "${pkgs.pulseaudio}/bin/paplay --property=media.role=event ${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/audio-volume-change.oga";
@@ -50,7 +51,7 @@ in
 
   # The kitty windows the binds below open under their own app id: hidden
   # entries, there only so the bar's strip finds kitty's icon for them.
-  xdg.desktopEntries = lib.genAttrs [ "zellij-session" "zellij-picker" "omp-panel" ] (class: {
+  xdg.desktopEntries = lib.genAttrs [ "zellij-session" "omp-panel" ] (class: {
     name = class;
     icon = "kitty";
     exec = "${commands.terminal} --class ${class}";
@@ -166,16 +167,17 @@ in
           Mod+Shift+Slash { show-hotkey-overlay; }
 
           Mod+Return { spawn ${quoteArgs commands.terminal}; }
-          Mod+D { spawn "vicinae" "toggle"; }
-          Mod+S { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
-          Mod+Shift+D { spawn "vicinae" "deeplink" "vicinae://launch/wm/switch-windows"; }
-          Mod+V { spawn "vicinae" "deeplink" "vicinae://launch/clipboard/history"; }
-          Mod+E { spawn "vicinae" "deeplink" "vicinae://launch/core/search-emojis"; }
-          Mod+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/bookmarks"; }
-          Mod+Shift+O { spawn "vicinae" "deeplink" "vicinae://launch/@knoopx/firefox/history"; }
+          Mod+D { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle apps"}; }
+          Mod+S { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle windows"}; }
+          Mod+Shift+D { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle windows"}; }
+          Mod+V { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle clipboard"}; }
+          Mod+E { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle emoji"}; }
+          Mod+O { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle browser"}; }
+          Mod+Shift+O { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle files"}; }
+          Mod+G { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle passwords"}; }
           Super+Alt+L { spawn "${commands.lock}"; }
-          Mod+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-picker" "-e" "zsh" "-i" "-c" "zsm"; }
-          ${lib.optionalString config.work.enable ''Mod+Shift+Backslash { spawn ${quoteArgs commands.terminal} "--class" "zellij-picker" "-e" "zsh" "-i" "-c" "review"; }''}
+          Mod+Backslash { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle sessions"}; }
+          ${lib.optionalString config.work.enable "Mod+Shift+Backslash { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle reviews"}; }"}
           Mod+A { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
           Mod+BackSpace { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
 
@@ -340,7 +342,6 @@ in
 
       window-rule {
           match app-id="^omp-panel$"
-          match app-id="^zellij-picker$"
 
           open-floating true
           default-column-width { proportion 0.8; }

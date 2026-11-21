@@ -94,7 +94,7 @@ ClickPanel {
             list.positionViewAtBeginning();
     }
 
-    // A review tab is named `<repo>#<number>` (review.sh). The PR is looked for
+    // A review tab is named `<repo>#<number>` (`reviews open`). The PR is looked for
     // in this tab first, then in the others, switching to the one listing it.
     function locate(name: string): void {
         const m = /^(.+)#(\d+)$/.exec(name.trim());

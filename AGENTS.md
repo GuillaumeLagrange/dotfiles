@@ -86,8 +86,8 @@ actually launches it:
 
 - **flake.nix**: inputs, and the list of every file that defines something (see below)
 - **README.md**: the machines, how to rebuild, how the repo is laid out, for humans
-- **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter. The crates are every directory with a tracked `Cargo.lock`. `just test` is the local loop, incremental in each crate's `target/`. `just ci` is what CI's test step runs, and runs the same anywhere: `nix flake check`, where each package of `pkgs/` runs its tests in its build, with the programs they drive as `nativeCheckInputs` (a test without its program fails, never skips), the `review` check runs `review.sh`'s and the `quickshell` check (defined by the desktop group, on granary's bar) the bar's; a check is only rebuilt, so its tests only rerun, when what it is built from changed. Plus `ai/omp`'s npm tests, the one suite that is no nix build yet, in the devshell
-- **devshell.nix**: `devShells.default`, the one shell for working here and for CI, entered by `.envrc` (`use flake`) and by the workflow, force-added like the hooks' config. It holds the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update), Rust (cargo, rustc, clippy, rustfmt and rust-analyzer of nixpkgs-unstable, the same `unstable.rustPlatform` the crates of `pkgs/` build with, `rust` in `pkgs/default.nix`, so tests, clippy and packages share one rustc that moves with the unstable input), and every program the tests drive: the locked zellij, `script`, jq, git, direnv, node, the same the packages' builds get as `nativeCheckInputs`. A program a test needs goes in both
+- **Justfile**: `just check` runs every linter and test suite in the repo (`just lint`, `just test`); `just format` rewrites every file with its language's formatter. The crates are every directory with a tracked `Cargo.lock`. `just test` is the local loop, incremental in each crate's `target/`. `just ci` is what CI's test step runs, and runs the same anywhere: `nix flake check`, where each package of `pkgs/` runs its tests in its build, with the programs they drive as `nativeCheckInputs` (a test without its program fails, never skips), and the `quickshell` check (defined by the desktop group, on granary's bar) the bar's; a check is only rebuilt, so its tests only rerun, when what it is built from changed. Plus `ai/omp`'s npm tests, the one suite that is no nix build yet, in the devshell
+- **devshell.nix**: `devShells.default`, the one shell for working here and for CI, entered by `.envrc` (`use flake`) and by the workflow, force-added like the hooks' config. It holds the tools the Justfile and the hooks call (formatters, prek, nextest, nix-update), Rust (cargo, rustc, clippy, rustfmt and rust-analyzer of nixpkgs-unstable, the same `unstable.rustPlatform` the crates of `pkgs/` build with, `rust` in `pkgs/default.nix`, so tests, clippy and packages share one rustc that moves with the unstable input), and every program the tests drive: the locked zellij, `script`, jq, git, direnv, node, sway, wl-clipboard and dbus, the same the packages' builds get as `nativeCheckInputs`. A program a test needs goes in both
 - **.pre-commit-config.yaml**: pre-commit hooks run by prek (`just hooks` installs them): each language's formatter on the staged files, then `cargo fmt` and clippy for each crate the commit touches. A hook that rewrites a file fails the commit; stage the result. Force-added: the global gitignore excludes the file name
 
 ### How the Nix code is organised
@@ -146,7 +146,8 @@ Rules:
   granary (`encrypted-disk`): LUKS2 partition unlocked by the TPM alone (PCR 7, secure boot through
   lanzaboote), btrfs subvolumes `root`/`nix`/`log`/`home`/`swap`. No work tooling: it imports neither the
   `work` NixOS group (1Password, Oneleet) nor the home-manager ones, so no codspeed tools, `wt`, `cdr`, omp MCP
-  servers of `ai/omp/mcp.json`, `review` with its refresh timer and bar pill, 1Password autostart or Slack.
+  servers of `ai/omp/mcp.json`, `reviews` with its refresh timer, bar pill and launcher mode, 1Password
+  (autostart, launcher passwords) or Slack.
   Its own part: `easyeffects.nix` (Arctis Nova Pro Wireless: headphone EQ; mic RNNoise, gate and EQ).
   niri starts Steam and Discord, through the desktop
   group's `niri.spawnAtStartup` (argument lists, appended to niri's `spawn-at-startup` lines). Steam waits a
@@ -186,7 +187,8 @@ helpers (`zsm`, `zsk`, the rename and close keybinds' scripts, `omp-fixit`). Als
 
 A machine I sit in front of: the greeter, niri, pipewire, bluetooth, printing, steam and gullywash's binary cache
 (`nix-cache.nix`, password in a hand-written `/etc/nix/netrc`, see `hosts/gullywash/README.md`) on the NixOS
-side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the apps on the home-manager side.
+side; niri's config, the bar and its launcher, firefox, kitty, hyprlock/swayidle and the apps on the home-manager
+side.
 
 - Greeter (`greeter.nix`): greetd runs Noctalia Greeter (from `pkgs.unstable`, set up by hand: unstable's
   module needs options stable lacks). Its own compositor shows the login box on every screen at its preferred
@@ -221,6 +223,16 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   id (`--assign`; Signal/Spotify to 5 everywhere, hosts add theirs). It talks to niri's socket by
   id: `niri msg` reads a name like "1" as an index. Tests: `modules/desktop/quickshell/tests/tests/workspaces.rs`.
 - quickshell status bar (`modules/desktop/quickshell/`) — see `modules/desktop/quickshell/AGENTS.md`.
+- launcher (`launcher.nix`, `pkgs/launcher/`, the bar's `popups/Launcher.qml`): a centered picker drawn by
+  the bar over a daemon (the `launcher` user service, config in `~/.config/launcher/config.json`) that holds
+  the sources, fzf-style matching (nucleo) and the clipboard history; see `pkgs/launcher/AGENTS.md`. Mod+D
+  apps, Mod+S/Mod+Shift+D windows, Mod+V clipboard, Mod+E emoji, Mod+O Firefox tabs then bookmarks, Mod+G
+  passwords (Proton Pass through `pass-cli`, which needs one `pass-cli login`; 1Password through `op` on work
+  hosts), Mod+\ zellij sessions (zsm's picker: Enter focuses the session's window or opens one, Alt+Enter a
+  new window, Ctrl+R restarts, Shift+Delete deletes, an unknown name creates), Mod+Shift+O files, and on work
+  hosts Mod+Shift+\ PRs. In the panel, `/name ` or `/short ` switches mode, Ctrl+N/Ctrl+P move, Ctrl+K lists
+  the row's actions. Firefox's tabs come from the TabCtl extension, installed in every profile by policy, and
+  its native host (`pkgs/tabctl/`), over D-Bus.
 - zellij session colours (`zellij-sessions.nix`, `pkgs/zellij-sessions/`): each session gets a colour of the
   palette there (stylix's red, yellow, green, blue and purple: its orange and aqua are too close to their
   neighbours to tell apart as a dot), set and changed from omp-panel's side pane, never declared. It
@@ -230,7 +242,7 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
   The registry (`~/.local/state/zellij-sessions/sessions.json`: name, colour, folded, in display order) is the
   only state; the rest is derived from it on every change. zellij only takes a theme when its server starts,
   so a session is started on a config of its own (`zellij-sessions config NAME`: zellij's config plus its
-  `theme`), which `zellij-attach`, wt and `review` pass with `--config`; zellij live-reloads that file, so a
+  `theme`), which `zellij-attach`, wt and `reviews open` pass with `--config`; zellij live-reloads that file, so a
   recolour reaches a running session. Sessions started before have no such config: they get theirs once
   restarted, and their windows' border and dot meanwhile.
 - `commands.nix`: the commands the desktop's parts share (lock, screenshot and screen recording, the terminal,
@@ -238,10 +250,11 @@ side; niri's config, the bar, vicinae, firefox, kitty, hyprlock/swayidle and the
 
 #### `work`
 
-CodSpeed. `work` (any machine I work from, terminal or not): codspeed tools and aliases, `wt`, `review` and its
-refresh timer, the `cdr`/`WORKSPACE_ROOT` zsh snippet, the omp MCP servers of `ai/omp/mcp.json`.
-`work-desktop`: Slack, dbeaver, kcachegrind, the mac-mini ssh entry, and `work.enable` for niri's review
-bindings, 1Password autostart and the bar's PR pill. Its NixOS side: 1Password and Oneleet.
+CodSpeed. `work` (any machine I work from, terminal or not): codspeed tools and aliases, `wt`, `reviews` and
+its refresh timer, the `cdr`/`WORKSPACE_ROOT` zsh snippet, the omp MCP servers of `ai/omp/mcp.json`.
+`work-desktop`: Slack, dbeaver, kcachegrind, the mac-mini ssh entry, and `work.enable` for niri's PR binding,
+the launcher's PR mode and 1Password items, 1Password autostart and the bar's PR pill. Its NixOS side:
+1Password and Oneleet.
 
 #### `laptop`, `encrypted-disk`, `secure-boot`
 
@@ -308,11 +321,12 @@ devices (`quickshell/virtual-devices.patch`).
   or Ctrl+P/Ctrl+N move, Left/Right reach the PR's Linear issues, Enter picks). It opens with no PR selected,
   unless the focused window's zellij tab (`review-tab` in `modules/desktop/quickshell/default.nix`) is a review
   tab `<repo>#<number>` one of the tabs lists: that tab and PR are selected. The panel's refresh button runs
-  `reviews --refresh`, its terminal button runs what Mod+Shift+\ does, right-clicking a PR opens it on GitHub
-  (the picker's Shift+Enter), clicking one of its Linear issues opens that in the browser, and clicking a PR runs
-  `review --pr URL` (`review --mine URL BRANCH` in My PRs) without a terminal, as if it were picked:
-  `zellij-attach --focus` (also zsm's Enter) focuses the window showing the session or opens one. Off PATH:
-  `review` (`pkgs/reviews/review.sh`, niri `Mod+Shift+\`) is the entrypoint. A PR to review opens in a tab
+  `reviews --refresh`, its terminal button opens the picker in a terminal, right-clicking a PR opens it on
+  GitHub (the picker's Shift+Enter), clicking one of its Linear issues opens that in the browser, and clicking
+  a PR runs `reviews open --pr URL` (`reviews open --mine URL BRANCH` in My PRs) without a terminal, as if it
+  were picked; so does Enter in the launcher's PR mode (niri `Mod+Shift+\`). `zellij-attach --focus` (also the
+  launcher's sessions Enter) focuses the window showing the session or opens one. `reviews open`
+  (`src/open.rs`, also what the picker runs on a pick) opens a PR to review in a tab
   `<repo>#<number>` of the `reviews` zellij session, whose wt session I create (`wt add` the repo there when it
   is still a symlink or missing from the mirror; run without a terminal, failures are notifications), checks
   the PR out and opens diffy (closing the tab of another PR of the same repo, after the new one exists so the
@@ -320,37 +334,39 @@ devices (`quickshell/virtual-devices.patch`).
   checked out (`wt tabs` lays out the members' tabs first); else on the repo's tab of the main checkout's
   session (`wt main`, root `wt main --path`), checking the branch out there unless it has uncommitted changes
   (a submodule merely at another commit does not count: `git submodule update` follows the checkout). Then it
-  attaches to the session, focuses the window showing it, or switches to it from inside zellij.
-  `tests/review.rs` drives `review.sh` headless against real git, wt and zellij, in a fixture with its own
-  `XDG_RUNTIME_DIR`, stubbing `zellij-attach`, `notify-send` and `gh`. No package runs it: `review-tests.nix`
-  is the flake's `review` check, handing it the wt package as `WT_BIN`; locally it builds wt from `pkgs/wt/`.
+  attaches to the session, focuses the window showing it, or switches to it from inside zellij. Its zellij
+  actions go through wt-core's race handling (`pkgs/wt/crates/core/src/zellij.rs`).
+  `tests/review.rs` drives `reviews open` headless against real git, wt and zellij, in a fixture with its own
+  `XDG_RUNTIME_DIR`, stubbing `zellij-attach`, `notify-send` and `gh`, in the package's build (wt from
+  `WT_BIN`, the package; locally built from `pkgs/wt/`).
+- `launcher/`: the launcher's daemon (see the desktop group above and its AGENTS.md)
+- `tabctl/`: TabCtl's CLI and native messaging host (slastra/tabctl), which the launcher's browser mode reads
 - `niri-state/`: the niri IPC tap the bar reads its layout model from (see its AGENTS.md)
 - `niri-workspaces/`, `niri-displays/`: see the desktop group above
 - `zellij-attach/`, `mux-name/`: attach to a zellij session by name, and name a tab after a directory; shared
-  by the shell and work groups and by `review`, `wt` and `omp-panel`. niri's Mod+\ (`zsm`) and Mod+Shift+\
-  (`review`) run in a floating kitty window, app-id `zellij-picker`; `zellij-attach` run from it (found by
-  `KITTY_PID`) opens the session in a new tiled `zellij-session` window instead of in place, and the picker closes
-- zellij's CLI (0.46) races with itself: the server gives each connection the lowest free client id and tears
-  the previous holder of an id down after it may already be handed out again, so a connection can lose its
-  own messages or get the late ones of the one before it. Every `zellij action` first probes the session's
-  socket, and that check can fail on a live session (`There is no active session!` / `Session '…' not found`,
-  nothing sent); `list-sessions` can leave a live session out; a query can print nothing or another command's
-  answer; a mutation can return before it took effect. And the server waits a hard-coded 1s for an action,
-  then exits 2 with `Action … did not complete within 1s, its outcome is unknown` (`Timeout listing tabs|panes`
-  for those two): the action is not cancelled, so on a loaded machine (CI) any action can say so. Anything
-  scripting zellij retries a not-found action, retries a query until its answer parses or for as long as it
-  times out, takes a timed-out mutation as sent (never resends it), confirms an absence over several
-  listings, and waits for a mutation's effect (`run`/`query`/`act` in `pkgs/wt/crates/core/src/zellij.rs`,
-  `pkgs/omp-panel/src/zellij.rs`, `act`/`ask` in `review.sh`, and the tests' own helpers). No wait has a
-  fixed deadline: it ends on an outcome (the state reached, the session or the client process gone), and
-  in tests a state that never comes is nextest's `terminate-after`, with `waiting for …` as the last line of
-  output. Counted retries are only for zellij's races, never for time. `zellij attach --create` on a
-  session it wrongly thinks gone starts a second server that takes the name over, so `zellij-attach` only
-  passes `--create` for a session no listing shows; `switch-session` reconnects that way inside zellij, out
-  of reach: omp-panel's switch test runs again when `beta` was replaced or the client dropped. Every fixture
-  SIGKILLs (zellij catches SIGTERM) the servers under
-  its directory when dropped, and on creation those of fixtures whose `.fixture` marker is gone: an orphaned
-  server re-creates its directories, and a test nextest killed never dropped its fixture
+  by the shell and work groups and by `reviews`, `wt`, `omp-panel` and the launcher. `zellij-attach --focus`
+  run without a terminal (the launcher, the bar) opens the session in a new tiled `zellij-session` window
+- zellij's CLI (0.46) races with itself. Every `zellij action` first probes the running sessions' sockets to
+  find its target, and that check can fail on a live session (`There is no active session!` / `Session '…'
+  not found`, nothing sent); `list-sessions` can leave a live session out. Whenever a pane or tab closes, the
+  server tells every connected client its action is done, and the CLI takes that for its own answer: a query
+  can print nothing, a mutation can return before it took effect. And the server waits a hard-coded 1s for
+  an action, then exits 2 with `Action … did not complete within 1s, its outcome is unknown` (`Timeout
+  listing tabs|panes` for those two): the action is not cancelled, so on a loaded machine (CI) any action can
+  say so. Anything scripting zellij retries a not-found action, retries a query until its answer parses or
+  for as long as it times out, takes a timed-out mutation as sent (never resends it), confirms an absence
+  over several listings, and waits for a mutation's effect (`run`/`query`/`act` in
+  `pkgs/wt/crates/core/src/zellij.rs` (also behind `reviews open`), `pkgs/omp-panel/src/zellij.rs`, and the
+  tests' own helpers). No wait has a fixed deadline: it ends on an outcome (the state reached, the session or
+  the client process gone), and in tests a state that never comes is nextest's `terminate-after`, with
+  `waiting for …` as the last line of output. Counted retries are only for zellij's races, never for time.
+  `zellij attach --create` on a session it wrongly thinks gone starts a second server for it (on 0.45 that
+  one took the name over; 0.46 locks the socket it would bind), so `zellij-attach` only passes `--create` for
+  a session no listing shows; `switch-session` reconnects that way inside zellij, out of reach: omp-panel's
+  switch test runs again when `beta` was replaced or the client dropped. Every fixture SIGKILLs (zellij
+  catches SIGTERM) the servers under its directory when dropped, and on creation those of fixtures whose
+  `.fixture` marker is gone: an orphaned server re-creates its directories, and a test nextest killed never
+  dropped its fixture
 - `cargo-tools/`: Rust CLIs nixpkgs lacks, which would otherwise be `cargo install`ed: one `<name>.nix` each
   (today only `linear`, schpet's linear-cli), listed in the overlay as `pkgs.cargoTools.<name>` and exposed as
   `.#<name>`. `just bump [NAME [VERSION]]` runs nix-update on them: latest release (crates.io or GitHub) and

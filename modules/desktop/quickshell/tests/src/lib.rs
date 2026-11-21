@@ -128,18 +128,16 @@ impl Session {
         let p = |rel: &str| root.join(rel).to_str().unwrap().to_owned();
 
         std::fs::write(root.join("reviews.json"), reviews.to_string()).unwrap();
+        // `--json` and `--refresh` are what the bar reads; `open`, what Config.reviewPr /
+        // reviewMine spawn through niri.
         write_exe(
             &root.join("bin/reviews"),
             &format!(
-                "case \"$1\" in\n--json) cat {json} ;;\n--refresh) echo refresh >> {log} ;;\nesac\n",
+                "case \"$1\" in\n--json) cat {json} ;;\n--refresh) echo refresh >> {log} ;;\nopen) shift; printf '%s\\n' \"$*\" >> {review} ;;\nesac\n",
                 json = p("reviews.json"),
-                log = p("refresh.log")
+                log = p("refresh.log"),
+                review = p("review.log")
             ),
-        );
-        // What Config.reviewPr / reviewMine spawn through niri.
-        write_exe(
-            &root.join("bin/review"),
-            &format!("printf '%s\\n' \"$*\" >> {}\n", p("review.log")),
         );
         write_exe(
             &root.join("bin/app"),
@@ -357,6 +355,17 @@ impl Session {
             shell.join("bar/ControlCenterProbe.qml"),
         )
         .unwrap();
+        let launcher = shell.join("popups/Launcher.qml");
+        splice(
+            &launcher,
+            "    IpcHandler {\n        target: \"launcher\"\n",
+            "    LauncherProbe {\n        id: probe\n\n        panel: root\n    }\n\n    IpcHandler {\n        target: \"launcher\"\n\n        function state(): string {\n            return probe.json();\n        }\n",
+        );
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("LauncherProbe.qml"),
+            shell.join("popups/LauncherProbe.qml"),
+        )
+        .unwrap();
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
@@ -438,6 +447,56 @@ impl Session {
             .unwrap();
         serde_json::from_slice(&out.stdout)
             .unwrap_or_else(|_| panic!("the workspaces probe did not answer\n{}", self.logs()))
+    }
+
+    /// The launcher panel's state: see LauncherProbe.qml.
+    pub fn launcher(&self) -> Value {
+        let shell = self.path("shell");
+        let out = self.run(
+            "qs",
+            &[
+                "-p",
+                shell.to_str().unwrap(),
+                "ipc",
+                "call",
+                "launcher",
+                "state",
+            ],
+        );
+        serde_json::from_str(&out)
+            .unwrap_or_else(|_| panic!("the launcher probe did not answer\n{}", self.logs()))
+    }
+
+    /// Waits for the launcher to reach a state, and returns it.
+    pub fn wait_for_launcher(&self, what: &str, pred: impl Fn(&Value) -> bool) -> Value {
+        let start = Instant::now();
+        loop {
+            let s = self.launcher();
+            if pred(&s) {
+                return s;
+            }
+            assert!(
+                start.elapsed() < TIMEOUT,
+                "timed out waiting for {what}; last state {s}\n{}",
+                self.logs()
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    /// Calls a function of the bar's IPC handlers with arguments.
+    pub fn ipc_args(&self, target: &str, function: &str, args: &[&str]) {
+        let shell = self.path("shell");
+        let mut argv = vec![
+            "-p",
+            shell.to_str().unwrap(),
+            "ipc",
+            "call",
+            target,
+            function,
+        ];
+        argv.extend_from_slice(args);
+        self.run("qs", &argv);
     }
 
     /// The focused output's control centre: see ControlCenterProbe.qml.

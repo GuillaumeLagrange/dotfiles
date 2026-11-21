@@ -19,6 +19,7 @@ rustPlatform.buildRustPackage {
       ./.config
       ./test-env.sh
       ./ControlCenterProbe.qml
+      ./LauncherProbe.qml
       ./StartProbe.qml
       ./TestProbe.qml
       ./WorkspacesProbe.qml

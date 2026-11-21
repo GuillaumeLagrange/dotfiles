@@ -1,4 +1,4 @@
-//! `review.sh` end to end, headless: real git repos, a real wt registry and real
+//! `reviews open` end to end, headless: real git repos, a real wt registry and real
 //! zellij sessions, in a throwaway machine of their own. The fixture's
 //! `XDG_RUNTIME_DIR` gives zellij its own socket directory, so the tests' sessions
 //! never meet the user's. What would reach the desktop is stubbed and recorded:
@@ -21,8 +21,6 @@ struct Run {
     stderr: String,
     /// Its notifications so far: run without a terminal, failures land there.
     notified: String,
-    /// The end of the shell trace.
-    trace: String,
 }
 
 #[derive(Debug, Clone)]
@@ -312,27 +310,18 @@ impl Fixture {
         );
     }
 
-    /// `review` with its stderr not a terminal, as when run from the bar. Traced
-    /// into `log/trace`, which a failure prints the end of.
+    /// `reviews open` with its stderr not a terminal, as when run from the bar.
     fn review(&self, args: &[&str]) -> Run {
-        let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("review.sh");
-        let trace = self.root.join("log/trace");
         let out = self
-            .command("bash")
-            .arg("-c")
-            .arg("exec 9>>\"$0\"; BASH_XTRACEFD=9 exec bash -xeuo pipefail \"$@\"")
-            .arg(&trace)
-            .arg(script)
+            .command(env!("CARGO_BIN_EXE_reviews"))
+            .arg("open")
             .args(args)
             .output()
             .unwrap();
-        let trace = self.log("trace");
-        let tail: Vec<&str> = trace.lines().rev().take(25).collect();
         Run {
             status: out.status.code().unwrap_or(-1),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
             notified: self.log("notify"),
-            trace: tail.into_iter().rev().collect::<Vec<_>>().join("\n"),
         }
     }
 
@@ -368,7 +357,7 @@ impl Fixture {
 
     /// A JSON list action's answer. One that is not a list is asked again:
     /// zellij answers with nothing until a just-attached client's screen is up,
-    /// and can print nothing or another command's answer (see `query` in wt's
+    /// and can print nothing whenever a pane or tab closes (see `query` in wt's
     /// `zellij.rs`). So is one zellij stopped waiting for, however often.
     fn list(&self, session: &str, args: &[&str]) -> Vec<serde_json::Value> {
         loop {
@@ -499,8 +488,8 @@ fn kill_servers(matches: impl Fn(&Path) -> bool) {
 fn assert_ok(run: &Run) {
     assert_eq!(
         run.status, 0,
-        "review failed: {}{}\n--- trace ---\n{}",
-        run.stderr, run.notified, run.trace
+        "review failed: {}{}",
+        run.stderr, run.notified
     );
 }
 

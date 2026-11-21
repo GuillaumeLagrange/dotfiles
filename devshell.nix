@@ -36,6 +36,11 @@
           git
           direnv
           nodejs
+          # The launcher's clipboard and daemon tests run against a headless sway (unwrapped, as in
+          # the package's build), its browser tests on a private bus.
+          sway-unwrapped
+          wl-clipboard
+          dbus
         ];
         RUST_SRC_PATH = pkgs.unstable.rustPlatform.rustLibSrc;
       };

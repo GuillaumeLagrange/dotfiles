@@ -2,7 +2,7 @@
 {
   _class = "homeManager";
 
-  home.packages = [ pkgs.review ];
+  home.packages = [ pkgs.reviews ];
 
   systemd.user.services.reviews-refresh = {
     Unit.Description = "Refresh the reviews picker cache";

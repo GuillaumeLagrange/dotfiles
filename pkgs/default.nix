@@ -50,13 +50,15 @@
       # Rust CLIs nixpkgs lacks. `just bump` moves them to their latest release.
       cargoTools.linear = final.callPackage ./cargo-tools/linear.nix { };
 
+      launcher = final.callPackage ./launcher/package.nix (rust // { zellij = final.unstable.zellij; });
       mux-name = final.callPackage ./mux-name/package.nix { };
       niri-displays = final.callPackage ./niri-displays/package.nix { };
       niri-state = final.callPackage ./niri-state/package.nix rust;
       niri-workspaces = final.callPackage ./niri-workspaces/package.nix { };
       omp-panel = final.callPackage ./omp-panel/package.nix (rust // { zellij = final.unstable.zellij; });
-      review = final.callPackage ./reviews/review.nix { zellij = final.unstable.zellij; };
-      reviews = final.callPackage ./reviews/package.nix rust;
+      reviews = final.callPackage ./reviews/package.nix (rust // { zellij = final.unstable.zellij; });
+      # The native messaging host of the TabCtl extension, through which the launcher lists tabs.
+      tabctl = final.callPackage ./tabctl/package.nix { };
       wt = final.callPackage ./wt/package.nix (rust // { zellij = final.unstable.zellij; });
       zellij-attach = final.callPackage ./zellij-attach/package.nix { zellij = final.unstable.zellij; };
       zellij-sessions = final.callPackage ./zellij-sessions/package.nix (
@@ -80,13 +82,14 @@
 
       packages = {
         inherit (pkgs)
+          launcher
           mux-name
           niri-displays
           niri-state
           niri-workspaces
           omp-panel
-          review
           reviews
+          tabctl
           wt
           zellij-attach
           zellij-sessions
@@ -94,11 +97,7 @@
         inherit (pkgs.cargoTools) linear;
       };
 
-      # The packages run their tests in their builds; review.sh's need a build of their own.
-      checks = self'.packages // {
-        review = pkgs.callPackage ./reviews/review-tests.nix {
-          inherit (pkgs.unstable) rustPlatform zellij;
-        };
-      };
+      # The packages run their tests in their builds.
+      checks = self'.packages;
     };
 }

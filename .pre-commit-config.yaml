@@ -49,6 +49,11 @@ repos:
         entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/niri-state
         files: ^pkgs/niri-state/
       - <<: *rust
+        id: rust-launcher
+        name: launcher (cargo fmt, clippy)
+        entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' pkgs/launcher
+        files: ^pkgs/launcher/
+      - <<: *rust
         id: rust-quickshell-tests
         name: quickshell tests (cargo fmt, clippy)
         entry: bash -c 'cd "$0" && cargo fmt && cargo clippy --quiet --all-targets -- -D warnings' modules/desktop/quickshell/tests

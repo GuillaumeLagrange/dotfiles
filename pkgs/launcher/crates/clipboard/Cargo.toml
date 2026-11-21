@@ -1,0 +1,18 @@
+[package]
+name = "launcher-clipboard"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+launcher-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rustix = { version = "1", features = ["pipe", "event", "fs"] }
+blake3 = "1"
+imagesize = "0.15"
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+
+[dev-dependencies]
+tempfile.workspace = true

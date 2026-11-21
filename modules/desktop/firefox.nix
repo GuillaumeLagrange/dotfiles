@@ -29,5 +29,12 @@
     package = pkgs.unstable.firefox;
     # The pre-26.05 default: keeps the existing profile where it is.
     configPath = ".mozilla/firefox";
+    # TabCtl lists and switches tabs over D-Bus for the bar's launcher (pkgs/launcher):
+    # its extension in every profile, updated from AMO, and the host it talks to.
+    nativeMessagingHosts = [ pkgs.tabctl ];
+    policies.ExtensionSettings."tabctl@slastra.github.io" = {
+      installation_mode = "normal_installed";
+      install_url = "https://addons.mozilla.org/firefox/downloads/latest/tabctl1/latest.xpi";
+    };
   };
 }

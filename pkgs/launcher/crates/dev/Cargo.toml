@@ -1,0 +1,15 @@
+[package]
+name = "launcher-dev"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+launcher-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ignore = "0.4"
+zellij-sessions = { path = "../../../zellij-sessions" }
+
+[dev-dependencies]
+tempfile.workspace = true

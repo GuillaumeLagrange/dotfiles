@@ -1,7 +1,7 @@
 # Attach to a zellij session by name, creating it if needed. With --focus, focus the
-# window already showing it, or open one. Run from a floating picker window (zsm,
-# review), it opens the session in a window of its own. A session wt knows starts
-# with its WORKSPACE_ROOT, and every session on its colour's config (zellij-sessions).
+# window already showing it, or open one; run so without a terminal (the bar's launcher),
+# it opens the session in a window of its own. A session wt knows starts with its
+# WORKSPACE_ROOT, and every session on its colour's config (zellij-sessions).
 {
   writeShellScriptBin,
   jq,
@@ -25,12 +25,7 @@ writeShellScriptBin "zellij-attach" ''
         exec niri msg action focus-window --id "$window"
       fi
     fi
-    picker=""
-    if [[ -n "''${KITTY_PID:-}" ]]; then
-      picker=$(niri msg -j windows 2>/dev/null | ${jq}/bin/jq -r --argjson pid "$KITTY_PID" \
-        'first(.[] | select(.pid == $pid and .app_id == "zellij-picker") | .id) // empty')
-    fi
-    if [[ -n "$picker" ]] || [[ -n "$focus" && ! -t 0 ]]; then
+    if [[ -n "$focus" && ! -t 0 ]]; then
       exec niri msg action spawn -- xdg-terminal-exec --app-id=zellij-session "$0" "$session"
     fi
   fi

@@ -170,6 +170,18 @@ let
     plus = glyph "F0415";
     close = glyph "F0156";
     monitor = glyph "F0379";
+    # The launcher's modes (`glyph` in the daemon's hello) and its status line.
+    windows = glyph "F05B2";
+    emoji = glyph "F01F5";
+    clipboard = glyph "F014C";
+    browser = glyph "F059F";
+    passwords = glyph "F0306";
+    sessions = glyph "F04E9";
+    reviews = glyph "F04C2";
+    files = glyph "F024B";
+    loading = glyph "F0772";
+    info = glyph "F02FD";
+    alert = glyph "F05D6";
     larrow = builtins.fromJSON ''"\u2039"'';
     rarrow = builtins.fromJSON ''"\u203a"'';
   };
@@ -190,7 +202,8 @@ let
         readonly property string btPair: "${btPair}/bin/bt-pair"
         readonly property string trayContextMenu: "${trayContextMenu}/bin/tray-context-menu"
         readonly property string screenrecord: ${builtins.toJSON commands.screenrecordScreen}
-        // Mod+Shift+\, spawned through niri so it runs in the same environment as the bind.
+        // The reviews picker in a terminal, spawned through niri so it runs in the session's
+        // environment; a pick opens in that window.
         readonly property var review: ${
           builtins.toJSON (
             [
@@ -202,20 +215,18 @@ let
             ]
             ++ lib.splitString " " commands.terminal
             ++ [
-              "--class"
-              "zellij-picker"
               "-e"
               "zsh"
               "-i"
               "-c"
-              "review"
+              "reviews"
             ]
           )
         }
-        // A PR's URL is appended: no picker, so no terminal; `review` opens or focuses the view.
-        readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--pr"]
-        // One of my PRs: its URL and branch are appended; `review` opens the session holding the branch.
-        readonly property var reviewMine: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "review", "--mine"]
+        // A PR's URL is appended: no picker, so no terminal; `reviews open` opens or focuses the view.
+        readonly property var reviewPr: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "reviews", "open", "--pr"]
+        // One of my PRs: its URL and branch are appended; it opens in the session holding the branch.
+        readonly property var reviewMine: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "reviews", "open", "--mine"]
         // A URL is appended; through niri so the browser gets the session's environment.
         readonly property var openUrl: ["${pkgs.niri}/bin/niri", "msg", "action", "spawn", "--", "${pkgs.xdg-utils}/bin/xdg-open"]
         // An app from the start menu: its command is appended. Through niri, like the

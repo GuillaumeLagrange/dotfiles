@@ -5,7 +5,7 @@
     imports = [ ./nixos.nix ];
   };
 
-  # Any machine worked from, with or without a screen: codspeed tools, wt, review,
+  # Any machine worked from, with or without a screen: codspeed tools, wt, reviews,
   # `cdr`, the work MCP servers.
   flake.modules.homeManager.work = {
     imports = [
@@ -17,7 +17,7 @@
   };
 
   # What a work machine with a screen adds: Slack, dbeaver, the bar's PR pill and
-  # niri's review bindings (through `work.enable`).
+  # niri's and the launcher's PR bindings (through `work.enable`).
   flake.modules.homeManager.work-desktop = {
     imports = [ ./desktop.nix ];
   };
