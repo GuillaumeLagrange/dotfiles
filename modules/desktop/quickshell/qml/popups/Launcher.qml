@@ -42,9 +42,12 @@ PanelWindow {
         return q === "" ? actions : actions.filter(a => a.label.toLowerCase().includes(q));
     }
 
+    // The rows' list while the panel is open.
+    property ListView list: null
+
     // Read by the test probe.
     readonly property bool focused: (field.activeFocus || menuField.activeFocus) && field.Window.active
-    readonly property var probeList: list
+    readonly property var probeList: root.list
     readonly property bool probeLoading: sweepTrack.shown
     readonly property string probeStatusLine: statusLine.message
 
@@ -148,10 +151,12 @@ PanelWindow {
     // them leaves the kept rows where they were, the new ones above the viewport.
     function reveal(): void {
         const at = root.svc.cursorIndex;
+        if (!root.list)
+            return;
         if (at <= 0)
-            list.positionViewAtBeginning();
+            root.list.positionViewAtBeginning();
         else
-            list.positionViewAtIndex(at, ListView.Contain);
+            root.list.positionViewAtIndex(at, ListView.Contain);
     }
 
     Connections {
@@ -423,189 +428,203 @@ PanelWindow {
             width: parent.width
             height: root.visibleRows * root.rowHeight + 16
 
-            ListView {
-                id: list
+            readonly property real listWidth: (root.hasPreview ? width * 0.5 : width) - 16
 
-                x: 8
-                y: 8
-                width: (root.hasPreview ? parent.width * 0.5 : parent.width) - 16
-                height: parent.height - 16
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                highlightMoveDuration: 0
-                // Identity: every result is a fresh object, so updates are inserts and removes.
-                // Structural matching turns re-ranks into moves, which desync Qt 6.12's
-                // DelegateModel cache and crash the bar (quickshell#1369).
-                model: ScriptModel {
-                    values: root.svc.items
-                    comparisonMode: ObjectComparison.Identity
+            // A list per opened mode, dropped when the panel closes or switches mode: Qt 6.12's
+            // ListView has left delegates of replaced rows drawn over the new ones, for good,
+            // and destroying the list destroys them.
+            Repeater {
+                model: root.svc.open ? [root.svc.mode] : []
+                onItemAdded: (index, item) => root.list = item
+                onItemRemoved: (index, item) => {
+                    if (root.list === item)
+                        root.list = null;
                 }
 
-                ScrollBar.vertical: ScrollBar {
-                    id: vbar
+                ListView {
+                    id: list
 
-                    policy: list.contentHeight > list.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
-                    implicitWidth: 6
-                    padding: 1
-                    background: null
-
-                    contentItem: Rectangle {
-                        radius: width / 2
-                        color: Theme.alpha(Theme.fg, vbar.pressed ? 0.4 : 0.18)
-                    }
-                }
-
-                delegate: Item {
-                    id: row
-
-                    required property var modelData
-                    required property int index
-                    readonly property bool current: root.svc.cursor === row.modelData.id
-                    readonly property bool heading: row.modelData.section && row.modelData.section !== "" && (row.index === 0 || root.svc.items[row.index - 1]?.section !== row.modelData.section)
-                    readonly property var icon: row.modelData.icon ?? {
-                        kind: "none"
+                    x: 8
+                    y: 8
+                    width: listArea.listWidth
+                    height: parent.height - 16
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    highlightMoveDuration: 0
+                    // Identity: every result is a fresh object, so updates are inserts and removes.
+                    // Structural matching turns re-ranks into moves, which desync Qt 6.12's
+                    // DelegateModel cache and crash the bar (quickshell#1369).
+                    model: ScriptModel {
+                        values: root.svc.items
+                        comparisonMode: ObjectComparison.Identity
                     }
 
-                    width: list.width - (vbar.visible ? 8 : 0)
-                    height: root.rowHeight + (row.heading ? 26 : 0)
+                    ScrollBar.vertical: ScrollBar {
+                        id: vbar
 
-                    Text {
-                        visible: row.heading
-                        x: 10
-                        y: 8
-                        text: row.modelData.section ?? ""
-                        color: Theme.dim
-                        font.family: Theme.ui
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        font.letterSpacing: 0.8
-                        font.capitalization: Font.AllUppercase
+                        policy: list.contentHeight > list.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                        implicitWidth: 6
+                        padding: 1
+                        background: null
+
+                        contentItem: Rectangle {
+                            radius: width / 2
+                            color: Theme.alpha(Theme.fg, vbar.pressed ? 0.4 : 0.18)
+                        }
                     }
 
-                    Rectangle {
-                        id: body
+                    delegate: Item {
+                        id: row
 
-                        y: row.heading ? 26 : 0
-                        width: parent.width
-                        height: root.rowHeight
-                        radius: Theme.rowRadius
-                        // The cursor outlined in the accent, as the bar's other keyboard lists mark
-                        // theirs, over a stronger tint than hover's.
-                        color: row.current ? Theme.alpha(root.accent, 0.2) : rowHover.hovered ? Theme.hoverFill : "transparent"
-                        border.width: row.current ? 1 : 0
-                        border.color: Theme.alpha(root.accent, 0.6)
-
-                        Rectangle {
-                            visible: row.current
-                            x: 0
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 3
-                            height: 20
-                            radius: 1.5
-                            color: root.accent
+                        required property var modelData
+                        required property int index
+                        readonly property bool current: root.svc.cursor === row.modelData.id
+                        readonly property bool heading: row.modelData.section && row.modelData.section !== "" && (row.index === 0 || root.svc.items[row.index - 1]?.section !== row.modelData.section)
+                        readonly property var icon: row.modelData.icon ?? {
+                            kind: "none"
                         }
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            spacing: 12
+                        width: list.width - (vbar.visible ? 8 : 0)
+                        height: root.rowHeight + (row.heading ? 26 : 0)
 
-                            Item {
-                                implicitWidth: 28
-                                implicitHeight: 28
+                        Text {
+                            visible: row.heading
+                            x: 10
+                            y: 8
+                            text: row.modelData.section ?? ""
+                            color: Theme.dim
+                            font.family: Theme.ui
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: 0.8
+                            font.capitalization: Font.AllUppercase
+                        }
 
-                                IconImage {
-                                    anchors.fill: parent
-                                    visible: ["name", "path", "url"].includes(row.icon.kind)
-                                    source: visible ? root.iconSource(row.icon) : ""
-                                    implicitSize: 28
-                                    asynchronous: true
-                                }
+                        Rectangle {
+                            id: body
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: row.icon.kind === "emoji"
-                                    text: visible ? row.icon.value : ""
-                                    font.pixelSize: 22
+                            y: row.heading ? 26 : 0
+                            width: parent.width
+                            height: root.rowHeight
+                            radius: Theme.rowRadius
+                            // The cursor outlined in the accent, as the bar's other keyboard lists mark
+                            // theirs, over a stronger tint than hover's.
+                            color: row.current ? Theme.alpha(root.accent, 0.2) : rowHover.hovered ? Theme.hoverFill : "transparent"
+                            border.width: row.current ? 1 : 0
+                            border.color: Theme.alpha(root.accent, 0.6)
+
+                            Rectangle {
+                                visible: row.current
+                                x: 0
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 3
+                                height: 20
+                                radius: 1.5
+                                color: root.accent
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                spacing: 12
+
+                                Item {
+                                    implicitWidth: 28
+                                    implicitHeight: 28
+
+                                    IconImage {
+                                        anchors.fill: parent
+                                        visible: ["name", "path", "url"].includes(row.icon.kind)
+                                        source: visible ? root.iconSource(row.icon) : ""
+                                        implicitSize: 28
+                                        asynchronous: true
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: row.icon.kind === "emoji"
+                                        text: visible ? row.icon.value : ""
+                                        font.pixelSize: 22
+                                    }
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        visible: row.icon.kind === "glyph" || row.icon.kind === "none"
+                                        radius: Theme.rowRadius
+                                        color: Theme.well
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            width: 16
+                                            height: 16
+                                            text: row.icon.kind === "glyph" ? (Config.glyph[row.icon.value] ?? "") : (Config.glyph[root.svc.modeInfo.glyph] ?? "")
+                                            color: row.current ? root.mark : Theme.dim
+                                            size: 16
+                                        }
+                                    }
                                 }
 
                                 Rectangle {
-                                    anchors.fill: parent
-                                    visible: row.icon.kind === "glyph" || row.icon.kind === "none"
-                                    radius: Theme.rowRadius
-                                    color: Theme.well
+                                    visible: !!row.modelData.color
+                                    implicitWidth: 8
+                                    implicitHeight: 8
+                                    radius: 4
+                                    color: row.modelData.color || "transparent"
+                                }
 
-                                    Glyph {
-                                        anchors.centerIn: parent
-                                        width: 16
-                                        height: 16
-                                        text: row.icon.kind === "glyph" ? (Config.glyph[row.icon.value] ?? "") : (Config.glyph[root.svc.modeInfo.glyph] ?? "")
-                                        color: row.current ? root.mark : Theme.dim
-                                        size: 16
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 1
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.marked(row.modelData.title ?? "", row.modelData.hl)
+                                        textFormat: Text.StyledText
+                                        elide: Text.ElideRight
+                                        color: Theme.fg
+                                        font.family: Theme.ui
+                                        font.pixelSize: 13
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: (row.modelData.subtitle ?? "") !== ""
+                                        text: root.marked(row.modelData.subtitle ?? "", row.modelData.shl)
+                                        textFormat: Text.StyledText
+                                        elide: Text.ElideRight
+                                        color: Theme.dim
+                                        font.family: Theme.ui
+                                        font.pixelSize: 11
+                                    }
+                                }
+
+                                Text {
+                                    visible: (row.modelData.accessory ?? "") !== ""
+                                    Layout.maximumWidth: 180
+                                    text: row.modelData.accessory ?? ""
+                                    elide: Text.ElideLeft
+                                    color: Theme.faint
+                                    font.family: Theme.ui
+                                    font.pixelSize: 11
+                                    font.features: {
+                                        "tnum": 1
                                     }
                                 }
                             }
 
-                            Rectangle {
-                                visible: !!row.modelData.color
-                                implicitWidth: 8
-                                implicitHeight: 8
-                                radius: 4
-                                color: row.modelData.color || "transparent"
+                            HoverHandler {
+                                id: rowHover
+
+                                cursorShape: Qt.PointingHandCursor
                             }
 
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 1
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: root.marked(row.modelData.title ?? "", row.modelData.hl)
-                                    textFormat: Text.StyledText
-                                    elide: Text.ElideRight
-                                    color: Theme.fg
-                                    font.family: Theme.ui
-                                    font.pixelSize: 13
+                            TapHandler {
+                                onSingleTapped: root.svc.select(row.modelData.id)
+                                onDoubleTapped: {
+                                    root.svc.select(row.modelData.id);
+                                    root.svc.activateKey("Return");
                                 }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    visible: (row.modelData.subtitle ?? "") !== ""
-                                    text: root.marked(row.modelData.subtitle ?? "", row.modelData.shl)
-                                    textFormat: Text.StyledText
-                                    elide: Text.ElideRight
-                                    color: Theme.dim
-                                    font.family: Theme.ui
-                                    font.pixelSize: 11
-                                }
-                            }
-
-                            Text {
-                                visible: (row.modelData.accessory ?? "") !== ""
-                                Layout.maximumWidth: 180
-                                text: row.modelData.accessory ?? ""
-                                elide: Text.ElideLeft
-                                color: Theme.faint
-                                font.family: Theme.ui
-                                font.pixelSize: 11
-                                font.features: {
-                                    "tnum": 1
-                                }
-                            }
-                        }
-
-                        HoverHandler {
-                            id: rowHover
-
-                            cursorShape: Qt.PointingHandCursor
-                        }
-
-                        TapHandler {
-                            onSingleTapped: root.svc.select(row.modelData.id)
-                            onDoubleTapped: {
-                                root.svc.select(row.modelData.id);
-                                root.svc.activateKey("Return");
                             }
                         }
                     }
@@ -613,8 +632,10 @@ PanelWindow {
             }
 
             Text {
-                anchors.centerIn: list
-                visible: list.count === 0 && !root.svc.busy
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.horizontalCenter: parent.left
+                anchors.horizontalCenterOffset: 8 + listArea.listWidth / 2
+                visible: root.svc.items.length === 0 && !root.svc.busy
                 text: root.svc.connected ? "No results" : ""
                 color: Theme.faint
                 font.family: Theme.ui
@@ -628,7 +649,7 @@ PanelWindow {
                 readonly property var p: root.svc.preview
 
                 visible: root.hasPreview
-                x: list.x + list.width + 8
+                x: listArea.listWidth + 16
                 y: 8
                 width: parent.width - x - 8
                 height: parent.height - 16
