@@ -10,9 +10,10 @@ QtObject {
     function json(): string {
         const panel = probe.panel;
         const svc = panel.svc;
+        // None while the panel is closed.
         const list = panel.probeList;
         const rows = [];
-        for (let i = 0; i < list.count; i++) {
+        for (let i = 0; list && i < list.count; i++) {
             const row = list.itemAtIndex(i);
             if (row)
                 rows.push({
@@ -22,8 +23,8 @@ QtObject {
         }
         // What the list shows: the index of its top row, and whether the cursor's row is
         // wholly inside the viewport.
-        const top = list.indexAt(1, list.contentY + 1);
-        const at = list.itemAtIndex(svc.cursorIndex);
+        const top = list ? list.indexAt(1, list.contentY + 1) : -1;
+        const at = list ? list.itemAtIndex(svc.cursorIndex) : null;
         const cursorVisible = at !== null && at.y >= list.contentY - 0.5 && at.y + at.height <= list.contentY + list.height + 0.5;
         return JSON.stringify({
             open: panel.visible,
