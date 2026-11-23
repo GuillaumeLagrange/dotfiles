@@ -119,13 +119,17 @@
 
   environment.systemPackages = with pkgs; [
     # Its QML UI takes stylix's QT_STYLE_OVERRIDE=kvantum as a Quick Controls style, which does not exist.
+    # chiaki-ng keeps the session awake only by calling ScreenSaver.SimulateUserActivity, which niri
+    # lacks; swayidle obeys logind idle locks, so it holds one while open.
     (symlinkJoin {
       name = "chiaki-ng";
       # Unstable: 1.10.1 gets adaptive triggers from more games and starts wired haptics on hotplug.
       paths = [ unstable.chiaki-ng ];
       nativeBuildInputs = [ makeWrapper ];
       postBuild = ''
-        wrapProgram $out/bin/chiaki --unset QT_STYLE_OVERRIDE
+        rm $out/bin/chiaki
+        makeWrapper ${systemd}/bin/systemd-inhibit $out/bin/chiaki --unset QT_STYLE_OVERRIDE \
+          --add-flags "--what=idle --who=chiaki-ng --why='Remote Play' ${unstable.chiaki-ng}/bin/chiaki"
       '';
     })
     lutris
