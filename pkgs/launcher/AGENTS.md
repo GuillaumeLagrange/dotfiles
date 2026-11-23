@@ -147,7 +147,12 @@ Nix wrapper sets, so what a pick runs never depends on the session's `PATH`.
 - Browser: TabCtl's D-Bus instances (`dev.slastra.TabCtl.Firefox`, `…Firefox2`, one per
   profile), re-pulled on `TabsUpdated`; switching a tab then focuses the Firefox window whose
   title starts with the tab's, since Wayland compositors ignore Firefox's own request. Bookmarks
-  from a copy of each profile's `places.sqlite` (and its WAL), refreshed when one changed.
+  from a copy of each profile's `places.sqlite` (and its WAL), refreshed when one changed. When
+  the rows span several profiles, each names its own (right-aligned): a profile's name is the
+  new profile manager's (`Profile Groups/<StoreID>.sqlite`, read from a copy), else
+  `profiles.ini`'s `Name`; a tab's profile is the directory of the `places.sqlite` its Firefox
+  holds open, that Firefox being the parent of the native host owning the TabCtl bus name
+  (the instance name when it cannot be found).
 - Passwords: `pass-cli` lists summaries only (title, vault, type); usernames, URLs and whether a
   login has a TOTP come with `--show-secrets`, which loads every password and marks every item
   read, so Proton rows show their vault and offer the one-time code on every login (a failure

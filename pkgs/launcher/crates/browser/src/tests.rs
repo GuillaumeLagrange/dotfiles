@@ -683,13 +683,99 @@ fn profiles_are_found_once_across_ini_files() {
         ),
     )
     .unwrap();
-    let dirs = super::bookmarks::profile_dirs(&[
-        a.join("profiles.ini"),
-        root.path().join("missing.ini"),
-        root.path().join("other.ini"),
-    ]);
+    let found = super::profiles::profiles(
+        &[
+            a.join("profiles.ini"),
+            root.path().join("missing.ini"),
+            root.path().join("other.ini"),
+        ],
+        &root.path().join("cache"),
+    );
     let canon = |p: &Path| fs::canonicalize(p).unwrap();
-    assert_eq!(dirs, [canon(&abs), canon(&a.join("abc.default"))]);
+    let names: Vec<(PathBuf, &str)> = found
+        .iter()
+        .map(|p| (p.dir.clone(), p.name.as_str()))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            (canon(&abs), "work"),
+            (canon(&a.join("abc.default")), "default")
+        ]
+    );
+}
+
+#[test]
+fn the_profile_managers_names_win_over_the_ini_ones() {
+    let root = TempDir::new().unwrap();
+    for dir in ["abc.default", "xyz.perso", "old.legacy"] {
+        fs::create_dir_all(root.path().join(dir)).unwrap();
+    }
+    fs::write(
+        root.path().join("profiles.ini"),
+        "[Profile0]\nName=default\nIsRelative=1\nPath=abc.default\nDefault=1\nStoreID=s1\n\n\
+         [Profile1]\nName=Perso\nIsRelative=1\nPath=xyz.perso\n\n\
+         [Profile2]\nName=Legacy\nIsRelative=1\nPath=old.legacy\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.path().join("Profile Groups")).unwrap();
+    let db = Connection::open(root.path().join("Profile Groups/s1.sqlite")).unwrap();
+    db.execute_batch(
+        "PRAGMA journal_mode=WAL;
+         CREATE TABLE Profiles (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL);
+         INSERT INTO Profiles (path, name) VALUES ('abc.default', 'Work'), ('xyz.perso', 'Personal');",
+    )
+    .unwrap();
+    // Held open, as Firefox holds it: the rows are still in the WAL.
+    let found = super::profiles::profiles(
+        &[root.path().join("profiles.ini")],
+        &root.path().join("cache"),
+    );
+    drop(db);
+    let names: Vec<&str> = found.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Work", "Personal", "Legacy"]);
+}
+
+#[test]
+fn a_hosts_profile_is_the_places_database_its_firefox_holds() {
+    let root = TempDir::new().unwrap();
+    let dir = root.path().join("abc.default");
+    fs::create_dir_all(&dir).unwrap();
+    // This process plays Firefox, a child its native host.
+    let _places = fs::File::create(dir.join("places.sqlite")).unwrap();
+    let mut host = Command::new("sleep").arg("30").spawn().unwrap();
+    let found = super::tabs::host_profile(host.id());
+    host.kill().unwrap();
+    host.wait().unwrap();
+    assert_eq!(found, Some(fs::canonicalize(&dir).unwrap()));
+}
+
+#[test]
+fn rows_name_their_profile_only_when_they_span_several() {
+    let env = Env::new();
+    let (work_ini, _work) = Profile::new(&env.path().join("work"));
+    let (ctx, handles) = env.ctx(std::slice::from_ref(&work_ini));
+    let bus = Bus::Address("unix:path=/nonexistent".into());
+    let source = Browser::new(&ctx, bus.clone()).unwrap();
+    wait(&handles, || source.entries().len() == 3);
+    assert!(source.entries().iter().all(|e| e.accessory.is_empty()));
+
+    let (perso_ini, _perso) = Profile::new(&env.path().join("perso"));
+    let text = fs::read_to_string(&perso_ini)
+        .unwrap()
+        .replace("Name=default", "Name=Perso");
+    fs::write(&perso_ini, text).unwrap();
+    let (ctx, handles) = env.ctx(&[work_ini, perso_ini]);
+    let source = Browser::new(&ctx, bus).unwrap();
+    wait(&handles, || source.entries().len() == 6);
+    let mut labels: Vec<String> = source
+        .entries()
+        .iter()
+        .map(|e| e.accessory.clone())
+        .collect();
+    labels.sort();
+    labels.dedup();
+    assert_eq!(labels, ["Perso", "default"]);
 }
 
 #[test]

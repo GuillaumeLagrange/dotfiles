@@ -1,10 +1,12 @@
 //! Firefox's open tabs (TabCtl over D-Bus) and its bookmarks.
 
 mod bookmarks;
+mod profiles;
 mod tabs;
 #[cfg(test)]
 mod tests;
 
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -14,6 +16,7 @@ use launcher_core::{Action, Ctx, Entry, Icon, Mode, Outcome, Source, Status};
 use serde::Deserialize;
 
 use bookmarks::{Bookmark, Loader};
+use profiles::Profile;
 pub use tabs::Bus;
 use tabs::{Tab, Watcher};
 
@@ -56,6 +59,7 @@ struct State {
     /// None until the bus was first asked.
     connected: Option<bool>,
     bookmarks: Vec<Bookmark>,
+    profiles: Vec<Profile>,
     entries: Arc<Vec<Entry>>,
 }
 
@@ -118,11 +122,15 @@ impl Browser {
             ctx.clone(),
         );
         thread::spawn(move || {
-            let dirs = bookmarks::profile_dirs(&inis);
+            let profiles = profiles::profiles(&inis, &ctx.dirs.cache);
+            let dirs: Vec<PathBuf> = profiles.iter().map(|p| p.dir.clone()).collect();
             let loaded = loader.lock().unwrap().load(&dirs, &ctx.dirs.cache);
-            if let Some(bookmarks) = loaded {
-                let mut s = state.lock().unwrap();
-                s.bookmarks = bookmarks;
+            let mut s = state.lock().unwrap();
+            if loaded.is_some() || s.profiles != profiles {
+                if let Some(bookmarks) = loaded {
+                    s.bookmarks = bookmarks;
+                }
+                s.profiles = profiles;
                 rebuild(&mut s);
                 drop(s);
                 ctx.updated(Mode::Browser);
@@ -165,7 +173,36 @@ fn rebuild(s: &mut State) {
         Action::new("open", "Open", Some("Return")),
         Action::new("copy-url", "Copy URL", Some("Ctrl+Return")),
     ]);
-    let several = s.tabs.iter().any(|t| t.instance != s.tabs[0].instance);
+    // Each row's profile, named only when the rows span several.
+    let names: HashMap<&std::path::Path, &str> = s
+        .profiles
+        .iter()
+        .map(|p| (p.dir.as_path(), p.name.as_str()))
+        .collect();
+    let by_hash: HashMap<String, &str> = s
+        .profiles
+        .iter()
+        .map(|p| {
+            (
+                bookmarks::hash(p.dir.as_os_str().as_encoded_bytes()),
+                p.name.as_str(),
+            )
+        })
+        .collect();
+    let tab_profile = |t: &Tab| -> String {
+        t.profile
+            .as_deref()
+            .and_then(|d| names.get(d))
+            .map_or_else(|| t.instance.clone(), |n| (*n).to_owned())
+    };
+    let bookmark_profile = |b: &Bookmark| by_hash.get(&b.profile).copied().unwrap_or("").to_owned();
+    let labels: HashSet<String> = s
+        .tabs
+        .iter()
+        .map(tab_profile)
+        .chain(s.bookmarks.iter().map(bookmark_profile))
+        .collect();
+    let several = labels.len() > 1;
     let mut entries = Vec::with_capacity(s.tabs.len() + s.bookmarks.len());
     for t in &s.tabs {
         let title = if t.title.is_empty() { &t.url } else { &t.title };
@@ -181,10 +218,10 @@ fn rebuild(s: &mut State) {
         };
         let mut accessory = Vec::new();
         if t.pinned {
-            accessory.push("pinned");
+            accessory.push("pinned".to_owned());
         }
         if several {
-            accessory.push(t.instance.as_str());
+            accessory.push(tab_profile(t));
         }
         e.accessory = accessory.join(" · ");
         e.section = "Open tabs".into();
@@ -204,6 +241,9 @@ fn rebuild(s: &mut State) {
             Some(path) => Icon::Path(path.clone()),
             None => Icon::Name("firefox".into()),
         };
+        if several {
+            e.accessory = bookmark_profile(b);
+        }
         e.section = "Bookmarks".into();
         e.boost = 1.0;
         entries.push(e);

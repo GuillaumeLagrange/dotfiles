@@ -22,55 +22,6 @@ pub(crate) struct Bookmark {
     pub added: i64,
 }
 
-/// The profile directories the `profiles.ini` files name, each once.
-pub(crate) fn profile_dirs(inis: &[PathBuf]) -> Vec<PathBuf> {
-    let mut seen = HashSet::new();
-    let mut dirs = Vec::new();
-    for ini in inis {
-        let Ok(text) = fs::read_to_string(ini) else {
-            continue;
-        };
-        let base = ini.parent().unwrap_or(Path::new("/"));
-        for (path, relative) in profiles(&text) {
-            let dir = if relative {
-                base.join(path)
-            } else {
-                PathBuf::from(path)
-            };
-            let dir = fs::canonicalize(&dir).unwrap_or(dir);
-            if seen.insert(dir.clone()) {
-                dirs.push(dir);
-            }
-        }
-    }
-    dirs
-}
-
-/// `(Path, IsRelative)` of each `[Profile*]` section.
-fn profiles(ini: &str) -> Vec<(String, bool)> {
-    let mut out = Vec::new();
-    let mut current: Option<(Option<String>, bool)> = None;
-    let mut flush = |current: &mut Option<(Option<String>, bool)>| {
-        if let Some((Some(path), relative)) = current.take() {
-            out.push((path, relative));
-        }
-    };
-    for line in ini.lines().map(str::trim) {
-        if let Some(section) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
-            flush(&mut current);
-            current = section.starts_with("Profile").then_some((None, true));
-        } else if let (Some((key, value)), Some(cur)) = (line.split_once('='), current.as_mut()) {
-            match key.trim() {
-                "Path" => cur.0 = Some(value.trim().to_owned()),
-                "IsRelative" => cur.1 = value.trim() == "1",
-                _ => {}
-            }
-        }
-    }
-    flush(&mut current);
-    out
-}
-
 /// FNV-1a: stable across builds, unlike `DefaultHasher`.
 pub(crate) fn hash(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf29ce484222325;
@@ -133,7 +84,7 @@ impl Loader {
 }
 
 /// Copies `name` (and its WAL) from `dir` into `to`, for a read that does not race Firefox.
-fn copy_db(dir: &Path, name: &str, to: &Path) -> Result<Option<PathBuf>> {
+pub(crate) fn copy_db(dir: &Path, name: &str, to: &Path) -> Result<Option<PathBuf>> {
     let src = dir.join(name);
     if !src.exists() {
         return Ok(None);

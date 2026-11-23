@@ -343,10 +343,7 @@ PanelWindow {
                                 root.svc.cycle(-1);
                                 event.accepted = true;
                             } else if (event.key === Qt.Key_Escape) {
-                                if (field.text !== "")
-                                    field.text = "";
-                                else
-                                    root.svc.hide();
+                                root.svc.hide();
                                 event.accepted = true;
                             }
                         }
@@ -451,13 +448,10 @@ PanelWindow {
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
                     highlightMoveDuration: 0
-                    // Identity: every result is a fresh object, so updates are inserts and removes.
-                    // Structural matching turns re-ranks into moves, which desync Qt 6.12's
-                    // DelegateModel cache and crash the bar (quickshell#1369).
-                    model: ScriptModel {
-                        values: root.svc.items
-                        comparisonMode: ObjectComparison.Identity
-                    }
+                    // A plain array: each results resets the list. A ScriptModel's inserts and
+                    // removes left removed rows drawn over the new ones (Qt 6.12), and its
+                    // structural matching crashes the bar (quickshell#1369).
+                    model: root.svc.items
 
                     ScrollBar.vertical: ScrollBar {
                         id: vbar

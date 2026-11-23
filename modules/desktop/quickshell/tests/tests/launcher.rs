@@ -60,8 +60,10 @@ fn item(id: &str, title: &str, query: &str, preview: bool) -> Value {
 
 /// The fixture table: each mode's rows matching `query`.
 fn items(mode: &str, query: &str) -> Vec<Value> {
-    if mode == "windows" {
-        return windows(query);
+    match mode {
+        "windows" => return windows(query),
+        "passwords" => return passwords(),
+        _ => {}
     }
     let rows: &[(&str, &str)] = match mode {
         "apps" => &[("alpha", "Alpha"), ("beta", "Beta"), ("gamma", "Gamma")],
@@ -83,6 +85,17 @@ fn windows(query: &str) -> Vec<Value> {
         .map(|i| item(&format!("t{i}"), &format!("Top {i}"), "", false));
     let rest = (0..30).map(|i| item(&format!("w{i}"), &format!("Window {i}"), "", false));
     top.chain(rest).collect()
+}
+
+/// More rows than the panel shows, under section headings, as the password list.
+fn passwords() -> Vec<Value> {
+    (0..30)
+        .map(|i| {
+            let mut row = item(&format!("p{i}"), &format!("Login {i}"), "", false);
+            row["section"] = json!(if i < 20 { "Proton Pass" } else { "1Password" });
+            row
+        })
+        .collect()
 }
 
 /// The cursor's row is wholly on screen and the list starts at its first row.
@@ -267,6 +280,18 @@ impl Stub {
         let mut st = self.state.lock().unwrap();
         let items = rows.iter().map(|(id, t)| item(id, t, "", false)).collect();
         let ev = results(st.seq, &st.mode.clone(), &st.query.clone(), items);
+        send(&mut st, &ev);
+    }
+
+    /// The open mode's rows again, as fresh objects: a source refreshed what it had.
+    fn refresh(&self) {
+        let mut st = self.state.lock().unwrap();
+        let ev = results(
+            st.seq,
+            &st.mode.clone(),
+            &st.query.clone(),
+            items(&st.mode, &st.query),
+        );
         send(&mut st, &ev);
     }
 
@@ -458,15 +483,11 @@ fn slow_work_keeps_the_panel_until_it_ends_and_takes_no_key_but_escape() {
 }
 
 #[test]
-fn escape_clears_the_query_then_closes() {
+fn escape_closes_the_panel_even_with_a_query() {
     let Some((s, stub)) = start() else { return };
     open(&s, "apps");
     s.wtype(&["be"]);
     s.wait_for_launcher("the query", |st| st["query"] == "be");
-    s.key("Escape");
-    let st = s.wait_for_launcher("the query to clear", |st| st["query"] == "");
-    assert_eq!(st["open"], true);
-    assert_eq!(ids(&st), ["alpha", "beta", "gamma"]);
     s.key("Escape");
     s.wait_for_launcher("the panel to close", |st| st["open"] == false);
     stub.wait_for(&s, "close", |r| r.iter().any(|r| r["op"] == "close"));
@@ -485,6 +506,18 @@ fn slash_short_and_space_switches_mode() {
         stub.ops("open").last().unwrap(),
         &json!({"op": "open", "mode": "clipboard"})
     );
+}
+
+#[test]
+fn refreshed_rows_leave_no_stale_row_drawn() {
+    let Some((s, stub)) = start() else { return };
+    open(&s, "passwords");
+    for _ in 0..3 {
+        stub.refresh();
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    let st = s.wait_for_launcher("the rows", |st| ids(st).len() >= 8);
+    assert_eq!(st["strays"], 0, "{st}");
 }
 
 #[test]

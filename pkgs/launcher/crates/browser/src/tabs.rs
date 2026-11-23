@@ -1,6 +1,8 @@
 //! Firefox's open tabs through TabCtl: every `dev.slastra.TabCtl.*` name on the session bus is a
 //! browser profile, pulled again whenever one says its tabs changed or a name comes or goes.
 
+use std::fs;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -26,6 +28,8 @@ pub enum Bus {
 pub(crate) struct Tab {
     /// The bus name's last part: `Firefox`, `Firefox2`, …
     pub instance: String,
+    /// The profile directory of the Firefox running the instance, when found.
+    pub profile: Option<PathBuf>,
     pub window: i32,
     pub id: i32,
     pub title: String,
@@ -138,7 +142,8 @@ type Plain = (i32, i32, String, String, i32, bool, bool);
 
 /// Every instance's tabs, in name then (window, index) order, and whether any instance is up.
 fn pull(conn: &Connection) -> zbus::Result<(Vec<Tab>, bool)> {
-    let mut names: Vec<String> = zbus::blocking::fdo::DBusProxy::new(conn)?
+    let dbus = zbus::blocking::fdo::DBusProxy::new(conn)?;
+    let mut names: Vec<String> = dbus
         .list_names()?
         .into_iter()
         .map(|n| n.to_string())
@@ -152,16 +157,37 @@ fn pull(conn: &Connection) -> zbus::Result<(Vec<Tab>, bool)> {
             Ok(rows) => rows,
             Err(_) => continue,
         };
+        let profile = zbus::names::BusName::try_from(name.as_str())
+            .ok()
+            .and_then(|n| dbus.get_connection_unix_process_id(n).ok())
+            .and_then(host_profile);
         rows.sort_by_key(|(t, index)| (t.window, *index));
-        tabs.extend(rows.into_iter().map(|(t, _)| t));
+        tabs.extend(rows.into_iter().map(|(mut t, _)| {
+            t.profile = profile.clone();
+            t
+        }));
     }
     Ok((tabs, !names.is_empty()))
+}
+
+/// The profile of the Firefox that started the native host `pid`: the directory of the
+/// `places.sqlite` it holds open.
+pub(crate) fn host_profile(pid: u32) -> Option<PathBuf> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // `pid (comm) state ppid …`; comm may hold spaces and parentheses.
+    let ppid = stat.rsplit_once(')')?.1.split_whitespace().nth(1)?;
+    fs::read_dir(format!("/proc/{ppid}/fd"))
+        .ok()?
+        .filter_map(|fd| fs::read_link(fd.ok()?.path()).ok())
+        .find(|target| target.file_name().is_some_and(|n| n == "places.sqlite"))
+        .and_then(|target| target.parent().map(PathBuf::from))
 }
 
 fn list(conn: &Connection, name: &str, instance: &str) -> zbus::Result<Vec<(Tab, i32)>> {
     let path = object_path(instance);
     let tab = |window, id, title, url, active, pinned, icon| Tab {
         instance: instance.to_owned(),
+        profile: None,
         window,
         id,
         title,

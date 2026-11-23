@@ -455,7 +455,8 @@ seq so they pass. Matching, sources, the clipboard and every action live in the
 daemon, so the panel is a list it draws and keys it forwards: Enter, Alt+Enter,
 Ctrl+Enter, Shift+Delete and Ctrl+R run the row's action bound to that key,
 Ctrl+K lists them all, Ctrl+N/Ctrl+P (and the arrows) move the cursor, Tab cycles
-modes and `/name ` or `/short ` switches. The cursor sits on the first row, whatever
+modes and `/name ` or `/short ` switches. Escape closes it, whatever the query (Ctrl+U clears
+that). The cursor sits on the first row, whatever
 the results bring, until it is moved by hand (keys or a click); from then it stays
 on its row's id across updates while that row is listed, until the query changes.
 Every update and every move brings the cursor's row into view once the list has
@@ -545,17 +546,20 @@ launcher has to be.
   `anchor.item` set, `rect` carries the trigger's *size* (x and y are 0), so it
   cannot say where the popup ended up; anchor to `anchor.window` and set the
   rect yourself in `onAnchoring`.
-- **A `ListView` keeps the rows a `ScriptModel` update preserves where they were.**
+- **A `ListView` keeps the rows a model update preserves where they were.**
   Rows inserted above them land above the viewport, so a query that kept some of
   the launcher's rows and ranked better ones over them showed the old rows, with
   the best match and the cursor on it off screen. The list is repositioned after
   each update (`Qt.callLater`, once the rows are laid out), not only when the
   cursor's id changes.
-- **A `ScriptModel` that moves rows can crash the bar.** Its default structural
-  matching turns a re-rank of fresh objects into row moves, and Qt 6.12's
-  `DelegateModel` loses track of its cache under them (`DelegateModel::cancel:
-  index out range`, then a segfault in `itemsMoved`, quickshell#1369). The
-  launcher's list compares by identity, so its updates are inserts and removes.
+- **The launcher's list takes the results as a plain array, not a `ScriptModel`.**
+  Structural matching turns a re-rank of fresh objects into row moves, and Qt
+  6.12's `DelegateModel` loses track of its cache under them (`DelegateModel::cancel:
+  index out range`, then a segfault in `itemsMoved`, quickshell#1369). Identity
+  matching made every update inserts and removes, and the removed delegates
+  stayed drawn over the new rows (their heading shown, at index -1): a refreshed
+  password list showed every row twice. A plain array resets the list on each
+  results; `refreshed_rows_leave_no_stale_row_drawn` counts the strays.
 - **A `ListView` hands an existing delegate the next model item.** The network
   list is rebuilt on every scan, so a row-local flag (the passphrase field was
   one) reappears against a different network. Per-item state belongs on the

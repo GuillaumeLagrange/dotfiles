@@ -21,6 +21,11 @@ QtObject {
                     title: row.modelData.title
                 });
         }
+        // Delegates drawn that the list no longer holds: rows left over from replaced results.
+        let strays = 0;
+        for (const child of list ? list.contentItem.children : [])
+            if (child.visible && child.modelData !== undefined && list.itemAtIndex(child.index) !== child)
+                strays++;
         // What the list shows: the index of its top row, and whether the cursor's row is
         // wholly inside the viewport.
         const top = list ? list.indexAt(1, list.contentY + 1) : -1;
@@ -38,6 +43,7 @@ QtObject {
             rows: rows,
             top: top,
             cursorVisible: cursorVisible,
+            strays: strays,
             status: svc.status,
             error: svc.error,
             // What the footer says: the error, the work an activation waits for, or the status.
