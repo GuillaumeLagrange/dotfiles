@@ -1,7 +1,7 @@
 // The launcher: a search box over the daemon's rows, centred on the focused
 // output. Everything it lists and does comes from `services/Launcher.qml`;
-// this draws it and turns keys into its calls. One window for the shell, put
-// on the output the panel opened on.
+// this draws it and turns keys into its calls. One window for the shell, on the
+// focused output and following it while open, as the notifications do.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -124,7 +124,7 @@ PanelWindow {
         return "";
     }
 
-    screen: Quickshell.screens.find(s => s.name === root.svc.output) ?? Quickshell.screens[0] ?? null
+    screen: Quickshell.screens.find(s => s.name === Svc.Niri.focusedOutput) ?? Quickshell.screens[0] ?? null
     visible: root.svc.open
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
@@ -139,12 +139,11 @@ PanelWindow {
         right: true
     }
 
+    // Also when the panel moves to another output, so the query stays: closing clears it.
     onVisibleChanged: {
         root.menuOpen = false;
-        if (root.visible) {
-            field.text = "";
+        if (root.visible)
             field.forceActiveFocus();
-        }
     }
 
     // Brings the cursor's row into view, the list's start when it is the first row. Called
@@ -219,7 +218,8 @@ PanelWindow {
         x: Math.round((root.width - panel.width) / 2)
         y: Math.round(root.height * 0.2)
         radius: Theme.panelRadius
-        color: Theme.drawerBg
+        // Opaque, unlike the drawers: white text behind its rows bled through and hurt reading.
+        color: Theme.alpha(Theme.drawerBg, 1.0)
         border.color: Theme.border
         border.width: 1
 
@@ -258,8 +258,6 @@ PanelWindow {
 
                         Glyph {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 14
-                            height: 14
                             text: Config.glyph[root.svc.modeInfo.glyph] ?? Config.glyph.apps
                             color: root.mark
                             size: 14
@@ -551,8 +549,6 @@ PanelWindow {
 
                                         Glyph {
                                             anchors.centerIn: parent
-                                            width: 16
-                                            height: 16
                                             text: row.icon.kind === "glyph" ? (Config.glyph[row.icon.value] ?? "") : (Config.glyph[root.svc.modeInfo.glyph] ?? "")
                                             color: row.current ? root.mark : Theme.dim
                                             size: 16
@@ -761,8 +757,6 @@ PanelWindow {
                     id: statusGlyph
 
                     visible: parent.kind !== ""
-                    width: 12
-                    height: 12
                     text: parent.kind === "error" ? Config.glyph.alert : parent.kind === "loading" ? Config.glyph.loading : Config.glyph.info
                     color: parent.kind === "error" ? Theme.red : Theme.dim
                     size: 12
@@ -849,7 +843,7 @@ PanelWindow {
             anchors.bottom: footer.top
             anchors.bottomMargin: 8
             radius: Theme.panelRadius
-            color: Qt.lighter(Theme.drawerBg, 1.25)
+            color: Qt.lighter(Theme.alpha(Theme.drawerBg, 1.0), 1.25)
             border.color: Theme.alpha(Theme.fg, 0.14)
             border.width: 1
 

@@ -468,8 +468,8 @@ or `error`: the panel closing is the sign the clipboard holds the value.
 `qs ipc call launcher open|toggle <mode>` and `launcher close` are what niri
 binds. Quickshell's `Socket` does not reconnect by itself, so a timer asks again,
 backing off to 4s, while it is down; a reconnect starts over with `open` and the
-query. It is one centred window on the focused output rather than a bubble: it
-belongs to no pill. It still speaks the panels' language: `drawerBg`, the
+query. It is one centred window on the focused output, moving with it while open
+(query and cursor kept), rather than a bubble: it belongs to no pill. It still speaks the panels' language: `drawerBg` (made opaque: text behind its rows bled through), the
 hairline border, `panelRadius`, Inter, and one accent per mode (apps blue,
 windows and sessions aqua, emoji and files yellow, clipboard and power purple, browser
 orange, passwords and reviews green), on the mode chip, the matched characters,

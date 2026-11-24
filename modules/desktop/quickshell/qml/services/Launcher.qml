@@ -14,8 +14,6 @@ Singleton {
     // From `hello`: `{ mode, short, title, glyph }` per enabled mode.
     property var modes: []
     property bool open: false
-    // The output the panel opened on, fixed while it is up.
-    property string output: ""
     property string mode: "apps"
     property string query: ""
     // The last query sent, and the newest one whose results are shown.
@@ -60,15 +58,13 @@ Singleton {
         sock.flush();
     }
 
-    // Opens on the focused output in `mode`, or switches to it when already open.
+    // Opens in `mode`, or switches to it when already open.
     function show(mode: string): void {
         const target = mode !== "" ? mode : root.mode;
-        if (!root.open) {
-            root.output = Niri.focusedOutput;
+        if (!root.open)
             root.open = true;
-        } else if (target === root.mode) {
+        else if (target === root.mode)
             return;
-        }
         root.switchMode(target);
     }
 

@@ -33,6 +33,7 @@ QtObject {
         const cursorVisible = at !== null && at.y >= list.contentY - 0.5 && at.y + at.height <= list.contentY + list.height + 0.5;
         return JSON.stringify({
             open: panel.visible,
+            screen: panel.screen ? panel.screen.name : null,
             // Keys reach the panel: niri gives a layer surface focus a moment after it maps.
             focused: panel.focused,
             connected: svc.connected,

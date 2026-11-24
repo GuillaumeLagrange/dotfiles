@@ -663,3 +663,29 @@ fn the_panel_reconnects_when_the_daemon_restarts() {
         json!({"op": "query", "text": "ga", "seq": 1})
     );
 }
+
+#[test]
+fn the_panel_follows_the_focused_output() {
+    let Some(s) = Session::start_with_outputs(&reviews(), 2) else {
+        return;
+    };
+    let _stub = Stub::start(&s);
+    s.run("niri", &["msg", "action", "focus-monitor", "HEADLESS-1"]);
+    open(&s, "apps");
+    s.wtype(&["be"]);
+    let on = |st: &Value, output: &str| {
+        st["screen"]
+            .as_str()
+            .is_some_and(|n| n.eq_ignore_ascii_case(output))
+    };
+    s.wait_for_launcher("the panel on the first output", |st| {
+        st["query"] == "be" && on(st, "HEADLESS-1")
+    });
+    s.run("niri", &["msg", "action", "focus-monitor", "HEADLESS-2"]);
+    s.wait_for_launcher("the panel on the second output, focused", |st| {
+        on(st, "HEADLESS-2") && st["focused"] == true && st["open"] == true
+    });
+    // Its query came along, and keys reach it there.
+    s.wtype(&["t"]);
+    s.wait_for_launcher("the query typed there", |st| st["query"] == "bet");
+}
