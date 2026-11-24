@@ -237,6 +237,11 @@ app's notifications come from Firefox, so they are untouched.
 surface, and a popup above it would read message bodies out to the room. That
 mako's default layer is `top` is the only reason locking hides them today.
 
+**Popups are built to be noticed**, unlike the drawers they borrowed their
+look from, which went unseen in the corner: an opaque card with a 2px yellow
+border (red when critical), sliding in from the screen's edge, then a flash of
+that colour fading out over 0.9s.
+
 **One control centre, not a gear and a bell** (`popups/ControlCenter.qml`):
 do-not-disturb belonged to both panels, so quick settings and the notification
 centre are one `ClickPanel` behind one pill. Notifications sit above the

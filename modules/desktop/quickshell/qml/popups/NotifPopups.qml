@@ -1,6 +1,9 @@
 // The popup stack: one layer surface per output, in the top-right corner,
 // showing the notifications the server is tracking.
 //
+// Drawn to be seen from the corner of the eye: opaque, edged in the accent, and
+// sliding in with a flash, where a card in the drawers' colour went unnoticed.
+//
 // Top layer, never Overlay: hyprlock is an overlay surface, and a popup drawn
 // over the lock screen would read out message bodies to anyone walking past.
 // mako's default `top` layer is what hides them today.
@@ -16,8 +19,9 @@ PanelWindow {
 
     required property var modelData
 
-    readonly property int cardWidth: 380
+    readonly property int cardWidth: 400
     readonly property int pad: 8
+    readonly property color accent: Theme.yellow
     readonly property var shown: Notifs.shown
 
     screen: modelData
@@ -57,6 +61,7 @@ PanelWindow {
                 required property var modelData
                 // Read up front: the notification may be gone by destruction.
                 readonly property int notifId: entry.modelData.id
+                readonly property color edge: card.critical ? Theme.red : root.accent
 
                 width: stack.width
                 implicitHeight: card.implicitHeight
@@ -66,10 +71,10 @@ PanelWindow {
                     id: card
 
                     width: parent.width
-                    surface: Theme.drawerBg
+                    surface: Theme.alpha(Theme.drawerBg, 1.0)
                     radius: Theme.panelRadius
-                    border.width: 1
-                    border.color: Theme.border
+                    border.width: 2
+                    border.color: Theme.alpha(entry.edge, 0.85)
                     appName: entry.modelData.appName
                     summary: entry.modelData.summary
                     body: entry.modelData.body
@@ -80,6 +85,43 @@ PanelWindow {
                     onActivated: Notifs.activate(entry.modelData)
                     onDismissed: Notifs.dismiss(entry.modelData)
                     onActionInvoked: action => Notifs.invokeAction(entry.modelData, action)
+
+                    // In from the screen's edge.
+                    transform: Translate {
+                        id: slide
+
+                        x: root.cardWidth + root.pad
+                    }
+                }
+
+                // A flash of the accent over the card as it lands, fading out.
+                Rectangle {
+                    id: flash
+
+                    anchors.fill: card
+                    radius: card.radius
+                    color: Theme.alpha(entry.edge, 0.3)
+                    opacity: 0
+                }
+
+                SequentialAnimation {
+                    running: true
+
+                    NumberAnimation {
+                        target: slide
+                        property: "x"
+                        to: 0
+                        duration: 220
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: flash
+                        property: "opacity"
+                        from: 1
+                        to: 0
+                        duration: 900
+                        easing.type: Easing.InQuad
+                    }
                 }
 
                 // Hovering pauses the expiry, so a notification being read
