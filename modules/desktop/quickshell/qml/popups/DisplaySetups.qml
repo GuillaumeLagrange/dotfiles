@@ -278,9 +278,16 @@ ColumnLayout {
                 y: card.held ? card.grabY + drag.activeTranslation.y : Math.floor(card.slot / grid.columns) * grid.cellHeight
                 z: card.held ? 1 : 0
                 radius: Theme.rowRadius
-                color: card.active ? Theme.alpha(root.accent, 0.12) : (cardHover.hovered || card.held || card.preselected ? Theme.alpha(Theme.fg, 0.05) : Theme.well)
+                // The setup on screen is filled in the accent, the keyboard's
+                // preselection outlined in it, as every panel marks its cursor.
+                color: {
+                    const lit = cardHover.hovered || card.held;
+                    if (card.active)
+                        return Theme.alpha(root.accent, lit ? 0.2 : 0.14);
+                    return lit ? Theme.hoverFill : Theme.well;
+                }
                 border.width: card.preselected ? 2 : 1
-                border.color: card.active || card.preselected ? root.accent : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.18) : "transparent")
+                border.color: card.preselected ? root.accent : (cardHover.hovered || card.held ? Theme.alpha(Theme.fg, 0.18) : "transparent")
                 visible: card.fits || Displays.showOther
                 opacity: card.fits ? 1 : 0.45
 
@@ -412,10 +419,11 @@ ColumnLayout {
                         text: {
                             if (!card.fits)
                                 return "Other screens";
-                            return card.on.length === 1 ? "1 screen" : card.on.length + " screens";
+                            const count = card.on.length === 1 ? "1 screen" : card.on.length + " screens";
+                            return card.active ? "In use · " + count : count;
                         }
                         elide: Text.ElideRight
-                        color: Theme.faint
+                        color: card.active ? Theme.soften(root.accent) : Theme.faint
                         font.family: Theme.ui
                         font.pixelSize: 9
                     }
