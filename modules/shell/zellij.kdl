@@ -577,6 +577,12 @@ attach_to_session true
 // Default: true
 // 
 show_startup_tips false
+
+// Panes' working/done/needs-you tracking, markers and session counts: omp-panel
+// does that for the omps.
+attention {
+    enabled false
+}
  
 // Whether to show release notes on first version run
 // Default: true
