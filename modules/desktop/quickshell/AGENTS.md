@@ -471,7 +471,7 @@ backing off to 4s, while it is down; a reconnect starts over with `open` and the
 query. It is one centred window on the focused output rather than a bubble: it
 belongs to no pill. It still speaks the panels' language: `drawerBg`, the
 hairline border, `panelRadius`, Inter, and one accent per mode (apps blue,
-windows and sessions aqua, emoji and files yellow, clipboard purple, browser
+windows and sessions aqua, emoji and files yellow, clipboard and power purple, browser
 orange, passwords and reviews green), on the mode chip, the matched characters,
 the cursor's bar and the loading sweep. The sweep is clipped to the panel and shows
 only once an answer is 150ms late, or every Tab would flash it. Red is only for

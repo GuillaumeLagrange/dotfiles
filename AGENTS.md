@@ -229,7 +229,8 @@ side.
   apps, Mod+S/Mod+Shift+D windows, Mod+V clipboard, Mod+E emoji, Mod+O Firefox tabs then bookmarks, Mod+G
   passwords (Proton Pass through `pass-cli`, which needs one `pass-cli login`; 1Password through `op` on work
   hosts), Mod+\ zellij sessions (zsm's picker: Enter focuses the session's window or opens one, Alt+Enter a
-  new window, Ctrl+R restarts, Shift+Delete deletes, an unknown name creates), Mod+Shift+O files, and on work
+  new window, Ctrl+R restarts, Shift+Delete deletes, an unknown name creates), Mod+Shift+O files, Mod+Escape
+  power (sleep, hibernate, reboot, power off; Mod+Shift+Escape is niri's shortcut-inhibit toggle), and on work
   hosts Mod+Shift+\ PRs. In the panel, `/name ` or `/short ` switches mode, Ctrl+N/Ctrl+P move, Ctrl+K lists
   the row's actions. Firefox's tabs come from the TabCtl extension, installed in every profile by policy, and
   its native host (`pkgs/tabctl/`), over D-Bus.

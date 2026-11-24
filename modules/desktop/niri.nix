@@ -177,6 +177,7 @@ in
           Mod+G { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle passwords"}; }
           Super+Alt+L { spawn "${commands.lock}"; }
           Mod+Backslash { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle sessions"}; }
+          Mod+Escape { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle power"}; }
           ${lib.optionalString config.work.enable "Mod+Shift+Backslash { spawn ${quoteArgs "${commands.quickshellIpc} launcher toggle reviews"}; }"}
           Mod+A { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
           Mod+BackSpace { spawn ${quoteArgs commands.terminal} "--class" "omp-panel" "-e" "omp-panel"; }
@@ -319,7 +320,7 @@ in
           Mod+Space { switch-focus-between-floating-and-tiling; }
           Mod+Shift+Space       { toggle-window-floating; }
 
-          Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+          Mod+Shift+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
           Mod+Shift+E { quit; }
           Ctrl+Alt+Delete { quit; }
           Mod+Shift+P { power-off-monitors; }

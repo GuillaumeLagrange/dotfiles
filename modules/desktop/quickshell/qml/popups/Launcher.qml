@@ -26,7 +26,8 @@ PanelWindow {
             passwords: Theme.green,
             sessions: Theme.aqua,
             reviews: Theme.green,
-            files: Theme.yellow
+            files: Theme.yellow,
+            power: Theme.purple
         })
     readonly property color accent: root.accents[root.svc.mode] ?? Theme.blue
     readonly property color mark: Theme.soften(root.accent)

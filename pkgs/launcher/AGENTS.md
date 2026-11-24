@@ -15,7 +15,7 @@ crates/core/       the wire (protocol.rs), the engine (engine.rs: the actor owni
 crates/daemon/     the `launcher` binary: `daemon`, and `query`/`activate`, clients of the
                    socket for tests and debugging
 crates/clipboard/  the Wayland watcher and server of the selection, the history store and mode
-crates/desktop/    apps, windows, emoji
+crates/desktop/   apps, windows, emoji, power
 crates/browser/    Firefox tabs (TabCtl over D-Bus) and bookmarks
 crates/passwords/  Proton Pass and 1Password
 crates/dev/        zellij sessions, PRs, files
@@ -37,6 +37,7 @@ Frecency (picks per entry, halving every two weeks) is kept in
 | Sessions | `sessions` | `s` | zellij sessions, live and resurrectable, in zellij-sessions' order |
 | Reviews | `reviews` | `r` | the PRs of `reviews --json`, by tab |
 | Files | `files` | `f` | files under the configured roots, .gitignore respected |
+| Power | `power` | `x` | sleep, hibernate, reboot, power off, mildest first |
 
 A mode the config disables is left out of `hello` and refuses `open`.
 
@@ -163,6 +164,9 @@ Nix wrapper sets, so what a pick runs never depends on the session's `PATH`.
   zellij-sessions' order, with its colours.
 - Files: `ignore`'s parallel walker, published in batches, kept 5 minutes, dropped 10 minutes
   after the panel left the mode.
+- Power: `systemctl suspend|hibernate|reboot|poweroff`, waited for (`Outcome::Wait`), so
+  logind refusing (hibernation without swap) shows in the panel. Frecency is off: the order
+  stays mildest first, so a stray Enter only suspends.
 
 ## Config
 
@@ -178,6 +182,7 @@ Nix wrapper sets, so what a pick runs never depends on the session's `PATH`.
 | `passwords` | `proton`, `onepassword`: `{"command": …}` or `null` |
 | `reviews` | `command` (the `reviews` binary) |
 | `files` | `roots`, `exclude` (paths relative to a root), `max` |
+| `power` | `systemctl` (path) |
 
 ## Clipboard
 

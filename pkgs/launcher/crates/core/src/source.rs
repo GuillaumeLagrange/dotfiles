@@ -23,10 +23,11 @@ pub enum Mode {
     Sessions,
     Reviews,
     Files,
+    Power,
 }
 
 impl Mode {
-    pub const ALL: [Mode; 9] = [
+    pub const ALL: [Mode; 10] = [
         Mode::Apps,
         Mode::Windows,
         Mode::Emoji,
@@ -36,6 +37,7 @@ impl Mode {
         Mode::Sessions,
         Mode::Reviews,
         Mode::Files,
+        Mode::Power,
     ];
 
     pub fn name(self) -> &'static str {
@@ -49,6 +51,7 @@ impl Mode {
             Mode::Sessions => "sessions",
             Mode::Reviews => "reviews",
             Mode::Files => "files",
+            Mode::Power => "power",
         }
     }
 
@@ -63,6 +66,7 @@ impl Mode {
             Mode::Sessions => "s",
             Mode::Reviews => "r",
             Mode::Files => "f",
+            Mode::Power => "x",
         }
     }
 
@@ -77,6 +81,7 @@ impl Mode {
             Mode::Sessions => "Sessions",
             Mode::Reviews => "Reviews",
             Mode::Files => "Files",
+            Mode::Power => "Power",
         }
     }
 
@@ -92,6 +97,7 @@ impl Mode {
             Mode::Sessions => "sessions",
             Mode::Reviews => "reviews",
             Mode::Files => "files",
+            Mode::Power => "power",
         }
     }
 

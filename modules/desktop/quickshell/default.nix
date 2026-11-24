@@ -179,6 +179,10 @@ let
     sessions = glyph "F04E9";
     reviews = glyph "F04C2";
     files = glyph "F024B";
+    power = glyph "F0425";
+    sleep = glyph "F04B2";
+    hibernate = glyph "F0717";
+    restart = glyph "F0709";
     loading = glyph "F0772";
     info = glyph "F02FD";
     alert = glyph "F05D6";

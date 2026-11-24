@@ -47,6 +47,7 @@ let
         onepassword = if config.work.enable then { command = "/run/wrappers/bin/op"; } else null;
       };
       sessions = null;
+      power.systemctl = "${pkgs.systemd}/bin/systemctl";
       files = {
         roots = [ home ];
         exclude = [

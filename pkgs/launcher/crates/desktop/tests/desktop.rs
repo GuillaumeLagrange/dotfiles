@@ -487,3 +487,53 @@ fn emoji_missing_files_are_an_error_status() {
         .status()
         .is_some_and(|s| s.text.contains("emoji_test")));
 }
+
+/// The power source with a `systemctl` that records its argv to `root/systemctl.log`, or fails
+/// as logind does when it cannot hibernate.
+fn power(root: &Path) -> (Ctx, Handles, Box<dyn Source>) {
+    let systemctl = root.join("systemctl");
+    write(
+        &systemctl,
+        &format!(
+            "#!/bin/sh\nif [ \"$1\" = hibernate ]; then echo 'Not enough suitable swap space for hibernation available' >&2; exit 1; fi\necho \"$@\" > '{}'\n",
+            root.join("systemctl.log").display()
+        ),
+    );
+    std::fs::set_permissions(&systemctl, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut config = Config::with_modes(&[]);
+    config
+        .modes
+        .insert(Mode::Power, serde_json::json!({ "systemctl": systemctl }));
+    let (ctx, handles) = Ctx::testing(&root.join("ctx"), config);
+    let power = source(&ctx, Mode::Power);
+    (ctx, handles, power)
+}
+
+#[test]
+fn power_lists_the_mildest_first_and_runs_systemctl() {
+    let dir = tempfile::tempdir().unwrap();
+    let (ctx, _h, mut power) = power(dir.path());
+    let ids: Vec<_> = power.entries().iter().map(|e| e.id.clone()).collect();
+    assert_eq!(ids, ["suspend", "hibernate", "reboot", "poweroff"]);
+
+    let Outcome::Wait { status, work } = power.activate("suspend", "run", &ctx) else {
+        panic!("suspend is waited for");
+    };
+    assert_eq!(status, "Going to sleep…");
+    assert_eq!(work.run(), Ok(()));
+    let log = std::fs::read_to_string(dir.path().join("systemctl.log")).unwrap();
+    assert_eq!(log.trim(), "suspend");
+}
+
+#[test]
+fn power_shows_why_systemctl_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let (ctx, _h, mut power) = power(dir.path());
+    let Outcome::Wait { work, .. } = power.activate("hibernate", "", &ctx) else {
+        panic!("hibernate is waited for");
+    };
+    assert_eq!(
+        work.run(),
+        Err("Not enough suitable swap space for hibernation available".into())
+    );
+}

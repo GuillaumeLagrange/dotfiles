@@ -1,17 +1,19 @@
-//! Apps, windows and emoji.
+//! Apps, windows, emoji and power.
 
 mod apps;
 mod emoji;
 mod entry;
+mod power;
 mod windows;
 
 use launcher_core::{Ctx, Mode, Source};
 
 pub use apps::Apps;
 pub use emoji::Emojis;
+pub use power::Power;
 pub use windows::Windows;
 
-/// The enabled ones of: Apps, Windows, Emoji.
+/// The enabled ones of: Apps, Windows, Emoji, Power.
 pub fn sources(ctx: &Ctx) -> anyhow::Result<Vec<Box<dyn Source>>> {
     let mut sources: Vec<Box<dyn Source>> = Vec::new();
     if ctx.config.enabled(Mode::Apps) {
@@ -26,6 +28,9 @@ pub fn sources(ctx: &Ctx) -> anyhow::Result<Vec<Box<dyn Source>>> {
     }
     if ctx.config.enabled(Mode::Emoji) {
         sources.push(Box::new(Emojis::new(ctx)?));
+    }
+    if ctx.config.enabled(Mode::Power) {
+        sources.push(Box::new(Power::new(ctx)?));
     }
     Ok(sources)
 }
