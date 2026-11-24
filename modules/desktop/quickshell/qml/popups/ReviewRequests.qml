@@ -20,6 +20,7 @@ import qs.services
 ClickPanel {
     id: root
     accent: Theme.green
+    kind: "reviews"
 
     panelWidth: 540 + root.pad * 2
 

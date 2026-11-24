@@ -13,6 +13,7 @@ ClickPanel {
 
     panelWidth: 320
     accent: Theme.blue
+    kind: "bluetooth"
 
     // The device whose actions are showing, and the one the arrow keys are on.
     property var selected: null

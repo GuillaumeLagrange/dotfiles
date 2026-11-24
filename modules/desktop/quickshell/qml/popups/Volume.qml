@@ -11,6 +11,7 @@ ClickPanel {
 
     panelWidth: 340
     accent: Theme.orange
+    kind: "volume"
 
     onHidden: root.picking = ""
 

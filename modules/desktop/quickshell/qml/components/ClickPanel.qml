@@ -10,6 +10,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs
+import qs.services
 
 PanelWindow {
     id: root
@@ -25,6 +26,9 @@ PanelWindow {
     // Close once the pointer leaves the bubble and the strip below it down to
     // the trigger, after a grace for overshoots.
     property bool closeOnLeave: false
+    // Names the panel to its twins on the other bars; set, the panel follows
+    // the focused output while open. Empty for one tied to the pointer.
+    property string kind: ""
 
     // Sampled when the panel opens: mapping functions are not reactive.
     property real triggerCenter: 0
@@ -80,6 +84,29 @@ PanelWindow {
 
         interval: 300
         onTriggered: root.close()
+    }
+
+    Connections {
+        target: Niri
+        enabled: root.kind !== ""
+
+        function onFocusedOutputChanged(): void {
+            const output = Niri.focusedOutput;
+            if (!root.visible || output === "" || root.screen?.name === output)
+                return;
+            root.close();
+            Panels.handoff(root.kind, output);
+        }
+    }
+
+    Connections {
+        target: Panels
+        enabled: root.kind !== ""
+
+        function onHandoff(kind: string, output: string): void {
+            if (kind === root.kind && root.screen?.name === output && root.target.visible && !root.visible)
+                root.open();
+        }
     }
 
     screen: root.target.QsWindow.window?.screen ?? null

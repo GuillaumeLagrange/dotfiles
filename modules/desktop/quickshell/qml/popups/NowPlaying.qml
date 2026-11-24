@@ -9,6 +9,7 @@ import qs.services
 PopupPanel {
     id: root
     accent: Media.active !== null ? Media.colorFor(Media.active) : Theme.grey
+    kind: "media"
 
     minContentWidth: 540
 

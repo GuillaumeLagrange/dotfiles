@@ -148,6 +148,19 @@ fn control_centre(s: &Session, what: &str, pred: impl Fn(&Value) -> bool) {
     s.wait_until(what, || pred(&s.control_centre()));
 }
 
+/// An open panel moves to the output focus moves to, as the launcher does.
+#[test]
+fn panels_follow_the_focused_output() {
+    let Some(s) = session() else { return };
+    s.ipc("notifs", "center");
+    control_centre(&s, "the panel to open", |c| c["open"] == true);
+
+    s.run("niri", &["msg", "action", "focus-monitor-next"]);
+    control_centre(&s, "the panel on the other output", |c| {
+        c["open"] == true && c["focused"] == true
+    });
+}
+
 /// A setup fits wherever the monitors it turns on are connected, whatever the
 /// others: one saved while a monitor was connected and off fits without it,
 /// and one turning a single monitor on is not on screen while another is on.

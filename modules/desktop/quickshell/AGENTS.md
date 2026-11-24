@@ -30,7 +30,8 @@ qml/
                 start menu's pins), Displays (saved display setups, through
                 `niri-displays`), Sessions (each zellij session's colour, from
                 zellij-sessions' files, for the strip's and the map's dots),
-                Launcher (the client of the `launcher` daemon's socket).
+                Launcher (the client of the `launcher` daemon's socket), Panels
+                (hands an open panel over to the focused output's bar).
   bar/          Bar.qml plus one file per widget; StartCorner is the start
                 menu's hot corner.
   popups/       NowPlaying, Calendar, ControlCenter (with DisplaySetups),
@@ -171,6 +172,14 @@ Mod+B (`ipc call bt panel`) and Mod+" (`ipc call reviews panel`, work hosts) tog
 the now-playing, bluetooth and pull request panels on
 the focused output, the way Mod+N does the control centre. A hover panel opened
 from the key stays up until toggled again or hovered and left.
+
+**Panels follow the focused output, as the launcher does.** Each bar has its
+own panels, so a panel with a `kind` (control centre, networks, bluetooth,
+volume, pull requests, and now-playing when opened from its key) closes when
+focus moves to another output and asks its twin there to open, through
+`services/Panels.qml`; what was typed or preselected in it is not carried over.
+Panels tied to the pointer have no `kind` and stay put: hover-opened ones, the
+start menu, the workspace map, tray menus.
 
 **The shell is the notification daemon** (`services/Notifs.qml`), so mako is
 installed but not running: `NotificationServer` takes the

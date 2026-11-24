@@ -9,6 +9,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs
+import qs.services
 
 PanelWindow {
     id: root
@@ -22,7 +23,11 @@ PanelWindow {
     // Rows that fill the width report no implicit width of their own, so a
     // panel whose content is all fill-width rows would collapse without it.
     property int minContentWidth: 0
+    // As ClickPanel's: set, a panel opened from the key follows the focused
+    // output. One opened by hovering stays with the pointer.
+    property string kind: ""
     readonly property bool open: gate.open
+    property bool keyed: false
 
     // Dismiss while the pointer is still on the panel: the gate reopens when
     // the pointer leaves and comes back, which is what a hover panel should do
@@ -37,6 +42,7 @@ PanelWindow {
         if (!gate.open)
             root.place();
         gate.open = !gate.open;
+        root.keyed = gate.open;
     }
 
     default property alias content: holder.data
@@ -58,6 +64,38 @@ PanelWindow {
         root.place()
     onWidthChanged: if (root.visible)
         root.place()
+
+    Connections {
+        target: root.gate
+
+        function onOpenChanged(): void {
+            if (!root.gate.open)
+                root.keyed = false;
+        }
+    }
+
+    Connections {
+        target: Niri
+        enabled: root.kind !== ""
+
+        function onFocusedOutputChanged(): void {
+            const output = Niri.focusedOutput;
+            if (!root.keyed || output === "" || root.screen?.name === output)
+                return;
+            root.close();
+            Panels.handoff(root.kind, output);
+        }
+    }
+
+    Connections {
+        target: Panels
+        enabled: root.kind !== ""
+
+        function onHandoff(kind: string, output: string): void {
+            if (kind === root.kind && root.screen?.name === output && root.target.visible && !root.gate.open)
+                root.toggle();
+        }
+    }
 
     screen: root.target.QsWindow.window?.screen ?? null
     visible: gate.open

@@ -12,6 +12,7 @@ ClickPanel {
 
     panelWidth: 320
     accent: Theme.purple
+    kind: "networks"
 
     // The network whose actions are showing, the one being asked a passphrase,
     // the one the arrow keys are on, and the last connect failure.

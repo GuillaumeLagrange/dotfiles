@@ -23,6 +23,7 @@ ClickPanel {
 
     panelWidth: 420
     accent: Quick.gearColor
+    kind: "control"
 
     onShown: Displays.refresh()
     onHidden: {
