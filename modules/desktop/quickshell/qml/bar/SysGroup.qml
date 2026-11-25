@@ -157,7 +157,7 @@ Rectangle {
                     Text {
                         visible: seg.modelData.text !== undefined
                         anchors.verticalCenter: parent.verticalCenter
-                        text: seg.modelData.text
+                        text: seg.modelData.text ?? ""
                         color: Theme.ink
                         font.family: Theme.mono
                         font.pixelSize: Theme.fontSize
