@@ -377,8 +377,8 @@ devices (`quickshell/virtual-devices.patch`).
 
 Standalone Neovim configuration with:
 
-- Lazy.nvim plugin manager
-- LSP, DAP, and completion setup
+- `vim.pack` plugin manager (locked in `nvim-pack-lock.json`, `:PackClean` removes dropped plugins)
+- LSP and completion setup
 - Lua-based configuration
 - AI integrations
 - Tmux integration

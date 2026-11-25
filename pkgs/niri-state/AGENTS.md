@@ -43,11 +43,12 @@ active one's, so a window opened on a workspace in the background (an
 **Geometry is emitted in final pixels**, so the bar does no arithmetic: the
 strip is `SCREEN_PX` per screenful, grows behind a fixed frame up to `MAX_PX`
 (three screenfuls), and is cropped around the frame past that. A column that
-straddles the frame edge stays one block with `dim_left`/`dim_right` pixels for
+straddles the frame edge stays one block with `dim` left/right pixels for
 the bar to shade - splitting it into two boxes would read as a cut. A cropped
 strip also carries a `thumb`: the screen's place in the whole workspace, scaled
 onto the strip's width, which the bar draws as a minimap under it. Blocks cut by
-the crop are flagged `cut` and keep an icon sized to the part still drawn.
+the crop are flagged in `cut` (left/right) and keep an icon (`icon_px`) sized to
+the part still drawn.
 
 **The frame is snapped onto block edges.** Separation is carved out of the left
 block of each pair, so a frame edge that lands in that `SEP_PX` gap is pulled
@@ -110,5 +111,6 @@ line.
 **`focused_output` is read off every workspace, not the emitted ones.** The
 `workspaces` array carries only named workspaces, because that is what the bars
 draw, while focus can sit on a dynamic one; the quickshell bar places
-notification popups on that output, so it needs the answer even then.
+notification popups, the launcher and the pill panels on that output, so it
+needs the answer even then.
 

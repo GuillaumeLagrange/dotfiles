@@ -154,12 +154,12 @@ Nix wrapper sets, so what a pick runs never depends on the session's `PATH`.
   `profiles.ini`'s `Name`; a tab's profile is the directory of the `places.sqlite` its Firefox
   holds open, that Firefox being the parent of the native host owning the TabCtl bus name
   (the instance name when it cannot be found).
-- Passwords: `pass-cli` lists summaries only (title, vault, type); usernames, URLs and whether a
-  login has a TOTP come with `--show-secrets`, which loads every password and marks every item
-  read, so Proton rows show their vault and offer the one-time code on every login (a failure
-  shows in the panel). `op` lists usernames and URLs. A fetch takes over a second (pass-cli
-  syncs), hence `Outcome::Wait`. Ids are passed as `--share-id=…`: Proton's base64url ids can
-  start with `-`, which clap takes for a flag.
+- Passwords: `pass-cli` lists summaries only (title, vault), one `item list` per vault, active
+  logins only, so Proton rows show their vault and offer the username and one-time code on every
+  login without fetching a secret. `op` lists usernames and URLs. Secrets are fetched on
+  activation; a fetch takes over a second (pass-cli syncs), hence `Outcome::Wait`. Ids are
+  passed as `--share-id=…`: Proton's base64url ids can start with `-`, which pass-cli takes for
+  a flag.
 - Sessions: two `zellij list-sessions` merged (one listing can leave a live session out), in
   zellij-sessions' order, with its colours.
 - Files: `ignore`'s parallel walker, published in batches, kept 5 minutes, dropped 10 minutes
