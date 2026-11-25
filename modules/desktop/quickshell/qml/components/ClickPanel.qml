@@ -1,11 +1,11 @@
-// A panel you click open and click away to dismiss: the network and bluetooth
-// ones, which hold switches and a passphrase field.
+// A panel you click open and click away to dismiss: every pill's panel, and
+// the start menu.
 //
 // Its own layer-shell window rather than a BubbleWindow, for two reasons a
-// PopupWindow cannot give: keyboard focus, asked for `OnDemand` so the bar
-// itself never takes focus from the focused app, and a surface that covers the
-// screen, so a click anywhere dismisses it - including on the bar, which a
-// popup grab does not report.
+// PopupWindow cannot give: keyboard focus, held exclusively while open so a
+// window opening or focused underneath cannot take Escape from it, and a
+// surface that covers the screen, so a click anywhere dismisses it - including
+// on the bar, which a popup grab does not report.
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
@@ -114,7 +114,7 @@ PanelWindow {
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: root.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     anchors {
         top: true

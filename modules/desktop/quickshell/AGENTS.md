@@ -370,8 +370,8 @@ with its focus. Wifi rows sort by signal bar rather than raw strength, so they
 do not reshuffle under the pointer.
 
 Both lists take the keyboard: the panel focuses its `ListView` when it opens
-(niri hands an on-demand layer surface focus as it maps, so Mod+B needs no
-click), Up/Down or Ctrl+P/Ctrl+N move a cursor kept on the panel by item (`cursor`, outlined in
+(the panel holds `Exclusive` focus as it maps, so Mod+B needs no click), Up/Down
+or Ctrl+P/Ctrl+N move a cursor kept on the panel by item (`cursor`, outlined in
 the accent), and Enter is the row's Connect - Pair for an unpaired device, the
 passphrase field for an unknown secured network. A connected row just opens.
 Typing filters the list fuzzily (`components/FindBar.qml`: the query's
@@ -588,8 +588,10 @@ with its query, status and cursor once it closes.
   panel, keyed by the item.
 - **A layer surface is the only way to type into the bar.** `PopupWindow` gets
   no keyboard focus, so the passphrase field lives in a `PanelWindow` with
-  `WlrLayershell.keyboardFocus: OnDemand` — set on that window and not on the
-  bar, or clicking any pill would take focus away from the focused app.
+  `WlrLayershell.keyboardFocus` set on that window (`Exclusive` while it is
+  shown) and not on the bar, or clicking any pill would take focus away from the
+  focused app. `OnDemand` was not enough: niri hands focus to a window that maps
+  or is focused under it, and Escape went to that window.
 - **`Theme.alpha(c, 1.0)` is not a hover tint.** It rewrites the alpha, so a
   translucent white turned opaque white on hover and swallowed the label;
   `Qt.lighter` keeps the alpha.

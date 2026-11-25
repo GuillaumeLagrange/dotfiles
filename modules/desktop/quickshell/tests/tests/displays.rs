@@ -161,6 +161,22 @@ fn panels_follow_the_focused_output() {
     });
 }
 
+/// A window opening or taking focus while a panel is open does not take the
+/// keyboard from it, so Escape still closes it.
+#[test]
+fn panels_keep_the_keyboard() {
+    let Some(mut s) = session() else { return };
+    s.ipc("notifs", "center");
+    control_centre(&s, "the panel to take focus", |c| {
+        c["open"] == true && c["focused"] == true
+    });
+
+    s.open_window();
+    s.run("niri", &["msg", "action", "focus-column-left"]);
+    s.key("Escape");
+    control_centre(&s, "the panel to close", |c| c["open"] == false);
+}
+
 /// A setup fits wherever the monitors it turns on are connected, whatever the
 /// others: one saved while a monitor was connected and off fits without it,
 /// and one turning a single monitor on is not on screen while another is on.
