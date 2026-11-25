@@ -18,6 +18,8 @@ Singleton {
     property var titles: ({})
     // Window id -> title.
     property var windowTitles: ({})
+    // App ids of the floating windows.
+    property var floatingApps: []
 
     // Serialised copies of the last assigned values. A snapshot is mostly a
     // title change (a terminal spinner sends ~12 a second), and reassigning an
@@ -151,6 +153,8 @@ Singleton {
                 }
                 root.titles = snapshot.titles;
                 root.windowTitles = snapshot.window_titles;
+                if (JSON.stringify(snapshot.floating_apps) !== JSON.stringify(root.floatingApps))
+                    root.floatingApps = snapshot.floating_apps;
                 root.focusedOutput = snapshot.focused_output;
             }
         }

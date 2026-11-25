@@ -1,7 +1,8 @@
 //! Single niri IPC tap feeding the whole left side of the bar.
 //!
 //! Emits one JSON line per change:
-//!   {"workspaces": [{..., "strip": {...}}], "titles": {"<output>": ...}, "focused_output": ...}
+//!   {"workspaces": [{..., "strip": {...}}], "titles": {"<output>": ...},
+//!    "window_titles": {...}, "floating_apps": [...], "focused_output": ...}
 //!
 //! A strip is a scale model of a workspace's scrolling layout: one block per
 //! column, width proportional to the column's real width, plus a frame marking

@@ -98,6 +98,9 @@ Window titles travel apart, in `window_titles` (id -> title): a title changes
 far more often than a layout, and the bar rebuilds the strips only when they
 change. A title change of a window not on screen prints no snapshot, so its
 title reaches the bar with the next one.
+`floating_apps` lists the app ids of the floating windows, once each: the
+launcher hides while 1Password's authorization prompt (a floating `1password`)
+is up, so the prompt is seen and gets the keyboard.
 
 **One process, blocked on a socket read.** The model is kept in memory and
 updated from event deltas, snapshots are printed only when they differ, and a

@@ -64,7 +64,24 @@ pub fn snapshot(state: &mut State) -> String {
         out.push_str(&format!("\"{}\":", window.id));
         push_str_escaped(&mut out, &window.title);
     }
-    out.push_str("},\"focused_output\":");
+    // App ids of the floating windows, once each: what the bar steps aside
+    // for (the launcher, for 1Password's authorization prompt).
+    out.push_str("},\"floating_apps\":[");
+    let mut floating: Vec<&str> = state
+        .windows
+        .values()
+        .filter(|w| w.scroll_pos.is_none() && !w.app_id.is_empty())
+        .map(|w| w.app_id.as_str())
+        .collect();
+    floating.sort_unstable();
+    floating.dedup();
+    for (i, app_id) in floating.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        push_str_escaped(&mut out, app_id);
+    }
+    out.push_str("],\"focused_output\":");
     // Focus is exclusive across outputs, and unnamed workspaces hold it too, so
     // this cannot be read off the named workspaces the bar draws.
     let focused = state
@@ -166,4 +183,41 @@ pub fn push_strip(out: &mut String, strip: &Strip) {
         out.push_str("]}");
     }
     out.push_str("]}}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::json::Parser;
+    use crate::model::Window;
+
+    #[test]
+    fn floating_apps_lists_each_floating_app_once() {
+        let mut state = State::default();
+        for (id, app_id, scroll_pos) in [
+            (1u64, "1password", None),
+            (2, "1password", None),
+            (3, "firefox", Some((1, 1))),
+            (4, "", None),
+        ] {
+            state.windows.insert(
+                id,
+                Window {
+                    id,
+                    app_id: app_id.into(),
+                    scroll_pos,
+                    ..Window::default()
+                },
+            );
+        }
+        let line = snapshot(&mut state);
+        let apps = Parser::parse(&line).unwrap();
+        let apps: Vec<_> = apps
+            .get("floating_apps")
+            .items()
+            .iter()
+            .map(|a| a.str().unwrap().to_owned())
+            .collect();
+        assert_eq!(apps, ["1password"]);
+    }
 }

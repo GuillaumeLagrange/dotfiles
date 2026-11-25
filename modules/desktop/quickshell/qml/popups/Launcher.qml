@@ -125,12 +125,17 @@ PanelWindow {
     }
 
     screen: Quickshell.screens.find(s => s.name === Svc.Niri.focusedOutput) ?? Quickshell.screens[0] ?? null
-    visible: root.svc.open
+    // 1Password asks to authorize the daemon's `op` in a floating window of its own, which
+    // this overlay would cover and keep the keyboard from: the panel steps aside meanwhile,
+    // and comes back with its query once the prompt closes.
+    readonly property bool authorizing: root.svc.mode === "passwords" && Svc.Niri.floatingApps.includes("1password")
+
+    visible: root.svc.open && !root.authorizing
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "launcher"
-    WlrLayershell.keyboardFocus: root.svc.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: root.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     anchors {
         top: true

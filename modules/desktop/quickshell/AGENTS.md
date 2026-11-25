@@ -492,6 +492,14 @@ only once an answer is 150ms late, or every Tab would flash it. Red is only for
 errors in the status line. Keyboard focus is `Exclusive` while it shows, like a
 launcher has to be.
 
+**The launcher steps aside for 1Password's prompt.** The passwords mode runs `op`,
+and 1Password asks to authorize the daemon's process in a floating `1password`
+window (title `1Password`) whenever its CLI session lapsed: 10 minutes without
+an `op` call, 12 hours in all, 1Password locking, or a new daemon process. The
+overlay covered that window and held the keyboard, so while one is up in
+passwords mode the panel hides (`floating_apps` from niri-state) and comes back
+with its query, status and cursor once it closes.
+
 ## Gotchas
 
 - **A positioner's `implicitHeight` is read-only.** `Row`/`Column` compute it
