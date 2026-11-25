@@ -9,7 +9,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs
-import qs.services
 
 PanelWindow {
     id: root
@@ -20,29 +19,13 @@ PanelWindow {
     property color accent: Theme.blue
     property bool triggerHovered: false
     property int pad: Theme.popupPad
-    // Rows that fill the width report no implicit width of their own, so a
-    // panel whose content is all fill-width rows would collapse without it.
-    property int minContentWidth: 0
-    // As ClickPanel's: set, a panel opened from the key follows the focused
-    // output. One opened by hovering stays with the pointer.
-    property string kind: ""
     readonly property bool open: gate.open
-    property bool keyed: false
 
     // Dismiss while the pointer is still on the panel: the gate reopens when
     // the pointer leaves and comes back, which is what a hover panel should do
     // after an action that moves you somewhere else.
     function close(): void {
         gate.open = false;
-    }
-
-    // Opened from a key it stays up until toggled again, or until the pointer
-    // passes over it and leaves.
-    function toggle(): void {
-        if (!gate.open)
-            root.place();
-        gate.open = !gate.open;
-        root.keyed = gate.open;
     }
 
     default property alias content: holder.data
@@ -59,43 +42,11 @@ PanelWindow {
     }
 
     // Placed before the surface maps, and again while open for a panel that
-    // grows (a track name, a month with six rows) or a pill that moves.
+    // grows or a trigger that moves.
     onTriggerHoveredChanged: if (root.triggerHovered)
         root.place()
     onWidthChanged: if (root.visible)
         root.place()
-
-    Connections {
-        target: root.gate
-
-        function onOpenChanged(): void {
-            if (!root.gate.open)
-                root.keyed = false;
-        }
-    }
-
-    Connections {
-        target: Niri
-        enabled: root.kind !== ""
-
-        function onFocusedOutputChanged(): void {
-            const output = Niri.focusedOutput;
-            if (!root.keyed || output === "" || root.screen?.name === output)
-                return;
-            root.close();
-            Panels.handoff(root.kind, output);
-        }
-    }
-
-    Connections {
-        target: Panels
-        enabled: root.kind !== ""
-
-        function onHandoff(kind: string, output: string): void {
-            if (kind === root.kind && root.screen?.name === output && root.target.visible && !root.gate.open)
-                root.toggle();
-        }
-    }
 
     screen: root.target.QsWindow.window?.screen ?? null
     visible: gate.open
@@ -103,7 +54,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
 
-    implicitWidth: Math.max(root.minContentWidth, root.item ? root.item.implicitWidth : 0) + root.pad * 2
+    implicitWidth: (root.item ? root.item.implicitWidth : 0) + root.pad * 2
     implicitHeight: (root.item ? root.item.implicitHeight : 0) + root.pad * 2 + bubble.tailHeight
 
     anchors {

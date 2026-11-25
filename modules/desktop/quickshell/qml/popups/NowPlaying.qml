@@ -6,12 +6,12 @@ import qs
 import qs.components
 import qs.services
 
-PopupPanel {
+ClickPanel {
     id: root
     accent: Media.active !== null ? Media.colorFor(Media.active) : Theme.grey
     kind: "media"
 
-    minContentWidth: 540
+    panelWidth: 540 + Theme.popupPad * 2
 
     // A fixed-width window over the title, slid one character per tick and
     // held at each end so a scroll has a visible start and finish.
@@ -84,7 +84,7 @@ PopupPanel {
 
                     Timer {
                         interval: 180
-                        running: root.open
+                        running: root.visible
                         repeat: true
                         onTriggered: row.frameIdx = (row.frameIdx + 1) % row.frames.length
                     }
@@ -291,7 +291,7 @@ PopupPanel {
 
     Timer {
         interval: 500
-        running: root.open
+        running: root.visible
         repeat: true
         onTriggered: root.tick++
     }

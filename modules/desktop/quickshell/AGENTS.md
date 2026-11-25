@@ -161,25 +161,53 @@ those tokens rather than literal colours.
 instead of digits, the figures in each segment's tooltip; battery keeps its
 number.
 
+**One interaction model for every pill.** New pills follow it; a pill that
+breaks it is a bug.
+
+- Hover only informs: a tooltip after 400ms, the pointer cursor on what a
+  click acts on, and a tint on a zone of a pill that holds several actions.
+  Nothing you can act in opens on hover. The exceptions open from places that
+  are not pills: the workspace map (a strip), the start menu (the bar's hot
+  corner) and the tray's drawer, which widens inline and opens no surface.
+- Left click opens the pill's panel, or toggles it shut; a pill with no panel
+  runs its one action instead (Claude refreshes, the recorder stops).
+- Right click is a quick secondary action and never opens anything: mute,
+  dismiss the popups, the compact clock, restart Claude's poller. (The tray's
+  icons are not pills: their clicks are the apps', menus included.)
+- Scroll changes the pill's value where it has one (volume).
+- Several actions on one pill are separate zones, each tinted on hover. The
+  now-playing pill has three: the player's glyph, which turns into an up
+  chevron and opens the panel, the title, which raises the player, and the
+  right end, which plays or pauses.
+- Every pill's panel is a `ClickPanel`, and behaves the same: it holds the
+  keyboard, Escape or a click anywhere outside closes it, it follows the
+  focused output, and its key binding toggles it like the click does.
+- Every scrolling list scrolls as a browser does (`components/WheelScroll.qml`,
+  with `boundsBehavior: Flickable.StopAtBounds`): a touchpad moves it by its
+  own pixels and glides on when the fingers lift, a wheel notch eases 90px, and
+  nothing bounces at the ends. Qt's own wheel handling flicks each notch with
+  its deceleration and overshoots. A new list attaches it too. The one
+  exception is the workspace map, whose vertical wheel scrolls sideways.
+
 **Two kinds of panel, both layer surfaces.** `PopupPanel` opens on hover and is
-exactly its bubble, so the rest of the screen stays hoverable: now-playing,
-calendar. `ClickPanel` opens on a click and covers the output, so a click
+exactly its bubble, so the rest of the screen stays hoverable: only the
+workspace map. `ClickPanel` opens on a click and covers the output, so a click
 anywhere dismisses it - including on the bar, which a popup grab does not
-report - and it can take `OnDemand` keyboard focus for the wifi passphrase
-field: the control centre, networks, bluetooth, volume, pull requests. Tooltips stay
-`PopupWindow`s, which is all a tooltip needs. Mod+P (`ipc call media panel`),
-Mod+B (`ipc call bt panel`) and Mod+" (`ipc call reviews panel`, work hosts) toggle
-the now-playing, bluetooth and pull request panels on
-the focused output, the way Mod+N does the control centre. A hover panel opened
-from the key stays up until toggled again or hovered and left.
+report - and it holds the keyboard while open (`Exclusive`, as the launcher
+does), for the wifi passphrase field and so that a window opened or focused
+under it (Mod+Enter, Mod+H/J/K/L) never takes Escape from it: the control
+centre, networks, bluetooth, volume, pull requests, now-playing, calendar.
+Tooltips stay `PopupWindow`s, which is all a tooltip needs. Mod+P (`ipc call
+media panel`), Mod+B (`ipc call bt panel`) and Mod+" (`ipc call reviews panel`,
+work hosts) toggle the now-playing, bluetooth and pull request panels on the
+focused output, the way Mod+N does the control centre.
 
 **Panels follow the focused output, as the launcher does.** Each bar has its
-own panels, so a panel with a `kind` (control centre, networks, bluetooth,
-volume, pull requests, and now-playing when opened from its key) closes when
-focus moves to another output and asks its twin there to open, through
-`services/Panels.qml`; what was typed or preselected in it is not carried over.
-Panels tied to the pointer have no `kind` and stay put: hover-opened ones, the
-start menu, the workspace map, tray menus.
+own panels, so a panel with a `kind` (every pill's) closes when focus moves to
+another output and asks its twin there to open, through `services/Panels.qml`;
+what was typed or preselected in it is not carried over. Panels tied to the
+pointer have no `kind` and stay put: the start menu, the workspace map, tray
+menus.
 
 **The shell is the notification daemon** (`services/Notifs.qml`), so mako is
 installed but not running: `NotificationServer` takes the
@@ -412,12 +440,13 @@ is an absolute store path, and every nerd-font glyph is decoded in Nix from a
 JSON `\u` escape (`glyph "F0493"`, surrogate pairs handled) so no QML source
 carries a private-use character that an edit could silently strip.
 
-**A hover panel is two timers** (`HoverGate`): a dwell before opening, so
-crossing a pill does not flash it up, and a debounce before closing, so the
-gap between the pill and the panel can be crossed. `HoverHandler` reports a
-whole subtree, so "trigger or panel is hovered" is the only input it needs -
-eww needed two runtime flag files and an mtime comparison for the same thing,
-because GTK fires hover-lost on every child widget the pointer crosses.
+**A hover surface is two timers** (`HoverGate`, for the workspace map and the
+tray's drawer): a dwell before opening, so crossing a strip or the tray's dots
+does not flash it up, and a debounce before closing, so the gap between the
+trigger and the panel can be crossed. `HoverHandler` reports a whole subtree,
+so "trigger or panel is hovered" is the only input it needs - eww needed two
+runtime flag files and an mtime comparison for the same thing, because GTK
+fires hover-lost on every child widget the pointer crosses.
 
 **Every workspace cell carries its own strip** (`bar/Workspaces.qml`), to its
 right, hidden while the workspace is empty, so what sits on an inactive
@@ -509,9 +538,9 @@ with its query, status and cursor once it closes.
   size resolves to zero.** That is what emptied the left cluster: cells bound
   `implicitHeight` to the row, the row to the layout, the layout to the cells.
 - **A panel of fill-width rows has no implicit width.** `ClickPanel.panelWidth`
-  and `PopupPanel.minContentWidth` are the floor eww wrote as a CSS
-  `min-width`; the content item must also `anchors.fill: parent`, or it keeps
-  its own narrow implicit width inside a wider panel.
+  is the floor eww wrote as a CSS `min-width`; the content item must also
+  `anchors.fill: parent`, or it keeps its own narrow implicit width inside a
+  wider panel.
 - **Qt measures some glyphs wrong.** `TextMetrics.tightBoundingRect` clamps a
   glyph's ink box to the baseline, so one drawn wholly above it (the tray's
   three dots) reports a box stretched down to the baseline and centres too

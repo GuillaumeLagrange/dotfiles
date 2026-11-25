@@ -130,6 +130,7 @@ let
     search = glyph "F0349";
     down = glyph "F0045";
     up = glyph "F005D";
+    expandUp = glyph "F0143";
     bluetooth = glyph "F00AF";
     bluetoothOff = glyph "F00B2";
     bluetoothOn = glyph "F00B1";

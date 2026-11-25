@@ -1,5 +1,5 @@
 // Clock badge: full date+time by default, right-click flips to compact HH:mm.
-// Hovering opens the two-month calendar.
+// Clicking opens the two-month calendar.
 import QtQuick
 import Quickshell
 import qs
@@ -12,9 +12,11 @@ Pill {
 
     property bool compact: false
 
+    interactive: true
     color: Theme.aqua
     text: compact ? Config.glyph.clockAlt + " " + Qt.formatDateTime(clock.date, "HH:mm") : Config.glyph.calendar + " " + Qt.formatDateTime(clock.date, "MMMM dd, HH:mm")
 
+    onClicked: panel.toggle()
     onRightClicked: root.compact = !root.compact
 
     SystemClock {
@@ -23,7 +25,8 @@ Pill {
     }
 
     Calendar {
+        id: panel
+
         target: root
-        triggerHovered: root.hovered
     }
 }

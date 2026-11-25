@@ -1,8 +1,11 @@
 // Bar pill: source glyph + title + play/pause, in the active player's colour.
-// Hovering it or Mod+P opens the now-playing panel; clicking it raises the player.
+// Three click zones: the glyph, which turns into an up chevron while the pill
+// is hovered and opens the now-playing panel (as Mod+P does), the title, which
+// raises the player, and the right end, which plays or pauses.
 import QtQuick
 import QtQuick.Layouts
 import qs
+import qs.components
 import qs.popups
 import qs.services
 
@@ -35,32 +38,50 @@ Rectangle {
         color: root.railColor
     }
 
-    // The play/pause target is the pill's whole right end, not just the glyph.
-    Item {
-        id: toggleZone
+    component Zone: Item {
+        id: zone
+
+        readonly property bool hovered: zoneHover.hovered
+
+        signal tapped
+
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        width: toggleGlyph.width + layout.anchors.rightMargin + layout.spacing
 
         Rectangle {
             anchors.fill: parent
             anchors.margins: 2
             radius: Theme.pillRadius - 1
-            color: toggleHover.hovered ? Theme.alpha(root.railColor, 0.2) : "transparent"
+            color: zone.hovered ? Theme.alpha(root.railColor, 0.2) : "transparent"
         }
 
         HoverHandler {
-            id: toggleHover
+            id: zoneHover
 
             cursorShape: Qt.PointingHandCursor
         }
 
         TapHandler {
-            onSingleTapped: {
-                if (root.player !== null)
-                    root.player.togglePlaying();
-            }
+            onSingleTapped: zone.tapped()
+        }
+    }
+
+    Zone {
+        id: expandZone
+
+        x: layout.x + icon.x + icon.width / 2 - width / 2
+        width: height
+        onTapped: panel.toggle()
+    }
+
+    Zone {
+        id: toggleZone
+
+        anchors.right: parent.right
+        width: toggleGlyph.width + layout.anchors.rightMargin + layout.spacing
+        onTapped: {
+            if (root.player !== null)
+                root.player.togglePlaying();
         }
     }
 
@@ -73,12 +94,22 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 7
 
-        Text {
+        Item {
+            id: icon
+
+            // Fixed so swapping in the chevron does not shift the pill.
+            Layout.preferredWidth: 14
             Layout.alignment: Qt.AlignVCenter
-            text: root.player !== null ? Media.iconFor(root.player) : ""
-            color: root.railColor
-            font.family: Theme.icon
-            font.pixelSize: 12
+            implicitHeight: glyph.implicitHeight
+
+            Glyph {
+                id: glyph
+
+                anchors.centerIn: parent
+                text: pillHover.hovered ? Config.glyph.expandUp : root.player !== null ? Media.iconFor(root.player) : ""
+                color: root.railColor
+                size: 12
+            }
         }
 
         Text {
@@ -95,25 +126,24 @@ Rectangle {
 
             Layout.alignment: Qt.AlignVCenter
             text: root.playing ? Config.glyph.pause : Config.glyph.play
-            color: toggleHover.hovered ? root.railColor : Theme.alpha(Theme.fg, 0.85)
+            color: toggleZone.hovered ? root.railColor : Theme.alpha(Theme.fg, 0.85)
             font.family: Theme.icon
             font.pixelSize: 11
         }
     }
 
     HoverHandler {
-        id: hover
+        id: pillHover
 
         cursorShape: Qt.PointingHandCursor
     }
 
     TapHandler {
         onSingleTapped: {
-            // The play/pause zone has its own tap.
-            if (root.player === null || toggleHover.hovered)
+            // The end zones have their own taps.
+            if (root.player === null || expandZone.hovered || toggleZone.hovered)
                 return;
             root.player.raise();
-            panel.close();
         }
     }
 
@@ -121,7 +151,6 @@ Rectangle {
         id: panel
 
         target: root
-        triggerHovered: hover.hovered
     }
 
     Connections {

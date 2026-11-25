@@ -5,9 +5,10 @@ import Quickshell
 import qs
 import qs.components
 
-PopupPanel {
+ClickPanel {
     id: root
     accent: Theme.aqua
+    kind: "calendar"
 
     // Months from the current one; both panes move together off one offset.
     property int offset: 0
@@ -23,12 +24,8 @@ PopupPanel {
         onDateChanged: root.now = new Date()
     }
 
-    onOpenChanged: {
-        if (root.open)
-            root.now = new Date();
-        else
-            root.offset = 0;
-    }
+    onShown: root.now = new Date()
+    onHidden: root.offset = 0
 
     function monthGrid(now: date, delta: int): var {
         const first = new Date(now.getFullYear(), now.getMonth() + delta, 1);
