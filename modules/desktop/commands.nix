@@ -55,16 +55,12 @@ let
   lockWallpaper = "${config.xdg.cacheHome}/hyprlock-wallpaper";
 
   lockScript = pkgs.writeShellScriptBin "lock.sh" ''
-    ${pkgs.procps}/bin/pkill -u "$USER" -USR1 dunst
-
     ${pkgs.playerctl}/bin/playerctl -i spotify pause
 
     ${pkgs.coreutils}/bin/mkdir -p "${config.xdg.cacheHome}"
     ${pkgs.coreutils}/bin/ln -sfn "$(${pkgs.findutils}/bin/find ${./wallpapers} -type f | ${pkgs.coreutils}/bin/shuf -n 1)" "${lockWallpaper}"
 
     ${pkgs.hyprlock}/bin/hyprlock
-
-    ${pkgs.procps}/bin/pkill -u "$USER" -USR2 dunst
   '';
 in
 {

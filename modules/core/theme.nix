@@ -31,10 +31,7 @@
   stylix.opacity.terminal = 0.95;
 
   stylix.targets = {
-    neovim.enable = false;
-    wofi.enable = false;
     firefox.enable = false;
-    vscode.enable = false;
 
     # Off without a screen; the desktop group turns them on.
     gnome.enable = lib.mkDefault false;

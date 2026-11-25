@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 let
   gMailConfigPath = "/configs/gmail";
 in
@@ -14,8 +14,6 @@ in
     # ABD scatter bloats memory under random I/O.
     options zfs zfs_abd_scatter_enabled=0
   '';
-
-  programs.msmtp.enable = false;
 
   system.activationScripts.generateMsmtpConfig = ''
     smtp_user=$(cat ${gMailConfigPath}/smtp-user 2>/dev/null || echo "user@example.com")

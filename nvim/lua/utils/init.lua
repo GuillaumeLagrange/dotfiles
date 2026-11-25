@@ -21,14 +21,6 @@ M.toggle_diagnostics = function()
   vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end
 
-M.get_git_root = function()
-  local dot_git_path = vim.fn.finddir('.git', '.;')
-  if dot_git_path == '' then
-    return vim.fn.expand('~')
-  end
-  return vim.fn.fnamemodify(dot_git_path, ':h')
-end
-
 M.toggle_option = function(option_name)
   local buf = vim.api.nvim_get_current_buf()
   local value = vim.api.nvim_buf_get_option(buf, option_name)

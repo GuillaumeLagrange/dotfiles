@@ -16,9 +16,6 @@ PopupWindow {
     required property Item target
     property int pad: Theme.popupPad
     property real bodyRadius: Theme.panelRadius
-    // Rows that fill the width report no implicit width of their own, so
-    // content that is all fill-width rows would collapse without a floor.
-    property int minContentWidth: 0
     readonly property bool hovered: hover.hovered
     // Tail tip, in the window's own coordinates.
     property real tailX: 0
@@ -39,7 +36,7 @@ PopupWindow {
     }
 
     color: "transparent"
-    implicitWidth: Math.max(root.minContentWidth, root.item ? root.item.implicitWidth : 0) + root.pad * 2
+    implicitWidth: (root.item ? root.item.implicitWidth : 0) + root.pad * 2
     implicitHeight: (root.item ? root.item.implicitHeight : 0) + root.pad * 2 + bubble.tailHeight
 
     // The anchor is resolved once per show, so a panel that grows after opening

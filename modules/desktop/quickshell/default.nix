@@ -106,7 +106,6 @@ let
     refresh = glyph "F0450";
     terminal = glyph "F018D";
     stack = glyph "F0328";
-    gear = glyph "F0493";
     controls = glyph "F1542";
     volLow = glyph "F027";
     volHigh = glyph "F028";
@@ -170,7 +169,6 @@ let
     apps = glyph "F003B";
     plus = glyph "F0415";
     close = glyph "F0156";
-    monitor = glyph "F0379";
     # The launcher's modes (`glyph` in the daemon's hello) and its status line.
     windows = glyph "F05B2";
     emoji = glyph "F01F5";

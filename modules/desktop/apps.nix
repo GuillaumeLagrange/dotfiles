@@ -20,7 +20,6 @@ in
   };
 
   home.packages = with pkgs; [
-    btop
     calibre
     d-spy
     ddcutil
@@ -230,8 +229,6 @@ in
   programs.chromium.enable = true;
 
   programs.feh.enable = true;
-
-  programs.vscode.enable = false;
 
   services.wpaperd = {
     enable = true;

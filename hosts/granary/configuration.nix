@@ -3,7 +3,6 @@
   _class = "nixos";
 
   networking.hostName = "granary";
-  networking.nftables.enable = true;
 
   boot.supportedFilesystems = [ "btrfs" ];
   boot.kernelPackages = pkgs.linuxPackages_latest;

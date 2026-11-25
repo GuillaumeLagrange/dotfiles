@@ -21,12 +21,6 @@ in
 
   programs.granted.enable = true;
 
-  programs.git = {
-    settings = {
-      diff.lfstext.textconv = "cat";
-    };
-  };
-
   home.shellAliases = {
     ct = "cargo nextest run";
     mj = "make -j";

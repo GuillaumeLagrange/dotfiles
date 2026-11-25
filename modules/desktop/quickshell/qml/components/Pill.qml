@@ -26,7 +26,6 @@ Rectangle {
     }
     readonly property string label: root.glyph === "" ? root.text : root.text.slice(root.glyph.length).trim()
     property string tooltip: ""
-    property color textColor: Theme.ink
     property int hPad: Theme.pillPad
     property alias font: label.font
     property alias textFormat: label.textFormat
@@ -56,7 +55,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.glyph !== ""
             text: root.glyph
-            color: root.textColor
+            color: Theme.ink
             size: label.font.pixelSize
         }
 
@@ -67,7 +66,7 @@ Rectangle {
             visible: text !== ""
             width: root.maxTextWidth > 0 ? Math.min(implicitWidth, root.maxTextWidth) : implicitWidth
             text: root.label
-            color: root.textColor
+            color: Theme.ink
             elide: Text.ElideRight
             font.family: Theme.mono
             font.pixelSize: Theme.fontSize

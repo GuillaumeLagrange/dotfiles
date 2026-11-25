@@ -15,7 +15,6 @@ launcher-browser.workspace = true
 launcher-passwords.workspace = true
 launcher-dev.workspace = true
 anyhow.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

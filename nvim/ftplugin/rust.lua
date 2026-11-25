@@ -6,7 +6,7 @@ vim.g.rustaceanvim = {
     load_vscode_settings = true,
     auto_attach = function(bufnr)
       local bufname = vim.api.nvim_buf_get_name(bufnr)
-      if vim.startswith(bufname, 'octo://') or vim.startswith(bufname, 'fugitive://') then
+      if vim.startswith(bufname, 'fugitive://') then
         return false
       end
       return vim.g.auto_ra_attach
@@ -21,10 +21,6 @@ vim.g.rustaceanvim = {
         end,
       })
 
-      vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lrd', '<Cmd>RustLsp debuggables<CR>', {
-        noremap = true,
-        desc = 'List rust debuggables',
-      })
       vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>lre', '<Cmd>RustLsp expandMacro<CR>', {
         noremap = true,
         desc = 'Expand macro',

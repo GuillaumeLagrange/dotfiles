@@ -438,7 +438,6 @@ dependencies = [
  "anyhow",
  "clap",
  "clap_complete",
- "serde",
  "serde_json",
  "tempfile",
  "wt-core",

@@ -541,7 +541,6 @@ dependencies = [
  "launcher-desktop",
  "launcher-dev",
  "launcher-passwords",
- "serde",
  "serde_json",
  "tempfile",
 ]

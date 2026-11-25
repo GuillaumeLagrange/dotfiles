@@ -336,13 +336,6 @@ fn kdl_string(text: &str) -> String {
     format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-/// zellij titles its terminal `<session> | <pane>`, or just the session.
-pub fn session_of_title(title: &str) -> &str {
-    title
-        .split_once(" | ")
-        .map_or(title, |(session, _)| session)
-}
-
 fn niri_rules(registry: &Registry, palette: &[Swatch]) -> String {
     let mut out =
         String::from("// Written by zellij-sessions: each session's terminals in its colour.\n");
@@ -463,11 +456,5 @@ mod tests {
         let store = Store::new(dir.path().join("config"), dir.path().join("state"));
         assert_eq!(store.zellij_config("a", &[]).unwrap(), None);
         assert!(!store.niri_path().exists());
-    }
-
-    #[test]
-    fn the_session_is_the_title_up_to_its_first_separator() {
-        assert_eq!(session_of_title("work | vim | x"), "work");
-        assert_eq!(session_of_title("work"), "work");
     }
 }

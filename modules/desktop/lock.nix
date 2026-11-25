@@ -72,9 +72,5 @@ in
     };
   };
 
-  home.packages = [
-    commands.lockScript
-    # TODO: Patch soteria and get rid of this
-    pkgs.hyprpolkitagent
-  ];
+  home.packages = [ commands.lockScript ];
 }

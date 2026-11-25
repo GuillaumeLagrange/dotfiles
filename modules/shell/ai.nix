@@ -14,9 +14,6 @@ in
       run rm "${ompAgentDir}/mcp.json"
     fi
     for d in rules extensions skills; do
-      if [ -d "${ompAgentDir}/$d" ] && [ ! -L "${ompAgentDir}/$d" ]; then
-        run rm -rf "${ompAgentDir}/$d"
-      fi
       run ln -sfn "${aiDir}/omp/$d" "${ompAgentDir}/$d"
     done
   '';

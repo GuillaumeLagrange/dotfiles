@@ -32,7 +32,6 @@ in
       btop
       pkgs.unstable.cargo-nextest
       compiledb
-      fastfetch
       fd
       fnm
       fswatch

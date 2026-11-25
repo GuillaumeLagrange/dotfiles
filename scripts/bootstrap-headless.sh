@@ -55,7 +55,7 @@ log "Applying Home-Manager configuration: .#${HM_CONFIG} (user: ${USER})"
 nix run \
   --extra-experimental-features 'nix-command flakes' \
   --impure \
-  home-manager/release-25.11 -- \
+  home-manager/release-26.05 -- \
   switch --impure --flake "${REPO_ROOT}#${HM_CONFIG}" -b backup
 
 log "Done. Start a new shell (or 'exec zsh') to pick up the configuration."

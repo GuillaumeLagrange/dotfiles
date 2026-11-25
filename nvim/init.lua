@@ -92,8 +92,6 @@ vim.pack.add({
 
   -- Code diff
   'https://github.com/rickhowe/diffchar.vim',
-  'https://github.com/MunifTanjim/nui.nvim',
-  'https://github.com/esmuellert/codediff.nvim',
 
   'https://github.com/barrettruth/preview.nvim',
   'https://github.com/j-hui/fidget.nvim',
