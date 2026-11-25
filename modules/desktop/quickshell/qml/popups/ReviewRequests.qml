@@ -288,6 +288,12 @@ ClickPanel {
         ListView {
             id: list
 
+            boundsBehavior: Flickable.StopAtBounds
+
+            WheelScroll {
+                flickable: list
+            }
+
             function pickCursor(): void {
                 const pr = root.matching.find(r => root.pickable(r) && r.url === root.cursor);
                 if (!pr)

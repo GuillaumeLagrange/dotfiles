@@ -535,6 +535,12 @@ ClickPanel {
         ListView {
             id: networkList
 
+            boundsBehavior: Flickable.StopAtBounds
+
+            WheelScroll {
+                flickable: networkList
+            }
+
             Layout.fillWidth: true
             keyNavigationEnabled: false
             Keys.onUpPressed: root.step(-1)

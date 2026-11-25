@@ -451,6 +451,11 @@ PanelWindow {
                     height: parent.height - 16
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
+
+                    WheelScroll {
+                        flickable: list
+                    }
+
                     highlightMoveDuration: 0
                     // A plain array: each results resets the list. A ScriptModel's inserts and
                     // removes left removed rows drawn over the new ones (Qt 6.12), and its
@@ -663,12 +668,18 @@ PanelWindow {
                 }
 
                 Flickable {
+                    id: preview
+
                     anchors.fill: parent
                     anchors.margins: 12
                     visible: previewPane.p?.kind === "text"
                     contentHeight: previewText.implicitHeight
                     boundsBehavior: Flickable.StopAtBounds
                     clip: true
+
+                    WheelScroll {
+                        flickable: preview
+                    }
 
                     Text {
                         id: previewText

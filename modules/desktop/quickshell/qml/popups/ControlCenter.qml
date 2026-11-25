@@ -307,6 +307,12 @@ ClickPanel {
             ListView {
                 id: list
 
+                boundsBehavior: Flickable.StopAtBounds
+
+                WheelScroll {
+                    flickable: list
+                }
+
                 Layout.fillWidth: true
                 // A ListView has no implicit height, and the panel's window covers
                 // the output, so the rest of the panel is measured out of the

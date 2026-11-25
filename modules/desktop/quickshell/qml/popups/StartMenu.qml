@@ -279,6 +279,12 @@ ClickPanel {
         ListView {
             id: list
 
+            boundsBehavior: Flickable.StopAtBounds
+
+            WheelScroll {
+                flickable: list
+            }
+
             Layout.fillWidth: true
             // As tall as its rows, up to what the output leaves above the pins.
             Layout.preferredHeight: Math.min(list.contentHeight, Math.max(160, Math.min(360, (root.screen?.height ?? 1000) - 260 - grid.implicitHeight)))
