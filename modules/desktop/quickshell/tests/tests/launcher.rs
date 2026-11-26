@@ -63,6 +63,7 @@ fn items(mode: &str, query: &str) -> Vec<Value> {
     match mode {
         "windows" => return windows(query),
         "passwords" => return passwords(),
+        "files" => return files(),
         _ => {}
     }
     let rows: &[(&str, &str)] = match mode {
@@ -96,6 +97,30 @@ fn passwords() -> Vec<Value> {
             row
         })
         .collect()
+}
+
+/// Rows whose icons cannot all be drawn: a name no theme has and a file that is not there,
+/// then a 1x1 PNG that loads.
+fn files() -> Vec<Value> {
+    const PNG: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    [
+        (
+            "unknown",
+            json!({ "kind": "name", "value": "no-such-icon-in-any-theme" }),
+        ),
+        (
+            "gone",
+            json!({ "kind": "path", "value": "/nonexistent/icon.png" }),
+        ),
+        ("drawn", json!({ "kind": "url", "value": PNG })),
+    ]
+    .into_iter()
+    .map(|(id, icon)| {
+        let mut row = item(id, id, "", false);
+        row["icon"] = icon;
+        row
+    })
+    .collect()
 }
 
 /// The cursor's row is wholly on screen and the list starts at its first row.
@@ -185,6 +210,7 @@ impl Stub {
                             { "mode": "apps", "short": "a", "title": "Apps", "glyph": "apps" },
                             { "mode": "clipboard", "short": "c", "title": "Clipboard", "glyph": "clipboard" },
                             { "mode": "windows", "short": "w", "title": "Windows", "glyph": "windows" },
+                            { "mode": "files", "short": "f", "title": "Files", "glyph": "files" },
                         ]});
                         send(&mut st, &hello);
                     }
@@ -359,6 +385,33 @@ fn opening_sends_open_and_shows_the_rows() {
     assert_eq!(ids(&st), ["alpha", "beta", "gamma"]);
     assert_eq!(st["cursor"], "alpha");
     assert_eq!(stub.ops("open"), [json!({"op": "open", "mode": "apps"})]);
+}
+
+/// An icon that cannot be drawn shows the mode's glyph tile, not quickshell's checkerboard
+/// for an unknown name or an empty square for a file that does not load.
+#[test]
+fn icons_that_cannot_be_drawn_fall_back_to_the_glyph_tile() {
+    let Some((s, _stub)) = start() else { return };
+    open(&s, "files");
+    s.wait_for_launcher("each row's icon to settle", |st| {
+        let icons: Vec<_> = st["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["id"].as_str().unwrap().to_owned(),
+                    r["icon"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect();
+        icons
+            == [
+                ("unknown".into(), "tile".into()),
+                ("gone".into(), "tile".into()),
+                ("drawn".into(), "image".into()),
+            ]
+    });
 }
 
 #[test]

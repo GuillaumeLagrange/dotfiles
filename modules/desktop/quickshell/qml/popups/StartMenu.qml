@@ -6,7 +6,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Widgets
 import qs
 import qs.components
 import qs.services
@@ -36,12 +35,6 @@ ClickPanel {
     // The pin being dragged, and the order the others make room for meanwhile.
     property string dragId: ""
     property var dragOrder: []
-
-    function iconFor(entry: var): string {
-        if (entry.icon.startsWith("/"))
-            return "file://" + entry.icon;
-        return Quickshell.iconPath(entry.icon, "application-x-executable");
-    }
 
     function launch(entry: var): void {
         root.close();
@@ -212,11 +205,12 @@ ClickPanel {
                         border.color: Theme.alpha(root.accent, 0.6)
                     }
 
-                    IconImage {
+                    AppIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: 10
-                        source: root.iconFor(tile.modelData)
-                        implicitSize: 32
+                        name: tile.modelData.icon.startsWith("/") ? "" : tile.modelData.icon
+                        source: tile.modelData.icon.startsWith("/") ? "file://" + tile.modelData.icon : ""
+                        size: 32
                     }
 
                     Text {
@@ -343,9 +337,10 @@ ClickPanel {
                     anchors.rightMargin: 8
                     spacing: 10
 
-                    IconImage {
-                        source: root.iconFor(row.modelData)
-                        implicitSize: 20
+                    AppIcon {
+                        name: row.modelData.icon.startsWith("/") ? "" : row.modelData.icon
+                        source: row.modelData.icon.startsWith("/") ? "file://" + row.modelData.icon : ""
+                        size: 20
                     }
 
                     Text {

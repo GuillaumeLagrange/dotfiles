@@ -23,7 +23,8 @@ qml/
                 (the tray's DBusMenu, drawn in QML), PanelTitle + SectionLabel
                 (panel headings), FindBar (type-to-filter for a panel's list),
                 WheelScroll (browser-like wheel and touchpad scrolling for every
-                list), NotifCard (a notification, popup or centre row).
+                list), NotifCard (a notification, popup or centre row), AppIcon
+                (a theme or file icon, or a glyph tile when there is none).
   services/     Singletons: Niri (the IPC tap), Sys (cpu/mem/disk), Claude,
                 Media (mpris), Audio (Pipewire), Quick (idle, caffeine,
                 power profile), Notifs (the notification server, dnd, history), Net
@@ -624,6 +625,13 @@ with its query, status and cursor once it closes.
   shown) and not on the bar, or clicking any pill would take focus away from the
   focused app. `OnDemand` was not enough: niri hands focus to a window that maps
   or is focused under it, and Escape went to that window.
+- **`Quickshell.iconPath(name, fallback)` draws a magenta checkerboard** when
+  neither name is in the icon theme, and Qt only searches the theme stylix
+  writes into qt6ct.conf (`stylix.icons`, Adwaita, in `../apps.nix`); without
+  it, hicolor alone, which has no mime or generic icons. Some names are in no
+  theme (Qt Settings' `preferences-desktop-theme`), so app and file icons go
+  through `AppIcon`, which asks `iconPath(name, true)` and draws a glyph tile
+  for an empty answer or an image that fails to load.
 - **`Theme.alpha(c, 1.0)` is not a hover tint.** It rewrites the alpha, so a
   translucent white turned opaque white on hover and swallowed the label;
   `Qt.lighter` keeps the alpha.

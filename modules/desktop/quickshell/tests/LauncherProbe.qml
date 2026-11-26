@@ -7,6 +7,19 @@ QtObject {
 
     required property var panel
 
+    // What a row's icon draws: "image", or "tile" for the glyph tile shown in
+    // place of an icon the theme lacks or a file that fails to load.
+    function icon(item: Item): string {
+        for (const child of item.children) {
+            if (child.missing !== undefined && child.resolved !== undefined && child.visible)
+                return child.missing ? "tile" : "image";
+            const found = probe.icon(child);
+            if (found !== "")
+                return found;
+        }
+        return "";
+    }
+
     function json(): string {
         const panel = probe.panel;
         const svc = panel.svc;
@@ -18,7 +31,8 @@ QtObject {
             if (row)
                 rows.push({
                     id: row.modelData.id,
-                    title: row.modelData.title
+                    title: row.modelData.title,
+                    icon: probe.icon(row)
                 });
         }
         // Delegates drawn that the list no longer holds: rows left over from replaced results.

@@ -96,12 +96,16 @@ in
     settings.default = [ "kitty.desktop" ];
   };
 
-  gtk = {
+  gtk.enable = true;
+
+  # GTK's icon theme, and the `icon_theme` of stylix's qt6ct.conf: without it,
+  # Qt programs (the bar included) only search hicolor, which has no generic or
+  # mime icons.
+  stylix.icons = {
     enable = true;
-    iconTheme = {
-      package = pkgs.adwaita-icon-theme;
-      name = "Adwaita";
-    };
+    package = pkgs.adwaita-icon-theme;
+    dark = "Adwaita";
+    light = "Adwaita";
   };
 
   home.pointerCursor = {

@@ -8,7 +8,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Widgets
 import qs
 import qs.components
 import qs.services as Svc
@@ -110,18 +109,6 @@ PanelWindow {
         root.closeMenu();
         if (action && item)
             root.svc.activate(item.id, action.id);
-    }
-
-    function iconSource(icon: var): string {
-        if (!icon)
-            return "";
-        if (icon.kind === "name")
-            return Quickshell.iconPath(icon.value, "application-x-executable");
-        if (icon.kind === "path")
-            return "file://" + icon.value;
-        if (icon.kind === "url")
-            return icon.value;
-        return "";
     }
 
     screen: Quickshell.screens.find(s => s.name === Svc.Niri.focusedOutput) ?? Quickshell.screens[0] ?? null
@@ -536,12 +523,13 @@ PanelWindow {
                                     implicitWidth: 28
                                     implicitHeight: 28
 
-                                    IconImage {
+                                    AppIcon {
                                         anchors.fill: parent
-                                        visible: ["name", "path", "url"].includes(row.icon.kind)
-                                        source: visible ? root.iconSource(row.icon) : ""
-                                        implicitSize: 28
-                                        asynchronous: true
+                                        visible: row.icon.kind !== "emoji"
+                                        name: row.icon.kind === "name" ? row.icon.value : ""
+                                        source: row.icon.kind === "path" ? "file://" + row.icon.value : row.icon.kind === "url" ? row.icon.value : ""
+                                        glyph: row.icon.kind === "glyph" ? (Config.glyph[row.icon.value] ?? "") : (Config.glyph[root.svc.modeInfo.glyph] ?? "")
+                                        glyphColor: row.current ? root.mark : Theme.dim
                                     }
 
                                     Text {
@@ -549,20 +537,6 @@ PanelWindow {
                                         visible: row.icon.kind === "emoji"
                                         text: visible ? row.icon.value : ""
                                         font.pixelSize: 22
-                                    }
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        visible: row.icon.kind === "glyph" || row.icon.kind === "none"
-                                        radius: Theme.rowRadius
-                                        color: Theme.well
-
-                                        Glyph {
-                                            anchors.centerIn: parent
-                                            text: row.icon.kind === "glyph" ? (Config.glyph[row.icon.value] ?? "") : (Config.glyph[root.svc.modeInfo.glyph] ?? "")
-                                            color: row.current ? root.mark : Theme.dim
-                                            size: 16
-                                        }
                                     }
                                 }
 
